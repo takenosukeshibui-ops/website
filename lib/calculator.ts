@@ -28,21 +28,22 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
     if (!weightKg || weightKg <= 0) return 0;
 
     if (shippingMethod === '船便') {
-        return Math.ceil(1000 + weightKg * 1200);
+        return Math.ceil(2500 + weightKg * 850);
     } else {
-        return Math.max(1500, Math.ceil(weightKg * 2000));
+        return Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
     }
 }
 
 /**
- * 日本郵便（船便）の概算送料計算
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
  */
 export function calculateJapanPostSeaFee(weightKg: number) {
     if (!weightKg || weightKg <= 0) {
         return { total: null, serviceName: '日本郵便 (船便)', deliveryDays: '約1〜2ヶ月', error: '重量が無効です' };
     }
 
-    const baseFee = Math.ceil(1000 + weightKg * 1200);
+    // 概算計算（船便目安）
+    const baseFee = Math.ceil(2500 + weightKg * 850);
     return {
         total: baseFee,
         serviceName: '日本郵便 (船便)',
@@ -78,7 +79,7 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 }
 
 /**
- * [UPDATED] FedEx 運賃試算 API 呼び出し (Validation Error 対策版)
+ * [UPDATED] FedEx 運賃試算 API 呼び出し (preferredCurrency: 'JPY' で円建て強制取得)
  */
 export async function calculateFedexRates(destination: string, weightKg: number, credentials?: FedexCredentials) {
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
@@ -97,12 +98,10 @@ export async function calculateFedexRates(destination: string, weightKg: number,
     try {
         const token = await getFedexAccessToken(apiKey, secretKey, isSandbox);
 
-        // [NEW] 日付フォーマットの作成 (YYYY-MM-DD)
         const shipDate = new Date();
-        shipDate.setDate(shipDate.getDate() + 1); // 翌日発送
+        shipDate.setDate(shipDate.getDate() + 1);
         const formattedShipDate = shipDate.toISOString().split('T')[0];
 
-        // [UPDATED] rateInputVO のバリデーションエラーを防ぐために送達先・差出人住所の必須フィールドを補完
         const payload: any = {
             requestedShipment: {
                 shipper: {
@@ -121,7 +120,9 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                 },
                 shipTimestamp: formattedShipDate,
                 pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
-                rateRequestType: ['ACCOUNT'],
+                rateRequestType: ['ACCOUNT', 'LIST'],
+                // [NEW] 日本円（JPY）での返却をフェデックスAPIに直接指定
+                preferredCurrency: 'JPY',
                 requestedPackageLineItems: [
                     {
                         groupPackageCount: 1,
@@ -134,7 +135,6 @@ export async function calculateFedexRates(destination: string, weightKg: number,
             }
         };
 
-        // [NEW] accountNumber が存在する場合のみオブジェクトを注入
         if (accountNumber && accountNumber.trim() !== '') {
             payload.accountNumber = {
                 value: accountNumber.trim()
@@ -153,16 +153,16 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
-            console.error('FedEx Quote API Validation Error Details:', JSON.stringify(errData));
+            console.error('FedEx Quote API Error Details:', JSON.stringify(errData));
             
-            // Validation Error 発生時は概算フォールバックで試算を継続
-            const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
+            // [UPDATED] 通信・検証エラー時の概算フォールバック（日本円）
+            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
                     {
-                        serviceName: 'FedEx International (概算試算)',
+                        serviceName: 'FedEx International Priority (概算)',
                         total: fallbackFee,
-                        deliveryDays: '約2〜5日'
+                        deliveryDays: '2-5 日'
                     }
                 ],
                 error: `FedEx: ${msg}`
@@ -172,24 +172,27 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         const data = await res.json();
         const rateReplyDetails = data?.output?.rateReplyDetails || [];
 
+        // [UPDATED] 返却された全プランの運賃額（JPY）を抽出
         const rates = rateReplyDetails.map((detail: any) => {
             const serviceName = detail.serviceName || detail.serviceType || 'FedEx Express';
-            const netAmount = detail.ratedShipmentDetails?.[0]?.totalNetCharge || 0;
+            const shipmentDetail = detail.ratedShipmentDetails?.[0] || {};
+            const netAmount = shipmentDetail.totalNetCharge || 0;
+
             return {
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
-                deliveryDays: '約2〜5日'
+                deliveryDays: '2-5 日'
             };
         });
 
         if (rates.length === 0) {
-            const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
+            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
                     {
                         serviceName: 'FedEx International Priority (概算)',
                         total: fallbackFee,
-                        deliveryDays: '約2〜5日'
+                        deliveryDays: '2-5 日'
                     }
                 ],
                 error: null
@@ -199,13 +202,13 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         return { rates, error: null };
     } catch (err: any) {
         console.error('FedEx Rate Error:', err);
-        const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
+        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
             rates: [
                 {
-                    serviceName: 'FedEx International (概算試算)',
+                    serviceName: 'FedEx International Priority (概算試算)',
                     total: fallbackFee,
-                    deliveryDays: '約2〜5日'
+                    deliveryDays: '2-5 日'
                 }
             ],
             error: `API通信エラー (${err.message})`
