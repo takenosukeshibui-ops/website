@@ -6741,7 +6741,6 @@ export async function POST(request: Request) {
 </file>
 
 <file path="app/[lang]/calculator/page.tsx">
-// [UPDATED]
 "use client";
 
 import { useState } from "react";
@@ -6772,7 +6771,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({
           destination: countryCode,
           weight: Number(weight) || 1.0,
-          isEstimate: true // [NEW] シミュレーターからのリクエストであることを明示
+          isEstimate: true // 概算試算であることを明示
         }),
       });
 
@@ -6806,7 +6805,6 @@ export default function CalculatorPage() {
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            {/* [UPDATED] components/countries.ts から全国を展開 */}
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
@@ -6897,7 +6895,6 @@ export default function CalculatorPage() {
 </file>
 
 <file path="lib/calculator.ts">
-// [UPDATED]
 export interface CalculationResult {
     shippingFeeJp: number;
     shippingFeeFedex: number;
@@ -7001,12 +6998,12 @@ export async function calculateFedexRates(
         };
     }
 
-    // [UPDATED] 郵便番号の補完ロジックを確実に実行するよう修正
     let effectivePostalCode = postalCode?.trim();
 
+    // 郵便番号が未指定または空文字の場合の分岐処理
     if (!effectivePostalCode) {
         if (isEstimate) {
-            // シミュレーターおよびダッシュボード試算時用マッピング
+            // シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
             const defaultPostalCodes: Record<string, string> = {
                 'JP': '100-0001', 'US': '90210', 'KR': '04524', 'CN': '100000', 'TW': '10491',
                 'HK': '00000', 'MO': '00000', 'SG': '018956', 'TH': '10110', 'MY': '50000',
@@ -7025,6 +7022,7 @@ export async function calculateFedexRates(
             };
             effectivePostalCode = defaultPostalCodes[destination] || '90210';
         } else {
+            // 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
