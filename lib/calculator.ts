@@ -79,7 +79,7 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 }
 
 /**
- * [UPDATED] FedEx 運賃試算 API 呼び出し (preferredCurrency: 'JPY' で円建て強制取得)
+ * FedEx 運賃試算 API 呼び出し (preferredCurrency: 'JPY' で円建て強制取得)
  */
 export async function calculateFedexRates(destination: string, weightKg: number, credentials?: FedexCredentials) {
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
@@ -121,7 +121,6 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                 shipTimestamp: formattedShipDate,
                 pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
                 rateRequestType: ['ACCOUNT', 'LIST'],
-                // [NEW] 日本円（JPY）での返却をフェデックスAPIに直接指定
                 preferredCurrency: 'JPY',
                 requestedPackageLineItems: [
                     {
@@ -129,6 +128,13 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                         weight: {
                             units: 'KG',
                             value: Number(weightKg.toFixed(2))
+                        },
+                        // [NEW] 複数プランを取得するため、ダミーの寸法(20x20x20cm)を追加
+                        dimensions: {
+                            length: 20,
+                            width: 20,
+                            height: 20,
+                            units: 'CM'
                         }
                     }
                 ]
@@ -155,7 +161,7 @@ export async function calculateFedexRates(destination: string, weightKg: number,
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
             console.error('FedEx Quote API Error Details:', JSON.stringify(errData));
             
-            // [UPDATED] 通信・検証エラー時の概算フォールバック（日本円）
+            // [UPDATED] 通信エラー時の概算フォールバック
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
@@ -165,23 +171,25 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                         deliveryDays: '2-5 日'
                     }
                 ],
-                error: `FedEx: ${msg}`
+                error: `API通信エラー: ${msg}`
             };
         }
 
         const data = await res.json();
         const rateReplyDetails = data?.output?.rateReplyDetails || [];
 
-        // [UPDATED] 返却された全プランの運賃額（JPY）を抽出
+        // 返却された全プランの運賃額（JPY）を抽出
         const rates = rateReplyDetails.map((detail: any) => {
             const serviceName = detail.serviceName || detail.serviceType || 'FedEx Express';
             const shipmentDetail = detail.ratedShipmentDetails?.[0] || {};
             const netAmount = shipmentDetail.totalNetCharge || 0;
+            // [NEW] APIからお届け日数を取得（なければデフォルト値）
+            const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
             return {
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
-                deliveryDays: '2-5 日'
+                deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
             };
         });
 

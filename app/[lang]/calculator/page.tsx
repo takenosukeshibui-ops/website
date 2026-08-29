@@ -4,26 +4,24 @@ import { useState } from "react";
 
 export default function CalculatorPage() {
   const [countryCode, setCountryCode] = useState("US");
-  // 初回ロード時からサンプルの郵便番号をセット（未入力でも即座に試算可能）
   const [postalCode, setPostalCode] = useState("90210");
   const [weight, setWeight] = useState<number>(1.0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // 国が変更されたら、その国の代表的なサンプル郵便番号に自動更新
   const handleCountryChange = (newCountry: string) => {
     setCountryCode(newCountry);
     if (newCountry === "US") {
-      setPostalCode("90210"); // ロサンゼルス
+      setPostalCode("90210");
     } else if (newCountry === "JP") {
-      setPostalCode("816-0000"); // 福岡
+      setPostalCode("816-0000");
     } else if (newCountry === "CA") {
-      setPostalCode("K1P 5M7"); // オタワ
+      setPostalCode("K1P 5M7");
     } else if (newCountry === "GB") {
-      setPostalCode("SW1A 1AA"); // ロンドン
+      setPostalCode("SW1A 1AA");
     } else if (newCountry === "AU") {
-      setPostalCode("2000"); // シドニー
+      setPostalCode("2000");
     } else {
       setPostalCode("10001");
     }
@@ -35,7 +33,6 @@ export default function CalculatorPage() {
     setResult(null);
 
     try {
-      // 郵便番号が未入力・スペースのみの場合はデフォルト値を代入
       const finalPostalCode =
         postalCode.trim() ||
         (countryCode === "US" ? "90210" : countryCode === "JP" ? "816-0000" : "10001");
@@ -45,7 +42,6 @@ export default function CalculatorPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        // [UPDATED] APIの仕様に合わせて 'countryCode' を 'destination' に変更
         body: JSON.stringify({
           destination: countryCode,
           postalCode: finalPostalCode,
@@ -74,7 +70,6 @@ export default function CalculatorPage() {
       </h1>
 
       <div className="space-y-4">
-        {/* 国選択 */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             配送先の国 (Destination Country)
@@ -96,7 +91,6 @@ export default function CalculatorPage() {
           </select>
         </div>
 
-        {/* 郵便番号入力欄 (サンプル自動保管付き) */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             郵便番号 (Postal Code)
@@ -113,7 +107,6 @@ export default function CalculatorPage() {
           />
         </div>
 
-        {/* 重量入力 */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             商品重量 (Weight / kg)
@@ -128,7 +121,6 @@ export default function CalculatorPage() {
           />
         </div>
 
-        {/* 計算実行ボタン */}
         <button
           onClick={handleCalculate}
           disabled={loading}
@@ -138,19 +130,26 @@ export default function CalculatorPage() {
         </button>
       </div>
 
-      {/* エラー表示 */}
       {error && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
           {error}
         </div>
       )}
 
-      {/* [NEW] 新APIのレスポンス（複数配列）に対応した結果表示 */}
       {result && result.success && (
         <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2">
           <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
             計算結果 (概算)
           </h2>
+
+          {/* [NEW] APIでエラーがあった場合は、フォールバックの1件を表示しつつエラー文を出す */}
+          {result.fedexError && (
+            <div className="p-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-md text-sm">
+              <span className="font-bold">⚠️ APIエラーが発生しました:</span><br/>
+              {result.fedexError}<br />
+              <span className="text-xs text-amber-600 mt-1 block">※現在はエラー回避用の概算料金を1件のみ表示しています。</span>
+            </div>
+          )}
 
           {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
@@ -167,7 +166,7 @@ export default function CalculatorPage() {
           )}
 
           {/* FedExのプラン一覧表示 */}
-          {result.fedexRates && result.fedexRates.length > 0 ? (
+          {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (
                 <div key={index} className="p-4 bg-purple-50 border border-purple-200 rounded-md">
@@ -182,13 +181,6 @@ export default function CalculatorPage() {
                 </div>
               ))}
             </div>
-          ) : (
-            /* FedExエラー時（APIキー未設定など） */
-            result.fedexError && (
-              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-md text-sm">
-                ⚠️ {result.fedexError}
-              </div>
-            )
           )}
         </div>
       )}
