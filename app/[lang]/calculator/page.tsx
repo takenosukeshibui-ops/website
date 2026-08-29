@@ -20,10 +20,21 @@ export default function CalculatorPage() {
     setResult(null);
 
     try {
+      // [UPDATED] FedEx APIの厳しいフォーマットチェックを通る確実なダミー郵便番号に変更
       const defaultPostalCodes: Record<string, string> = {
-        'US': '90210', 'CA': 'K1P 5M7', 'GB': 'SW1A 1AA', 'AU': '2000',
-        'JP': '8160000', 'FR': '75001', 'DE': '10115', 'IT': '00118',
-        'ES': '28001', 'KR': '03000', 'TW': '100', 'SG': '018956', 'CN': '100000'
+        'US': '90210',
+        'CA': 'M4B 1B3', // カナダ (トロント)
+        'GB': 'W1A 1AA', // イギリス (ロンドン)
+        'AU': '2000',    // オーストラリア (シドニー)
+        'JP': '100-0001', // 日本 (ハイフンあり)
+        'FR': '75001',   // フランス (パリ)
+        'DE': '10115',   // ドイツ (ベルリン)
+        'IT': '00118',   // イタリア (ローマ)
+        'ES': '28001',   // スペイン (マドリード)
+        'KR': '04524',   // 韓国 (ソウル - 5桁)
+        'TW': '10491',   // 台湾 (台北 - 5桁)
+        'SG': '018956',  // シンガポール
+        'CN': '100000'   // 中国 (北京)
       };
       const finalPostalCode = defaultPostalCodes[countryCode] || '10001';
 
