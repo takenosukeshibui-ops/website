@@ -35,14 +35,13 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
 }
 
 /**
- * [NEW] 日本郵便（船便）の概算送料計算
+ * 日本郵便（船便）の概算送料計算
  */
 export function calculateJapanPostSeaFee(weightKg: number) {
     if (!weightKg || weightKg <= 0) {
         return { total: null, serviceName: '日本郵便 (船便)', deliveryDays: '約1〜2ヶ月', error: '重量が無効です' };
     }
 
-    // 概算ロジック (30kg超の分割計算にも対応)
     const baseFee = Math.ceil(1000 + weightKg * 1200);
     return {
         total: baseFee,
@@ -53,7 +52,7 @@ export function calculateJapanPostSeaFee(weightKg: number) {
 }
 
 /**
- * [NEW] FedEx API 認証トークン取得
+ * FedEx API 認証トークン取得
  */
 async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string> {
     const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com';
@@ -79,12 +78,12 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 }
 
 /**
- * [NEW] FedEx 運賃試算 API 呼び出し
+ * FedEx 運賃試算 API 呼び出し
  */
 export async function calculateFedexRates(destination: string, weightKg: number, credentials?: FedexCredentials) {
-    // [NEW] 環境変数の両表記をチェック
-    const apiKey = credentials?.apiKey || process.env.FEDEX_CLIENT_ID || process.env.FEDEX_API_KEY;
-    const secretKey = credentials?.secretKey || process.env.FEDEX_CLIENT_SECRET || process.env.FEDEX_SECRET_KEY;
+    // [UPDATED] FEDEX_API_KEY / FEDEX_CLIENT_ID どちらでも読み込めるように判定を強化
+    const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
+    const secretKey = credentials?.secretKey || process.env.FEDEX_SECRET_KEY || process.env.FEDEX_CLIENT_SECRET;
     const accountNumber = credentials?.accountNumber || process.env.FEDEX_ACCOUNT_NUMBER;
     const fedexApiUrl = process.env.FEDEX_API_URL || 'https://apis-sandbox.fedex.com';
     const isSandbox = fedexApiUrl.includes('sandbox');
@@ -92,7 +91,7 @@ export async function calculateFedexRates(destination: string, weightKg: number,
     if (!apiKey || !secretKey) {
         return {
             rates: [],
-            error: 'FedEx APIキーが未設定です。Vercel環境変数（FEDEX_CLIENT_ID / FEDEX_API_KEY）を確認してください。'
+            error: 'FedEx APIキーが未設定です（環境変数 FEDEX_API_KEY / FEDEX_SECRET_KEY を確認してください）'
         };
     }
 
@@ -156,7 +155,6 @@ export async function calculateFedexRates(destination: string, weightKg: number,
             };
         });
 
-        // 運賃が取得できない場合はダミー（概算）を返すフォールバック
         if (rates.length === 0) {
             const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
             return {
@@ -174,7 +172,6 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         return { rates, error: null };
     } catch (err: any) {
         console.error('FedEx Rate Error:', err);
-        // エラー時も試算用のフォールバック額を返して画面が止まらないようにする
         const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
         return {
             rates: [
@@ -190,7 +187,7 @@ export async function calculateFedexRates(destination: string, weightKg: number,
 }
 
 /**
- * [NEW] 画面・APIルートから一括で送料を計算する統合関数
+ * 画面・APIルートから一括で送料を計算する統合関数
  */
 export async function calculateShippingFees(params: CalculateShippingFeesParams) {
     const { destination, weight, fedexCredentials } = params;
