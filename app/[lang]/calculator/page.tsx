@@ -1,260 +1,169 @@
-// [UPDATED]
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import Link from 'next/link';
+import { useState } from "react";
 
-const ALL_COUNTRIES = [
-    { code: 'US', name: 'アメリカ (United States)' },
-    { code: 'CA', name: 'カナダ (Canada)' },
-    { code: 'GB', name: 'イギリス (United Kingdom)' },
-    { code: 'AU', name: 'オーストラリア (Australia)' },
-    { code: 'DE', name: 'ドイツ (Germany)' },
-    { code: 'FR', name: 'フランス (France)' },
-    { code: 'CN', name: '中国 (China)' },
-    { code: 'KR', name: '韓国 (South Korea)' },
-    { code: 'TW', name: '台湾 (Taiwan)' },
-    { code: 'HK', name: '香港 (Hong Kong)' },
-    { code: 'SG', name: 'シンガポール (Singapore)' },
-    { code: 'TH', name: 'タイ (Thailand)' },
-    { code: 'MY', name: 'マレーシア (Malaysia)' },
-    { code: 'PH', name: 'フィリピン (Philippines)' },
-    { code: 'VN', name: 'ベトナム (Vietnam)' },
-    { code: 'ID', name: 'インドネシア (Indonesia)' },
-    { code: 'IN', name: 'インド (India)' },
-    { code: 'NL', name: 'オランダ (Netherlands)' },
-    { code: 'IT', name: 'イタリア (Italy)' },
-    { code: 'ES', name: 'スペイン (Spain)' },
-    { code: 'CH', name: 'スイス (Switzerland)' },
-    { code: 'JP', name: '日本 (Japan)' },
-];
+export default function CalculatorPage() {
+  const [countryCode, setCountryCode] = useState("US");
+  // 初回ロード時からサンプルの郵便番号をセット（未入力でも即座に試算可能）
+  const [postalCode, setPostalCode] = useState("90210");
+  const [weight, setWeight] = useState<number>(1.0);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: string) => void }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [query, setQuery] = useState("");
-    const containerRef = useRef<HTMLDivElement>(null);
+  // 国が変更されたら、その国の代表的なサンプル郵便番号に自動更新
+  const handleCountryChange = (newCountry: string) => {
+    setCountryCode(newCountry);
+    if (newCountry === "US") {
+      setPostalCode("90210"); // ロサンゼルス
+    } else if (newCountry === "JP") {
+      setPostalCode("816-0000"); // 福岡
+    } else if (newCountry === "CA") {
+      setPostalCode("K1P 5M7"); // オタワ
+    } else if (newCountry === "GB") {
+      setPostalCode("SW1A 1AA"); // ロンドン
+    } else if (newCountry === "AU") {
+      setPostalCode("2000"); // シドニー
+    } else {
+      setPostalCode("10001");
+    }
+  };
 
-    const filteredCountries = useMemo(() => {
-        if (!query) return ALL_COUNTRIES;
-        const lowerQuery = query.toLowerCase();
-        return ALL_COUNTRIES.filter(
-            (c) => c.code.toLowerCase().includes(lowerQuery) || c.name.toLowerCase().includes(lowerQuery)
-        );
-    }, [query]);
+  const handleCalculate = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-    const selectedCountry = ALL_COUNTRIES.find((c) => c.code === value);
+    try {
+      // 郵便番号が未入力・スペースのみの場合はデフォルト値を代入
+      const finalPostalCode =
+        postalCode.trim() ||
+        (countryCode === "US" ? "90210" : countryCode === "JP" ? "816-0000" : "10001");
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+      const response = await fetch("/api/calculate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          countryCode,
+          postalCode: finalPostalCode,
+          weight: Number(weight) || 1.0,
+        }),
+      });
 
-    return (
-        <div className="relative w-full" ref={containerRef}>
-            <input
-                type="text"
-                className="w-full h-10 px-3 text-sm rounded-lg border border-slate-300 bg-white text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="国名やコードで検索..."
-                value={isOpen ? query : (selectedCountry ? `${selectedCountry.name} (${selectedCountry.code})` : "")}
-                onChange={(e) => {
-                    setQuery(e.target.value);
-                    setIsOpen(true);
-                }}
-                onFocus={() => {
-                    setQuery("");
-                    setIsOpen(true);
-                }}
-            />
-            {isOpen && (
-                <ul className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg text-xs">
-                    {filteredCountries.map((country) => (
-                        <li
-                            key={country.code}
-                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-slate-900 border-b border-slate-50 last:border-0 flex justify-between items-center"
-                            onClick={() => {
-                                onChange(country.code);
-                                setIsOpen(false);
-                                setQuery("");
-                            }}
-                        >
-                            <span className="font-medium">{country.name}</span>
-                            <span className="text-slate-400 font-mono text-[10px]">{country.code}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "送料の計算に失敗しました。");
+      }
+
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message || "予期せぬエラーが発生しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
+        国際送料・概算試算シミュレーター
+      </h1>
+
+      <div className="space-y-4">
+        {/* 国選択 */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            配送先の国 (Destination Country)
+          </label>
+          <select
+            value={countryCode}
+            onChange={(e) => handleCountryChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            <option value="US">アメリカ (United States)</option>
+            <option value="JP">日本 (Japan)</option>
+            <option value="CA">カナダ (Canada)</option>
+            <option value="GB">イギリス (United Kingdom)</option>
+            <option value="AU">オーストラリア (Australia)</option>
+            <option value="DE">ドイツ (Germany)</option>
+            <option value="FR">フランス (France)</option>
+            <option value="TW">台湾 (Taiwan)</option>
+            <option value="KR">韓国 (South Korea)</option>
+          </select>
         </div>
-    );
-};
 
-export default function UserShippingCalculatorPage() {
-    const [destination, setDestination] = useState("US");
-    const [weightKg, setWeightKg] = useState("10");
+        {/* 郵便番号入力欄 (サンプル自動保管付き) */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            郵便番号 (Postal Code)
+            <span className="text-xs text-gray-500 font-normal ml-2">
+              ※ 未入力でも概算可能です（サンプルの郵便番号が自動利用されます）
+            </span>
+          </label>
+          <input
+            type="text"
+            value={postalCode}
+            onChange={(e) => setPostalCode(e.target.value)}
+            placeholder="例: 90210"
+            className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
+        </div>
 
-    const [apiLoading, setApiLoading] = useState(false);
-    const [japanPostData, setJapanPostData] = useState<any>(null);
-    const [fedexRatesList, setFedexRatesList] = useState<any[]>([]);
-    const [apiError, setApiError] = useState<string | null>(null);
+        {/* 重量入力 */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            商品重量 (Weight / kg)
+          </label>
+          <input
+            type="number"
+            step="0.1"
+            min="0.1"
+            value={weight}
+            onChange={(e) => setWeight(parseFloat(e.target.value))}
+            className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          />
+        </div>
 
-    const parsedWeight = parseFloat(weightKg) || 0;
+        {/* 計算実行ボタン */}
+        <button
+          onClick={handleCalculate}
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50"
+        >
+          {loading ? "計算中..." : "🚀 送料を試算する"}
+        </button>
+      </div>
 
-    const handleCalculate = async () => {
-        if (parsedWeight <= 0) return;
+      {/* エラー表示 */}
+      {error && (
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+          {error}
+        </div>
+      )}
 
-        setApiLoading(true);
-        setApiError(null);
-
-        try {
-            const res = await fetch('/api/calculate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    destination,
-                    weight: parsedWeight,
-                    targetCurrency: 'JPY'
-                })
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                setJapanPostData(data.japanPost);
-                setFedexRatesList(data.fedexRates || []);
-                if (data.fedexError) setApiError(data.fedexError);
-            } else {
-                setApiError(data.error || "送料の計算に失敗しました");
-            }
-        } catch (err: any) {
-            console.error("送料取得エラー:", err);
-            setApiError("送料の自動取得に失敗しました");
-        } finally {
-            setApiLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        handleCalculate();
-    }, [destination]);
-
-    const formatAmount = (amount: number) => {
-        return `¥${Math.round(amount).toLocaleString()}`;
-    };
-
-    const sortedFedexRatesList = useMemo(() => {
-        return [...fedexRatesList].sort((a, b) => a.total - b.total);
-    }, [fedexRatesList]);
-
-    return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs">
-            <div className="w-full max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
-                <div className="flex justify-between items-center border-b pb-3">
-                    <h1 className="text-xl font-bold text-slate-800">国際送料・概算試算シミュレーター</h1>
-                    <Link href="/dashboard" className="text-blue-600 hover:underline font-bold text-[11px]">
-                        ← マイページへ
-                    </Link>
-                </div>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block font-bold text-slate-700 mb-1">配送先の国 (Destination Country)</label>
-                        <CountryCombobox value={destination} onChange={setDestination} />
-                    </div>
-
-                    <div>
-                        <label className="block font-bold text-slate-700 mb-1">商品重量 (Weight / kg)</label>
-                        <div className="relative flex items-center">
-                            <input
-                                type="number"
-                                step="0.1"
-                                min="0.1"
-                                value={weightKg}
-                                onChange={(e) => setWeightKg(e.target.value)}
-                                className="w-full h-10 px-3 rounded-lg border border-slate-300 font-mono text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                placeholder="10"
-                            />
-                            <span className="absolute right-3 text-slate-500 font-bold pointer-events-none text-xs">
-                                kg
-                            </span>
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleCalculate}
-                        disabled={apiLoading}
-                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                        {apiLoading ? '計算中...' : '🚀 送料を試算する'}
-                    </button>
-                </div>
-
-                {/* 計算結果一覧 */}
-                <div className="space-y-3 pt-2">
-                    <h2 className="font-bold text-slate-800 text-sm border-b pb-1">計算結果</h2>
-
-                    {apiLoading ? (
-                        <div className="p-8 text-center text-slate-400 border border-slate-100 rounded-lg bg-slate-50">
-                            最新の運賃を取得中...
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {/* [NEW] 日本郵便 (船便) の独立表示 */}
-                            {japanPostData && japanPostData.total !== null && (
-                                <div className="p-4 bg-white rounded-lg border border-blue-200 flex items-center justify-between shadow-2xs">
-                                    <div>
-                                        <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full inline-block mb-1">
-                                            お届け目安: {japanPostData.deliveryDays}
-                                        </span>
-                                        <div className="font-bold text-slate-800 text-sm">
-                                            {japanPostData.serviceName}
-                                        </div>
-                                        {japanPostData.note && (
-                                            <span className="text-[10px] text-blue-600 font-normal block">
-                                                {japanPostData.note}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-right font-bold font-mono text-slate-900 text-lg">
-                                        {formatAmount(japanPostData.total)}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* [NEW] FedEx全配送プラン一覧（安い順） */}
-                            {sortedFedexRatesList.length > 0 && (
-                                <div className="space-y-2">
-                                    {sortedFedexRatesList.map((fRate, idx) => (
-                                        <div key={idx} className="p-4 bg-white rounded-lg border border-purple-200 flex items-center justify-between shadow-2xs">
-                                            <div>
-                                                <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full inline-block mb-1">
-                                                    お届け目安: {fRate.deliveryDays}
-                                                </span>
-                                                <div className="font-bold text-purple-950 text-sm">
-                                                    {fRate.serviceName}
-                                                </div>
-                                            </div>
-                                            <div className="text-right font-bold font-mono text-purple-950 text-lg">
-                                                {formatAmount(fRate.total)}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {apiError && (
-                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px]">
-                                    ⚠️ {apiError}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </main>
-    );
+      {/* 試算結果表示 */}
+      {result && (
+        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md space-y-3">
+          <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
+            計算結果
+          </h2>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">配送キャリア:</span>
+            <span className="font-semibold text-gray-800">{result.carrier}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">お届け目安:</span>
+            <span className="font-semibold text-gray-800">{result.estimatedDays} 日</span>
+          </div>
+          <div className="flex justify-between items-center text-lg font-bold text-blue-600 border-t pt-2">
+            <span>概算送料:</span>
+            <span>¥{result.fee?.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
