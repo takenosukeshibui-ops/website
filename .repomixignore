@@ -1,0 +1,10 @@
+# キャッシュ・ビルド・履歴フォルダ
+.expo/
+.history/
+.next/
+
+# 依存パッケージ
+node_modules/
+
+# repomix自身の出力ファイル
+repomix-output.xml
