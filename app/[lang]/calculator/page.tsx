@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+// [NEW] 共通の国リストをインポート
+import { countries } from "@/components/countries";
 
 export default function CalculatorPage() {
   const [countryCode, setCountryCode] = useState("US");
@@ -20,24 +22,6 @@ export default function CalculatorPage() {
     setResult(null);
 
     try {
-      // [UPDATED] FedEx APIの厳しいフォーマットチェックを通る確実なダミー郵便番号に変更
-      const defaultPostalCodes: Record<string, string> = {
-        'US': '90210',
-        'CA': 'M4B 1B3', // カナダ (トロント)
-        'GB': 'W1A 1AA', // イギリス (ロンドン)
-        'AU': '2000',    // オーストラリア (シドニー)
-        'JP': '100-0001', // 日本 (ハイフンあり)
-        'FR': '75001',   // フランス (パリ)
-        'DE': '10115',   // ドイツ (ベルリン)
-        'IT': '00118',   // イタリア (ローマ)
-        'ES': '28001',   // スペイン (マドリード)
-        'KR': '04524',   // 韓国 (ソウル - 5桁)
-        'TW': '10491',   // 台湾 (台北 - 5桁)
-        'SG': '018956',  // シンガポール
-        'CN': '100000'   // 中国 (北京)
-      };
-      const finalPostalCode = defaultPostalCodes[countryCode] || '10001';
-
       const response = await fetch("/api/calculate", {
         method: "POST",
         headers: {
@@ -45,8 +29,8 @@ export default function CalculatorPage() {
         },
         body: JSON.stringify({
           destination: countryCode,
-          postalCode: finalPostalCode,
           weight: Number(weight) || 1.0,
+          isEstimate: true 
         }),
       });
 
@@ -80,15 +64,12 @@ export default function CalculatorPage() {
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            <option value="US">アメリカ (United States)</option>
-            <option value="JP">日本 (Japan)</option>
-            <option value="CA">カナダ (Canada)</option>
-            <option value="GB">イギリス (United Kingdom)</option>
-            <option value="AU">オーストラリア (Australia)</option>
-            <option value="DE">ドイツ (Germany)</option>
-            <option value="FR">フランス (France)</option>
-            <option value="TW">台湾 (Taiwan)</option>
-            <option value="KR">韓国 (South Korea)</option>
+            {/* [UPDATED] 共通リストをマップして全展開 */}
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
 

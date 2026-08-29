@@ -1,31 +1,10 @@
-// app/admin/profit/page.tsx
+// [UPDATED]
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-
-const ALL_COUNTRIES = [
-    { code: 'US', name: 'アメリカ (United States)' },
-    { code: 'JP', name: '日本 (Japan)' },
-    { code: 'CA', name: 'カナダ (Canada)' },
-    { code: 'GB', name: 'イギリス (United Kingdom)' },
-    { code: 'AU', name: 'オーストラリア (Australia)' },
-    { code: 'DE', name: 'ドイツ (Germany)' },
-    { code: 'FR', name: 'フランス (France)' },
-    { code: 'CN', name: '中国 (China)' },
-    { code: 'KR', name: '韓国 (South Korea)' },
-    { code: 'TW', name: '台湾 (Taiwan)' },
-    { code: 'HK', name: '香港 (Hong Kong)' },
-    { code: 'SG', name: 'シンガポール (Singapore)' },
-    { code: 'NL', name: 'オランダ (Netherlands)' },
-    { code: 'IT', name: 'イタリア (Italy)' },
-    { code: 'ES', name: 'スペイン (Spain)' },
-    { code: 'CH', name: 'スイス (Switzerland)' },
-    { code: 'NZ', name: 'ニュージーランド (New Zealand)' },
-    { code: 'BR', name: 'ブラジル (Brazil)' },
-    { code: 'MX', name: 'メキシコ (Mexico)' },
-    { code: 'IN', name: 'インド (India)' },
-];
+// [NEW] 共通の国リストをインポート
+import { countries } from '@/components/countries';
 
 const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: string) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -33,14 +12,14 @@ const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: 
     const containerRef = useRef<HTMLDivElement>(null);
 
     const filteredCountries = useMemo(() => {
-        if (!query) return ALL_COUNTRIES;
+        if (!query) return countries;
         const lowerQuery = query.toLowerCase();
-        return ALL_COUNTRIES.filter(
+        return countries.filter(
             (c) => c.code.toLowerCase().includes(lowerQuery) || c.name.toLowerCase().includes(lowerQuery)
         );
     }, [query]);
 
-    const selectedCountry = ALL_COUNTRIES.find((c) => c.code === value);
+    const selectedCountry = countries.find((c) => c.code === value);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -115,22 +94,15 @@ export default function AdminProfitPage() {
             setFedexApiError(null);
 
             try {
-                // [NEW] 利益計算ダッシュボード用のダミー郵便番号マッピング
-                const defaultPostalCodes: Record<string, string> = {
-                    'US': '90210', 'CA': 'K1P 5M7', 'GB': 'SW1A 1AA', 'AU': '2000',
-                    'JP': '8160000', 'FR': '75001', 'DE': '10115', 'IT': '00118',
-                    'ES': '28001', 'KR': '03000', 'TW': '100', 'SG': '018956', 'CN': '100000'
-                };
-                const dummyPostalCode = defaultPostalCodes[destination] || '10001';
-
+                // [UPDATED] フロントエンドでのダミー設定を削除し、APIにisEstimateを送るだけにする
                 const res = await fetch('/api/calculate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         destination,
-                        postalCode: dummyPostalCode, // [NEW] ダミー送信
                         weight: parsedWeight,
-                        targetCurrency: 'JPY'
+                        targetCurrency: 'JPY',
+                        isEstimate: true 
                     })
                 });
 
