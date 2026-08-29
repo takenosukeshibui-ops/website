@@ -19,6 +19,7 @@ export interface CalculateShippingFeesParams {
     postalCode?: string;
     weight: number;
     targetCurrency?: string;
+    isEstimate?: boolean; // [NEW] 概算フラグを追加
     fedexCredentials?: FedexCredentials;
 }
 
@@ -79,9 +80,15 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 }
 
 /**
- * FedEx 運賃試算 API 呼び出し (preferredCurrency: 'JPY' で円建て強制取得)
+ * FedEx 運賃試算 API 呼び出し
  */
-export async function calculateFedexRates(destination: string, postalCode: string | undefined, weightKg: number, credentials?: FedexCredentials) {
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+) {
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
     const secretKey = credentials?.secretKey || process.env.FEDEX_SECRET_KEY || process.env.FEDEX_CLIENT_SECRET;
     const accountNumber = credentials?.accountNumber || process.env.FEDEX_ACCOUNT_NUMBER;
@@ -95,18 +102,32 @@ export async function calculateFedexRates(destination: string, postalCode: strin
         };
     }
 
-    if (!postalCode || postalCode.trim() === '') {
-        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
-        return {
-            rates: [
-                {
-                    serviceName: 'FedEx International Priority (概算)',
-                    total: fallbackFee,
-                    deliveryDays: '2-5 日'
-                }
-            ],
-            error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
-        };
+    let effectivePostalCode = postalCode?.trim();
+
+    // [NEW] 郵便番号が未設定の場合の処理分岐
+    if (!effectivePostalCode) {
+        if (isEstimate) {
+            // シミュレーターや利益計算ダッシュボードからの呼び出し時は、安全なダミーを自動補完
+            const defaultPostalCodes: Record<string, string> = {
+                'US': '90210', 'CA': 'M4B 1B3', 'GB': 'W1A 1AA', 'AU': '2000',
+                'JP': '100-0001', 'FR': '75001', 'DE': '10115', 'IT': '00118',
+                'ES': '28001', 'KR': '04524', 'TW': '10491', 'SG': '018956', 'CN': '100000'
+            };
+            effectivePostalCode = defaultPostalCodes[destination] || '10001';
+        } else {
+            // 実際の注文管理画面からの呼び出し時はエラーを返す（誤った送料提示を防ぐため）
+            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
+            return {
+                rates: [
+                    {
+                        serviceName: 'FedEx International Priority (概算)',
+                        total: fallbackFee,
+                        deliveryDays: '2-5 日'
+                    }
+                ],
+                error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
+            };
+        }
     }
 
     try {
@@ -122,14 +143,14 @@ export async function calculateFedexRates(destination: string, postalCode: strin
                     address: {
                         streetLines: ['1-1-1 Chiyoda'],
                         city: 'Chiyoda-ku',
-                        postalCode: '1000001',
+                        postalCode: '100-0001',
                         countryCode: 'JP'
                     }
                 },
                 recipient: {
                     address: {
                         countryCode: destination,
-                        postalCode: postalCode.trim()
+                        postalCode: effectivePostalCode // [UPDATED] 補完済みまたは実際の郵便番号
                     }
                 },
                 shipTimestamp: formattedShipDate,
@@ -238,10 +259,10 @@ export async function calculateFedexRates(destination: string, postalCode: strin
  * 画面・APIルートから一括で送料を計算する統合関数
  */
 export async function calculateShippingFees(params: CalculateShippingFeesParams) {
-    const { destination, postalCode, weight, fedexCredentials } = params;
+    const { destination, postalCode, weight, isEstimate = false, fedexCredentials } = params;
 
     const japanPost = calculateJapanPostSeaFee(weight);
-    const fedexResult = await calculateFedexRates(destination, postalCode, weight, fedexCredentials);
+    const fedexResult = await calculateFedexRates(destination, postalCode, weight, isEstimate, fedexCredentials);
 
     return {
         japanPost,
