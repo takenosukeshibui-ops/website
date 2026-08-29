@@ -342,7 +342,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     )
     const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
 
-    // [UPDATED] ハイドレーションエラー防止のため初期値は空オブジェクトで安全に生成
     const [orderInputs, setOrderInputs] = useState<Record<string, { weight: string }>>({})
     const [editingWeight, setEditingWeight] = useState<Set<string>>(new Set())
 
@@ -356,7 +355,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     const [activeAddressOrder, setActiveAddressOrder] = useState<any | null>(null)
     const [isGeneratingLabel, setIsGeneratingLabel] = useState<boolean>(false)
 
-    // [NEW] クライアント側のマウント完了後に localStorage から入力重量を安全に復元（Hydration Mismatchを回避）
     useEffect(() => {
         try {
             const saved = localStorage.getItem('admin_order_weights')
@@ -371,7 +369,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     }, [])
 
-    // [UPDATED] 入力中の重量データを localStorage に自動保存
     useEffect(() => {
         if (Object.keys(orderInputs).length > 0) {
             try {
@@ -463,6 +460,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 }
 
                 const destCountry = order.shipping_country || order.profiles?.country || 'US';
+                // [NEW] 実際の注文に紐づく郵便番号を取得（未設定なら空文字を送信）
+                const destPostalCode = order.shipping_zip_code || order.profiles?.zip_code || '';
                 const selectedMethod = order.shipping_method || '最安プラン自動選択 (航空便)';
 
                 try {
@@ -473,6 +472,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             destination: destCountry,
+                            postalCode: destPostalCode, // [NEW] 実在する郵便番号をAPIに送信
                             weight: weightVal,
                             targetCurrency: 'JPY'
                         })
@@ -1336,7 +1336,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 </tbody>
             </table>
 
-            {/* 顧客基本情報・お届け先詳細ポップアップ */}
             {activeAddressOrder && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-lg w-full border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col animate-fadeIn">
@@ -1357,7 +1356,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         </div>
 
                         <div className="p-4 space-y-4 text-xs text-slate-700 overflow-y-auto">
-                            {/* ■ 1. 基本情報・お届け先 */}
                             <div className="border border-slate-200 rounded p-3 bg-slate-50 space-y-2">
                                 <h4 className="font-bold text-slate-800 text-xs border-b border-slate-200 pb-1 flex justify-between items-center">
                                     <span>■ 基本情報・お届け先</span>
@@ -1456,7 +1454,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 </div>
                             </div>
 
-                            {/* ■ 2. お支払いアカウント情報 */}
                             <div className="border border-slate-200 rounded p-3 bg-slate-50 space-y-2">
                                 <h4 className="font-bold text-slate-800 text-xs border-b border-slate-200 pb-1">■ お支払いアカウント情報</h4>
                                 <div className="grid grid-cols-2 gap-2 text-[11px]">

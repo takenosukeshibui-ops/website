@@ -99,7 +99,7 @@ export default function AdminProfitPage() {
 
     const [apiLoading, setApiLoading] = useState(false);
     const [shippingFeeJp, setShippingFeeJp] = useState<number | null>(null);
-    const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); // [NEW] 全FedExプラン配列
+    const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
     const parsedQty = parseInt(quantity.replace(/[^0-9]/g, '') || '0', 10);
@@ -115,11 +115,20 @@ export default function AdminProfitPage() {
             setFedexApiError(null);
 
             try {
+                // [NEW] 利益計算ダッシュボード用のダミー郵便番号マッピング
+                const defaultPostalCodes: Record<string, string> = {
+                    'US': '90210', 'CA': 'K1P 5M7', 'GB': 'SW1A 1AA', 'AU': '2000',
+                    'JP': '8160000', 'FR': '75001', 'DE': '10115', 'IT': '00118',
+                    'ES': '28001', 'KR': '03000', 'TW': '100', 'SG': '018956', 'CN': '100000'
+                };
+                const dummyPostalCode = defaultPostalCodes[destination] || '10001';
+
                 const res = await fetch('/api/calculate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         destination,
+                        postalCode: dummyPostalCode, // [NEW] ダミー送信
                         weight: parsedWeight,
                         targetCurrency: 'JPY'
                     })
@@ -134,7 +143,7 @@ export default function AdminProfitPage() {
 
                 if (data.success) {
                     setShippingFeeJp(data.japanPost?.total ?? null);
-                    setFedexRatesList(data.fedexRates || []); // [UPDATED] 全プラン保持
+                    setFedexRatesList(data.fedexRates || []); 
                     setFedexApiError(data.fedexError || null);
                 } else {
                     setFedexApiError(data.error || '計算エラーが発生しました');
@@ -283,7 +292,6 @@ export default function AdminProfitPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-xs">
-                            {/* 日本郵便 船便 */}
                             {shippingFeeJp !== null && jpCalculation && (
                                 <tr className="hover:bg-slate-50 transition-colors">
                                     <td className="p-3 font-bold text-slate-800">日本郵便 (船便)</td>
@@ -293,7 +301,6 @@ export default function AdminProfitPage() {
                                 </tr>
                             )}
 
-                            {/* FedExの全適用プランリスト [NEW] */}
                             {fedexRatesList.map((fRate, i) => {
                                 const calc = calculateProfitRow(fRate.total);
                                 return (

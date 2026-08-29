@@ -16,6 +16,7 @@ export interface FedexCredentials {
 
 export interface CalculateShippingFeesParams {
     destination: string;
+    postalCode?: string;
     weight: number;
     targetCurrency?: string;
     fedexCredentials?: FedexCredentials;
@@ -42,7 +43,6 @@ export function calculateJapanPostSeaFee(weightKg: number) {
         return { total: null, serviceName: '日本郵便 (船便)', deliveryDays: '約1〜2ヶ月', error: '重量が無効です' };
     }
 
-    // 概算計算（船便目安）
     const baseFee = Math.ceil(2500 + weightKg * 850);
     return {
         total: baseFee,
@@ -81,7 +81,7 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 /**
  * FedEx 運賃試算 API 呼び出し (preferredCurrency: 'JPY' で円建て強制取得)
  */
-export async function calculateFedexRates(destination: string, weightKg: number, credentials?: FedexCredentials) {
+export async function calculateFedexRates(destination: string, postalCode: string | undefined, weightKg: number, credentials?: FedexCredentials) {
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
     const secretKey = credentials?.secretKey || process.env.FEDEX_SECRET_KEY || process.env.FEDEX_CLIENT_SECRET;
     const accountNumber = credentials?.accountNumber || process.env.FEDEX_ACCOUNT_NUMBER;
@@ -92,6 +92,14 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         return {
             rates: [],
             error: 'FedEx APIキーが未設定です（環境変数 FEDEX_API_KEY / FEDEX_SECRET_KEY を確認してください）'
+        };
+    }
+
+    // [UPDATED] 実際の注文で誤った概算送料を返さないよう、郵便番号未設定の場合は明確にエラーを返す
+    if (!postalCode || postalCode.trim() === '') {
+        return {
+            rates: [],
+            error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
         };
     }
 
@@ -108,14 +116,14 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                     address: {
                         streetLines: ['1-1-1 Chiyoda'],
                         city: 'Chiyoda-ku',
-                        stateOrProvinceCode: 'TOKYO',
                         postalCode: '1000001',
                         countryCode: 'JP'
                     }
                 },
                 recipient: {
                     address: {
-                        countryCode: destination
+                        countryCode: destination,
+                        postalCode: postalCode.trim()
                     }
                 },
                 shipTimestamp: formattedShipDate,
@@ -129,7 +137,6 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                             units: 'KG',
                             value: Number(weightKg.toFixed(2))
                         },
-                        // [NEW] 複数プランを取得するため、ダミーの寸法(20x20x20cm)を追加
                         dimensions: {
                             length: 20,
                             width: 20,
@@ -161,16 +168,8 @@ export async function calculateFedexRates(destination: string, weightKg: number,
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
             console.error('FedEx Quote API Error Details:', JSON.stringify(errData));
             
-            // [UPDATED] 通信エラー時の概算フォールバック
-            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
-                rates: [
-                    {
-                        serviceName: 'FedEx International Priority (概算)',
-                        total: fallbackFee,
-                        deliveryDays: '2-5 日'
-                    }
-                ],
+                rates: [],
                 error: `API通信エラー: ${msg}`
             };
         }
@@ -178,12 +177,10 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         const data = await res.json();
         const rateReplyDetails = data?.output?.rateReplyDetails || [];
 
-        // 返却された全プランの運賃額（JPY）を抽出
         const rates = rateReplyDetails.map((detail: any) => {
             const serviceName = detail.serviceName || detail.serviceType || 'FedEx Express';
             const shipmentDetail = detail.ratedShipmentDetails?.[0] || {};
             const netAmount = shipmentDetail.totalNetCharge || 0;
-            // [NEW] APIからお届け日数を取得（なければデフォルト値）
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
             return {
@@ -194,31 +191,17 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         });
 
         if (rates.length === 0) {
-            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
-                rates: [
-                    {
-                        serviceName: 'FedEx International Priority (概算)',
-                        total: fallbackFee,
-                        deliveryDays: '2-5 日'
-                    }
-                ],
-                error: null
+                rates: [],
+                error: '利用可能な配送プランが見つかりませんでした。'
             };
         }
 
         return { rates, error: null };
     } catch (err: any) {
         console.error('FedEx Rate Error:', err);
-        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
-            rates: [
-                {
-                    serviceName: 'FedEx International Priority (概算試算)',
-                    total: fallbackFee,
-                    deliveryDays: '2-5 日'
-                }
-            ],
+            rates: [],
             error: `API通信エラー (${err.message})`
         };
     }
@@ -228,10 +211,10 @@ export async function calculateFedexRates(destination: string, weightKg: number,
  * 画面・APIルートから一括で送料を計算する統合関数
  */
 export async function calculateShippingFees(params: CalculateShippingFeesParams) {
-    const { destination, weight, fedexCredentials } = params;
+    const { destination, postalCode, weight, fedexCredentials } = params;
 
     const japanPost = calculateJapanPostSeaFee(weight);
-    const fedexResult = await calculateFedexRates(destination, weight, fedexCredentials);
+    const fedexResult = await calculateFedexRates(destination, postalCode, weight, fedexCredentials);
 
     return {
         japanPost,
