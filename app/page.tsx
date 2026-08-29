@@ -12,6 +12,9 @@ export default function Home() {
         <Link href="/signup" className="px-6 py-2 bg-gray-200 text-black rounded">
           新規登録
         </Link>
+        <Link href="/calculator" className="px-6 py-2 bg-green-600 text-white rounded">
+          送料シミュレーター
+        </Link>
       </div>
     </main>
   );
