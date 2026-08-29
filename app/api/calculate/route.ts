@@ -2,10 +2,13 @@
 import { NextResponse } from 'next/server'
 import { calculateShippingFees } from '@/lib/calculator'
 
+// Vercelキャッシュを無効化
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { destination, postalCode, weight, targetCurrency } = body
+    const { destination, postalCode, weight, targetCurrency, isEstimate } = body
 
     if (!destination || weight === undefined || weight === null) {
       return NextResponse.json(
@@ -27,6 +30,7 @@ export async function POST(request: Request) {
       postalCode,
       weight: Number(weight),
       targetCurrency: targetCurrency || 'JPY',
+      isEstimate: isEstimate === true,
       fedexCredentials: {
         apiKey,
         secretKey,

@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-// [NEW] 共通の国リストをインポート
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage() {
@@ -30,7 +29,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({
           destination: countryCode,
           weight: Number(weight) || 1.0,
-          isEstimate: true 
+          isEstimate: true // [NEW] シミュレーターからのリクエストであることを明示
         }),
       });
 
@@ -64,7 +63,7 @@ export default function CalculatorPage() {
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            {/* [UPDATED] 共通リストをマップして全展開 */}
+            {/* [UPDATED] components/countries.ts から全国を展開 */}
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
@@ -116,6 +115,7 @@ export default function CalculatorPage() {
             </div>
           )}
 
+          {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
@@ -129,6 +129,7 @@ export default function CalculatorPage() {
             </div>
           )}
 
+          {/* FedExの全適用プラン表示 */}
           {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (

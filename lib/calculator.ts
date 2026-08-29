@@ -102,11 +102,12 @@ export async function calculateFedexRates(
         };
     }
 
+    // [UPDATED] 郵便番号の補完ロジックを確実に実行するよう修正
     let effectivePostalCode = postalCode?.trim();
 
     if (!effectivePostalCode) {
         if (isEstimate) {
-            // [NEW] 約60カ国のダミー郵便番号をフル網羅
+            // シミュレーターおよびダッシュボード試算時用マッピング
             const defaultPostalCodes: Record<string, string> = {
                 'JP': '100-0001', 'US': '90210', 'KR': '04524', 'CN': '100000', 'TW': '10491',
                 'HK': '00000', 'MO': '00000', 'SG': '018956', 'TH': '10110', 'MY': '50000',
@@ -123,7 +124,7 @@ export async function calculateFedexRates(
                 'BH': '305', 'OM': '111', 'ZA': '0001', 'EG': '11511', 'MA': '10000',
                 'KE': '00100', 'NG': '900001'
             };
-            effectivePostalCode = defaultPostalCodes[destination] || '00000';
+            effectivePostalCode = defaultPostalCodes[destination] || '90210';
         } else {
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
@@ -159,7 +160,7 @@ export async function calculateFedexRates(
                 recipient: {
                     address: {
                         countryCode: destination,
-                        postalCode: effectivePostalCode 
+                        postalCode: effectivePostalCode
                     }
                 },
                 shipTimestamp: formattedShipDate,
