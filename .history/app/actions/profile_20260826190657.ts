@@ -1,0 +1,60 @@
+// app/actions/profile.ts
+'server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+export async function updateProfile(prevState: any, formData: FormData) {
+    const supabase = await createClient()
+
+    // ログインユーザーの取得
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+        return { error: '認証エラーが発生しました。ログインし直してください。' }
+    }
+
+    // フォーム入力データの抽出
+    const rawData = {
+        full_name: formData.get('full_name') as string,
+        company_name: formData.get('company_name') as string,
+        phone: formData.get('phone') as string,
+        tax_id: formData.get('tax_id') as string,
+        wise_email: formData.get('wise_email') as string,
+        country: formData.get('country') as string,
+        zip_code: formData.get('zip_code') as string,
+        state_province: formData.get('state_province') as string,
+        city: formData.get('city') as string,
+        address_line1: formData.get('address_line1') as string,
+        address_line2: formData.get('address_line2') as string,
+        address_line3: formData.get('address_line3') as string,
+        is_residential: formData.get('is_residential') === 'true',
+        updated_at: new Date().toISOString(),
+    }
+
+    // Supabase への保存処理 (upsert)
+    const { data, error } = await supabase
+        .from('profiles')
+        .upsert({
+            id: user.id,
+            ...rawData
+        })
+        .select()
+        .single()
+
+    if (error) {
+        console.error('Profile update error:', error.message)
+        return { 
+            error: '設定の保存に失敗しました: ' + error.message, 
+            data: rawData 
+        }
+    }
+
+    // 設定画面のキャッシュを更新して最新データを反映
+    revalidatePath('/dashboard/settings')
+
+    // 更新成功のメッセージと最新データ (data) を返却
+    return { 
+        success: true, 
+        data 
+    }
+}
