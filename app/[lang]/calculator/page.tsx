@@ -4,7 +4,6 @@ import { useState } from "react";
 
 export default function CalculatorPage() {
   const [countryCode, setCountryCode] = useState("US");
-  const [postalCode, setPostalCode] = useState("90210");
   const [weight, setWeight] = useState<number>(1.0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -12,19 +11,6 @@ export default function CalculatorPage() {
 
   const handleCountryChange = (newCountry: string) => {
     setCountryCode(newCountry);
-    if (newCountry === "US") {
-      setPostalCode("90210");
-    } else if (newCountry === "JP") {
-      setPostalCode("816-0000");
-    } else if (newCountry === "CA") {
-      setPostalCode("K1P 5M7");
-    } else if (newCountry === "GB") {
-      setPostalCode("SW1A 1AA");
-    } else if (newCountry === "AU") {
-      setPostalCode("2000");
-    } else {
-      setPostalCode("10001");
-    }
   };
 
   const handleCalculate = async () => {
@@ -33,9 +19,13 @@ export default function CalculatorPage() {
     setResult(null);
 
     try {
-      const finalPostalCode =
-        postalCode.trim() ||
-        (countryCode === "US" ? "90210" : countryCode === "JP" ? "816-0000" : "10001");
+      // [NEW] 郵便番号入力欄を削除したため、選択された国に応じたダミー郵便番号を自動補完
+      const defaultPostalCodes: Record<string, string> = {
+        'US': '90210', 'CA': 'K1P 5M7', 'GB': 'SW1A 1AA', 'AU': '2000',
+        'JP': '8160000', 'FR': '75001', 'DE': '10115', 'IT': '00118',
+        'ES': '28001', 'KR': '03000', 'TW': '100', 'SG': '018956', 'CN': '100000'
+      };
+      const finalPostalCode = defaultPostalCodes[countryCode] || '10001';
 
       const response = await fetch("/api/calculate", {
         method: "POST",
@@ -91,21 +81,7 @@ export default function CalculatorPage() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
-            郵便番号 (Postal Code)
-            <span className="text-xs text-gray-500 font-normal ml-2">
-              ※ 未入力でも概算可能です
-            </span>
-          </label>
-          <input
-            type="text"
-            value={postalCode}
-            onChange={(e) => setPostalCode(e.target.value)}
-            placeholder="例: 90210"
-            className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
-        </div>
+        {/* [UPDATED] 郵便番号(Postal Code)の入力欄を削除 */}
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -142,7 +118,6 @@ export default function CalculatorPage() {
             計算結果 (概算)
           </h2>
 
-          {/* [NEW] APIでエラーがあった場合は、フォールバックの1件を表示しつつエラー文を出す */}
           {result.fedexError && (
             <div className="p-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-md text-sm">
               <span className="font-bold">⚠️ APIエラーが発生しました:</span><br/>
