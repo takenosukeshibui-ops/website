@@ -54,10 +54,15 @@ export function calculateJapanPostSeaFee(weightKg: number) {
 }
 
 /**
- * FedEx API 認証トークン取得
+ * FedEx API 認証トークン取得 [UPDATED]
  */
 async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string> {
     const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com';
+    
+    // [NEW] API KeyやSecretキーの前後空白を除去して認証エラーを防ぐ
+    const cleanedKey = apiKey.trim();
+    const cleanedSecret = secretKey.trim();
+
     const res = await fetch(`${baseUrl}/oauth/token`, {
         method: 'POST',
         headers: {
@@ -65,8 +70,8 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
         },
         body: new URLSearchParams({
             grant_type: 'client_credentials',
-            client_id: apiKey,
-            client_secret: secretKey,
+            client_id: cleanedKey,
+            client_secret: cleanedSecret,
         }),
     });
 
@@ -76,11 +81,14 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
     }
 
     const data = await res.json();
+    if (!data.access_token) {
+        throw new Error('FedEx OAuth Token の取得に失敗しました。');
+    }
     return data.access_token;
 }
 
 /**
- * FedEx 運賃試算 API 呼び出し
+ * FedEx 運賃試算 API 呼び出し [UPDATED]
  */
 export async function calculateFedexRates(
     destination: string, 
@@ -96,18 +104,24 @@ export async function calculateFedexRates(
     const isSandbox = fedexApiUrl.includes('sandbox');
 
     if (!apiKey || !secretKey) {
+        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
-            rates: [],
+            rates: [
+                {
+                    serviceName: 'FedEx International Priority (概算)',
+                    total: fallbackFee,
+                    deliveryDays: '2-5 日'
+                }
+            ],
             error: 'FedEx APIキーが未設定です（環境変数 FEDEX_API_KEY / FEDEX_SECRET_KEY を確認してください）'
         };
     }
 
-    // [UPDATED] 郵便番号の補完ロジックを確実に実行するよう修正
     let effectivePostalCode = postalCode?.trim();
 
     if (!effectivePostalCode) {
         if (isEstimate) {
-            // シミュレーターおよびダッシュボード試算時用マッピング
+            // 国別デフォルト郵便番号マッピング
             const defaultPostalCodes: Record<string, string> = {
                 'JP': '100-0001', 'US': '90210', 'KR': '04524', 'CN': '100000', 'TW': '10491',
                 'HK': '00000', 'MO': '00000', 'SG': '018956', 'TH': '10110', 'MY': '50000',
@@ -124,7 +138,7 @@ export async function calculateFedexRates(
                 'BH': '305', 'OM': '111', 'ZA': '0001', 'EG': '11511', 'MA': '10000',
                 'KE': '00100', 'NG': '900001'
             };
-            effectivePostalCode = defaultPostalCodes[destination] || '90210';
+            effectivePostalCode = defaultPostalCodes[destination] || '10115';
         } else {
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
@@ -135,12 +149,13 @@ export async function calculateFedexRates(
                         deliveryDays: '2-5 日'
                     }
                 ],
-                error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
+                error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。'
             };
         }
     }
 
     try {
+        // [UPDATED] トークン取得のTry/Catch追加
         const token = await getFedexAccessToken(apiKey, secretKey, isSandbox);
 
         const shipDate = new Date();
@@ -160,7 +175,7 @@ export async function calculateFedexRates(
                 recipient: {
                     address: {
                         countryCode: destination,
-                        postalCode: effectivePostalCode
+                        ...(effectivePostalCode ? { postalCode: effectivePostalCode } : {})
                     }
                 },
                 shipTimestamp: formattedShipDate,
@@ -260,7 +275,7 @@ export async function calculateFedexRates(
                     deliveryDays: '2-5 日'
                 }
             ],
-            error: `API通信エラー (${err.message})`
+            error: `認証/通信エラー (${err.message})`
         };
     }
 }
