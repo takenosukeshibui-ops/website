@@ -1,22 +1,43 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+// [NEW]
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+const locales = ['en', 'ja']
+const defaultLocale = 'en'
 
-    const protectedRoutes = ['/dashboard'];
-    const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
+function getLocale(request: NextRequest): string {
+  const acceptLanguage = request.headers.get('accept-language')
+  if (acceptLanguage && acceptLanguage.includes('ja')) {
+    return 'ja'
+  }
+  return defaultLocale
+}
 
-    if (isProtectedRoute && !user) {
-        return NextResponse.redirect(new URL('/login', request.url));
-    }
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-    return NextResponse.next();
+  // 静的アセット、APIルート、内部パスはスキップ
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
+
+  // URL先頭に en または ja が含まれているか確認
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  )
+
+  if (pathnameHasLocale) return NextResponse.next()
+
+  // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
+  const locale = getLocale(request)
+  request.nextUrl.pathname = `/${locale}${pathname}`
+  return NextResponse.redirect(request.nextUrl)
 }
 
 export const config = {
-    matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-    ],
-};
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
+}
