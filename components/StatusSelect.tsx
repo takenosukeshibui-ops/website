@@ -1,11 +1,16 @@
 'use client'
 
-import { updateOrder } from '@/app/actions/admin'
+// 変更点1：updateOrder ではなく、admin.ts に実在する updateItemStatus を読み込みます
+import { updateItemStatus } from '@/app/actions/admin'
 
 export default function StatusSelect({ item }: { item: { id: string; status: string; admin_note?: string } }) {
     const handleSubmit = async (formData: FormData) => {
         try {
-            await updateOrder(item.id, formData.get('status') as string)
+            // 変更点2：読み込んだ updateItemStatus を使って更新します（// も外しました）
+            await updateItemStatus(item.id, formData.get('status') as string)
+            
+            // 画面上でわかりやすいように成功メッセージを出します
+            alert('ステータスの更新に成功しました！')
         } catch (e: unknown) {
             console.error(e)
             alert('更新失敗: ' + (e instanceof Error ? e.message : 'Unknown error'))
