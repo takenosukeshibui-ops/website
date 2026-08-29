@@ -45,8 +45,9 @@ export default function CalculatorPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        // [UPDATED] APIの仕様に合わせて 'countryCode' を 'destination' に変更
         body: JSON.stringify({
-          countryCode,
+          destination: countryCode,
           postalCode: finalPostalCode,
           weight: Number(weight) || 1.0,
         }),
@@ -100,7 +101,7 @@ export default function CalculatorPage() {
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             郵便番号 (Postal Code)
             <span className="text-xs text-gray-500 font-normal ml-2">
-              ※ 未入力でも概算可能です（サンプルの郵便番号が自動利用されます）
+              ※ 未入力でも概算可能です
             </span>
           </label>
           <input
@@ -144,24 +145,51 @@ export default function CalculatorPage() {
         </div>
       )}
 
-      {/* 試算結果表示 */}
-      {result && (
-        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md space-y-3">
+      {/* [NEW] 新APIのレスポンス（複数配列）に対応した結果表示 */}
+      {result && result.success && (
+        <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2">
           <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
-            計算結果
+            計算結果 (概算)
           </h2>
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">配送キャリア:</span>
-            <span className="font-semibold text-gray-800">{result.carrier}</span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-600">お届け目安:</span>
-            <span className="font-semibold text-gray-800">{result.estimatedDays} 日</span>
-          </div>
-          <div className="flex justify-between items-center text-lg font-bold text-blue-600 border-t pt-2">
-            <span>概算送料:</span>
-            <span>¥{result.fee?.toLocaleString()}</span>
-          </div>
+
+          {/* 日本郵便の表示 */}
+          {result.japanPost && result.japanPost.total !== null && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex justify-between items-center text-sm mb-2">
+                <span className="text-gray-600 font-bold">{result.japanPost.serviceName}</span>
+                <span className="text-gray-600">{result.japanPost.deliveryDays}</span>
+              </div>
+              <div className="flex justify-between items-center text-lg font-bold text-blue-700 border-t border-blue-200 pt-2">
+                <span>概算送料:</span>
+                <span>¥{result.japanPost.total.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
+          {/* FedExのプラン一覧表示 */}
+          {result.fedexRates && result.fedexRates.length > 0 ? (
+            <div className="space-y-3">
+              {result.fedexRates.map((rate: any, index: number) => (
+                <div key={index} className="p-4 bg-purple-50 border border-purple-200 rounded-md">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                    <span className="text-gray-600 font-bold">{rate.serviceName}</span>
+                    <span className="text-gray-600">{rate.deliveryDays}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-lg font-bold text-purple-700 border-t border-purple-200 pt-2">
+                    <span>概算送料:</span>
+                    <span>¥{rate.total.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* FedExエラー時（APIキー未設定など） */
+            result.fedexError && (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-md text-sm">
+                ⚠️ {result.fedexError}
+              </div>
+            )
+          )}
         </div>
       )}
     </div>
