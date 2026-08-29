@@ -1,4 +1,3 @@
-// [UPDATED]
 "use client";
 
 import { useState } from "react";
@@ -29,7 +28,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({
           destination: countryCode,
           weight: Number(weight) || 1.0,
-          isEstimate: true // [NEW] シミュレーターからのリクエストであることを明示
+          isEstimate: true // 概算試算であることを明示
         }),
       });
 
@@ -63,7 +62,6 @@ export default function CalculatorPage() {
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
-            {/* [UPDATED] components/countries.ts から全国を展開 */}
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}

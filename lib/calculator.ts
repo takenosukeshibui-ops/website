@@ -1,4 +1,3 @@
-// [UPDATED]
 export interface CalculationResult {
     shippingFeeJp: number;
     shippingFeeFedex: number;
@@ -54,15 +53,10 @@ export function calculateJapanPostSeaFee(weightKg: number) {
 }
 
 /**
- * FedEx API 認証トークン取得 [UPDATED]
+ * FedEx API 認証トークン取得
  */
 async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string> {
     const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com';
-    
-    // [NEW] API KeyやSecretキーの前後空白を除去して認証エラーを防ぐ
-    const cleanedKey = apiKey.trim();
-    const cleanedSecret = secretKey.trim();
-
     const res = await fetch(`${baseUrl}/oauth/token`, {
         method: 'POST',
         headers: {
@@ -70,8 +64,8 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
         },
         body: new URLSearchParams({
             grant_type: 'client_credentials',
-            client_id: cleanedKey,
-            client_secret: cleanedSecret,
+            client_id: apiKey,
+            client_secret: secretKey,
         }),
     });
 
@@ -81,14 +75,11 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
     }
 
     const data = await res.json();
-    if (!data.access_token) {
-        throw new Error('FedEx OAuth Token の取得に失敗しました。');
-    }
     return data.access_token;
 }
 
 /**
- * FedEx 運賃試算 API 呼び出し [UPDATED]
+ * FedEx 運賃試算 API 呼び出し
  */
 export async function calculateFedexRates(
     destination: string, 
@@ -104,24 +95,18 @@ export async function calculateFedexRates(
     const isSandbox = fedexApiUrl.includes('sandbox');
 
     if (!apiKey || !secretKey) {
-        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
-            rates: [
-                {
-                    serviceName: 'FedEx International Priority (概算)',
-                    total: fallbackFee,
-                    deliveryDays: '2-5 日'
-                }
-            ],
+            rates: [],
             error: 'FedEx APIキーが未設定です（環境変数 FEDEX_API_KEY / FEDEX_SECRET_KEY を確認してください）'
         };
     }
 
     let effectivePostalCode = postalCode?.trim();
 
+    // 郵便番号が未指定または空文字の場合の分岐処理
     if (!effectivePostalCode) {
         if (isEstimate) {
-            // 国別デフォルト郵便番号マッピング
+            // シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
             const defaultPostalCodes: Record<string, string> = {
                 'JP': '100-0001', 'US': '90210', 'KR': '04524', 'CN': '100000', 'TW': '10491',
                 'HK': '00000', 'MO': '00000', 'SG': '018956', 'TH': '10110', 'MY': '50000',
@@ -138,8 +123,9 @@ export async function calculateFedexRates(
                 'BH': '305', 'OM': '111', 'ZA': '0001', 'EG': '11511', 'MA': '10000',
                 'KE': '00100', 'NG': '900001'
             };
-            effectivePostalCode = defaultPostalCodes[destination] || '10115';
+            effectivePostalCode = defaultPostalCodes[destination] || '90210';
         } else {
+            // 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
@@ -149,13 +135,12 @@ export async function calculateFedexRates(
                         deliveryDays: '2-5 日'
                     }
                 ],
-                error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。'
+                error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
             };
         }
     }
 
     try {
-        // [UPDATED] トークン取得のTry/Catch追加
         const token = await getFedexAccessToken(apiKey, secretKey, isSandbox);
 
         const shipDate = new Date();
@@ -175,7 +160,7 @@ export async function calculateFedexRates(
                 recipient: {
                     address: {
                         countryCode: destination,
-                        ...(effectivePostalCode ? { postalCode: effectivePostalCode } : {})
+                        postalCode: effectivePostalCode
                     }
                 },
                 shipTimestamp: formattedShipDate,
@@ -275,7 +260,7 @@ export async function calculateFedexRates(
                     deliveryDays: '2-5 日'
                 }
             ],
-            error: `認証/通信エラー (${err.message})`
+            error: `API通信エラー (${err.message})`
         };
     }
 }
