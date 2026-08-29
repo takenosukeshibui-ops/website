@@ -78,10 +78,9 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
 }
 
 /**
- * FedEx 運賃試算 API 呼び出し
+ * [UPDATED] FedEx 運賃試算 API 呼び出し (Validation Error 対策版)
  */
 export async function calculateFedexRates(destination: string, weightKg: number, credentials?: FedexCredentials) {
-    // [UPDATED] FEDEX_API_KEY / FEDEX_CLIENT_ID どちらでも読み込めるように判定を強化
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
     const secretKey = credentials?.secretKey || process.env.FEDEX_SECRET_KEY || process.env.FEDEX_CLIENT_SECRET;
     const accountNumber = credentials?.accountNumber || process.env.FEDEX_ACCOUNT_NUMBER;
@@ -98,13 +97,19 @@ export async function calculateFedexRates(destination: string, weightKg: number,
     try {
         const token = await getFedexAccessToken(apiKey, secretKey, isSandbox);
 
-        const payload = {
-            accountNumber: {
-                value: accountNumber || ''
-            },
+        // [NEW] 日付フォーマットの作成 (YYYY-MM-DD)
+        const shipDate = new Date();
+        shipDate.setDate(shipDate.getDate() + 1); // 翌日発送
+        const formattedShipDate = shipDate.toISOString().split('T')[0];
+
+        // [UPDATED] rateInputVO のバリデーションエラーを防ぐために送達先・差出人住所の必須フィールドを補完
+        const payload: any = {
             requestedShipment: {
                 shipper: {
                     address: {
+                        streetLines: ['1-1-1 Chiyoda'],
+                        city: 'Chiyoda-ku',
+                        stateOrProvinceCode: 'TOKYO',
                         postalCode: '1000001',
                         countryCode: 'JP'
                     }
@@ -114,18 +119,27 @@ export async function calculateFedexRates(destination: string, weightKg: number,
                         countryCode: destination
                     }
                 },
+                shipTimestamp: formattedShipDate,
                 pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
                 rateRequestType: ['ACCOUNT'],
                 requestedPackageLineItems: [
                     {
+                        groupPackageCount: 1,
                         weight: {
                             units: 'KG',
-                            value: weightKg
+                            value: Number(weightKg.toFixed(2))
                         }
                     }
                 ]
             }
         };
+
+        // [NEW] accountNumber が存在する場合のみオブジェクトを注入
+        if (accountNumber && accountNumber.trim() !== '') {
+            payload.accountNumber = {
+                value: accountNumber.trim()
+            };
+        }
 
         const res = await fetch(`${fedexApiUrl}/rate/v1/rates/quotes`, {
             method: 'POST',
@@ -139,7 +153,20 @@ export async function calculateFedexRates(destination: string, weightKg: number,
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
-            return { rates: [], error: msg };
+            console.error('FedEx Quote API Validation Error Details:', JSON.stringify(errData));
+            
+            // Validation Error 発生時は概算フォールバックで試算を継続
+            const fallbackFee = Math.max(2500, Math.ceil(weightKg * 2500));
+            return {
+                rates: [
+                    {
+                        serviceName: 'FedEx International (概算試算)',
+                        total: fallbackFee,
+                        deliveryDays: '約2〜5日'
+                    }
+                ],
+                error: `FedEx: ${msg}`
+            };
         }
 
         const data = await res.json();
