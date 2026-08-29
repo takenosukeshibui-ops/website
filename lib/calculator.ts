@@ -95,10 +95,16 @@ export async function calculateFedexRates(destination: string, postalCode: strin
         };
     }
 
-    // [UPDATED] 実際の注文で誤った概算送料を返さないよう、郵便番号未設定の場合は明確にエラーを返す
     if (!postalCode || postalCode.trim() === '') {
+        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
-            rates: [],
+            rates: [
+                {
+                    serviceName: 'FedEx International Priority (概算)',
+                    total: fallbackFee,
+                    deliveryDays: '2-5 日'
+                }
+            ],
             error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
         };
     }
@@ -168,8 +174,15 @@ export async function calculateFedexRates(destination: string, postalCode: strin
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
             console.error('FedEx Quote API Error Details:', JSON.stringify(errData));
             
+            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
-                rates: [],
+                rates: [
+                    {
+                        serviceName: 'FedEx International Priority (概算)',
+                        total: fallbackFee,
+                        deliveryDays: '2-5 日'
+                    }
+                ],
                 error: `API通信エラー: ${msg}`
             };
         }
@@ -191,8 +204,15 @@ export async function calculateFedexRates(destination: string, postalCode: strin
         });
 
         if (rates.length === 0) {
+            const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
-                rates: [],
+                rates: [
+                    {
+                        serviceName: 'FedEx International Priority (概算)',
+                        total: fallbackFee,
+                        deliveryDays: '2-5 日'
+                    }
+                ],
                 error: '利用可能な配送プランが見つかりませんでした。'
             };
         }
@@ -200,8 +220,15 @@ export async function calculateFedexRates(destination: string, postalCode: strin
         return { rates, error: null };
     } catch (err: any) {
         console.error('FedEx Rate Error:', err);
+        const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
         return {
-            rates: [],
+            rates: [
+                {
+                    serviceName: 'FedEx International Priority (概算試算)',
+                    total: fallbackFee,
+                    deliveryDays: '2-5 日'
+                }
+            ],
             error: `API通信エラー (${err.message})`
         };
     }

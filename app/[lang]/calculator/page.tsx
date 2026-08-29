@@ -1,3 +1,4 @@
+// [UPDATED]
 "use client";
 
 import { useState } from "react";
@@ -19,7 +20,6 @@ export default function CalculatorPage() {
     setResult(null);
 
     try {
-      // [NEW] 郵便番号入力欄を削除したため、選択された国に応じたダミー郵便番号を自動補完
       const defaultPostalCodes: Record<string, string> = {
         'US': '90210', 'CA': 'K1P 5M7', 'GB': 'SW1A 1AA', 'AU': '2000',
         'JP': '8160000', 'FR': '75001', 'DE': '10115', 'IT': '00118',
@@ -81,8 +81,6 @@ export default function CalculatorPage() {
           </select>
         </div>
 
-        {/* [UPDATED] 郵便番号(Postal Code)の入力欄を削除 */}
-
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             商品重量 (Weight / kg)
@@ -126,7 +124,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
@@ -140,7 +137,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* FedExのプラン一覧表示 */}
           {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (
