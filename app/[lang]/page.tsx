@@ -1,5 +1,5 @@
 // app/[lang]/page.tsx
-// [UPDATED] 在庫リストページへのアクセスボタンを追加
+// [UPDATED] 取扱商品へのリンクボタン名称を更新
 import Link from "next/link";
 
 export default async function Home({
@@ -23,9 +23,9 @@ export default async function Home({
         <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
           Shipping Calculator
         </Link>
-        {/* [NEW] 当社在庫リストへのリンクボタン */}
+        {/* [UPDATED] 取扱商品へのボタン名称表記に変更 */}
         <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
-          📦 当社在庫リスト (Inventory)
+          📦 取扱商品 (Inventory)
         </Link>
       </div>
     </main>

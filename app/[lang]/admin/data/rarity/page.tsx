@@ -1,5 +1,5 @@
-// app/admin/data/rarity/page.tsx
-// [UPDATED] テーブル・フォームから「利益額」列を削除し表示レイアウトを調整
+// app/[lang]/admin/data/rarity/page.tsx
+// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -75,12 +75,10 @@ export default function RarityPage() {
 
     return (
         <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 pb-1">
+            {/* [UPDATED] 利益計算ダッシュボードボタンを削除し、戻るリンクのみに変更 */}
+            <div className="max-w-5xl mx-auto flex items-center justify-start gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
                 </Link>
             </div>
 

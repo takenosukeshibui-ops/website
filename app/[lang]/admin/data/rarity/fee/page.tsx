@@ -1,4 +1,5 @@
-// app/admin/data/fee/page.tsx
+// app/[lang]/admin/data/rarity/fee/page.tsx
+// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -56,13 +57,10 @@ export default function FeePage() {
 
     return (
         <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            {/* ナビゲーションバー [NEW] */}
-            <div className="max-w-md mx-auto flex items-center justify-between gap-2 pb-1">
+            {/* [UPDATED] 利益計算ダッシュボードボタンを削除 */}
+            <div className="max-w-md mx-auto flex items-center justify-start gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
                 </Link>
             </div>
 

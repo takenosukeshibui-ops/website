@@ -6269,7 +6269,7 @@ export async function POST(request: Request) {
 
 <file path="app/[lang]/inventory/page.tsx">
 // app/[lang]/inventory/page.tsx
-// [UPDATED] 原価列を削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせて更新
+// [UPDATED] 「利益額」列を削除し、テーブル構成を更新
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6330,7 +6330,6 @@ export default function InventoryPage() {
                                 <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
                                 <th className="p-3 font-semibold text-right">利益率</th>
-                                <th className="p-3 font-semibold text-right">利益額</th>
                                 <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
                                 <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
@@ -6338,21 +6337,18 @@ export default function InventoryPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    <td colSpan={7} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-400">
+                                    <td colSpan={7} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
                             ) : (
                                 filteredRarities.map((r, i) => {
                                     const buyPrice = Number(r.price || 0);
-                                    const taxVal = Number(r.tax || 0);
                                     const sellPriceVal = Number(r.sell_price || 0);
-                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
-                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
 
                                     return (
                                         <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
@@ -6377,15 +6373,11 @@ export default function InventoryPage() {
                                                     {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                 </span>
                                             </td>
-                                            {/* 6. 利益額 */}
-                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                                                ¥{profitAmount.toLocaleString()}
-                                            </td>
-                                            {/* 7. 重量 */}
+                                            {/* 6. 重量 */}
                                             <td className="p-3 text-right font-mono text-slate-600">
                                                 {r.weight || 0} g
                                             </td>
-                                            {/* 8. 在庫数 */}
+                                            {/* 7. 在庫数 */}
                                             <td className="p-3 text-right font-mono font-bold text-blue-700">
                                                 {r.stock ?? 0} 個
                                             </td>
@@ -6404,7 +6396,7 @@ export default function InventoryPage() {
 
 <file path="app/[lang]/admin/data/rarity/page.tsx">
 // app/admin/data/rarity/page.tsx
-// [UPDATED] 原価フィールドを削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせてフォームとテーブルを更新
+// [UPDATED] テーブル・フォームから「利益額」列を削除し表示レイアウトを調整
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6494,7 +6486,6 @@ export default function RarityPage() {
                     <h1 className="text-sm font-bold text-zinc-900">レアリティ・商品マスタ登録</h1>
                 </div>
 
-                {/* [UPDATED] 入力フォームの並び順を調整 */}
                 <form onSubmit={handleAdd} className="space-y-3 bg-zinc-50 p-3 rounded border border-zinc-200">
                     <h2 className="font-bold text-zinc-700 text-xs">＋ 新規登録</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
@@ -6551,7 +6542,7 @@ export default function RarityPage() {
                             onChange={e => setProfitRate(e.target.value)}
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        {/* 7. 重量 */}
+                        {/* 6. 重量 */}
                         <input
                             type="number"
                             placeholder="重量 (g)"
@@ -6559,7 +6550,7 @@ export default function RarityPage() {
                             onChange={e => setWeight(e.target.value)}
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        {/* 8. 初期在庫数 */}
+                        {/* 7. 初期在庫数 */}
                         <input
                             type="number"
                             placeholder="初期在庫数"
@@ -6584,7 +6575,6 @@ export default function RarityPage() {
                                 <th className="p-2 font-semibold text-right">仕入れ単価</th>
                                 <th className="p-2 font-semibold text-right">消費税率</th>
                                 <th className="p-2 font-semibold text-right">利益率</th>
-                                <th className="p-2 font-semibold text-right">利益額</th>
                                 <th className="p-2 font-semibold text-right">重量</th>
                                 <th className="p-2 font-semibold text-right">在庫数</th>
                                 <th className="p-2 font-semibold text-right">操作</th>
@@ -6593,19 +6583,16 @@ export default function RarityPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={9} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                    <td colSpan={8} className="p-4 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
                             ) : rarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
+                                    <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
                                 </tr>
                             ) : (
                                 rarities.map((r, i) => {
                                     const buyPrice = Number(r.price || 0);
-                                    const taxVal = Number(r.tax || 0);
                                     const sellPriceVal = Number(r.sell_price || 0);
-                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
-                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
 
                                     return (
                                         <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
@@ -6624,11 +6611,9 @@ export default function RarityPage() {
                                                     {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                 </span>
                                             </td>
-                                            {/* 6. 利益額 */}
-                                            <td className="p-2 text-right font-mono font-bold text-emerald-600">¥{profitAmount.toLocaleString()}</td>
-                                            {/* 7. 重量 */}
+                                            {/* 6. 重量 */}
                                             <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
-                                            {/* 8. 在庫数 */}
+                                            {/* 7. 在庫数 */}
                                             <td className="p-2 text-right font-mono font-bold text-blue-700">{r.stock || 0}個</td>
                                             <td className="p-2 text-right">
                                                 <button
@@ -6654,7 +6639,7 @@ export default function RarityPage() {
 
 <file path="app/[lang]/admin/data/page.tsx">
 // app/admin/data/page.tsx
-// [UPDATED] 原価列を削除し、「商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数」の並び順に変更
+// [UPDATED] 「利益額」列を削除し、テーブルヘッダー・ボディおよび colSpan を調整
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6739,7 +6724,7 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 利益額, 重量, 在庫数 */}
+                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 重量, 在庫数 */}
                         <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
@@ -6755,8 +6740,6 @@ export default function AdminDataPage() {
                                         <th className="p-2 font-semibold text-right">仕入れ単価</th>
                                         <th className="p-2 font-semibold text-right">消費税率</th>
                                         <th className="p-2 font-semibold text-right">利益率</th>
-                                        {/* [NEW] 利益額カラム */}
-                                        <th className="p-2 font-semibold text-right">利益額</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
@@ -6765,17 +6748,12 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => {
                                             const buyPrice = Number(r.price || 0);
-                                            const tax = Number(r.tax || 0);
                                             const sellPrice = Number(r.sell_price || 0);
-                                            // 実質原価（仕入れ単価 - 消費税還付分）
-                                            const effectiveCost = buyPrice - Math.floor(buyPrice * (tax / 100));
-                                            // 利益額 = 販売価格 - 実質原価（販売価格未設定時は0）
-                                            const profitAmount = sellPrice > 0 ? (sellPrice - effectiveCost) : 0;
 
                                             return (
                                                 <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
@@ -6794,14 +6772,10 @@ export default function AdminDataPage() {
                                                             {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                         </span>
                                                     </td>
-                                                    {/* 6. 利益額 [NEW] */}
-                                                    <td className="p-2 text-right font-mono font-bold text-emerald-600">
-                                                        ¥{profitAmount.toLocaleString()}
-                                                    </td>
-                                                    {/* 7. 重量 */}
+                                                    {/* 6. 重量 */}
                                                     <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
 
-                                                    {/* 8. 在庫数 */}
+                                                    {/* 7. 在庫数 */}
                                                     <td className="p-1.5 text-center">
                                                         <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
                                                             <button
