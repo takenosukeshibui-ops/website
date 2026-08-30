@@ -47,10 +47,13 @@ export default function AdminDataPage() {
 
     return (
         <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
+            {/* 共通ナビゲーションバー [UPDATED] ダッシュボードへの統一 */}
             <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
-                    ← 管理画面トップ
+                    ← 管理者ダッシュボードへ戻る
+                </Link>
+                <Link href="/admin/inventory" className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition-colors">
+                    📦 当社在庫管理
                 </Link>
                 <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
                     📊 利益計算ダッシュボード
@@ -120,7 +123,6 @@ export default function AdminDataPage() {
                         <div className="border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>
-                                {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
                                 <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
                                     ＋ 編集・個別追加
                                 </Link>

@@ -24,7 +24,7 @@ export default async function AdminPage() {
         redirect('/dashboard')
     }
 
-    // [UPDATED] 担当者名(full_name), 電話番号(phone), 会社名(company_name)等を含む全必要なプロファイルカラムを取得
+    // 担当者名(full_name), 電話番号(phone), 会社名(company_name)等を含む全必要なプロファイルカラムを取得
     const { data: orders, error } = await supabase
         .from('orders')
         .select(`
@@ -72,7 +72,7 @@ export default async function AdminPage() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* 新機能用ナビゲーションヘッダー */}
+            {/* [UPDATED] 管理者ナビゲーションヘッダー（一元化ハブ） */}
             <div className="bg-slate-900 text-white p-4 shadow-md">
                 <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -80,7 +80,15 @@ export default async function AdminPage() {
                         <h1 className="text-base font-bold">管理者ダッシュボード</h1>
                     </div>
                     
+                    {/* [UPDATED] 管理者用アクセスボタン群の一元化 */}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <Link 
+                            href="/admin/inventory" 
+                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            📦 当社在庫管理
+                        </Link>
+
                         <Link 
                             href="/admin/profit" 
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"

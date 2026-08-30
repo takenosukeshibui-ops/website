@@ -76,7 +76,7 @@ export default function AdminProfitPage() {
 
     const [productName, setProductName] = useState(''); 
     const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); 
-    const [profitRate, setProfitRate] = useState('15'); // 仕入れ利益率 / 売上利益率 (%)
+    const [profitRate, setProfitRate] = useState('15'); 
     const [feeRate, setFeeRate] = useState('3.6'); 
     const [unitPrice, setUnitPrice] = useState(''); 
     const [taxRate, setTaxRate] = useState(''); 
@@ -109,12 +109,12 @@ export default function AdminProfitPage() {
                 if (data && data.rates && data.rates.JPY) {
                     setExchangeRate(Number(data.rates.JPY));
                 } else {
-                    setExchangeRate(150); // フォールバック
+                    setExchangeRate(150); 
                 }
             })
             .catch(err => {
                 console.error("為替レート取得エラー:", err);
-                setExchangeRate(150); // エラー時フォールバック
+                setExchangeRate(150); 
             })
             .finally(() => setRateLoading(false));
     }, []);
@@ -193,9 +193,9 @@ export default function AdminProfitPage() {
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
     
     // 消費税還付計算ロジック
-    const subtotalPrice = parsedPrice * parsedQty; // 仕入れ金額 (控除前)
-    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); // 還付消費税額
-    const effectiveCost = subtotalPrice - refundTaxAmount; // 原価 (消費税控除後)
+    const subtotalPrice = parsedPrice * parsedQty; 
+    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); 
+    const effectiveCost = subtotalPrice - refundTaxAmount; 
 
     const parsedWeight = parseFloat(weightKg) || 0;
 
@@ -248,16 +248,15 @@ export default function AdminProfitPage() {
         const inputRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
 
-        let totalAmount = 0; // 販売価格
-        let profit = 0;      // 想定利益額
-        let costProfitRateDisp = '0.0';  // 仕入れ利益率(%) [UPDATED]
-        let salesProfitRateDisp = '0.0'; // 売上利益率(%)
+        let totalAmount = 0; 
+        let profit = 0;      
+        let costProfitRateDisp = '0.0';  
+        let salesProfitRateDisp = '0.0'; 
 
         if (profitType === 'cost') {
             const denominator = 1 - feeRatio;
             if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, costProfitAmount: 0, paymentFeeAmount: 0, profit: 0, costProfitRateDisp: '0.0', salesProfitRateDisp: '0.0' };
 
-            // 仕入れ金額利益額 = 仕入れ金額 (subtotalPrice) × 仕入れ利益率 [UPDATED]
             const costProfitAmount = Math.round(subtotalPrice * inputRate);
             totalAmount = Math.round((effectiveCost + costProfitAmount + shippingFee) / denominator);
             profit = costProfitAmount;
@@ -275,9 +274,8 @@ export default function AdminProfitPage() {
             costProfitRateDisp = subtotalPrice > 0 ? ((profit / subtotalPrice) * 100).toFixed(1) : '0.0';
         }
 
-        const productSellPrice = totalAmount - shippingFee; // 商品価格
+        const productSellPrice = totalAmount - shippingFee; 
         const paymentFeeAmount = Math.round(totalAmount * feeRatio);
-        // 表示用 仕入れ金額利益額 = 仕入れ金額 (subtotalPrice) × 利益率 [UPDATED]
         const costProfitAmount = profitType === 'cost' 
             ? Math.round(subtotalPrice * inputRate) 
             : profit;
@@ -300,12 +298,10 @@ export default function AdminProfitPage() {
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
+            {/* [UPDATED] ナビゲーションバーの統一化 */}
             <div className="flex flex-wrap gap-2 pb-3 border-b border-slate-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold transition-colors">
-                    ← 管理画面トップ
-                </Link>
-                <Link href="/admin/data" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors">
-                    ⚙️ マスタ管理ハブ
+                    ← 管理者ダッシュボードへ戻る
                 </Link>
                 <Link href="/calculator" target="_blank" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors ml-auto">
                     ↗ 送料シミュレーター確認
@@ -351,12 +347,11 @@ export default function AdminProfitPage() {
                         </select>
                     </div>
 
-                    {/* [UPDATED] 「原価利益率」から「仕入れ利益率」へ変更 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <div className="flex items-center justify-between mb-1">
                                 <label className="block text-[11px] font-medium text-slate-600">
-                                    {profitType === 'cost' ? '仕入れ利益率' : '売上利益率'} {/* [UPDATED] */}
+                                    {profitType === 'cost' ? '仕入れ利益率' : '売上利益率'}
                                 </label>
                                 <div className="inline-flex rounded border border-slate-300 p-0.5 bg-slate-100">
                                     <button
@@ -550,7 +545,6 @@ export default function AdminProfitPage() {
                                     </div>
                                 </div>
 
-                                {/* [UPDATED] 「仕入れ金額利益額」への名称変更 */}
                                 {openDetails['jp'] && (
                                     <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px] animate-fade-in">
                                         <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
@@ -565,7 +559,7 @@ export default function AdminProfitPage() {
                                             <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()} {formatUsd(refundTaxAmount)}</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600 font-medium">
-                                            <span>・仕入れ金額利益額 (仕入れ金額比 {jpCalculation.costProfitRateDisp}%):</span> {/* [UPDATED] */}
+                                            <span>・仕入れ金額利益額 (仕入れ金額比 {jpCalculation.costProfitRateDisp}%):</span>
                                             <span className="font-mono text-emerald-700">¥{jpCalculation.costProfitAmount.toLocaleString()} {formatUsd(jpCalculation.costProfitAmount)}</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600">
@@ -575,7 +569,7 @@ export default function AdminProfitPage() {
                                     </div>
                                 )}
 
-                                {/* 想定利益額 [UPDATED] 表記変更: 仕入れ金額比 */}
+                                {/* 想定利益額 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-emerald-900">
                                         想定利益額 (売上比: {jpCalculation.salesProfitRateDisp}% / 仕入れ金額比: {jpCalculation.costProfitRateDisp}%)
@@ -629,7 +623,6 @@ export default function AdminProfitPage() {
                                         </div>
                                     </div>
 
-                                    {/* [UPDATED] 「仕入れ金額利益額」への名称変更 */}
                                     {openDetails[cardKey] && (
                                         <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px] animate-fade-in">
                                             <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
@@ -644,7 +637,7 @@ export default function AdminProfitPage() {
                                                 <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()} {formatUsd(refundTaxAmount)}</span>
                                             </div>
                                             <div className="flex justify-between text-slate-600 font-medium">
-                                                <span>・仕入れ金額利益額 (仕入れ金額比 {calc.costProfitRateDisp}%):</span> {/* [UPDATED] */}
+                                                <span>・仕入れ金額利益額 (仕入れ金額比 {calc.costProfitRateDisp}%):</span>
                                                 <span className="font-mono text-emerald-700">¥{calc.costProfitAmount.toLocaleString()} {formatUsd(calc.costProfitAmount)}</span>
                                             </div>
                                             <div className="flex justify-between text-slate-600">
@@ -654,7 +647,7 @@ export default function AdminProfitPage() {
                                         </div>
                                     )}
 
-                                    {/* 想定利益額 [UPDATED] 表記変更: 仕入れ金額比 */}
+                                    {/* 想定利益額 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-emerald-900">
                                             想定利益額 (売上比: {calc.salesProfitRateDisp}% / 仕入れ金額比: {calc.costProfitRateDisp}%)
