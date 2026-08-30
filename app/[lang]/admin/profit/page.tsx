@@ -68,18 +68,21 @@ const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: 
 };
 
 export default function AdminProfitPage() {
-    // レアリティ（商品）マスタ一覧用 State [NEW]
+    // [NEW] マスタ登録データ（商品・手数料）用 State
     const [masterRarities, setMasterRarities] = useState<any[]>([]);
+    const [masterFees, setMasterFees] = useState<any[]>([]);
+    
     const [selectedRarityId, setSelectedRarityId] = useState<string>('');
+    const [selectedFeeId, setSelectedFeeId] = useState<string>(''); // [NEW] 手数料プルダウン用
 
-    // 計算用フォーム State [UPDATED]
-    const [productName, setProductName] = useState(''); // [NEW] 商品名
+    // [UPDATED] 計算用フォーム State (未選択時は空文字にして手動入力可能に)
+    const [productName, setProductName] = useState(''); 
     const [profitRate, setProfitRate] = useState('15');
     const [feeRate, setFeeRate] = useState('3.6');
-    const [unitPrice, setUnitPrice] = useState('3000');
-    const [taxRate, setTaxRate] = useState('10'); // [NEW] 消費税率(%)
+    const [unitPrice, setUnitPrice] = useState(''); // [UPDATED] デフォルト空文字
+    const [taxRate, setTaxRate] = useState(''); // [UPDATED] デフォルト空文字
     const [quantity, setQuantity] = useState('1');
-    const [weightKg, setWeightKg] = useState('0.5');
+    const [weightKg, setWeightKg] = useState(''); // [UPDATED] デフォルト空文字
     const [destination, setDestination] = useState('US');
 
     const [apiLoading, setApiLoading] = useState(false);
@@ -87,31 +90,51 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
-    // [NEW] マスタデータ（レアリティ一覧）の取得
+    // [NEW] マスタデータ（商品一覧・手数料一覧）の取得
     useEffect(() => {
         fetch('/api/data')
             .then(res => res.json())
             .then(data => {
                 setMasterRarities(data?.rarities || []);
+                setMasterFees(data?.fees || []); // [NEW] 手数料マスタの保持
             })
             .catch(err => console.error("マスタデータ取得エラー:", err));
     }, []);
 
-    // [NEW] レアリティ（商品）選択時にフォーム値を自動入力
+    // [UPDATED] マスタ商品選択処理 (未選択時は空にして手動入力)
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
 
-        if (!id) return;
+        if (!id) {
+            // [NEW] 未選択の場合は空にして自由に入力可能にする
+            setProductName('');
+            setUnitPrice('');
+            setTaxRate('');
+            setWeightKg('');
+            return;
+        }
 
         const target = masterRarities.find(r => String(r.id) === String(id));
         if (target) {
             setProductName(target.name || '');
-            setUnitPrice(String(target.price ?? '0'));
-            setTaxRate(String(target.tax ?? '10'));
-            // 重量(g)をkg単位に換算 (/1000)
-            const kgVal = (Number(target.weight || 0) / 1000).toFixed(3);
-            setWeightKg(String(parseFloat(kgVal)));
+            setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
+            setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
+            const kgVal = target.weight ? (Number(target.weight) / 1000).toFixed(3) : '';
+            setWeightKg(kgVal ? String(parseFloat(kgVal)) : '');
+        }
+    };
+
+    // [NEW] マスタ手数料選択処理
+    const handleSelectFee = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value;
+        setSelectedFeeId(id);
+
+        if (!id) return;
+
+        const target = masterFees.find(f => String(f.id) === String(id));
+        if (target && target.rate !== undefined) {
+            setFeeRate(String(target.rate));
         }
     };
 
@@ -119,10 +142,13 @@ export default function AdminProfitPage() {
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
     
-    // [UPDATED] 消費税を考慮した仕入れ原価小計・消費税額・原価合計
+    // [UPDATED] 消費税還付計算ロジック
+    // 仕入れ小計 = 単価 × 数量
     const subtotalPrice = parsedPrice * parsedQty;
-    const taxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
-    const totalPrice = subtotalPrice + taxAmount; // 税込仕入れ原価合計
+    // 還付される消費税額
+    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
+    // 実質仕入れ原価 (仕入れ金額 - 消費税還付額)
+    const effectiveCost = subtotalPrice - refundTaxAmount; // [NEW] 消費税還付分を控除
 
     const parsedWeight = parseFloat(weightKg) || 0;
 
@@ -177,8 +203,8 @@ export default function AdminProfitPage() {
 
         if (denominator <= 0) return { sellPrice: 0, profit: 0 };
 
-        // 税込仕入れ原価 (totalPrice) + 送料 を基準に計算
-        const sellPrice = (totalPrice + shippingFee) / denominator;
+        // [UPDATED] 実質仕入れ原価 (effectiveCost) + 送料 を基準に推奨販売価格と利益を算出
+        const sellPrice = (effectiveCost + shippingFee) / denominator;
         const profit = sellPrice * targetRate;
 
         return {
@@ -188,9 +214,9 @@ export default function AdminProfitPage() {
     };
 
     const jpCalculation = useMemo(() => {
-        if (totalPrice <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
+        if (effectiveCost <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
         return calculateProfitRow(shippingFeeJp);
-    }, [totalPrice, parsedWeight, shippingFeeJp, profitRate, feeRate]);
+    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate]);
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
@@ -217,17 +243,17 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
-                    {/* [NEW] マスタ登録商品からの自動セット機能 */}
+                    {/* マスタ登録商品からの自動セット機能 */}
                     <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
                         <label className="block text-[11px] font-bold text-blue-900">
-                            📦 マスタ登録商品からセット
+                            📦 マスタ登録商品からセット (未選択で自由入力)
                         </label>
                         <select
                             value={selectedRarityId}
                             onChange={handleSelectRarity}
                             className="w-full h-8 px-2 rounded border border-blue-300 text-slate-900 font-medium bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
-                            <option value="">-- マスタ商品を選択して自動入力 --</option>
+                            <option value="">-- 手動入力（またはマスタ商品を選択） --</option>
                             {masterRarities.map(r => (
                                 <option key={r.id} value={r.id}>
                                     {r.name} (単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
@@ -247,19 +273,39 @@ export default function AdminProfitPage() {
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
+
+                        {/* [UPDATED] 想定決済手数料マスタからのプルダウン選択 */}
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">想定決済手数料率 (%)</label>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={feeRate}
-                                onChange={e => setFeeRate(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">想定決済手数料</label>
+                            <div className="flex gap-1">
+                                <select
+                                    value={selectedFeeId}
+                                    onChange={handleSelectFee}
+                                    className="w-1/2 h-9 px-1 rounded border border-slate-300 text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-[10px]"
+                                >
+                                    <option value="">(マスタ選択)</option>
+                                    {masterFees.map(f => (
+                                        <option key={f.id} value={f.id}>
+                                            {f.name} ({f.rate}%)
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="w-1/2 relative flex items-center">
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={feeRate}
+                                        onChange={e => setFeeRate(e.target.value)}
+                                        placeholder="率"
+                                        className="w-full h-9 pr-4 text-right rounded border border-slate-300 font-bold bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <span className="absolute right-1 text-[10px] text-slate-400 font-bold">%</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* [NEW] 商品名入力項目 */}
+                    {/* 商品名入力項目 */}
                     <div>
                         <label className="block text-[11px] font-medium text-slate-600 mb-1">商品名 (任意)</label>
                         <input
@@ -271,22 +317,24 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* [UPDATED] 単価・消費税率・数量 */}
+                    {/* 単価・消費税率・数量 */}
                     <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価 (円)</label>
                             <input
                                 type="number"
+                                placeholder="例: 3000"
                                 value={unitPrice}
                                 onChange={e => setUnitPrice(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税 (%)</label> {/* [NEW] */}
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税率 (%)</label>
                             <input
                                 type="number"
                                 step="0.1"
+                                placeholder="例: 10"
                                 value={taxRate}
                                 onChange={e => setTaxRate(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -313,6 +361,7 @@ export default function AdminProfitPage() {
                             <input
                                 type="number"
                                 step="0.001"
+                                placeholder="例: 0.5"
                                 value={weightKg}
                                 onChange={e => setWeightKg(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -320,19 +369,19 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* [UPDATED] 税抜き・消費税額・税込合計の表示 */}
+                    {/* [UPDATED] 消費税還付計算に基づく表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
-                            <span>仕入れ小計 (税抜):</span>
+                            <span>仕入れ金額:</span>
                             <span className="font-mono">¥{subtotalPrice.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between items-center text-slate-500 text-[11px]">
-                            <span>仕入れ消費税額 ({parsedTaxRate}%):</span>
-                            <span className="font-mono">¥{taxAmount.toLocaleString()}</span>
+                        <div className="flex justify-between items-center text-emerald-600 text-[11px] font-medium">
+                            <span>還付消費税額 (控除分):</span>
+                            <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center pt-1 border-t border-slate-200">
-                            <span className="text-slate-700 font-bold">仕入れ原価合計 (税込):</span>
-                            <span className="text-base font-bold font-mono text-slate-900">¥{totalPrice.toLocaleString()}</span>
+                            <span className="text-slate-700 font-bold">実質仕入れ原価:</span>
+                            <span className="text-base font-bold font-mono text-slate-900">¥{effectiveCost.toLocaleString()}</span>
                         </div>
                     </div>
                 </div>

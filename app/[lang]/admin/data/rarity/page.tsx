@@ -1,69 +1,63 @@
-// app/admin/data/rarity/page.tsx
+// app/admin/data/rarity/fee/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export default function RarityPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
+export default function FeePage() {
+    const [fees, setFees] = useState<any[]>([]);
     const [name, setName] = useState('');
-    const [price, setPrice] = useState('');
-    const [tax, setTax] = useState(''); 
-    const [weight, setWeight] = useState('');
+    const [rate, setRate] = useState('');
     const [loading, setLoading] = useState(true);
 
-    const fetchRarities = () => {
+    const fetchFees = () => {
         setLoading(true);
         fetch('/api/data')
             .then(res => res.json())
             .then(data => {
-                setRarities(data?.rarities || []);
+                setFees(data?.fees || []);
             })
             .catch(err => console.error("データ取得エラー:", err))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        fetchRarities();
+        fetchFees();
     }, []);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || !price) return;
+        if (!name || !rate) return;
 
         await fetch('/api/data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                type: 'rarity',
+                type: 'fee',
                 name,
-                price: parseFloat(price),
-                tax: parseFloat(tax || '0'), 
-                weight: parseFloat(weight || '0'),
+                rate: parseFloat(rate),
             }),
         });
 
         setName('');
-        setPrice('');
-        setTax(''); 
-        setWeight('');
-        fetchRarities();
+        setRate('');
+        fetchFees();
     };
 
-    const handleDelete = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+    const handleDelete = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
 
-        await fetch(`/api/data?type=rarity&id=${id}`, {
+        await fetch(`/api/data?type=fee&id=${id}`, {
             method: 'DELETE',
         });
 
-        fetchRarities();
+        fetchFees();
     };
 
     return (
-        <main className="min-h-screen bg-zinc-50 p-4 md:p-8 text-xs space-y-4">
+        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
             {/* ナビゲーションバー */}
-            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-2">
+            <div className="max-w-md mx-auto flex items-center justify-between gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
                 </Link>
@@ -72,81 +66,62 @@ export default function RarityPage() {
                 </Link>
             </div>
 
-            <div className="mx-auto max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold text-zinc-900">レアリティ・商品マスタ管理</h1>
+            <div className="mx-auto max-w-md bg-white p-3 rounded-lg shadow-2xs border border-zinc-200">
+                <div className="flex justify-between items-center mb-2.5">
+                    <h1 className="text-xs font-bold text-zinc-900">手数料管理</h1>
                 </div>
 
-                {/* [UPDATED] 「名前」から「商品名」へ表記変更 */}
-                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
+                <form onSubmit={handleAdd} className="flex gap-1.5 mb-3 items-center">
                     <input
                         type="text"
-                        placeholder="商品名 (例: Rare/カード名)" // [UPDATED]
+                        placeholder="名称 (例: Paypal)"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="h-8 px-2 w-[140px] rounded border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         required
                     />
                     <input
                         type="number"
-                        placeholder="単価 (円)"
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        step="0.01"
+                        placeholder="手数料率(%)"
+                        value={rate}
+                        onChange={e => setRate(e.target.value)}
+                        className="h-8 px-2 w-[100px] rounded border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                         required
                     />
-                    <input
-                        type="number"
-                        step="0.1"
-                        placeholder="消費税 (%)"
-                        value={tax}
-                        onChange={e => setTax(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                        type="number"
-                        placeholder="重量 (g)"
-                        value={weight}
-                        onChange={e => setWeight(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <button type="submit" className="h-10 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-colors">
+                    <button type="submit" className="h-8 px-3 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 ml-auto transition-colors">
                         追加
                     </button>
                 </form>
 
-                <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-zinc-900 text-xs">
+                <div className="border border-zinc-200 rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-zinc-900">
                         <thead>
                             <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-3 font-semibold">商品名</th> {/* [UPDATED] */}
-                                <th className="p-3 font-semibold text-right">単価</th>
-                                <th className="p-3 font-semibold text-right">消費税</th>
-                                <th className="p-3 font-semibold text-right">重量 (g)</th>
-                                <th className="p-3 font-semibold text-right">操作</th>
+                                <th className="p-1.5 font-semibold">名称</th>
+                                <th className="p-1.5 font-semibold text-right">手数料率</th>
+                                <th className="p-1.5 font-semibold text-right">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="p-6 text-center text-zinc-400">読み込み中...</td>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
-                            ) : rarities.length === 0 ? (
+                            ) : fees.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録された商品データはありません</td>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
                                 </tr>
                             ) : (
-                                rarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-3 font-medium">{r.name}</td>
-                                        <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td>
-                                        <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
-                                        <td className="p-3 text-right">
+                                fees.map((f, i) => (
+                                    <tr key={f.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                        <td className="p-1.5 font-medium">{f.name}</td>
+                                        <td className="p-1.5 text-right font-mono">{f.rate}%</td>
+                                        <td className="p-1.5 text-right">
                                             <button
                                                 type="button"
-                                                onClick={() => handleDelete(r.id, r.name)}
-                                                className="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-[11px] font-bold transition-colors"
+                                                onClick={() => handleDelete(f.id, f.name)}
+                                                className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
                                             >
                                                 削除
                                             </button>

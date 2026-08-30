@@ -47,7 +47,7 @@ export default function AdminDataPage() {
 
     return (
         <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* 共通ナビゲーションバー */}
+            {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
             <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理画面トップ
@@ -58,7 +58,7 @@ export default function AdminDataPage() {
                 <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
                     ＋ レアリティ新規作成
                 </Link>
-                <Link href="/admin/data/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
+                <Link href="/admin/data/rarity/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
                     ＋ 手数料新規作成
                 </Link>
             </div>
@@ -82,7 +82,7 @@ export default function AdminDataPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
                                     <tr>
-                                        <th className="p-2 font-semibold">商品名</th> {/* [UPDATED] */}
+                                        <th className="p-2 font-semibold">商品名</th>
                                         <th className="p-2 font-semibold text-right">単価</th>
                                         <th className="p-2 font-semibold text-right">消費税</th>
                                         <th className="p-2 font-semibold text-right">重量 (g)</th>
@@ -120,7 +120,8 @@ export default function AdminDataPage() {
                         <div className="border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>
-                                <Link href="/admin/data/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
+                                <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
                                     ＋ 編集・個別追加
                                 </Link>
                             </div>
