@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 
-// ▼ ログイン処理
+// ▼ ログイン処理 [UPDATED]
 export async function login(prevState: any, formData: FormData) {
     const email = formData.get('email') as string
     const password = formData.get('password') as string
@@ -56,11 +56,13 @@ export async function resetPassword(prevState: any, formData: FormData) {
     const email = formData.get('email') as string
     const supabase = await createClient()
     
+    // 現在のサイトのURL（ドメイン）を取得
     const headersList = await headers()
     const origin = headersList.get('origin') || 'http://localhost:3000'
 
+    // リセット用リンク付きのメールを送信
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/update-password`,
+        redirectTo: `${origin}/update-password`, // メール内のリンク先
     })
 
     if (error) {
@@ -75,6 +77,7 @@ export async function updatePassword(prevState: any, formData: FormData) {
     const password = formData.get('password') as string
     const supabase = await createClient()
 
+    // パスワードを更新
     const { error } = await supabase.auth.updateUser({
         password: password
     })
@@ -127,7 +130,9 @@ export async function changePassword(prevState: any, formData: FormData) {
 
 // ▼ ログイン中ユーザーのメールアドレス変更処理 [UPDATED]
 export async function changeEmail(prevState: any, formData: FormData) {
-    const email = formData.get('email') as string
+    // [UPDATED] 入力されたメールアドレスの前後の空白を自動的に削除してエラーを防ぐ
+    const rawEmail = formData.get('email') as string
+    const email = rawEmail ? rawEmail.trim() : ''
 
     if (!email) {
         return { error: 'メールアドレスを入力してください。' }
@@ -146,9 +151,8 @@ export async function changeEmail(prevState: any, formData: FormData) {
 
     if (error) {
         console.error('Email update error:', error.message)
-        // [UPDATED] 実際のSupabaseエラーメッセージを返却
         return { error: `変更に失敗しました: ${error.message}` }
     }
 
-    return { success: true, message: '確認メールを送信しました。受信トレイのリンクをクリックして変更を完了してください。' }
+    return { success: true, message: '確認メールを送信しました。新しいメールアドレスで確認を行ってください。' }
 }
