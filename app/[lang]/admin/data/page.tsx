@@ -1,5 +1,5 @@
 // app/admin/data/page.tsx
-// [UPDATED] レアリティテーブルに原価(cost_price)および選択された利益率タイプ(profit_type)を表示
+// [UPDATED] 原価列を削除し、「商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数」の並び順に変更
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -84,7 +84,7 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* レアリティ・商品マスタ管理 */}
+                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 利益額, 重量, 在庫数 */}
                         <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
@@ -96,12 +96,12 @@ export default function AdminDataPage() {
                                 <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
                                     <tr>
                                         <th className="p-2 font-semibold">商品名</th>
-                                        <th className="p-2 font-semibold text-right">仕入れ単価</th>
-                                        {/* [NEW] 原価・利益率（タイプ付き） */}
-                                        <th className="p-2 font-semibold text-right">原価</th>
-                                        <th className="p-2 font-semibold text-right">利益率</th>
                                         <th className="p-2 font-semibold text-right">販売価格</th>
-                                        <th className="p-2 font-semibold text-right">消費税</th>
+                                        <th className="p-2 font-semibold text-right">仕入れ単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税率</th>
+                                        <th className="p-2 font-semibold text-right">利益率</th>
+                                        {/* [NEW] 利益額カラム */}
+                                        <th className="p-2 font-semibold text-right">利益額</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
@@ -113,70 +113,86 @@ export default function AdminDataPage() {
                                             <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
-                                        rarities.map((r) => (
-                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{r.name}</td>
-                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                {/* [NEW] 原価表示 */}
-                                                <td className="p-2 text-right font-mono text-zinc-600">
-                                                    ¥{Number(r.cost_price ?? r.price).toLocaleString()}
-                                                </td>
-                                                {/* [NEW] 利益率（仕入れ単価比 or 売上比バッジ付き） */}
-                                                <td className="p-2 text-right font-mono text-emerald-700">
-                                                    {r.profit_rate || 0}%
-                                                    <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-600 font-normal">
-                                                        {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
-                                                    </span>
-                                                </td>
-                                                <td className="p-2 text-right font-mono text-blue-700">¥{Number(r.sell_price || 0).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
-                                                <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+                                        rarities.map((r) => {
+                                            const buyPrice = Number(r.price || 0);
+                                            const tax = Number(r.tax || 0);
+                                            const sellPrice = Number(r.sell_price || 0);
+                                            // 実質原価（仕入れ単価 - 消費税還付分）
+                                            const effectiveCost = buyPrice - Math.floor(buyPrice * (tax / 100));
+                                            // 利益額 = 販売価格 - 実質原価（販売価格未設定時は0）
+                                            const profitAmount = sellPrice > 0 ? (sellPrice - effectiveCost) : 0;
 
-                                                <td className="p-1.5 text-center">
-                                                    <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                            return (
+                                                <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
+                                                    {/* 1. 商品名 */}
+                                                    <td className="p-2 font-medium">{r.name}</td>
+                                                    {/* 2. 販売価格 */}
+                                                    <td className="p-2 text-right font-mono text-blue-700">¥{sellPrice.toLocaleString()}</td>
+                                                    {/* 3. 仕入れ単価 */}
+                                                    <td className="p-2 text-right font-mono">¥{buyPrice.toLocaleString()}</td>
+                                                    {/* 4. 消費税率 */}
+                                                    <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                                    {/* 5. 利益率 */}
+                                                    <td className="p-2 text-right font-mono text-emerald-700">
+                                                        {r.profit_rate || 0}%
+                                                        <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-600 font-normal">
+                                                            {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                        </span>
+                                                    </td>
+                                                    {/* 6. 利益額 [NEW] */}
+                                                    <td className="p-2 text-right font-mono font-bold text-emerald-600">
+                                                        ¥{profitAmount.toLocaleString()}
+                                                    </td>
+                                                    {/* 7. 重量 */}
+                                                    <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+
+                                                    {/* 8. 在庫数 */}
+                                                    <td className="p-1.5 text-center">
+                                                        <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
+                                                                className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                                title="1減らす"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                value={r.stock ?? 0}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value, 10);
+                                                                    setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
+                                                                }}
+                                                                onBlur={(e) => {
+                                                                    const val = parseInt(e.target.value, 10);
+                                                                    handleUpdateStock(r.id, isNaN(val) ? 0 : val);
+                                                                }}
+                                                                className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
+                                                                className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                                title="1増やす"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="p-2 text-right">
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
-                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                                            title="1減らす"
+                                                            onClick={() => handleDeleteRarity(r.id, r.name)}
+                                                            className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
                                                         >
-                                                            -
+                                                            削除
                                                         </button>
-                                                        <input
-                                                            type="number"
-                                                            value={r.stock ?? 0}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value, 10);
-                                                                setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
-                                                            }}
-                                                            onBlur={(e) => {
-                                                                const val = parseInt(e.target.value, 10);
-                                                                handleUpdateStock(r.id, isNaN(val) ? 0 : val);
-                                                            }}
-                                                            className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
-                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                                            title="1増やす"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    </div>
-                                                </td>
-
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>

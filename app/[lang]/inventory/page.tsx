@@ -1,5 +1,5 @@
 // app/[lang]/inventory/page.tsx
-// [UPDATED] 「原価 (cost_price)」カラムを追加
+// [UPDATED] 原価列を削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせて更新
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,7 +26,7 @@ export default function InventoryPage() {
     );
 
     return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
+        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-6xl mx-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
                     ← ホームへ戻る
@@ -56,12 +56,11 @@ export default function InventoryPage() {
                         <thead>
                             <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
                                 <th className="p-3 font-semibold">商品名</th>
-                                <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
-                                {/* [NEW] 原価表示 */}
-                                <th className="p-3 font-semibold text-right">原価</th>
                                 <th className="p-3 font-semibold text-right">販売価格</th>
-                                <th className="p-3 font-semibold text-right">利益率</th>
+                                <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
+                                <th className="p-3 font-semibold text-right">利益率</th>
+                                <th className="p-3 font-semibold text-right">利益額</th>
                                 <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
                                 <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
@@ -78,36 +77,51 @@ export default function InventoryPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredRarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
-                                        <td className="p-3 font-medium text-slate-800">{r.name}</td>
-                                        <td className="p-3 text-right font-mono font-bold text-slate-900">
-                                            ¥{Number(r.price).toLocaleString()}
-                                        </td>
-                                        {/* [NEW] 原価 */}
-                                        <td className="p-3 text-right font-mono text-slate-600">
-                                            ¥{Number(r.cost_price ?? r.price).toLocaleString()}
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                            ¥{Number(r.sell_price || 0).toLocaleString()}
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                                            {r.profit_rate || 0}%
-                                            <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
-                                                {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 text-right font-mono text-slate-600">
-                                            {r.tax ?? 0}%
-                                        </td>
-                                        <td className="p-3 text-right font-mono text-slate-600">
-                                            {r.weight || 0} g
-                                        </td>
-                                        <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                            {r.stock ?? 0} 個
-                                        </td>
-                                    </tr>
-                                ))
+                                filteredRarities.map((r, i) => {
+                                    const buyPrice = Number(r.price || 0);
+                                    const taxVal = Number(r.tax || 0);
+                                    const sellPriceVal = Number(r.sell_price || 0);
+                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
+                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
+
+                                    return (
+                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
+                                            {/* 1. 商品名 */}
+                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                            {/* 2. 販売価格 */}
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                ¥{sellPriceVal.toLocaleString()}
+                                            </td>
+                                            {/* 3. 仕入れ単価 */}
+                                            <td className="p-3 text-right font-mono font-bold text-slate-900">
+                                                ¥{buyPrice.toLocaleString()}
+                                            </td>
+                                            {/* 4. 消費税率 */}
+                                            <td className="p-3 text-right font-mono text-slate-600">
+                                                {r.tax ?? 0}%
+                                            </td>
+                                            {/* 5. 利益率 */}
+                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                                                {r.profit_rate || 0}%
+                                                <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
+                                                    {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                </span>
+                                            </td>
+                                            {/* 6. 利益額 */}
+                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                                                ¥{profitAmount.toLocaleString()}
+                                            </td>
+                                            {/* 7. 重量 */}
+                                            <td className="p-3 text-right font-mono text-slate-600">
+                                                {r.weight || 0} g
+                                            </td>
+                                            {/* 8. 在庫数 */}
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                {r.stock ?? 0} 個
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

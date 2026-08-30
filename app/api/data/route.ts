@@ -1,5 +1,5 @@
 // app/api/data/route.ts
-// [UPDATED] 原価 (cost_price) および 利益率タイプ (profit_type) の保存・取得処理を追加
+// [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -30,35 +30,29 @@ export async function GET() {
     }
 }
 
-// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price, profit_type 対応)
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price 削除)
 export async function POST(req: Request) {
     try {
         const supabase = await createClient()
         const body = await req.json()
 
-        // [NEW] cost_price (原価), profit_type (利益率タイプ) を追加取得
-        const { type, name, price, cost_price, tax, weight, stock, rate, sell_price, profit_rate, profit_type } = body 
+        const { type, name, price, tax, weight, stock, rate, sell_price, profit_rate, profit_type } = body 
 
         if (type === 'rarity') {
             const parsedPrice = Number(price) || 0
             const parsedTax = Number(tax) || 0
-            // 原価が指定されていない場合は仕入れ単価から還付控除分を自動試算
-            const calculatedCost = cost_price !== undefined && cost_price !== '' && !isNaN(Number(cost_price))
-                ? Number(cost_price)
-                : Math.floor(parsedPrice - (parsedPrice * (parsedTax / 100)))
 
             const { data, error } = await supabase
                 .from('rarities')
                 .insert({
                     name,
                     price: parsedPrice, // 仕入れ単価
-                    cost_price: calculatedCost, // [NEW] 原価
                     sell_price: Number(sell_price) || 0, // 販売価格
-                    profit_rate: Number(profit_rate) || 0, // [NEW] 手動入力利益率
-                    profit_type: profit_type || 'cost', // [NEW] 利益率タイプ ('cost' | 'sales')
-                    tax: parsedTax,
-                    weight: Number(weight) || 0,
-                    stock: Number(stock) || 0 
+                    profit_rate: Number(profit_rate) || 0, // 利益率
+                    profit_type: profit_type || 'cost', // 利益率タイプ ('cost' | 'sales')
+                    tax: parsedTax, // 消費税率
+                    weight: Number(weight) || 0, // 重量
+                    stock: Number(stock) || 0 // 在庫数
                 })
                 .select()
                 .single()
