@@ -1,5 +1,4 @@
 // app/admin/data/rarity/page.tsx
-// [UPDATED] 「仕入れ単価」への表記変更と、販売価格・利益率の入力項目を追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,8 +8,8 @@ export default function RarityPage() {
     const [rarities, setRarities] = useState<any[]>([]);
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
-    const [sellPrice, setSellPrice] = useState(''); // [NEW] 販売価格
-    const [profitRate, setProfitRate] = useState(''); // [NEW] 利益率
+    const [sellPrice, setSellPrice] = useState('');
+    const [profitRate, setProfitRate] = useState('');
     const [tax, setTax] = useState('10');
     const [weight, setWeight] = useState('');
     const [stock, setStock] = useState('0');
@@ -42,8 +41,8 @@ export default function RarityPage() {
                 type: 'rarity',
                 name,
                 price: parseFloat(price),
-                sell_price: parseFloat(sellPrice || '0'), // [NEW]
-                profit_rate: parseFloat(profitRate || '0'), // [NEW]
+                sell_price: parseFloat(sellPrice || '0'),
+                profit_rate: parseFloat(profitRate || '0'),
                 tax: parseFloat(tax || '0'),
                 weight: parseFloat(weight || '0'),
                 stock: parseInt(stock || '0', 10),
@@ -97,6 +96,7 @@ export default function RarityPage() {
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             required
                         />
+                        {/* [UPDATED] 仕入れ単価へ名称変更 */}
                         <input
                             type="number"
                             placeholder="仕入れ単価 (円)"
@@ -105,7 +105,6 @@ export default function RarityPage() {
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                             required
                         />
-                        {/* [NEW] 販売価格・利益率 */}
                         <input
                             type="number"
                             placeholder="販売価格 (円)"

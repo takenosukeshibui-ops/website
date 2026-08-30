@@ -1,5 +1,4 @@
 // app/admin/data/page.tsx
-// [UPDATED] 「単価」を「仕入れ単価」に変更し、販売価格と利益率カラムを追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -84,7 +83,7 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* レアリティ・商品マスタ管理 */}
+                        {/* [UPDATED] 「仕入れ単価」「販売価格」「利益率」を表示 */}
                         <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
@@ -170,7 +169,6 @@ export default function AdminDataPage() {
                             </table>
                         </div>
 
-                        {/* 手数料管理 */}
                         <div className="lg:col-span-4 border border-zinc-200 rounded-lg overflow-hidden h-fit">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>

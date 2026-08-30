@@ -146,7 +146,7 @@ export default function AdminProfitPage() {
         }
     }, [selectedRarityId, quantity, masterRarities]);
 
-    // [UPDATED] マスタ商品選択時に利益率（profit_rate）も自動セットするよう対応
+    // [UPDATED] マスタ商品選択時に連動させるのは「商品名」「仕入れ単価」「消費税率」「重量」のみ
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
@@ -164,10 +164,7 @@ export default function AdminProfitPage() {
             setProductName(target.name || '');
             setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
             setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
-            
-            if (target.profit_rate !== undefined && target.profit_rate !== null && Number(target.profit_rate) > 0) {
-                setProfitRate(String(target.profit_rate));
-            }
+            // ※利益率・販売価格はマスタデータ連動から除外し、このダッシュボード側で独立して試算可能
         }
     };
 
@@ -320,7 +317,7 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
-                    {/* [UPDATED] プルダウン内の表記を「仕入れ単価」に変更 */}
+                    {/* [UPDATED] プルダウン表示を商品名、仕入れ単価、消費税率、重量のみに統一 */}
                     <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
                         <label className="block text-[11px] font-bold text-blue-900">
                             📦 マスタ登録商品からセット (未選択で自由入力)
@@ -402,7 +399,7 @@ export default function AdminProfitPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
-                        {/* [UPDATED] 単価から仕入れ単価へ名称変更 */}
+                        {/* [UPDATED] 「単価」から「仕入れ単価」へ変更 */}
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
                             <div className="relative flex items-center">
