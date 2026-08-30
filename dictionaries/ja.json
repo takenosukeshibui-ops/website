@@ -1,0 +1,34 @@
+{
+  "home": {
+    "title": "私たちのサービスへようこそ",
+    "description": "効率的な管理ツールを提供します。",
+    "login": "ログイン",
+    "signup": "新規登録",
+    "calculator": "送料シミュレーター",
+    "inventory": "📦 取扱商品"
+  },
+  "dashboard": {
+    "title": "マイページ",
+    "logout": "ログアウト",
+    "accountSettings": "⚙️ アカウント設定",
+    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
+    "orderHistory": "依頼済みの注文一覧",
+    "noOrders": "依頼済みの注文はありません。",
+    "itemCount": "商品数:",
+    "status": {
+      "shipping": "配送:",
+      "payment": "決済:",
+      "tracking": "追跡:",
+      "attention": "要確認（ユーザー対応待ち）"
+    },
+    "invoice": {
+      "title": "■ 請求明細",
+      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
+      "productTotal": "商品価格合計",
+      "proxyFee": "代理手数料 (5%)",
+      "shipping": "送料",
+      "paymentFee": "決済手数料",
+      "grandTotal": "お支払い金額"
+    }
+  }
+}

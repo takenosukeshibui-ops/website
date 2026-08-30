@@ -1,31 +1,34 @@
 // app/[lang]/page.tsx
-// [UPDATED] 取扱商品へのリンクボタン名称を更新
+// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
 import Link from "next/link";
+import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
 
 export default async function Home({
   params,
 }: {
-  params: Promise<{ lang: string }>;
+  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
 }) {
   const { lang } = await params;
+  const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-4">Welcome to our Service</h1>
-      <p className="text-xl mb-8">Providing efficient management tools.</p>
+      {/* [UPDATED] ハードコーディングされていたテキストを辞書データ (dict) に置き換え */}
+      <h1 className="text-4xl font-bold mb-4">{dict.home.title}</h1>
+      <p className="text-xl mb-8">{dict.home.description}</p>
+      
       <div className="flex flex-wrap gap-4 justify-center">
         <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
-          Login
+          {dict.home.login}
         </Link>
         <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
-          Sign Up
+          {dict.home.signup}
         </Link>
         <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
-          Shipping Calculator
+          {dict.home.calculator}
         </Link>
-        {/* [UPDATED] 取扱商品へのボタン名称表記に変更 */}
         <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
-          📦 取扱商品 (Inventory)
+          {dict.home.inventory}
         </Link>
       </div>
     </main>

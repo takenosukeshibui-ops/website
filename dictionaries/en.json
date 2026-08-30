@@ -1,0 +1,34 @@
+{
+  "home": {
+    "title": "Welcome to our service",
+    "description": "We provide efficient management tools.",
+    "login": "Login",
+    "signup": "Sign Up",
+    "calculator": "Shipping Calculator",
+    "inventory": "📦 Inventory"
+  },
+  "dashboard": {
+    "title": "My Page",
+    "logout": "Logout",
+    "accountSettings": "⚙️ Account Settings",
+    "shippingCalculator": "✈️ Shipping Calculator ↗",
+    "orderHistory": "Order History",
+    "noOrders": "No orders found.",
+    "itemCount": "Items:",
+    "status": {
+      "shipping": "Shipping:",
+      "payment": "Payment:",
+      "tracking": "Tracking:",
+      "attention": "Action Required (Waiting for User)"
+    },
+    "invoice": {
+      "title": "■ Invoice",
+      "shippingNote": "※Estimated based on shipping method & weight",
+      "productTotal": "Product Total",
+      "proxyFee": "Proxy Fee (5%)",
+      "shipping": "Shipping",
+      "paymentFee": "Payment Fee",
+      "grandTotal": "Grand Total"
+    }
+  }
+}
