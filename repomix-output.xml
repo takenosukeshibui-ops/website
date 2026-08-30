@@ -6620,10 +6620,33 @@ export default function AdminProfitPage() {
     const [weightKg, setWeightKg] = useState(''); 
     const [destination, setDestination] = useState('US');
 
+    // [NEW] 為替レート取得用 State
+    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [rateLoading, setRateLoading] = useState<boolean>(true);
+
     const [apiLoading, setApiLoading] = useState(false);
     const [shippingFeeJp, setShippingFeeJp] = useState<number | null>(null);
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
+
+    // [NEW] 最新の為替レート (USD/JPY) を自動取得
+    useEffect(() => {
+        setRateLoading(true);
+        fetch('https://open.er-api.com/v6/latest/USD')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.rates && data.rates.JPY) {
+                    setExchangeRate(Number(data.rates.JPY));
+                } else {
+                    setExchangeRate(150); // フォールバック
+                }
+            })
+            .catch(err => {
+                console.error("為替レート取得エラー:", err);
+                setExchangeRate(150); // エラー時フォールバック
+            })
+            .finally(() => setRateLoading(false));
+    }, []);
 
     // マスタデータ（商品・手数料）の取得
     useEffect(() => {
@@ -6687,6 +6710,13 @@ export default function AdminProfitPage() {
         }
     };
 
+    // [NEW] 日本円をドル表記文字列に変換するヘルパー
+    const formatUsd = (yenAmount: number) => {
+        if (!exchangeRate || exchangeRate <= 0) return '';
+        const usd = yenAmount / exchangeRate;
+        return ` ($${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    };
+
     const parsedQty = parseInt(quantity.replace(/[^0-9]/g, '') || '0', 10);
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
@@ -6742,19 +6772,19 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // 送料と販売価格を切り分けた利益試算ロジック
+    // [UPDATED] 「売上に対する利益率」に基づいた最新計算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const targetRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
-        const denominator = 1 - targetRate - feeRatio;
+        const denominator = 1 - feeRatio - targetRate;
 
         if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, paymentFeeAmount: 0, profit: 0 };
 
-        // 商品単体の販売価格 (送料は別立て)
-        const productSellPrice = Math.round((effectiveCost + shippingFee * feeRatio) / denominator);
-        const totalAmount = productSellPrice + shippingFee; // バイヤーへの合計請求額
+        // 売上 S (商品価格 + 送料) = (実質原価 E + 送料 F) / (1 - 手数料率 - 利益率)
+        const totalAmount = Math.round((effectiveCost + shippingFee) / denominator);
+        const productSellPrice = totalAmount - shippingFee; // 商品販売価格
         const paymentFeeAmount = Math.round(totalAmount * feeRatio);
-        const profit = Math.round(productSellPrice * targetRate);
+        const profit = Math.round(totalAmount * targetRate); // 売上に対する利益額
 
         return {
             productSellPrice,
@@ -6783,10 +6813,19 @@ export default function AdminProfitPage() {
                 </Link>
             </div>
 
-            <div className="flex justify-between items-center">
+            {/* [UPDATED] 為替レート情報のリアルタイム表示 */}
+            <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">管理者用 利益・送料自動計算ダッシュボード</h1>
                     <p className="text-slate-500 mt-1">FedEx API（全適用プラン）/ 日本郵便料金と連動したリアルタイム試算</p>
+                </div>
+                <div className="bg-slate-800 text-white px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-2 text-xs font-mono">
+                    <span className="text-amber-400 font-bold">💱 為替レート:</span>
+                    {rateLoading ? (
+                        <span className="animate-pulse text-slate-300">取得中...</span>
+                    ) : (
+                        <span className="font-bold">1 USD = {exchangeRate?.toFixed(2)} JPY</span>
+                    )}
                 </div>
             </div>
 
@@ -6856,7 +6895,7 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* [UPDATED] 単価・消費税率・数量（例プレースホルダーを削除） */}
+                    {/* [UPDATED] 空欄時例（placeholder）削除済み */}
                     <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
@@ -6897,7 +6936,7 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* [UPDATED] 仕向国・総重量（例プレースホルダーを削除） */}
+                    {/* [UPDATED] 空欄時例（placeholder）削除済み */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
@@ -6920,24 +6959,26 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 消費税還付計算に基づくサマリー表示 */}
+                    {/* 消費税還付計算に基づくサマリー表示 (ドル並記) */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
                             <span>仕入れ金額 ({parsedQty}枚):</span>
-                            <span className="font-mono">¥{subtotalPrice.toLocaleString()}</span>
+                            <span className="font-mono">¥{subtotalPrice.toLocaleString()}{formatUsd(subtotalPrice)}</span>
                         </div>
                         <div className="flex justify-between items-center text-emerald-600 text-[11px] font-medium">
                             <span>還付消費税額 (控除分):</span>
-                            <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()}</span>
+                            <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()}{formatUsd(refundTaxAmount)}</span>
                         </div>
                         <div className="flex justify-between items-center pt-1 border-t border-slate-200">
                             <span className="text-slate-700 font-bold">実質仕入れ原価:</span>
-                            <span className="text-base font-bold font-mono text-slate-900">¥{effectiveCost.toLocaleString()}</span>
+                            <span className="text-base font-bold font-mono text-slate-900">
+                                ¥{effectiveCost.toLocaleString()}{formatUsd(effectiveCost)}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                {/* [UPDATED] 全配送プラン比較：合計売上を左横に追加し、内訳から国際送料を削除 */}
+                {/* [UPDATED] 全配送プラン比較：「売上」表示・ドル併記・内訳から送料削除 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -6958,41 +6999,53 @@ export default function AdminProfitPage() {
                                     <span className="font-bold text-slate-800 text-xs">日本郵便 (船便)</span>
                                 </div>
 
-                                {/* [NEW] 合計売上（商品+送料）を商品価格の左横に追加 */}
+                                {/* [UPDATED] 「合計売上」➔「売上」に変更、ドル表記を追加 */}
                                 <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-700">合計売上</span>
-                                        <span className="text-base font-extrabold font-mono text-slate-900">¥{jpCalculation.totalAmount.toLocaleString()}</span>
+                                        <span className="text-[10px] font-bold text-slate-700">売上</span>
+                                        <span className="text-base font-extrabold font-mono text-slate-900">
+                                            ¥{jpCalculation.totalAmount.toLocaleString()}
+                                            <span className="text-xs text-slate-600 block font-normal">{formatUsd(jpCalculation.totalAmount)}</span>
+                                        </span>
                                     </div>
                                     <div className="flex flex-col border-l border-blue-200 pl-2.5">
                                         <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
-                                        <span className="text-base font-extrabold font-mono text-blue-700">¥{jpCalculation.productSellPrice.toLocaleString()}</span>
+                                        <span className="text-base font-extrabold font-mono text-blue-700">
+                                            ¥{jpCalculation.productSellPrice.toLocaleString()}
+                                            <span className="text-xs text-blue-600 block font-normal">{formatUsd(jpCalculation.productSellPrice)}</span>
+                                        </span>
                                     </div>
                                     <div className="flex flex-col border-l border-blue-200 pl-2.5">
                                         <span className="text-[10px] font-bold text-slate-600">国際送料 (船便)</span>
-                                        <span className="text-base font-extrabold font-mono text-slate-700">¥{shippingFeeJp.toLocaleString()}</span>
+                                        <span className="text-base font-extrabold font-mono text-slate-700">
+                                            ¥{shippingFeeJp.toLocaleString()}
+                                            <span className="text-xs text-slate-500 block font-normal">{formatUsd(shippingFeeJp)}</span>
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* [UPDATED] 内訳から国際送料を削除 */}
+                                {/* [UPDATED] 販売価格の内訳（送料を除外） */}
                                 <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px]">
                                     <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
                                         販売価格の内訳
                                     </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>・実質仕入れ原価 (税還付込):</span>
-                                        <span className="font-mono">¥{effectiveCost.toLocaleString()}</span>
+                                        <span className="font-mono">¥{effectiveCost.toLocaleString()}{formatUsd(effectiveCost)}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>・決済手数料 ({feeRate}%):</span>
-                                        <span className="font-mono">¥{jpCalculation.paymentFeeAmount.toLocaleString()}</span>
+                                        <span className="font-mono">¥{jpCalculation.paymentFeeAmount.toLocaleString()}{formatUsd(jpCalculation.paymentFeeAmount)}</span>
                                     </div>
                                 </div>
 
-                                {/* 3. 想定利益額 */}
+                                {/* 想定利益額 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-emerald-900">想定利益額 (利益率: {profitRate}%)</span>
-                                    <span className="text-lg font-extrabold font-mono text-emerald-600">¥{jpCalculation.profit.toLocaleString()}</span>
+                                    <span className="text-[11px] font-bold text-emerald-900">想定利益額 (売上利益率: {profitRate}%)</span>
+                                    <span className="text-lg font-extrabold font-mono text-emerald-600">
+                                        ¥{jpCalculation.profit.toLocaleString()}
+                                        <span className="text-sm text-emerald-700 ml-1 font-normal">{formatUsd(jpCalculation.profit)}</span>
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -7006,41 +7059,53 @@ export default function AdminProfitPage() {
                                         <span className="font-bold text-amber-950 text-xs">{fRate.serviceName}</span>
                                     </div>
 
-                                    {/* [NEW] 合計売上（商品+送料）を商品価格の左横に追加 */}
+                                    {/* [UPDATED] 「合計売上」➔「売上」に変更、ドル表記を追加 */}
                                     <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-slate-700">合計売上</span>
-                                            <span className="text-base font-extrabold font-mono text-slate-900">¥{calc.totalAmount.toLocaleString()}</span>
+                                            <span className="text-[10px] font-bold text-slate-700">売上</span>
+                                            <span className="text-base font-extrabold font-mono text-slate-900">
+                                                ¥{calc.totalAmount.toLocaleString()}
+                                                <span className="text-xs text-slate-600 block font-normal">{formatUsd(calc.totalAmount)}</span>
+                                            </span>
                                         </div>
                                         <div className="flex flex-col border-l border-blue-200 pl-2.5">
                                             <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
-                                            <span className="text-base font-extrabold font-mono text-blue-700">¥{calc.productSellPrice.toLocaleString()}</span>
+                                            <span className="text-base font-extrabold font-mono text-blue-700">
+                                                ¥{calc.productSellPrice.toLocaleString()}
+                                                <span className="text-xs text-blue-600 block font-normal">{formatUsd(calc.productSellPrice)}</span>
+                                            </span>
                                         </div>
                                         <div className="flex flex-col border-l border-blue-200 pl-2.5">
                                             <span className="text-[10px] font-bold text-slate-600">国際送料 (FedEx)</span>
-                                            <span className="text-base font-extrabold font-mono text-slate-700">¥{fRate.total.toLocaleString()}</span>
+                                            <span className="text-base font-extrabold font-mono text-slate-700">
+                                                ¥{fRate.total.toLocaleString()}
+                                                <span className="text-xs text-slate-500 block font-normal">{formatUsd(fRate.total)}</span>
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* [UPDATED] 内訳から国際送料を削除 */}
+                                    {/* [UPDATED] 販売価格の内訳（送料を除外） */}
                                     <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px]">
                                         <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
                                             販売価格の内訳
                                         </div>
                                         <div className="flex justify-between text-slate-600">
                                             <span>・実質仕入れ原価 (税還付込):</span>
-                                            <span className="font-mono">¥{effectiveCost.toLocaleString()}</span>
+                                            <span className="font-mono">¥{effectiveCost.toLocaleString()}{formatUsd(effectiveCost)}</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600">
                                             <span>・決済手数料 ({feeRate}%):</span>
-                                            <span className="font-mono">¥{calc.paymentFeeAmount.toLocaleString()}</span>
+                                            <span className="font-mono">¥{calc.paymentFeeAmount.toLocaleString()}{formatUsd(calc.paymentFeeAmount)}</span>
                                         </div>
                                     </div>
 
-                                    {/* 3. 想定利益額 */}
+                                    {/* 想定利益額 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
-                                        <span className="text-[11px] font-bold text-emerald-900">想定利益額 (利益率: {profitRate}%)</span>
-                                        <span className="text-lg font-extrabold font-mono text-emerald-600">¥{calc.profit.toLocaleString()}</span>
+                                        <span className="text-[11px] font-bold text-emerald-900">想定利益額 (売上利益率: {profitRate}%)</span>
+                                        <span className="text-lg font-extrabold font-mono text-emerald-600">
+                                            ¥{calc.profit.toLocaleString()}
+                                            <span className="text-sm text-emerald-700 ml-1 font-normal">{formatUsd(calc.profit)}</span>
+                                        </span>
                                     </div>
                                 </div>
                             );
