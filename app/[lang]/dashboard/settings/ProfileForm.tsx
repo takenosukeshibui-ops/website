@@ -90,6 +90,8 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         setUseSameForContact(checked)
         if (checked) {
             setContactEmail(safeUserEmail)
+        } else {
+            setContactEmail('') // [UPDATED] チェックを外した時にクリアする
         }
     }
 
@@ -99,6 +101,8 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         setUseSameForWise(checked)
         if (checked) {
             setWiseEmail(safeUserEmail)
+        } else {
+            setWiseEmail('') // [UPDATED] チェックを外した時にクリアする
         }
     }
 
