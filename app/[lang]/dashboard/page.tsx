@@ -159,7 +159,7 @@ export default async function DashboardPage(props: {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
-                    {/* [UPDATED] 連絡先・お届け国のバッジを削除 */}
+                    {/* [UPDATED] 連絡先・お届け国のバッジを完全に削除 */}
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
                             ログインアカウント: <span className="font-mono font-medium text-slate-700">{user.email}</span>

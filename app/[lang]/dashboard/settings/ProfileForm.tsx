@@ -3,7 +3,7 @@
 
 import React, { useActionState, useEffect, useState } from 'react'
 import { updateProfile } from '@/app/actions/profile'
-import { changePassword, changeEmail } from '@/app/actions/auth' // [UPDATED] changeEmail を追加
+import { changePassword, changeEmail } from '@/app/actions/auth'
 import { SubmitButton } from '@/components/SubmitButtons'
 import { countries } from '@/components/countries'
 import Link from 'next/link'
@@ -17,8 +17,9 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
     const [pwState, pwAction] = useActionState(changePassword, null)
     const [showPwToast, setShowPwToast] = useState(false)
 
-    // メール変更用 State [NEW]
+    // メール変更用 State [UPDATED]
     const [emailState, emailAction] = useActionState(changeEmail, null)
+    const [emailInput, setEmailInput] = useState(userEmail || '')
 
     // パスワード変更フォームの開閉状態
     const [isOpenPwForm, setIsOpenPwForm] = useState(false)
@@ -43,11 +44,9 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         Boolean(profile?.wise_email && profile.wise_email === safeUserEmail && safeUserEmail !== '')
     )
 
-    // デフォルト配送方法・決済方法のState管理
     const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
     const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
 
-    // 保存完了時（state更新時）に最新データを同期
     useEffect(() => {
         if (state?.data?.contact_email !== undefined) {
             setContactEmail(state.data.contact_email || '')
@@ -66,7 +65,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         }
     }, [state])
 
-    // プロフィール更新トースト (3秒)
     useEffect(() => {
         if (state?.error || state?.success) {
             setShowToast(true)
@@ -75,7 +73,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         }
     }, [state])
 
-    // パスワード変更トースト (3秒)
     useEffect(() => {
         if (pwState?.error || pwState?.success) {
             setShowPwToast(true)
@@ -87,7 +84,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         }
     }, [pwState])
 
-    // 連絡用メールアドレスの「ログイン用と同じ」トグル処理
     const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked
         setUseSameForContact(checked)
@@ -98,7 +94,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         }
     }
 
-    // Wise用メールアドレスの「ログイン用と同じ」トグル処理
     const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked
         setUseSameForWise(checked)
@@ -127,7 +122,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
 
     return (
         <div className="flex flex-col gap-8">
-            {/* プロフィール用トースト通知 */}
             {showToast && (state?.error || state?.success) && (
                 <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
                     {state?.error && (
@@ -149,7 +143,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                 </div>
             )}
 
-            {/* パスワード変更用トースト通知 */}
             {showPwToast && (pwState?.error || pwState?.success) && (
                 <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
                     {pwState?.error && (
@@ -171,18 +164,25 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                 </div>
             )}
 
-            {/* 1. ログイン情報 兼 パスワード・メールアドレス変更カード */}
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
                 <h2 className="font-bold text-slate-800 border-b pb-2">ログイン情報・セキュリティ</h2>
                 
                 <div className="mb-2">
                     <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス</label>
-                    {/* [UPDATED] メールアドレス変更用フォームを追加 */}
+                    {/* [UPDATED] 入力値を保持し、仕様に関する注意書きを追加 */}
                     <form action={emailAction} className="flex gap-2 items-start">
                         <div className="w-full flex flex-col gap-1">
-                            <input name="email" type="email" defaultValue={safeUserEmail} required className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" />
+                            <input 
+                                name="email" 
+                                type="email" 
+                                value={emailInput}
+                                onChange={(e) => setEmailInput(e.target.value)}
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
                             {emailState?.error && <span className="text-[10px] text-red-600 font-bold">⚠️ {emailState.error}</span>}
                             {emailState?.success && <span className="text-[10px] text-emerald-600 font-bold">✅ {emailState.message}</span>}
+                            <span className="text-[10px] text-slate-500">※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。</span>
                         </div>
                         <SubmitButton pendingText="送信中...">変更</SubmitButton>
                     </form>
@@ -252,7 +252,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                 </div>
             </div>
 
-            {/* 2. 基本情報（住所・住宅種別まですべて内包） */}
             <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
                 
                 <section>
@@ -436,14 +435,12 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                     </div>
                 </section>
 
-                {/* 3. お支払いアカウント情報 */}
                 <section>
                     <div className="flex items-center gap-3 border-b pb-2 mb-4">
                         <h2 className="font-bold text-slate-800">お支払いアカウント情報</h2>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* PayPal連携カード */}
                         <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
                             <div>
                                 <label className="block text-xs font-bold text-slate-600 mb-1">PayPal アカウント連携</label>
@@ -469,7 +466,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             </div>
                         </div>
 
-                        {/* Wise用 メールアドレスカード */}
                         <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
                             <div>
                                 <div className="flex justify-between items-center mb-1">
@@ -499,7 +495,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                     </div>
                 </section>
 
-                {/* 4. デフォルト注文設定 */}
                 <section>
                     <div className="flex items-baseline justify-between border-b pb-2 mb-4">
                         <h2 className="font-bold text-slate-800">デフォルトの注文設定</h2>
