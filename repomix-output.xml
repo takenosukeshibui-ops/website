@@ -7116,12 +7116,23 @@ export async function calculateFedexRates(
         }
 
         const data = await res.json();
+
+        // ★ 原因調査用ログ：APIから返ってきた生の運賃データ構造を出力
+        console.log('--- FedEx Raw Response (ratedShipmentDetails) ---');
+        console.log(JSON.stringify(data?.output?.rateReplyDetails?.[0]?.ratedShipmentDetails, null, 2));
+
         const rateReplyDetails = data?.output?.rateReplyDetails || [];
 
         const rates = rateReplyDetails.map((detail: any) => {
             const serviceName = detail.serviceName || detail.serviceType || 'FedEx Express';
-            const shipmentDetail = detail.ratedShipmentDetails?.[0] || {};
-            const netAmount = shipmentDetail.totalNetCharge || 0;
+            
+            // ratedShipmentDetails 配列から ACCOUNT（特別契約料金）を優先抽出
+            const ratedDetails = detail.ratedShipmentDetails || [];
+            const accountRate = ratedDetails.find((r: any) => 
+                r.rateType?.includes('ACCOUNT')
+            ) || ratedDetails[0] || {};
+
+            const netAmount = accountRate.totalNetCharge || 0;
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
             return {

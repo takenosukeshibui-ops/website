@@ -47,7 +47,7 @@ export default function AdminDataPage() {
 
     return (
         <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* [NEW] 共通ナビゲーションバー */}
+            {/* 共通ナビゲーションバー */}
             <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理画面トップ
@@ -84,6 +84,7 @@ export default function AdminDataPage() {
                                     <tr>
                                         <th className="p-2 font-semibold">名前</th>
                                         <th className="p-2 font-semibold text-right">単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税</th> {/* [NEW] */}
                                         <th className="p-2 font-semibold text-right">重量 (g)</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
                                     </tr>
@@ -91,13 +92,15 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            {/* [UPDATED] colSpan を 5 に変更 */}
+                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => (
                                             <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
                                                 <td className="p-2 font-medium">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
                                                 <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
                                                 <td className="p-2 text-right">
                                                     <button

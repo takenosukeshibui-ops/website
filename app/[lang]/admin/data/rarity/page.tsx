@@ -8,6 +8,7 @@ export default function RarityPage() {
     const [rarities, setRarities] = useState<any[]>([]);
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
+    const [tax, setTax] = useState(''); // [NEW] 消費税用State
     const [weight, setWeight] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -37,12 +38,14 @@ export default function RarityPage() {
                 type: 'rarity',
                 name,
                 price: parseFloat(price),
+                tax: parseFloat(tax || '0'), // [NEW] 消費税率データ送信
                 weight: parseFloat(weight || '0'),
             }),
         });
 
         setName('');
         setPrice('');
+        setTax(''); // [NEW]
         setWeight('');
         fetchRarities();
     };
@@ -59,7 +62,7 @@ export default function RarityPage() {
 
     return (
         <main className="min-h-screen bg-zinc-50 p-4 md:p-8 text-xs space-y-4">
-            {/* ナビゲーションバー [NEW] */}
+            {/* ナビゲーションバー */}
             <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-2">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
@@ -74,7 +77,8 @@ export default function RarityPage() {
                     <h1 className="text-xl font-bold text-zinc-900">レアリティ管理</h1>
                 </div>
 
-                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-6">
+                {/* [UPDATED] カラム数変更（md:grid-cols-5） */}
+                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
                     <input
                         type="text"
                         placeholder="名前 (例: Rare)"
@@ -90,6 +94,15 @@ export default function RarityPage() {
                         onChange={e => setPrice(e.target.value)}
                         className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                         required
+                    />
+                    {/* [NEW] 消費税入力フィールド */}
+                    <input
+                        type="number"
+                        step="0.1"
+                        placeholder="消費税 (%)"
+                        value={tax}
+                        onChange={e => setTax(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
                     <input
                         type="number"
@@ -109,6 +122,7 @@ export default function RarityPage() {
                             <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
                                 <th className="p-3 font-semibold">名前</th>
                                 <th className="p-3 font-semibold text-right">単価</th>
+                                <th className="p-3 font-semibold text-right">消費税</th> {/* [NEW] */}
                                 <th className="p-3 font-semibold text-right">重量 (g)</th>
                                 <th className="p-3 font-semibold text-right">操作</th>
                             </tr>
@@ -116,17 +130,20 @@ export default function RarityPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={4} className="p-6 text-center text-zinc-400">読み込み中...</td>
+                                    {/* [UPDATED] colSpan を 5 に変更 */}
+                                    <td colSpan={5} className="p-6 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
                             ) : rarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
+                                    {/* [UPDATED] colSpan を 5 に変更 */}
+                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
                                 </tr>
                             ) : (
                                 rarities.map((r, i) => (
                                     <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
                                         <td className="p-3 font-medium">{r.name}</td>
                                         <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
                                         <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
                                         <td className="p-3 text-right">
                                             <button
