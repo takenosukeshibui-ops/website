@@ -213,6 +213,7 @@ export default async function DashboardPage(props: {
                 <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
+            {/* [UPDATED] dict Propsを正しく渡す */}
             <BookmarkletGenerator dict={dict} />
 
             <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
@@ -247,7 +248,6 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {/* [UPDATED] dict.dashboard.table.order を参照するように修正 */}
                                             {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.dashboard.table.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
@@ -343,7 +343,6 @@ export default async function DashboardPage(props: {
                                         <div className="overflow-x-auto border border-slate-200 rounded">
                                             <table className="min-w-full border-collapse text-xs text-left">
                                                 <thead>
-                                                    {/* [UPDATED] 全すべて dict.dashboard.table.xxx を参照するよう修正 */}
                                                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
                                                         <th className="p-2.5">{dict.dashboard.table.item}</th>
                                                         <th className="p-2.5 max-w-[180px]">{dict.dashboard.table.url}</th>
