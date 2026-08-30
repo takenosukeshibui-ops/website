@@ -75,7 +75,9 @@ export default function AdminProfitPage() {
     const [selectedFeeId, setSelectedFeeId] = useState<string>('');
 
     const [productName, setProductName] = useState(''); 
-    const [profitRate, setProfitRate] = useState('15'); // 原価利益率 (%)
+    // [NEW] 原価利益率 / 売上利益率の切り替えモード ('cost' | 'sales')
+    const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); 
+    const [profitRate, setProfitRate] = useState('15'); 
     const [feeRate, setFeeRate] = useState('3.6'); 
     const [unitPrice, setUnitPrice] = useState(''); 
     const [taxRate, setTaxRate] = useState(''); 
@@ -187,8 +189,7 @@ export default function AdminProfitPage() {
     // 消費税還付計算ロジック
     const subtotalPrice = parsedPrice * parsedQty;
     const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
-    // [UPDATED] 名称変更: 原価 (旧: 実質仕入れ原価)
-    const effectiveCost = subtotalPrice - refundTaxAmount; 
+    const effectiveCost = subtotalPrice - refundTaxAmount; // 原価 (消費税控除後)
 
     const parsedWeight = parseFloat(weightKg) || 0;
 
@@ -236,40 +237,54 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // [UPDATED] 原価利益率に基づいた計算ロジック
+    // [UPDATED] 原価利益率 / 売上利益率 の切り替え対応計算ロジック
     const calculateProfitRow = (shippingFee: number) => {
-        const costProfitRatio = (parseFloat(profitRate) || 0) / 100; // 原価利益率
-        const feeRatio = (parseFloat(feeRate) || 0) / 100; // 決済手数料率
-        const denominator = 1 - feeRatio;
+        const inputRate = (parseFloat(profitRate) || 0) / 100;
+        const feeRatio = (parseFloat(feeRate) || 0) / 100;
 
-        if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, costProfitAmount: 0, paymentFeeAmount: 0, profit: 0, salesProfitRate: '0.0' };
+        let totalAmount = 0; // 販売価格
+        let profit = 0;      // 想定利益額
+        let costProfitRateDisp = '0.0';  // 原価利益率(%)
+        let salesProfitRateDisp = '0.0'; // 売上利益率(%)
 
-        // [UPDATED] 原価利益額 = 原価 × 原価利益率
-        const costProfitAmount = Math.round(effectiveCost * costProfitRatio);
+        if (profitType === 'cost') {
+            // ▼ モード: 原価利益率
+            const denominator = 1 - feeRatio;
+            if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, profit: 0, costProfitRateDisp: '0.0', salesProfitRateDisp: '0.0' };
 
-        // 売上 S = (原価 + 原価利益額 + 国際送料) / (1 - 決済手数料率)
-        const totalAmount = Math.round((effectiveCost + costProfitAmount + shippingFee) / denominator);
-        const productSellPrice = totalAmount - shippingFee; // 商品販売価格
-        const paymentFeeAmount = Math.round(totalAmount * feeRatio); // 決済手数料額
-        const profit = costProfitAmount; // 想定利益額
+            const costProfitAmount = Math.round(effectiveCost * inputRate);
+            totalAmount = Math.round((effectiveCost + costProfitAmount + shippingFee) / denominator);
+            profit = costProfitAmount;
 
-        // [UPDATED] 売上利益率 (%) = 想定利益額 ÷ 売上 × 100
-        const salesProfitRate = totalAmount > 0 ? ((profit / totalAmount) * 100).toFixed(1) : '0.0';
+            costProfitRateDisp = (parseFloat(profitRate) || 0).toFixed(1);
+            salesProfitRateDisp = totalAmount > 0 ? ((profit / totalAmount) * 100).toFixed(1) : '0.0';
+        } else {
+            // ▼ モード: 売上利益率
+            const denominator = 1 - feeRatio - inputRate;
+            if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, profit: 0, costProfitRateDisp: '0.0', salesProfitRateDisp: '0.0' };
+
+            totalAmount = Math.round((effectiveCost + shippingFee) / denominator);
+            profit = Math.round(totalAmount * inputRate);
+
+            salesProfitRateDisp = (parseFloat(profitRate) || 0).toFixed(1);
+            costProfitRateDisp = effectiveCost > 0 ? ((profit / effectiveCost) * 100).toFixed(1) : '0.0';
+        }
+
+        const productSellPrice = totalAmount - shippingFee; // 商品価格
 
         return {
             productSellPrice,
             totalAmount,
-            costProfitAmount,
-            paymentFeeAmount,
             profit,
-            salesProfitRate
+            costProfitRateDisp,
+            salesProfitRateDisp
         };
     };
 
     const jpCalculation = useMemo(() => {
         if (effectiveCost <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
         return calculateProfitRow(shippingFeeJp);
-    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate]);
+    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate, profitType]);
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
@@ -324,10 +339,31 @@ export default function AdminProfitPage() {
                         </select>
                     </div>
 
-                    {/* [UPDATED] 「目標利益率」から「原価利益率」に変更 */}
+                    {/* [UPDATED] 「原価利益率」と「売上利益率」の切り替え付き入力欄 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">原価利益率</label>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[11px] font-medium text-slate-600">
+                                    {profitType === 'cost' ? '原価利益率' : '売上利益率'}
+                                </label>
+                                {/* [NEW] 切り替えトグルボタン */}
+                                <div className="inline-flex rounded border border-slate-300 p-0.5 bg-slate-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => setProfitType('cost')}
+                                        className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${profitType === 'cost' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+                                    >
+                                        原価比
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setProfitType('sales')}
+                                        className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${profitType === 'sales' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'}`}
+                                    >
+                                        売上比
+                                    </button>
+                                </div>
+                            </div>
                             <div className="relative flex items-center">
                                 <input
                                     type="number"
@@ -432,7 +468,7 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* [UPDATED] 表記変更: 「原価」 (旧: 実質仕入れ原価) */}
+                    {/* 消費税還付計算に基づくサマリー表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
                             <span>仕入れ金額 ({parsedQty}枚):</span>
@@ -442,6 +478,7 @@ export default function AdminProfitPage() {
                             <span>還付消費税額 (控除分):</span>
                             <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()}{formatUsd(refundTaxAmount)}</span>
                         </div>
+                        {/* [UPDATED] 表記変更: 「原価」 (旧: 実質仕入れ原価) */}
                         <div className="flex justify-between items-center pt-1 border-t border-slate-200">
                             <span className="text-slate-700 font-bold">原価:</span>
                             <span className="text-base font-bold font-mono text-slate-900">
@@ -451,7 +488,7 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* [UPDATED] 全配送プラン比較：原価利益額の表示 & 売上利益率（想定利益額/売上）の計算結果表示 */}
+                {/* [UPDATED] 全配送プラン比較：「販売価格」「商品価格」への変更、内訳パネル削除 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -472,16 +509,17 @@ export default function AdminProfitPage() {
                                     <span className="font-bold text-slate-800 text-xs">日本郵便 (船便)</span>
                                 </div>
 
+                                {/* [UPDATED] 「販売価格」「商品価格」「国際送料」の3項目表示 */}
                                 <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-slate-700">売上</span>
+                                        <span className="text-[10px] font-bold text-slate-700">販売価格</span>
                                         <span className="text-base font-extrabold font-mono text-slate-900">
                                             ¥{jpCalculation.totalAmount.toLocaleString()}
                                             <span className="text-xs text-slate-600 block font-normal">{formatUsd(jpCalculation.totalAmount)}</span>
                                         </span>
                                     </div>
                                     <div className="flex flex-col border-l border-blue-200 pl-2.5">
-                                        <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
+                                        <span className="text-[10px] font-bold text-blue-900">商品価格</span>
                                         <span className="text-base font-extrabold font-mono text-blue-700">
                                             ¥{jpCalculation.productSellPrice.toLocaleString()}
                                             <span className="text-xs text-blue-600 block font-normal">{formatUsd(jpCalculation.productSellPrice)}</span>
@@ -496,29 +534,12 @@ export default function AdminProfitPage() {
                                     </div>
                                 </div>
 
-                                {/* [UPDATED] 表記変更: 「原価」 & 原価利益額の追加 */}
-                                <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px]">
-                                    <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
-                                        販売価格の内訳
-                                    </div>
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>・原価 (税還付込):</span>
-                                        <span className="font-mono">¥{effectiveCost.toLocaleString()}{formatUsd(effectiveCost)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600 font-medium">
-                                        <span>・原価利益額 (原価利益率 {profitRate}%):</span>
-                                        <span className="font-mono text-emerald-700">¥{jpCalculation.costProfitAmount.toLocaleString()}{formatUsd(jpCalculation.costProfitAmount)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>・決済手数料 ({feeRate}%):</span>
-                                        <span className="font-mono">¥{jpCalculation.paymentFeeAmount.toLocaleString()}{formatUsd(jpCalculation.paymentFeeAmount)}</span>
-                                    </div>
-                                </div>
+                                {/* [UPDATED] 「販売価格の内訳」パネルは完全削除 */}
 
-                                {/* [UPDATED] 売上利益率 (想定利益額/売上) の動的計算結果を表示 */}
+                                {/* [UPDATED] 売上利益率 & 原価利益率 の相互併記 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-emerald-900">
-                                        想定利益額 (売上利益率: {jpCalculation.salesProfitRate}%)
+                                        想定利益額 (売上比: {jpCalculation.salesProfitRateDisp}% / 原価比: {jpCalculation.costProfitRateDisp}%)
                                     </span>
                                     <span className="text-lg font-extrabold font-mono text-emerald-600">
                                         ¥{jpCalculation.profit.toLocaleString()}
@@ -537,16 +558,17 @@ export default function AdminProfitPage() {
                                         <span className="font-bold text-amber-950 text-xs">{fRate.serviceName}</span>
                                     </div>
 
+                                    {/* [UPDATED] 「販売価格」「商品価格」「国際送料」の3項目表示 */}
                                     <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs">
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-slate-700">売上</span>
+                                            <span className="text-[10px] font-bold text-slate-700">販売価格</span>
                                             <span className="text-base font-extrabold font-mono text-slate-900">
                                                 ¥{calc.totalAmount.toLocaleString()}
                                                 <span className="text-xs text-slate-600 block font-normal">{formatUsd(calc.totalAmount)}</span>
                                             </span>
                                         </div>
                                         <div className="flex flex-col border-l border-blue-200 pl-2.5">
-                                            <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
+                                            <span className="text-[10px] font-bold text-blue-900">商品価格</span>
                                             <span className="text-base font-extrabold font-mono text-blue-700">
                                                 ¥{calc.productSellPrice.toLocaleString()}
                                                 <span className="text-xs text-blue-600 block font-normal">{formatUsd(calc.productSellPrice)}</span>
@@ -561,29 +583,12 @@ export default function AdminProfitPage() {
                                         </div>
                                     </div>
 
-                                    {/* [UPDATED] 表記変更: 「原価」 & 原価利益額の追加 */}
-                                    <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px]">
-                                        <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
-                                            販売価格の内訳
-                                        </div>
-                                        <div className="flex justify-between text-slate-600">
-                                            <span>・原価 (税還付込):</span>
-                                            <span className="font-mono">¥{effectiveCost.toLocaleString()}{formatUsd(effectiveCost)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-600 font-medium">
-                                            <span>・原価利益額 (原価利益率 {profitRate}%):</span>
-                                            <span className="font-mono text-emerald-700">¥{calc.costProfitAmount.toLocaleString()}{formatUsd(calc.costProfitAmount)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-600">
-                                            <span>・決済手数料 ({feeRate}%):</span>
-                                            <span className="font-mono">¥{calc.paymentFeeAmount.toLocaleString()}{formatUsd(calc.paymentFeeAmount)}</span>
-                                        </div>
-                                    </div>
+                                    {/* [UPDATED] 「販売価格の内訳」パネルは完全削除 */}
 
-                                    {/* [UPDATED] 売上利益率 (想定利益額/売上) の動的計算結果を表示 */}
+                                    {/* [UPDATED] 売上利益率 & 原価利益率 の相互併記 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-emerald-900">
-                                            想定利益額 (売上利益率: {calc.salesProfitRate}%)
+                                            想定利益額 (売上比: {calc.salesProfitRateDisp}% / 原価比: {calc.costProfitRateDisp}%)
                                         </span>
                                         <span className="text-lg font-extrabold font-mono text-emerald-600">
                                             ¥{calc.profit.toLocaleString()}
