@@ -88,7 +88,7 @@ export default function AdminProfitPage() {
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const [rateLoading, setRateLoading] = useState<boolean>(true);
 
-    // [NEW] 内訳の開閉状態管理 State
+    // 内訳の開閉状態管理 State
     const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
 
     const toggleDetail = (key: string) => {
@@ -193,8 +193,8 @@ export default function AdminProfitPage() {
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
     
     // 消費税還付計算ロジック
-    const subtotalPrice = parsedPrice * parsedQty;
-    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
+    const subtotalPrice = parsedPrice * parsedQty; // 仕入れ金額 (控除前)
+    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); // 還付消費税額
     const effectiveCost = subtotalPrice - refundTaxAmount; // 原価 (消費税控除後)
 
     const parsedWeight = parseFloat(weightKg) || 0;
@@ -243,7 +243,7 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // 原価利益率 / 売上利益率 の切り替え対応計算ロジック
+    // [UPDATED] 原価利益額の計算基準を「仕入れ金額 (subtotalPrice)」に変更した計算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const inputRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
@@ -257,7 +257,8 @@ export default function AdminProfitPage() {
             const denominator = 1 - feeRatio;
             if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, costProfitAmount: 0, paymentFeeAmount: 0, profit: 0, costProfitRateDisp: '0.0', salesProfitRateDisp: '0.0' };
 
-            const costProfitAmount = Math.round(effectiveCost * inputRate);
+            // [UPDATED] 原価利益額 = 仕入れ金額 (subtotalPrice) × 原価利益率
+            const costProfitAmount = Math.round(subtotalPrice * inputRate);
             totalAmount = Math.round((effectiveCost + costProfitAmount + shippingFee) / denominator);
             profit = costProfitAmount;
 
@@ -271,12 +272,13 @@ export default function AdminProfitPage() {
             profit = Math.round(totalAmount * inputRate);
 
             salesProfitRateDisp = (parseFloat(profitRate) || 0).toFixed(1);
-            costProfitRateDisp = effectiveCost > 0 ? ((profit / effectiveCost) * 100).toFixed(1) : '0.0';
+            costProfitRateDisp = subtotalPrice > 0 ? ((profit / subtotalPrice) * 100).toFixed(1) : '0.0';
         }
 
         const productSellPrice = totalAmount - shippingFee; // 商品価格
         const paymentFeeAmount = Math.round(totalAmount * feeRatio);
-        const costProfitAmount = Math.round(effectiveCost * ((parseFloat(profitRate) || 0) / 100));
+        // [UPDATED] 表示用 原価利益額 = 仕入れ金額 (subtotalPrice) × 原価利益率
+        const costProfitAmount = Math.round(subtotalPrice * inputRate);
 
         return {
             productSellPrice,
@@ -292,7 +294,7 @@ export default function AdminProfitPage() {
     const jpCalculation = useMemo(() => {
         if (effectiveCost <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
         return calculateProfitRow(shippingFeeJp);
-    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate, profitType]);
+    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate, profitType, subtotalPrice]);
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
@@ -474,7 +476,7 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* [UPDATED] 円表記の直横にドル表記を並べて配置 */}
+                    {/* 消費税還付計算に基づくサマリー表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
                             <span>仕入れ金額 ({parsedQty}枚):</span>
@@ -514,7 +516,6 @@ export default function AdminProfitPage() {
                                     <span className="font-bold text-slate-800 text-xs">日本郵便 (船便)</span>
                                 </div>
 
-                                {/* [UPDATED] 「販売価格」クリックで内訳が開閉するアコーディオン / ドル表記を円の直横に併記 */}
                                 <div 
                                     onClick={() => toggleDetail('jp')}
                                     className="bg-blue-50/70 hover:bg-blue-100/80 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs cursor-pointer transition-colors relative group"
@@ -546,18 +547,22 @@ export default function AdminProfitPage() {
                                     </div>
                                 </div>
 
-                                {/* [NEW] 販売価格クリック時に開閉される内訳トグルブロック */}
+                                {/* [UPDATED] 「原価」を「仕入れ金額」と「還付消費税額」に分けて内訳表示 */}
                                 {openDetails['jp'] && (
                                     <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px] animate-fade-in">
                                         <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
                                             販売価格の内訳
                                         </div>
                                         <div className="flex justify-between text-slate-600">
-                                            <span>・原価 (税還付込):</span>
-                                            <span className="font-mono">¥{effectiveCost.toLocaleString()} {formatUsd(effectiveCost)}</span>
+                                            <span>・仕入れ金額 ({parsedQty}枚):</span>
+                                            <span className="font-mono">¥{subtotalPrice.toLocaleString()} {formatUsd(subtotalPrice)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-emerald-600 font-medium">
+                                            <span>・還付消費税額 (控除分):</span>
+                                            <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()} {formatUsd(refundTaxAmount)}</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600 font-medium">
-                                            <span>・原価利益額 (原価比 {jpCalculation.costProfitRateDisp}%):</span>
+                                            <span>・原価利益額 (仕入れ金額比 {jpCalculation.costProfitRateDisp}%):</span>
                                             <span className="font-mono text-emerald-700">¥{jpCalculation.costProfitAmount.toLocaleString()} {formatUsd(jpCalculation.costProfitAmount)}</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600">
@@ -590,7 +595,6 @@ export default function AdminProfitPage() {
                                         <span className="font-bold text-amber-950 text-xs">{fRate.serviceName}</span>
                                     </div>
 
-                                    {/* [UPDATED] 「販売価格」クリックで内訳が開閉するアコーディオン / ドル表記を円の直横に併記 */}
                                     <div 
                                         onClick={() => toggleDetail(cardKey)}
                                         className="bg-blue-50/70 hover:bg-blue-100/80 p-3 rounded-md border border-blue-200 grid grid-cols-3 gap-2 text-xs cursor-pointer transition-colors relative group"
@@ -622,18 +626,22 @@ export default function AdminProfitPage() {
                                         </div>
                                     </div>
 
-                                    {/* [NEW] 販売価格クリック時に開閉される内訳トグルブロック */}
+                                    {/* [UPDATED] 「原価」を「仕入れ金額」と「還付消費税額」に分けて内訳表示 */}
                                     {openDetails[cardKey] && (
                                         <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px] animate-fade-in">
                                             <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
                                                 販売価格の内訳
                                             </div>
                                             <div className="flex justify-between text-slate-600">
-                                                <span>・原価 (税還付込):</span>
-                                                <span className="font-mono">¥{effectiveCost.toLocaleString()} {formatUsd(effectiveCost)}</span>
+                                                <span>・仕入れ金額 ({parsedQty}枚):</span>
+                                                <span className="font-mono">¥{subtotalPrice.toLocaleString()} {formatUsd(subtotalPrice)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-emerald-600 font-medium">
+                                                <span>・還付消費税額 (控除分):</span>
+                                                <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()} {formatUsd(refundTaxAmount)}</span>
                                             </div>
                                             <div className="flex justify-between text-slate-600 font-medium">
-                                                <span>・原価利益額 (原価比 {calc.costProfitRateDisp}%):</span>
+                                                <span>・原価利益額 (仕入れ金額比 {calc.costProfitRateDisp}%):</span>
                                                 <span className="font-mono text-emerald-700">¥{calc.costProfitAmount.toLocaleString()} {formatUsd(calc.costProfitAmount)}</span>
                                             </div>
                                             <div className="flex justify-between text-slate-600">
