@@ -1,4 +1,5 @@
-// app/dashboard/page.tsx
+// app/[lang]/dashboard/page.tsx
+// [UPDATED] item.title 参照時の undefined エラーを防ぐ安全なガード処理を追加
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -22,7 +23,6 @@ function getTrackingUrl(trackingNumber: string): string {
     return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
 }
 
-// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
 function calculateUserInvoiceDetails(order: any) {
     let productTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
@@ -213,7 +213,6 @@ export default async function DashboardPage(props: {
                 <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
-            {/* [UPDATED] dict Propsを正しく渡す */}
             <BookmarkletGenerator dict={dict} />
 
             <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
@@ -359,6 +358,7 @@ export default async function DashboardPage(props: {
                                                     {order.order_items.map((oi: any, idx: number) => {
                                                         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
 
+                                                        // [UPDATED] item が存在しない場合は安全にスキップ
                                                         if (!item) return null;
 
                                                         const cartQty = item.quantity ?? 1;
@@ -372,6 +372,7 @@ export default async function DashboardPage(props: {
                                                             <React.Fragment key={item.id || idx}>
                                                                 <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
                                                                     <td className="p-2.5 font-medium text-slate-800">
+                                                                        {/* [UPDATED] title が undefined の場合の安全ガードを追加 */}
                                                                         {item.title || '名称未設定'}
                                                                     </td>
                                                                     <td className="p-2.5 max-w-[180px] truncate">
