@@ -134,15 +134,22 @@ export async function cancelAdminNote(itemId: string) {
 /**
  * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
  */
-export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number) {
+export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string) {
     const supabase = await createClient()
+
+    // [UPDATED] 確定した配送方法もDBに保存するよう追加
+    const updateData: any = {
+        shipping_fee: shippingFee,
+        total_amount: totalAmount,
+    }
+
+    if (shippingMethod) {
+        updateData.shipping_method = shippingMethod
+    }
 
     const { error } = await supabase
         .from('orders')
-        .update({
-            shipping_fee: shippingFee,
-            total_amount: totalAmount,
-        })
+        .update(updateData)
         .eq('id', orderId)
 
     if (error) {

@@ -1,3 +1,4 @@
+// app/[lang]/admin/ClientAdminPage.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -460,7 +461,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 }
 
                 const destCountry = order.shipping_country || order.profiles?.country || 'US';
-                // [NEW] 実際の注文に紐づく郵便番号を取得（未設定なら空文字を送信）
                 const destPostalCode = order.shipping_zip_code || order.profiles?.zip_code || '';
                 const selectedMethod = order.shipping_method || '最安プラン自動選択 (航空便)';
 
@@ -472,7 +472,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             destination: destCountry,
-                            postalCode: destPostalCode, // [NEW] 実在する郵便番号をAPIに送信
+                            postalCode: destPostalCode, 
                             weight: weightVal,
                             targetCurrency: 'JPY'
                         })
@@ -675,7 +675,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     }
 
-    const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, formData: FormData) => {
+    // [UPDATED] 配送方法の引数を追加
+    const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) => {
         const weightStr = formData.get('weightStr') as string;
         const weightNum = parseFloat(weightStr);
 
@@ -703,12 +704,13 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         setOrders((prevOrders) =>
             prevOrders.map((order) => {
                 if (order.id !== orderId) return order
-                return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount }
+                // [NEW] 配送方法も更新状態に含める
+                return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount, shipping_method: currentShippingMethod }
             })
         )
 
         setEditingWeight(prev => { const next = new Set(prev); next.delete(orderId); return next; })
-        await sendInvoice(orderId, currentShippingFee, currentTotalAmount)
+        await sendInvoice(orderId, currentShippingFee, currentTotalAmount, currentShippingMethod)
 
         if (hasExistingTracking) {
             alert('総重量が変更されたため、新しい配送ラベルを自動作成します。')
@@ -1002,7 +1004,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 </button>
                                             </div>
                                         ) : (
-                                            <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal)} className="flex items-center justify-center gap-1.5">
+                                            <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal, resolvedShippingDisp)} className="flex items-center justify-center gap-1.5">
                                                 <input
                                                     type="number"
                                                     step="0.01"
