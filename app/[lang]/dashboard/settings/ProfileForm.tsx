@@ -3,7 +3,7 @@
 
 import React, { useActionState, useEffect, useState } from 'react'
 import { updateProfile } from '@/app/actions/profile'
-import { changePassword } from '@/app/actions/auth'
+import { changePassword, changeEmail } from '@/app/actions/auth' // [UPDATED] changeEmail を追加
 import { SubmitButton } from '@/components/SubmitButtons'
 import { countries } from '@/components/countries'
 import Link from 'next/link'
@@ -16,6 +16,9 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
     // パスワード変更用 State
     const [pwState, pwAction] = useActionState(changePassword, null)
     const [showPwToast, setShowPwToast] = useState(false)
+
+    // メール変更用 State [NEW]
+    const [emailState, emailAction] = useActionState(changeEmail, null)
 
     // パスワード変更フォームの開閉状態
     const [isOpenPwForm, setIsOpenPwForm] = useState(false)
@@ -91,7 +94,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         if (checked) {
             setContactEmail(safeUserEmail)
         } else {
-            setContactEmail('') // [UPDATED] チェックを外した時にクリアする
+            setContactEmail('') 
         }
     }
 
@@ -102,7 +105,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
         if (checked) {
             setWiseEmail(safeUserEmail)
         } else {
-            setWiseEmail('') // [UPDATED] チェックを外した時にクリアする
+            setWiseEmail('') 
         }
     }
 
@@ -168,13 +171,21 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                 </div>
             )}
 
-            {/* 1. ログイン情報 兼 パスワード変更カード */}
+            {/* 1. ログイン情報 兼 パスワード・メールアドレス変更カード */}
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
                 <h2 className="font-bold text-slate-800 border-b pb-2">ログイン情報・セキュリティ</h2>
                 
                 <div className="mb-2">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス (変更不可)</label>
-                    <input type="email" value={safeUserEmail} readOnly disabled className="w-full p-2 border border-slate-200 rounded text-slate-500 bg-slate-50 text-sm font-mono" />
+                    <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス</label>
+                    {/* [UPDATED] メールアドレス変更用フォームを追加 */}
+                    <form action={emailAction} className="flex gap-2 items-start">
+                        <div className="w-full flex flex-col gap-1">
+                            <input name="email" type="email" defaultValue={safeUserEmail} required className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" />
+                            {emailState?.error && <span className="text-[10px] text-red-600 font-bold">⚠️ {emailState.error}</span>}
+                            {emailState?.success && <span className="text-[10px] text-emerald-600 font-bold">✅ {emailState.message}</span>}
+                        </div>
+                        <SubmitButton pendingText="送信中...">変更</SubmitButton>
+                    </form>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
@@ -276,7 +287,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             />
                         </div>
 
-                        {/* [UPDATED] 連絡用メールアドレスを必須（required）に変更 */}
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="block text-xs font-bold text-slate-600">

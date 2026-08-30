@@ -1,4 +1,4 @@
-// app/dashboard/page.tsx
+// app/[lang]/dashboard/page.tsx
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -22,7 +22,6 @@ function getTrackingUrl(trackingNumber: string): string {
     return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
 }
 
-// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
 function calculateUserInvoiceDetails(order: any) {
     let productTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
@@ -159,21 +158,12 @@ export default async function DashboardPage(props: {
             {/* ヘッダー最上部領域 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">{dict.dashboard.title}</h1>
+                    <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
+                    {/* [UPDATED] 連絡先・お届け国のバッジを削除 */}
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
                             ログインアカウント: <span className="font-mono font-medium text-slate-700">{user.email}</span>
                         </p>
-                        {profile?.contact_email && (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-medium">
-                                📧 連絡先: {profile.contact_email}
-                            </span>
-                        )}
-                        {profile?.country && (
-                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                                🏠 お届け国: {profile.country}
-                            </span>
-                        )}
                     </div>
                 </div>
 
@@ -183,11 +173,11 @@ export default async function DashboardPage(props: {
                         target="_blank"
                         className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                     >
-                        {dict.dashboard.shippingCalculator}
+                        {dict?.dashboard?.shippingCalculator || '送料シミュレーター'}
                     </Link>
 
                     <Link href={`/${lang}/dashboard/settings`} className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
-                        {dict.dashboard.accountSettings}
+                        {dict?.dashboard?.accountSettings || 'アカウント設定'}
                     </Link>
 
                     <form action={async () => {
@@ -196,7 +186,7 @@ export default async function DashboardPage(props: {
                         await supabase.auth.signOut();
                         redirect(`/${lang}/login`);
                     }}>
-                        <button className="text-xs text-slate-500 hover:text-slate-800 underline">{dict.dashboard.logout}</button>
+                        <button className="text-xs text-slate-500 hover:text-slate-800 underline">{dict?.dashboard?.logout || 'ログアウト'}</button>
                     </form>
                 </div>
             </div>
@@ -204,13 +194,13 @@ export default async function DashboardPage(props: {
             {/* 商品追加フォーム */}
             <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
-                    <input name="url" defaultValue={searchParams.url || ''} placeholder={dict.dashboard.form.urlPlaceholder} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="title" defaultValue={searchParams.title || ''} placeholder={dict.dashboard.form.titlePlaceholder} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder={dict.dashboard.form.pricePlaceholder} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="quantity" type="number" defaultValue={searchParams.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <SubmitButton pendingText={dict.dashboard.form.addingButton}>{dict.dashboard.form.addButton}</SubmitButton>
+                    <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="title" defaultValue={searchParams?.title || ''} placeholder={dict?.dashboard?.form?.titlePlaceholder || '商品名'} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
+                    <input name="desiredPrice" type="number" defaultValue={searchParams?.desiredPrice || ''} placeholder={dict?.dashboard?.form?.pricePlaceholder || '希望価格'} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="quantity" type="number" defaultValue={searchParams?.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <SubmitButton pendingText={dict?.dashboard?.form?.addingButton || '追加中...'}>{dict?.dashboard?.form?.addButton || '追加'}</SubmitButton>
                 </div>
-                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                <input name="remarks" defaultValue={searchParams?.remarks || ''} placeholder={dict?.dashboard?.form?.remarksPlaceholder || '備考'} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
             <BookmarkletGenerator dict={dict} />
@@ -218,10 +208,10 @@ export default async function DashboardPage(props: {
             <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
 
             <div className="grid gap-4 mt-8">
-                <h2 className="text-xl font-bold text-slate-800">{dict.dashboard.orderHistory}</h2>
+                <h2 className="text-xl font-bold text-slate-800">{dict?.dashboard?.orderHistory || '注文履歴'}</h2>
 
                 {(!orders || orders.length === 0) ? (
-                    <p className="text-slate-500 text-sm">{dict.dashboard.noOrders}</p>
+                    <p className="text-slate-500 text-sm">{dict?.dashboard?.noOrders || '注文はありません'}</p>
                 ) : (
                     orders.map((order: any) => {
                         const needsAttention = order.order_items?.some((oi: any) => {
@@ -247,24 +237,24 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.dashboard.table.order}
+                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict?.dashboard?.table?.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
-                                            {dict.dashboard.itemCount} {itemCount}
+                                            {dict?.dashboard?.itemCount} {itemCount}
                                         </span>
 
                                         <div className="flex items-center gap-1.5 text-xs">
                                             <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                                                {dict.dashboard.status.shipping} {invoiceDetails.resolvedShippingName}
+                                                {dict?.dashboard?.status?.shipping} {invoiceDetails.resolvedShippingName}
                                             </span>
                                             <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-medium">
-                                                {dict.dashboard.status.payment} {paymentServiceName}
+                                                {dict?.dashboard?.status?.payment} {paymentServiceName}
                                             </span>
                                         </div>
 
                                         {hasTracking && (
                                             <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs">
-                                                <span className="text-emerald-700 font-bold">{dict.dashboard.status.tracking}</span>
+                                                <span className="text-emerald-700 font-bold">{dict?.dashboard?.status?.tracking}</span>
                                                 <TrackingLink
                                                     trackingNumber={order.tracking_number}
                                                     trackingUrl={getTrackingUrl(order.tracking_number)}
@@ -274,7 +264,7 @@ export default async function DashboardPage(props: {
 
                                         {needsAttention && (
                                             <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">
-                                                {dict.dashboard.status.attention}
+                                                {dict?.dashboard?.status?.attention}
                                             </span>
                                         )}
                                     </div>
@@ -288,27 +278,27 @@ export default async function DashboardPage(props: {
                                     {hasInvoice && (
                                         <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
                                             <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">
-                                                <span>{dict.dashboard.invoice.title}</span>
+                                                <span>{dict?.dashboard?.invoice?.title}</span>
                                                 {!(order.total_amount !== null && Number(order.total_amount) > 0) && (
                                                     <span className="text-[10px] text-amber-600 font-normal">
-                                                        {dict.dashboard.invoice.shippingNote}
+                                                        {dict?.dashboard?.invoice?.shippingNote}
                                                     </span>
                                                 )}
                                             </h4>
                                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.productTotal}</span>
+                                                    <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.productTotal}</span>
                                                     <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.proxyFee}</span>
+                                                    <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.proxyFee}</span>
                                                     <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">
-                                                        {dict.dashboard.invoice.shipping} <span className="text-slate-500 font-normal">({invoiceDetails.resolvedShippingName})</span>
+                                                        {dict?.dashboard?.invoice?.shipping} <span className="text-slate-500 font-normal">({invoiceDetails.resolvedShippingName})</span>
                                                     </span>
                                                     <div className="flex items-baseline gap-1">
                                                         <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
@@ -317,7 +307,7 @@ export default async function DashboardPage(props: {
 
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                                                        {dict.dashboard.invoice.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
+                                                        {dict?.dashboard?.invoice?.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
                                                     </span>
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
@@ -330,7 +320,7 @@ export default async function DashboardPage(props: {
                                                 </div>
 
                                                 <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
-                                                    <span className="text-[10px] text-amber-800 font-bold">{dict.dashboard.invoice.grandTotal}</span>
+                                                    <span className="text-[10px] text-amber-800 font-bold">{dict?.dashboard?.invoice?.grandTotal}</span>
                                                     <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
                                             </div>
@@ -343,22 +333,21 @@ export default async function DashboardPage(props: {
                                             <table className="min-w-full border-collapse text-xs text-left">
                                                 <thead>
                                                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                                        <th className="p-2.5">{dict.dashboard.table.item}</th>
-                                                        <th className="p-2.5 max-w-[180px]">{dict.dashboard.table.url}</th>
-                                                        <th className="p-2.5 w-32">{dict.dashboard.table.remarks}</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.dashboard.table.requestedQuantity}</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.dashboard.table.confirmedQuantity}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.desiredPrice}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.price}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.subtotal}</th>
-                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict.dashboard.table.status}</th>
+                                                        <th className="p-2.5">{dict?.dashboard?.table?.item}</th>
+                                                        <th className="p-2.5 max-w-[180px]">{dict?.dashboard?.table?.url}</th>
+                                                        <th className="p-2.5 w-32">{dict?.dashboard?.table?.remarks}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict?.dashboard?.table?.requestedQuantity}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict?.dashboard?.table?.confirmedQuantity}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict?.dashboard?.table?.desiredPrice}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict?.dashboard?.table?.price}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict?.dashboard?.table?.subtotal}</th>
+                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict?.dashboard?.table?.status}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {order.order_items.map((oi: any, idx: number) => {
                                                         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
 
-                                                        // [UPDATED] item が存在しない場合は安全にスキップ
                                                         if (!item) return null;
 
                                                         const cartQty = item.quantity ?? 1;
@@ -372,11 +361,10 @@ export default async function DashboardPage(props: {
                                                             <React.Fragment key={item.id || idx}>
                                                                 <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
                                                                     <td className="p-2.5 font-medium text-slate-800">
-                                                                        {/* [UPDATED] title が undefined の場合の安全ガードを追加 */}
                                                                         {item?.title || '名称未設定'}
                                                                     </td>
                                                                     <td className="p-2.5 max-w-[180px] truncate">
-                                                                        {item.url ? (
+                                                                        {item?.url ? (
                                                                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline block truncate" title={item.url}>
                                                                                 {item.url}
                                                                             </a>
@@ -384,8 +372,8 @@ export default async function DashboardPage(props: {
                                                                             <span className="text-slate-400">-</span>
                                                                         )}
                                                                     </td>
-                                                                    <td className="p-2.5 text-slate-600 text-[11px]" title={item.remarks}>
-                                                                        {item.remarks || '-'}
+                                                                    <td className="p-2.5 text-slate-600 text-[11px]" title={item?.remarks}>
+                                                                        {item?.remarks || '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-center font-mono text-slate-500">
                                                                         {cartQty}
@@ -400,7 +388,7 @@ export default async function DashboardPage(props: {
                                                                         )}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
-                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
+                                                                        {item?.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
                                                                         {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
@@ -409,17 +397,16 @@ export default async function DashboardPage(props: {
                                                                         {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 whitespace-nowrap">
-                                                                        <ItemStatusBadge dict={dict} status={item.status} />
+                                                                        <ItemStatusBadge dict={dict} status={item?.status} />
                                                                     </td>
                                                                 </tr>
-                                                                {/* 返信フォーム */}
                                                                 {isInfoRequired && (
                                                                     <tr className="bg-red-50 border-b border-red-200">
                                                                         <td colSpan={9} className="p-3">
                                                                             <div className="flex flex-col gap-2 bg-white p-2.5 rounded border border-red-200">
                                                                                 <div className="flex items-center gap-2 text-xs text-red-700 font-bold">
-                                                                                    <span>{dict.dashboard.form.adminNoteLabel}</span>
-                                                                                    <span className="font-normal text-slate-800">{item.admin_note || '確認事項があります。詳細を指定してください。'}</span>
+                                                                                    <span>{dict?.dashboard?.form?.adminNoteLabel || '⚠️'}</span>
+                                                                                    <span className="font-normal text-slate-800">{item?.admin_note || '確認事項があります。詳細を指定してください。'}</span>
                                                                                 </div>
                                                                                 <form action={async (formData) => {
                                                                                     'use server';
@@ -430,13 +417,13 @@ export default async function DashboardPage(props: {
                                                                                 }} className="flex items-center gap-2 mt-1">
                                                                                     <input
                                                                                         name="replyRemarks"
-                                                                                        defaultValue={item.remarks || ''}
-                                                                                        placeholder={dict.dashboard.form.replyPlaceholder}
+                                                                                        defaultValue={item?.remarks || ''}
+                                                                                        placeholder={dict?.dashboard?.form?.replyPlaceholder || '回答を入力'}
                                                                                         required
                                                                                         className="flex-1 p-1.5 border border-slate-300 rounded text-xs text-slate-900"
                                                                                     />
                                                                                     <button type="submit" className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs shadow-sm whitespace-nowrap">
-                                                                                        {dict.dashboard.form.replyButton}
+                                                                                        {dict?.dashboard?.form?.replyButton || '送信'}
                                                                                     </button>
                                                                                 </form>
                                                                             </div>

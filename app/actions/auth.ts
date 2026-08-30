@@ -130,3 +130,24 @@ export async function changePassword(prevState: any, formData: FormData) {
 
     return { success: true }
 }
+
+// ▼ ログイン中ユーザーのメールアドレス変更処理 [NEW]
+export async function changeEmail(prevState: any, formData: FormData) {
+    const email = formData.get('email') as string
+
+    if (!email) {
+        return { error: 'メールアドレスを入力してください。' }
+    }
+
+    const supabase = await createClient()
+
+    const { error } = await supabase.auth.updateUser({
+        email: email
+    })
+
+    if (error) {
+        return { error: 'メールアドレスの変更に失敗しました。既に登録済みの可能性があります。' }
+    }
+
+    return { success: true, message: '確認メールを送信しました。新しいメールアドレスで確認を行ってください。' }
+}
