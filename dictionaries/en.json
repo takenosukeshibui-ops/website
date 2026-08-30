@@ -1,3 +1,5 @@
+// dictionaries/en.json
+// [UPDATED] "shippingCalculator" を "✈️ Shipping Simulator ↗" に変更
 {
   "home": {
     "title": "Welcome to our service",
@@ -11,7 +13,7 @@
     "title": "My Page",
     "logout": "Logout",
     "accountSettings": "⚙️ Account Settings",
-    "shippingCalculator": "✈️ International Shipping Simulator ↗",
+    "shippingCalculator": "✈️ Shipping Simulator ↗",
     "orderHistory": "Order History",
     "noOrders": "No orders found.",
     "itemCount": "Items:",

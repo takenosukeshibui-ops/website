@@ -214,102 +214,6 @@ export default function ForgotPasswordPage() {
 }
 </file>
 
-<file path="app/[lang]/login/page.tsx">
-// app/login/page.tsx
-'use client'
-
-import { useActionState } from 'react'
-import { login } from '@/app/actions/auth'
-import Link from 'next/link'
-
-export default function LoginPage() {
-    const [state, action, pending] = useActionState(login, null)
-
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
-            <form action={action} className="w-full max-w-sm rounded-lg bg-white p-8 border border-slate-200 shadow-sm">
-                <h1 className="mb-6 text-xl font-bold text-slate-900 text-center">ログイン</h1>
-                
-                {state?.error && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded text-sm font-bold">
-                        ⚠️ {state.error}
-                    </div>
-                )}
-                
-                <input name="email" type="email" placeholder="メールアドレス" required className="mb-4 w-full rounded p-2 border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 outline-none" />
-                <input name="password" type="password" placeholder="パスワード" required className="mb-2 w-full rounded p-2 border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 outline-none" />
-                
-                {/* ★ パスワードを忘れた方用のリンク */}
-                <div className="text-right mb-6">
-                    <Link href="/forgot-password" className="text-xs text-slate-500 hover:text-slate-800 hover:underline">
-                        パスワードをお忘れですか？
-                    </Link>
-                </div>
-                
-                <button disabled={pending} className="w-full rounded bg-slate-800 p-2 text-white font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                    {pending ? 'ログイン中...' : 'ログイン'}
-                </button>
-
-                <div className="mt-6 text-center border-t border-slate-100 pt-4">
-                    <p className="text-xs text-slate-500">アカウントをお持ちでないですか？</p>
-                    <Link href="/signup" className="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-block">
-                        新規アカウント登録はこちら
-                    </Link>
-                </div>
-            </form>
-        </div>
-    )
-}
-</file>
-
-<file path="app/[lang]/signup/page.tsx">
-// app/signup/page.tsx
-'use client'
-
-import { useActionState } from 'react'
-import { signup } from '@/app/actions/auth'
-import Link from 'next/link'
-
-export default function SignUpPage() {
-    const [state, action, pending] = useActionState(signup, null)
-
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50">
-            <form action={action} className="w-full max-w-sm rounded-lg bg-white p-8 border border-slate-200 shadow-sm">
-                <h1 className="mb-6 text-xl font-bold text-slate-900 text-center">新規アカウント登録</h1>
-                
-                {state?.error && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded text-sm font-bold">
-                        ⚠️ {state.error}
-                    </div>
-                )}
-                
-                <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">メールアドレス</label>
-                    <input name="email" type="email" placeholder="example@email.com" required className="w-full rounded p-2 border border-slate-300 bg-white text-slate-900 text-sm placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none" />
-                </div>
-                
-                <div className="mb-6">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">パスワード (6文字以上)</label>
-                    <input name="password" type="password" placeholder="••••••••" required minLength={6} className="w-full rounded p-2 border border-slate-300 bg-white text-slate-900 text-sm placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none" />
-                </div>
-                
-                <button disabled={pending} className="w-full rounded bg-blue-600 p-2 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                    {pending ? '登録処理中...' : 'アカウントを作成'}
-                </button>
-
-                <div className="mt-6 text-center border-t border-slate-100 pt-4">
-                    <p className="text-xs text-slate-500">すでにアカウントをお持ちですか？</p>
-                    <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 hover:underline mt-1 inline-block">
-                        ログイン画面へ戻る
-                    </Link>
-                </div>
-            </form>
-        </div>
-    )
-}
-</file>
-
 <file path="app/actions/items.ts">
 // app/actions/items.ts
 'use server'
@@ -2140,6 +2044,105 @@ export default async function SettingsPage(props: {
             
             {/* [UPDATED] dict を Props として渡す */}
             <ProfileForm profile={profile} userEmail={user.email || ''} dict={dict} />
+        </div>
+    )
+}
+</file>
+
+<file path="app/[lang]/login/page.tsx">
+// app/[lang]/login/page.tsx
+'use client'
+
+import { useActionState, use } from 'react'
+import { login } from '@/app/actions/auth'
+import Link from 'next/link'
+
+export default function LoginPage(props: { params: Promise<{ lang: string }> }) {
+    const { lang } = use(props.params)
+    const isEn = lang === 'en'
+    const [state, action, pending] = useActionState(login, null)
+
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+            <form action={action} className="w-full max-w-sm rounded-lg bg-white p-8 border border-slate-200 shadow-sm">
+                <h1 className="mb-6 text-xl font-bold text-slate-900 text-center">{isEn ? 'Login' : 'ログイン'}</h1>
+                
+                {state?.error && (
+                    <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded text-sm font-bold">
+                        ⚠️ {state.error}
+                    </div>
+                )}
+                
+                <input name="email" type="email" placeholder={isEn ? 'Email' : 'メールアドレス'} required className="mb-4 w-full rounded p-2 border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 outline-none" />
+                <input name="password" type="password" placeholder={isEn ? 'Password' : 'パスワード'} required className="mb-2 w-full rounded p-2 border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-slate-500 outline-none" />
+                
+                <div className="text-right mb-6">
+                    <Link href={`/${lang}/forgot-password`} className="text-xs text-slate-500 hover:text-slate-800 hover:underline">
+                        {isEn ? 'Forgot your password?' : 'パスワードをお忘れですか？'}
+                    </Link>
+                </div>
+                
+                <button disabled={pending} className="w-full rounded bg-slate-800 p-2 text-white font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                    {pending ? (isEn ? 'Logging in...' : 'ログイン中...') : (isEn ? 'Login' : 'ログイン')}
+                </button>
+
+                <div className="mt-6 text-center border-t border-slate-100 pt-4">
+                    <p className="text-xs text-slate-500">{isEn ? "Don't have an account?" : 'アカウントをお持ちでないですか？'}</p>
+                    <Link href={`/${lang}/signup`} className="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline mt-1 inline-block">
+                        {isEn ? 'Sign up here' : '新規アカウント登録はこちら'}
+                    </Link>
+                </div>
+            </form>
+        </div>
+    )
+}
+</file>
+
+<file path="app/[lang]/signup/page.tsx">
+// app/[lang]/signup/page.tsx
+'use client'
+
+import { useActionState, use } from 'react'
+import { signup } from '@/app/actions/auth'
+import Link from 'next/link'
+
+export default function SignUpPage(props: { params: Promise<{ lang: string }> }) {
+    const { lang } = use(props.params)
+    const isEn = lang === 'en'
+    const [state, action, pending] = useActionState(signup, null)
+
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+            <form action={action} className="w-full max-w-sm rounded-lg bg-white p-8 border border-slate-200 shadow-sm">
+                <h1 className="mb-6 text-xl font-bold text-slate-900 text-center">{isEn ? 'Sign Up' : '新規アカウント登録'}</h1>
+                
+                {state?.error && (
+                    <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded text-sm font-bold">
+                        ⚠️ {state.error}
+                    </div>
+                )}
+                
+                <div className="mb-4">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Email' : 'メールアドレス'}</label>
+                    <input name="email" type="email" placeholder="example@email.com" required className="w-full rounded p-2 border border-slate-300 bg-white text-slate-900 text-sm placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none" />
+                </div>
+                
+                <div className="mb-6">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Password (min 6 chars)' : 'パスワード (6文字以上)'}</label>
+                    <input name="password" type="password" placeholder="••••••••" required minLength={6} className="w-full rounded p-2 border border-slate-300 bg-white text-slate-900 text-sm placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none" />
+                </div>
+                
+                <button disabled={pending} className="w-full rounded bg-blue-600 p-2 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                    {pending ? (isEn ? 'Signing up...' : '登録処理中...') : (isEn ? 'Create Account' : 'アカウントを作成')}
+                </button>
+
+                <div className="mt-6 text-center border-t border-slate-100 pt-4">
+                    <p className="text-xs text-slate-500">{isEn ? 'Already have an account?' : 'すでにアカウントをお持ちですか？'}</p>
+                    <Link href={`/${lang}/login`} className="text-sm font-bold text-slate-600 hover:text-slate-900 hover:underline mt-1 inline-block">
+                        {isEn ? 'Back to Login' : 'ログイン画面へ戻る'}
+                    </Link>
+                </div>
+            </form>
         </div>
     )
 }
@@ -6278,106 +6281,6 @@ export default function BookmarkletGenerator({ dict }: { dict?: any }) {
 }
 </file>
 
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-// [UPDATED] 「現在の在庫数」表示を削除し、表示項目を「商品名」「販売価格」の2列に変更
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function InventoryPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-
-    useEffect(() => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    }, []);
-
-    const filteredRarities = rarities.filter(r =>
-        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
-                    ← ホームへ戻る
-                </Link>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800">取扱商品</h1>
-                    </div>
-
-                    <div className="w-full md:w-64">
-                        <input
-                            type="text"
-                            placeholder="商品名で検索..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
-                        <thead>
-                            {/* [UPDATED] 表示項目を「商品名」「販売価格」の2列に限定 */}
-                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
-                                <th className="p-3 font-semibold">商品名</th>
-                                <th className="p-3 font-semibold text-right">販売価格</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    {/* [UPDATED] colSpan を 2 に変更 */}
-                                    <td colSpan={2} className="p-8 text-center text-slate-400">読み込み中...</td>
-                                </tr>
-                            ) : filteredRarities.length === 0 ? (
-                                <tr>
-                                    {/* [UPDATED] colSpan を 2 に変更 */}
-                                    <td colSpan={2} className="p-8 text-center text-slate-400">
-                                        {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredRarities.map((r, i) => {
-                                    const sellPriceVal = Number(r.sell_price || 0);
-
-                                    return (
-                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
-                                            {/* 1. 商品名 */}
-                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
-                                            {/* 2. 販売価格 */}
-                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                                ¥{sellPriceVal.toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="app/[lang]/admin/data/rarity/page.tsx">
 // app/[lang]/admin/data/rarity/page.tsx
 // [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
@@ -6876,9 +6779,105 @@ export default function AdminDataPage() {
 }
 </file>
 
+<file path="app/[lang]/inventory/page.tsx">
+// app/[lang]/inventory/page.tsx
+'use client';
+
+import { useState, useEffect, use } from 'react';
+import Link from 'next/link';
+
+export default function InventoryPage(props: { params: Promise<{ lang: string }> }) {
+    const { lang } = use(props.params);
+    const isEn = lang === 'en';
+
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const filteredRarities = rarities.filter(r =>
+        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-4xl mx-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <Link href={`/${lang}`} className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+                    {isEn ? '← Back to Home' : '← ホームへ戻る'}
+                </Link>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-800">{isEn ? 'Inventory' : '取扱商品'}</h1>
+                    </div>
+
+                    <div className="w-full md:w-64">
+                        <input
+                            type="text"
+                            placeholder={isEn ? 'Search items...' : '商品名で検索...'}
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
+                        <thead>
+                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
+                                <th className="p-3 font-semibold">{isEn ? 'Product Name' : '商品名'}</th>
+                                <th className="p-3 font-semibold text-right">{isEn ? 'Price' : '販売価格'}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">{isEn ? 'Loading...' : '読み込み中...'}</td>
+                                </tr>
+                            ) : filteredRarities.length === 0 ? (
+                                <tr>
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">
+                                        {searchQuery ? (isEn ? 'No items match your search.' : '検索条件に一致する商品はありません') : (isEn ? 'No inventory data found.' : '登録された商品データはありません')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredRarities.map((r, i) => {
+                                    const sellPriceVal = Number(r.sell_price || 0);
+
+                                    return (
+                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
+                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                ¥{sellPriceVal.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/[lang]/dashboard/page.tsx">
 // app/[lang]/dashboard/page.tsx
-// [UPDATED] 「ログインアカウント」および「配送方法」の表示を多言語対応化
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -6976,13 +6975,13 @@ export default async function DashboardPage(props: {
 }) {
     const { lang } = await props.params;
     const dict = await getDictionary(lang);
-    const isEn = lang === 'en'; // [NEW] 言語判定
+    const isEn = lang === 'en'; // [NEW] サーバー側で確実な言語判定
     const searchParams = await props.searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        redirect('/login');
+        redirect(`/${lang}/login`);
     }
 
     const { data: profile } = await supabase
@@ -7034,7 +7033,7 @@ export default async function DashboardPage(props: {
         .eq('status', 'draft')
         .order('created_at', { ascending: false });
 
-    // [NEW] 配送方法の翻訳ヘルパー
+    // [UPDATED] 配送方法の翻訳ヘルパー
     const getTranslatedShippingMethod = (method: string) => {
         if (!method) return isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)';
         if (method.includes('最安プラン') || method.includes('航空便')) {
@@ -7054,6 +7053,7 @@ export default async function DashboardPage(props: {
                     <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
+                            {/* [UPDATED] 言語判定を確実に適用 */}
                             {isEn ? 'Login Account:' : 'ログインアカウント:'} <span className="font-mono font-medium text-slate-700">{user.email}</span>
                         </p>
                     </div>
@@ -7121,7 +7121,7 @@ export default async function DashboardPage(props: {
                         const invoiceDetails = calculateUserInvoiceDetails(order);
                         const paymentServiceName = order.payment_method || 'Wise';
                         
-                        // [UPDATED] 言語に応じて配送方法名を変換
+                        // [UPDATED] 配送方法名を変換
                         const resolvedShippingDisp = getTranslatedShippingMethod(invoiceDetails.resolvedShippingName);
 
                         return (
@@ -7132,7 +7132,7 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict?.dashboard?.table?.order}
+                                            {new Date(order.created_at).toLocaleDateString(isEn ? 'en-US' : 'ja-JP')} {dict?.dashboard?.table?.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
                                             {dict?.dashboard?.itemCount} {itemCount}
@@ -7183,12 +7183,12 @@ export default async function DashboardPage(props: {
                                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.productTotal}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.proxyFee}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
@@ -7196,7 +7196,7 @@ export default async function DashboardPage(props: {
                                                         {dict?.dashboard?.invoice?.shipping} <span className="text-slate-500 font-normal">({resolvedShippingDisp})</span>
                                                     </span>
                                                     <div className="flex items-baseline gap-1">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                     </div>
                                                 </div>
 
@@ -7205,7 +7205,7 @@ export default async function DashboardPage(props: {
                                                         {dict?.dashboard?.invoice?.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
                                                     </span>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                         {invoiceDetails.paymentFeeDetail && (
                                                             <span className="text-[9px] text-slate-500 font-normal">
                                                                 {invoiceDetails.paymentFeeDetail}
@@ -7216,7 +7216,7 @@ export default async function DashboardPage(props: {
 
                                                 <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
                                                     <span className="text-[10px] text-amber-800 font-bold">{dict?.dashboard?.invoice?.grandTotal}</span>
-                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -7283,13 +7283,13 @@ export default async function DashboardPage(props: {
                                                                         )}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
-                                                                        {item?.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {item?.desired_price ? `${Number(item.desired_price).toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 whitespace-nowrap">
                                                                         <ItemStatusBadge dict={dict} status={item?.status} />
@@ -7347,17 +7347,16 @@ export default async function DashboardPage(props: {
 
 <file path="app/[lang]/calculator/page.tsx">
 // app/[lang]/calculator/page.tsx
-// [UPDATED] URLから言語を判定し、UIとエラーメッセージを多言語対応
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // [NEW]
 import { countries } from "@/components/countries";
 
-export default function CalculatorPage() {
-  const pathname = usePathname();
-  const isEn = pathname.startsWith('/en'); // [NEW] 言語判定
+export default function CalculatorPage(props: { params: Promise<{ lang: string }> }) {
+  // [UPDATED] paramsから言語を確実に取得
+  const { lang } = use(props.params);
+  const isEn = lang === 'en';
 
   const [countryCode, setCountryCode] = useState("US");
   const [weight, setWeight] = useState<number>(1.0);
@@ -7404,7 +7403,7 @@ export default function CalculatorPage() {
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
       <div className="flex items-center justify-between pb-2 border-b border-gray-200 mb-4">
-        <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+        <Link href={`/${lang}`} className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
           {isEn ? '← Back to Home' : '← ホームへ戻る'}
         </Link>
       </div>
@@ -7476,7 +7475,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
@@ -7490,7 +7488,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* FedExの全適用プラン表示 */}
           {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (

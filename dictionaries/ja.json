@@ -1,3 +1,5 @@
+// dictionaries/ja.json
+// [UPDATED] "shippingCalculator" を "✈️ 送料シミュレーター ↗" に変更
 {
   "home": {
     "title": "私たちのサービスへようこそ",
@@ -11,7 +13,7 @@
     "title": "マイページ",
     "logout": "ログアウト",
     "accountSettings": "⚙️ アカウント設定",
-    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
+    "shippingCalculator": "✈️ 送料シミュレーター ↗",
     "orderHistory": "依頼済みの注文一覧",
     "noOrders": "依頼済みの注文はありません。",
     "itemCount": "商品数:",

@@ -1,14 +1,16 @@
 // app/[lang]/calculator/page.tsx
+// [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
 "use client";
 
 import { useState, use } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation"; 
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage(props: { params: Promise<{ lang: string }> }) {
-  // [UPDATED] paramsから言語を確実に取得
   const { lang } = use(props.params);
-  const isEn = lang === 'en';
+  const pathname = usePathname();
+  const isEn = pathname.startsWith('/en'); 
 
   const [countryCode, setCountryCode] = useState("US");
   const [weight, setWeight] = useState<number>(1.0);
@@ -61,7 +63,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       </div>
 
       <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
-        Shipping Calculator
+        Shipping Simulator
       </h1>
 
       <div className="space-y-4">
@@ -84,16 +86,19 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
-            {isEn ? 'Weight (kg)' : '商品重量 (Weight / kg)'}
+            {isEn ? 'Weight' : '商品重量 (Weight)'}
           </label>
-          <input
-            type="number"
-            step="0.1"
-            min="0.1"
-            value={weight}
-            onChange={(e) => setWeight(parseFloat(e.target.value))}
-            className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
+          <div className="relative flex items-center">
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={weight}
+              onChange={(e) => setWeight(parseFloat(e.target.value))}
+              className="w-full border border-gray-300 rounded-md p-2.5 pr-8 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
+            <span className="absolute right-3 text-sm font-bold text-gray-500">kg</span>
+          </div>
         </div>
 
         <button
@@ -127,6 +132,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
             </div>
           )}
 
+          {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
@@ -140,6 +146,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
             </div>
           )}
 
+          {/* FedExの全適用プラン表示 */}
           {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (
