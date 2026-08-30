@@ -76,7 +76,7 @@ export default function AdminProfitPage() {
 
     const [productName, setProductName] = useState(''); 
     const [profitRate, setProfitRate] = useState('15');
-    const [feeRate, setFeeRate] = useState('3.6');
+    const [feeRate, setFeeRate] = useState('3.6'); 
     const [unitPrice, setUnitPrice] = useState(''); 
     const [taxRate, setTaxRate] = useState(''); 
     const [quantity, setQuantity] = useState('1');
@@ -105,7 +105,7 @@ export default function AdminProfitPage() {
             .catch(err => console.error("マスタデータ取得エラー:", err));
     }, []);
 
-    // [UPDATED] マスタ商品選択または数量変更時に「単価重量 × 数量」で総重量(kg)を自動算出して反映
+    // マスタ商品選択または数量変更時に「単価重量 × 数量」で総重量(kg)を自動算出して反映
     useEffect(() => {
         if (!selectedRarityId) return;
 
@@ -118,13 +118,12 @@ export default function AdminProfitPage() {
         }
     }, [selectedRarityId, quantity, masterRarities]);
 
-    // [UPDATED] マスタ商品選択処理
+    // マスタ商品選択処理
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
 
         if (!id) {
-            // 未選択（手動入力）時は空にして直接入力可能に
             setProductName('');
             setUnitPrice('');
             setTaxRate('');
@@ -191,7 +190,7 @@ export default function AdminProfitPage() {
                 if (data.success) {
                     setShippingFeeJp(data.japanPost?.total ?? null);
                     setFedexRatesList(data.fedexRates || []); 
-                    setFedexApiError(data.fedexError || null);
+                    setFedexApiError(data.error || null);
                 } else {
                     setFedexApiError(data.error || '計算エラーが発生しました');
                 }
@@ -206,19 +205,23 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
+    // [UPDATED] 送料と販売価格を切り分けた利益試算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const targetRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
         const denominator = 1 - targetRate - feeRatio;
 
-        if (denominator <= 0) return { sellPrice: 0, paymentFeeAmount: 0, profit: 0 };
+        if (denominator <= 0) return { productSellPrice: 0, totalAmount: 0, paymentFeeAmount: 0, profit: 0 };
 
-        const sellPrice = Math.round((effectiveCost + shippingFee) / denominator);
-        const profit = Math.round(sellPrice * targetRate);
-        const paymentFeeAmount = Math.round(sellPrice * feeRatio);
+        // 商品単体の販売価格 (送料は別立て)
+        const productSellPrice = Math.round((effectiveCost + shippingFee * feeRatio) / denominator);
+        const totalAmount = productSellPrice + shippingFee; // バイヤーへの合計請求額
+        const paymentFeeAmount = Math.round(totalAmount * feeRatio);
+        const profit = Math.round(productSellPrice * targetRate);
 
         return {
-            sellPrice,
+            productSellPrice,
+            totalAmount,
             paymentFeeAmount,
             profit
         };
@@ -273,16 +276,20 @@ export default function AdminProfitPage() {
                         </select>
                     </div>
 
+                    {/* [UPDATED] タイトルから単位を削り、入力欄内右側に単位を表示 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">目標利益率 (%)</label>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={profitRate}
-                                onChange={e => setProfitRate(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">目標利益率</label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    value={profitRate}
+                                    onChange={e => setProfitRate(e.target.value)}
+                                    className="w-full h-9 pr-6 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-2 text-[11px] text-slate-400 font-bold">%</span>
+                            </div>
                         </div>
 
                         <div>
@@ -314,58 +321,70 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* 単価・消費税率・数量 */}
+                    {/* [UPDATED] 単価・消費税率・数量 (単位表示つき) */}
                     <div className="grid grid-cols-3 gap-2">
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価 (円)</label>
-                            <input
-                                type="number"
-                                placeholder="例: 3000"
-                                value={unitPrice}
-                                onChange={e => setUnitPrice(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="number"
+                                    placeholder="例: 3000"
+                                    value={unitPrice}
+                                    onChange={e => setUnitPrice(e.target.value)}
+                                    className="w-full h-9 pr-6 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-2 text-[11px] text-slate-400 font-bold">円</span>
+                            </div>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税率 (%)</label>
-                            <input
-                                type="number"
-                                step="0.1"
-                                placeholder="例: 10"
-                                value={taxRate}
-                                onChange={e => setTaxRate(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税率</label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    placeholder="例: 10"
+                                    value={taxRate}
+                                    onChange={e => setTaxRate(e.target.value)}
+                                    className="w-full h-9 pr-6 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-2 text-[11px] text-slate-400 font-bold">%</span>
+                            </div>
                         </div>
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">数量 (枚数)</label>
-                            <input
-                                type="text"
-                                value={quantity}
-                                onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">数量</label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="text"
+                                    value={quantity}
+                                    onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
+                                    className="w-full h-9 pr-6 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-2 text-[11px] text-slate-400 font-bold">枚</span>
+                            </div>
                         </div>
                     </div>
 
+                    {/* [UPDATED] 仕向国・総重量 (単位表示つき) */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
                             <CountryCombobox value={destination} onChange={setDestination} />
                         </div>
-                        {/* [UPDATED] マスタ選択時は「1枚重量×数量」の合計重量(kg)が自動計算され手動修正も可能 */}
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                                総重量 (kg) {selectedRarityId && <span className="text-blue-600 font-normal">(マスタ×枚数で連動中)</span>}
+                                総重量 {selectedRarityId && <span className="text-blue-600 font-normal">(連動中)</span>}
                             </label>
-                            <input
-                                type="number"
-                                step="0.001"
-                                placeholder="例: 0.5"
-                                value={weightKg}
-                                onChange={e => setWeightKg(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <div className="relative flex items-center">
+                                <input
+                                    type="number"
+                                    step="0.001"
+                                    placeholder="例: 0.5"
+                                    value={weightKg}
+                                    onChange={e => setWeightKg(e.target.value)}
+                                    className="w-full h-9 pr-8 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="absolute right-2 text-[11px] text-slate-400 font-bold">kg</span>
+                            </div>
                         </div>
                     </div>
 
@@ -386,7 +405,7 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* 全配送プラン比較 */}
+                {/* [UPDATED] 全配送プラン比較：商品販売価格と国際送料を完全に分離して表示 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -405,20 +424,26 @@ export default function AdminProfitPage() {
                             <div className="border border-slate-200 rounded-lg p-3.5 bg-white shadow-xs space-y-2.5">
                                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                                     <span className="font-bold text-slate-800 text-xs">日本郵便 (船便)</span>
-                                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
-                                        送料: ¥{shippingFeeJp.toLocaleString()}
-                                    </span>
                                 </div>
 
-                                {/* 1. 推奨販売価格 */}
-                                <div className="bg-blue-50/70 p-2.5 rounded-md border border-blue-200 flex justify-between items-center">
-                                    <span className="text-[11px] font-bold text-blue-900">推奨販売価格</span>
-                                    <span className="text-lg font-extrabold font-mono text-blue-700">¥{jpCalculation.sellPrice.toLocaleString()}</span>
+                                {/* 1. [UPDATED] 商品販売価格と送料を分けて表示 */}
+                                <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-2 gap-2 text-xs">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
+                                        <span className="text-base font-extrabold font-mono text-blue-700">¥{jpCalculation.productSellPrice.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex flex-col border-l border-blue-200 pl-3">
+                                        <span className="text-[10px] font-bold text-slate-600">国際送料 (船便)</span>
+                                        <span className="text-base font-extrabold font-mono text-slate-700">¥{shippingFeeJp.toLocaleString()}</span>
+                                    </div>
                                 </div>
 
                                 {/* 2. 経費の内訳 */}
                                 <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px]">
-                                    <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">経費内訳</div>
+                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
+                                        <span>経費内訳</span>
+                                        <span>(合計請求額: ¥{jpCalculation.totalAmount.toLocaleString()})</span>
+                                    </div>
                                     <div className="flex justify-between text-slate-600">
                                         <span>・実質仕入れ原価 (税還付込):</span>
                                         <span className="font-mono">¥{effectiveCost.toLocaleString()}</span>
@@ -448,20 +473,26 @@ export default function AdminProfitPage() {
                                 <div key={i} className="border border-amber-200 rounded-lg p-3.5 bg-amber-50/20 shadow-xs space-y-2.5">
                                     <div className="flex justify-between items-center border-b border-amber-100 pb-2">
                                         <span className="font-bold text-amber-950 text-xs">{fRate.serviceName}</span>
-                                        <span className="text-[10px] bg-amber-100/70 text-amber-900 px-2 py-0.5 rounded font-mono">
-                                            送料: ¥{fRate.total.toLocaleString()}
-                                        </span>
                                     </div>
 
-                                    {/* 1. 推奨販売価格 */}
-                                    <div className="bg-blue-50/70 p-2.5 rounded-md border border-blue-200 flex justify-between items-center">
-                                        <span className="text-[11px] font-bold text-blue-900">推奨販売価格</span>
-                                        <span className="text-lg font-extrabold font-mono text-blue-700">¥{calc.sellPrice.toLocaleString()}</span>
+                                    {/* 1. [UPDATED] 商品販売価格と送料を分けて表示 */}
+                                    <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-2 gap-2 text-xs">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
+                                            <span className="text-base font-extrabold font-mono text-blue-700">¥{calc.productSellPrice.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex flex-col border-l border-blue-200 pl-3">
+                                            <span className="text-[10px] font-bold text-slate-600">国際送料 (FedEx)</span>
+                                            <span className="text-base font-extrabold font-mono text-slate-700">¥{fRate.total.toLocaleString()}</span>
+                                        </div>
                                     </div>
 
                                     {/* 2. 経費の内訳 */}
                                     <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px]">
-                                        <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">経費内訳</div>
+                                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
+                                            <span>経費内訳</span>
+                                            <span>(合計請求額: ¥{calc.totalAmount.toLocaleString()})</span>
+                                        </div>
                                         <div className="flex justify-between text-slate-600">
                                             <span>・実質仕入れ原価 (税還付込):</span>
                                             <span className="font-mono">¥{effectiveCost.toLocaleString()}</span>
