@@ -199,7 +199,7 @@ function AdminNoteForm({
 }) {
     const [isEditing, setIsEditing] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
-    const isNoteActive = item.status === 'info_required'
+    const isNoteActive = item?.status === 'info_required'
 
     if (isNoteActive && !isEditing) {
         return (
@@ -218,7 +218,7 @@ function AdminNoteForm({
                 {showHistory && (
                     <div className="mt-1 flex flex-col gap-1.5 animate-fadeIn">
                         <div className="bg-red-50 border border-red-200 text-red-800 p-1.5 rounded text-xs whitespace-pre-wrap break-all shadow-inner">
-                            {item.admin_note}
+                            {item?.admin_note}
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -248,7 +248,7 @@ function AdminNoteForm({
 
     return (
         <div className="flex flex-col gap-1">
-            {!isNoteActive && item.admin_note && (
+            {!isNoteActive && item?.admin_note && (
                 <div className="mb-0.5">
                     <button
                         type="button"
@@ -259,7 +259,7 @@ function AdminNoteForm({
                     </button>
                     {showHistory && (
                         <div className="bg-slate-50 border border-slate-200 p-1.5 rounded mt-1 text-[10px] text-slate-600 whitespace-pre-wrap break-all animate-fadeIn">
-                            {item.admin_note}
+                            {item?.admin_note}
                         </div>
                     )}
                 </div>
@@ -275,7 +275,7 @@ function AdminNoteForm({
                     <div className="flex items-center gap-1.5 w-full">
                         <input
                             name="adminNote"
-                            defaultValue={isEditing ? item.admin_note : ''}
+                            defaultValue={isEditing ? item?.admin_note : ''}
                             placeholder="ユーザーへ確認(サイズ等)"
                             className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-red-500 outline-none"
                             required
@@ -675,7 +675,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     }
 
-    // [UPDATED] 配送方法の引数を追加
     const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) => {
         const weightStr = formData.get('weightStr') as string;
         const weightNum = parseFloat(weightStr);
@@ -704,7 +703,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         setOrders((prevOrders) =>
             prevOrders.map((order) => {
                 if (order.id !== orderId) return order
-                // [NEW] 配送方法も更新状態に含める
                 return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount, shipping_method: currentShippingMethod }
             })
         )
@@ -1244,7 +1242,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                     <td className="border border-slate-200 p-2">
                                                                         <input
                                                                             type="text"
-                                                                            defaultValue={item.title || ''}
+                                                                            defaultValue={item?.title || ''}
                                                                             placeholder="商品名を入力"
                                                                             onFocus={(e) => {
                                                                                 const target = e.target
@@ -1252,7 +1250,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                             }}
                                                                             onBlur={(e) => {
                                                                                 const val = e.target.value.trim()
-                                                                                if (val !== (item.title || '')) {
+                                                                                if (val !== (item?.title || '')) {
                                                                                     handleTitleChange(item.id, val)
                                                                                 }
                                                                             }}

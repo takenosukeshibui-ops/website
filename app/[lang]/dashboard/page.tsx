@@ -1,5 +1,4 @@
-// app/[lang]/dashboard/page.tsx
-// [UPDATED] item.title 参照時の undefined エラーを防ぐ安全なガード処理を追加
+// app/dashboard/page.tsx
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -23,6 +22,7 @@ function getTrackingUrl(trackingNumber: string): string {
     return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
 }
 
+// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
 function calculateUserInvoiceDetails(order: any) {
     let productTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
@@ -373,7 +373,7 @@ export default async function DashboardPage(props: {
                                                                 <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
                                                                     <td className="p-2.5 font-medium text-slate-800">
                                                                         {/* [UPDATED] title が undefined の場合の安全ガードを追加 */}
-                                                                        {item.title || '名称未設定'}
+                                                                        {item?.title || '名称未設定'}
                                                                     </td>
                                                                     <td className="p-2.5 max-w-[180px] truncate">
                                                                         {item.url ? (
