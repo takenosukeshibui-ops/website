@@ -1,5 +1,5 @@
 // app/[lang]/inventory/page.tsx
-// [UPDATED] タイトルを「取扱商品」に変更し、説明文を削除。表示列を「商品名」「販売価格」「現在の在庫数」の3項目に限定。
+// [UPDATED] 「現在の在庫数」表示を削除し、表示項目を「商品名」「販売価格」の2列に変更
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -36,7 +36,6 @@ export default function InventoryPage() {
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
-                        {/* [UPDATED] タイトルを「取扱商品」に変更し、下部の説明文を削除 */}
                         <h1 className="text-xl font-bold text-slate-800">取扱商品</h1>
                     </div>
 
@@ -54,21 +53,22 @@ export default function InventoryPage() {
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse text-slate-900 text-xs">
                         <thead>
-                            {/* [UPDATED] 表示項目を「商品名」「販売価格」「現在の在庫数」の3列に限定 */}
+                            {/* [UPDATED] 表示項目を「商品名」「販売価格」の2列に限定 */}
                             <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
                                 <th className="p-3 font-semibold">商品名</th>
                                 <th className="p-3 font-semibold text-right">販売価格</th>
-                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={3} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    {/* [UPDATED] colSpan を 2 に変更 */}
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="p-8 text-center text-slate-400">
+                                    {/* [UPDATED] colSpan を 2 に変更 */}
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
@@ -83,10 +83,6 @@ export default function InventoryPage() {
                                             {/* 2. 販売価格 */}
                                             <td className="p-3 text-right font-mono font-bold text-blue-700">
                                                 ¥{sellPriceVal.toLocaleString()}
-                                            </td>
-                                            {/* 3. 現在の在庫数 */}
-                                            <td className="p-3 text-right font-mono font-bold text-slate-900">
-                                                {r.stock ?? 0} 個
                                             </td>
                                         </tr>
                                     );
