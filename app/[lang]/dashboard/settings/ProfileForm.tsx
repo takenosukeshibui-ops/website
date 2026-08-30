@@ -7,10 +7,11 @@ import { updateProfile } from '@/app/actions/profile'
 import { changePassword, changeEmail } from '@/app/actions/auth'
 import { SubmitButton } from '@/components/SubmitButtons'
 import { countries } from '@/components/countries'
+// [UPDATED] インポートパスを修正
+import CountryCombobox from '@/components/CountryCombobox' 
 import Link from 'next/link'
 
 export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
-    // [NEW] 確実な言語判定
     const isEn = typeof window !== 'undefined' 
         ? window.location.pathname.startsWith('/en') 
         : (dict?.settings?.save === 'Save');
@@ -320,25 +321,17 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                             />
                         </div>
 
-                        <div>
+                        <div className="relative z-40">
                             <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Country' : '国 (Country)'} <span className="text-red-500">*</span></label>
-                            <select
-                                name="country"
-                                value={selectedCountry}
-                                onChange={(e) => setSelectedCountry(e.target.value)}
-                                required
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                {/* [UPDATED] 言語判定に応じて国名を切り替え */}
-                                {countries.map((c: any) => (
-                                    <option key={c.code} value={c.code}>
-                                        {isEn ? c.enName : c.name} ({c.code})
-                                    </option>
-                                ))}
-                            </select>
+                            <input type="hidden" name="country" value={selectedCountry} />
+                            <CountryCombobox 
+                                value={selectedCountry} 
+                                onChange={setSelectedCountry} 
+                                isEn={isEn} 
+                            />
                         </div>
 
-                        <div>
+                        <div className="relative z-30">
                             <label className="block text-xs font-bold text-slate-600 mb-1">
                                 {isEn ? 'FedEx Account Number' : 'FedEx アカウント番号'} {isUS && <span className="text-red-500">*</span>}
                             </label>
@@ -425,7 +418,7 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                         </div>
                     </div>
 
-                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded">
+                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded relative z-0">
                         <label className="block text-xs font-bold text-slate-600 mb-2">{isEn ? 'Address Type' : 'お届け先の種類 (Residential or Commercial)'} <span className="text-red-500">*</span></label>
                         <div className="flex items-center gap-6">
                             <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -441,7 +434,7 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                     </div>
                 </section>
 
-                <section>
+                <section className="relative z-0">
                     <div className="flex items-center gap-3 border-b pb-2 mb-4">
                         <h2 className="font-bold text-slate-800">{isEn ? 'Payment Account Information' : 'お支払いアカウント情報'}</h2>
                     </div>
@@ -501,7 +494,7 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                     </div>
                 </section>
 
-                <section>
+                <section className="relative z-0">
                     <div className="flex items-baseline justify-between border-b pb-2 mb-4">
                         <h2 className="font-bold text-slate-800">{isEn ? 'Default Order Settings' : 'デフォルトの注文設定'}</h2>
                         <span className="text-[11px] text-slate-500">{isEn ? 'These will be initially selected when submitting a request from the cart.' : 'カートで依頼を送信する際の初期選択になります。'}</span>
@@ -536,7 +529,7 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                     </div>
                 </section>
 
-                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4">
+                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4 relative z-0">
                     <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
                         {isEn ? 'Cancel' : 'キャンセル'}
                     </Link>

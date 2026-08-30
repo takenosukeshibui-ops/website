@@ -5,6 +5,8 @@
 import { useState, use } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; 
+// [UPDATED] インポートパスを修正
+import CountryCombobox from "@/components/CountryCombobox"; 
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage(props: { params: Promise<{ lang: string }> }) {
@@ -67,24 +69,19 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       </h1>
 
       <div className="space-y-4">
-        <div>
+        <div className="relative z-50">
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             {isEn ? 'Destination Country' : '配送先の国 (Destination Country)'}
           </label>
-          <select
-            value={countryCode}
-            onChange={(e) => handleCountryChange(e.target.value)}
+          <CountryCombobox 
+            value={countryCode} 
+            onChange={setCountryCode} 
+            isEn={isEn} 
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            {countries.map((c) => (
-              <option key={c.code} value={c.code}>
-                {isEn ? c.enName : c.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        <div>
+        <div className="relative z-0">
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             {isEn ? 'Weight' : '商品重量 (Weight)'}
           </label>
@@ -104,7 +101,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
         <button
           onClick={handleCalculate}
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50 relative z-0"
         >
           {loading ? (isEn ? "Calculating..." : "計算中...") : (isEn ? "🚀 Calculate Shipping" : "🚀 送料を試算する")}
         </button>
@@ -117,7 +114,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       )}
 
       {result && result.success && (
-        <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2">
+        <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2 relative z-0">
           <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
             {isEn ? 'Calculation Result (Estimate)' : '計算結果 (概算)'}
           </h2>
