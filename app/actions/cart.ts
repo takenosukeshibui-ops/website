@@ -1,4 +1,5 @@
 // app/actions/cart.ts
+// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
@@ -11,11 +12,11 @@ export async function deleteCartItem(itemId: string) {
     // 1. ユーザー認証チェック
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-        throw new Error('認証エラーが発生しました。再度ログインしてください。')
+        throw new Error('認証エラーが発生しました。再度ログインしてください。 / Authentication error. Please log in again.')
     }
 
     if (!itemId) {
-        throw new Error('削除対象の商品IDが不正です。')
+        throw new Error('削除対象の商品IDが不正です。 / Invalid item ID.')
     }
 
     // 2. 中間テーブル (order_items) の紐付けを解除 (制約エラー回避)
@@ -37,7 +38,7 @@ export async function deleteCartItem(itemId: string) {
 
     if (deleteError) {
         console.error('Cart item delete error:', deleteError)
-        throw new Error(`DBからの削除に失敗しました: ${deleteError.message}`)
+        throw new Error(`DBからの削除に失敗しました / Failed to delete from DB: ${deleteError.message}`)
     }
 
     // 4. マイページ・カート関連のキャッシュを即時再検証
@@ -52,11 +53,11 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-        throw new Error('認証エラーが発生しました。再度ログインしてください。')
+        throw new Error('認証エラーが発生しました。再度ログインしてください。 / Authentication error. Please log in again.')
     }
 
     if (!itemIds || itemIds.length === 0) {
-        throw new Error('カート内に商品が存在しません。')
+        throw new Error('カート内に商品が存在しません。 / No items in cart.')
     }
 
     const { data: profile } = await supabase
@@ -90,7 +91,7 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 
     if (orderError || !newOrder) {
         console.error('Order creation error:', orderError?.message)
-        throw new Error('注文の作成に失敗しました: ' + (orderError?.message || ''))
+        throw new Error('注文の作成に失敗しました / Failed to create order: ' + (orderError?.message || ''))
     }
 
     const orderItemsPayload = itemIds.map(itemId => ({
@@ -105,7 +106,7 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
     if (linkError) {
         console.error('Order item link error detail:', linkError.message, linkError.details, linkError.hint)
         await supabase.from('orders').delete().eq('id', newOrder.id)
-        throw new Error(`注文商品の紐付けに失敗しました: ${linkError.message}`)
+        throw new Error(`注文商品の紐付けに失敗しました / Failed to link order items: ${linkError.message}`)
     }
 
     const { error: itemUpdateError } = await supabase

@@ -1,12 +1,16 @@
 // app/[lang]/calculator/page.tsx
-// [UPDATED] タイトルを「Shipping Calculator」に変更し、「ホームへ戻る」ボタンを追加
+// [UPDATED] URLから言語を判定し、UIとエラーメッセージを多言語対応
 "use client";
 
 import { useState } from "react";
-import Link from "next/link"; // [NEW]
+import Link from "next/link";
+import { usePathname } from "next/navigation"; // [NEW]
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage() {
+  const pathname = usePathname();
+  const isEn = pathname.startsWith('/en'); // [NEW] 言語判定
+
   const [countryCode, setCountryCode] = useState("US");
   const [weight, setWeight] = useState<number>(1.0);
   const [loading, setLoading] = useState(false);
@@ -38,12 +42,12 @@ export default function CalculatorPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "送料の計算に失敗しました。");
+        throw new Error(data.error || (isEn ? "Failed to calculate shipping." : "送料の計算に失敗しました。"));
       }
 
       setResult(data);
     } catch (err: any) {
-      setError(err.message || "予期せぬエラーが発生しました。");
+      setError(err.message || (isEn ? "An unexpected error occurred." : "予期せぬエラーが発生しました。"));
     } finally {
       setLoading(false);
     }
@@ -51,14 +55,12 @@ export default function CalculatorPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
-      {/* [NEW] ホームへ戻るボタン */}
       <div className="flex items-center justify-between pb-2 border-b border-gray-200 mb-4">
         <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
-          ← ホームへ戻る
+          {isEn ? '← Back to Home' : '← ホームへ戻る'}
         </Link>
       </div>
 
-      {/* [UPDATED] タイトルを Shipping Calculator に変更 */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
         Shipping Calculator
       </h1>
@@ -66,7 +68,7 @@ export default function CalculatorPage() {
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
-            配送先の国 (Destination Country)
+            {isEn ? 'Destination Country' : '配送先の国 (Destination Country)'}
           </label>
           <select
             value={countryCode}
@@ -75,7 +77,7 @@ export default function CalculatorPage() {
           >
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.name}
+                {isEn ? c.enName : c.name}
               </option>
             ))}
           </select>
@@ -83,7 +85,7 @@ export default function CalculatorPage() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">
-            商品重量 (Weight / kg)
+            {isEn ? 'Weight (kg)' : '商品重量 (Weight / kg)'}
           </label>
           <input
             type="number"
@@ -100,7 +102,7 @@ export default function CalculatorPage() {
           disabled={loading}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50"
         >
-          {loading ? "計算中..." : "🚀 送料を試算する"}
+          {loading ? (isEn ? "Calculating..." : "計算中...") : (isEn ? "🚀 Calculate Shipping" : "🚀 送料を試算する")}
         </button>
       </div>
 
@@ -113,14 +115,16 @@ export default function CalculatorPage() {
       {result && result.success && (
         <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2">
           <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
-            計算結果 (概算)
+            {isEn ? 'Calculation Result (Estimate)' : '計算結果 (概算)'}
           </h2>
 
           {result.fedexError && (
             <div className="p-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-md text-sm">
-              <span className="font-bold">⚠️ APIエラーが発生しました:</span><br/>
+              <span className="font-bold">{isEn ? '⚠️ API Error occurred:' : '⚠️ APIエラーが発生しました:'}</span><br/>
               {result.fedexError}<br />
-              <span className="text-xs text-amber-600 mt-1 block">※現在はエラー回避用の概算料金を1件のみ表示しています。</span>
+              <span className="text-xs text-amber-600 mt-1 block">
+                {isEn ? '*Currently showing one estimated rate as a fallback.' : '※現在はエラー回避用の概算料金を1件のみ表示しています。'}
+              </span>
             </div>
           )}
 
@@ -128,11 +132,11 @@ export default function CalculatorPage() {
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
-                <span className="text-gray-600 font-bold">{result.japanPost.serviceName}</span>
-                <span className="text-gray-600">{result.japanPost.deliveryDays}</span>
+                <span className="text-gray-600 font-bold">{isEn ? 'Japan Post (Sea)' : result.japanPost.serviceName}</span>
+                <span className="text-gray-600">{isEn ? 'Approx 1-2 months' : result.japanPost.deliveryDays}</span>
               </div>
               <div className="flex justify-between items-center text-lg font-bold text-blue-700 border-t border-blue-200 pt-2">
-                <span>概算送料:</span>
+                <span>{isEn ? 'Estimated Shipping:' : '概算送料:'}</span>
                 <span>¥{result.japanPost.total.toLocaleString()}</span>
               </div>
             </div>
@@ -148,7 +152,7 @@ export default function CalculatorPage() {
                     <span className="text-gray-600">{rate.deliveryDays}</span>
                   </div>
                   <div className="flex justify-between items-center text-lg font-bold text-purple-700 border-t border-purple-200 pt-2">
-                    <span>概算送料:</span>
+                    <span>{isEn ? 'Estimated Shipping:' : '概算送料:'}</span>
                     <span>¥{rate.total.toLocaleString()}</span>
                   </div>
                 </div>
