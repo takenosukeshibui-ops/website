@@ -96,7 +96,7 @@ export default async function DashboardPage(props: {
 }) {
     const { lang } = await props.params;
     const dict = await getDictionary(lang);
-    const isEn = lang === 'en'; // [NEW] サーバー側で確実な言語判定
+    const isEn = lang === 'en';
     const searchParams = await props.searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -154,7 +154,6 @@ export default async function DashboardPage(props: {
         .eq('status', 'draft')
         .order('created_at', { ascending: false });
 
-    // [UPDATED] 配送方法の翻訳ヘルパー
     const getTranslatedShippingMethod = (method: string) => {
         if (!method) return isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)';
         if (method.includes('最安プラン') || method.includes('航空便')) {
@@ -163,18 +162,16 @@ export default async function DashboardPage(props: {
         if (method === '船便' || method.includes('日本郵便')) {
             return isEn ? 'Japan Post (Sea)' : '日本郵便 (船便)';
         }
-        return method; // FedEx等の場合はそのまま
+        return method; 
     };
 
     return (
         <div className="container mx-auto p-4 max-w-5xl">
-            {/* ヘッダー最上部領域 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
-                            {/* [UPDATED] 言語判定を確実に適用 */}
                             {isEn ? 'Login Account:' : 'ログインアカウント:'} <span className="font-mono font-medium text-slate-700">{user.email}</span>
                         </p>
                     </div>
@@ -204,12 +201,12 @@ export default async function DashboardPage(props: {
                 </div>
             </div>
 
-            {/* 商品追加フォーム */}
+            {/* [UPDATED] 入力欄が見切れないよう、各inputの横幅(w-full md:w-〇〇)を調整 */}
             <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
-                    <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="title" defaultValue={searchParams?.title || ''} placeholder={dict?.dashboard?.form?.titlePlaceholder || '商品名'} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    <input name="desiredPrice" type="number" defaultValue={searchParams?.desiredPrice || ''} placeholder={dict?.dashboard?.form?.pricePlaceholder || '希望価格'} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:flex-1 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="title" defaultValue={searchParams?.title || ''} placeholder={dict?.dashboard?.form?.titlePlaceholder || '商品名'} className="w-full md:w-48 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
+                    <input name="desiredPrice" type="number" defaultValue={searchParams?.desiredPrice || ''} placeholder={dict?.dashboard?.form?.pricePlaceholder || '希望価格'} className="w-full md:w-40 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <input name="quantity" type="number" defaultValue={searchParams?.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <SubmitButton pendingText={dict?.dashboard?.form?.addingButton || '追加中...'}>{dict?.dashboard?.form?.addButton || '追加'}</SubmitButton>
                 </div>
@@ -242,7 +239,6 @@ export default async function DashboardPage(props: {
                         const invoiceDetails = calculateUserInvoiceDetails(order);
                         const paymentServiceName = order.payment_method || 'Wise';
                         
-                        // [UPDATED] 配送方法名を変換
                         const resolvedShippingDisp = getTranslatedShippingMethod(invoiceDetails.resolvedShippingName);
 
                         return (
