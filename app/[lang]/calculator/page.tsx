@@ -1,15 +1,14 @@
 // app/[lang]/calculator/page.tsx
-// [UPDATED] URLから言語を判定し、UIとエラーメッセージを多言語対応
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // [NEW]
 import { countries } from "@/components/countries";
 
-export default function CalculatorPage() {
-  const pathname = usePathname();
-  const isEn = pathname.startsWith('/en'); // [NEW] 言語判定
+export default function CalculatorPage(props: { params: Promise<{ lang: string }> }) {
+  // [UPDATED] paramsから言語を確実に取得
+  const { lang } = use(props.params);
+  const isEn = lang === 'en';
 
   const [countryCode, setCountryCode] = useState("US");
   const [weight, setWeight] = useState<number>(1.0);
@@ -56,7 +55,7 @@ export default function CalculatorPage() {
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
       <div className="flex items-center justify-between pb-2 border-b border-gray-200 mb-4">
-        <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+        <Link href={`/${lang}`} className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
           {isEn ? '← Back to Home' : '← ホームへ戻る'}
         </Link>
       </div>
@@ -128,7 +127,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* 日本郵便の表示 */}
           {result.japanPost && result.japanPost.total !== null && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
@@ -142,7 +140,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* FedExの全適用プラン表示 */}
           {result.fedexRates && result.fedexRates.length > 0 && (
             <div className="space-y-3">
               {result.fedexRates.map((rate: any, index: number) => (

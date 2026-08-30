@@ -1,5 +1,4 @@
 // app/[lang]/dashboard/page.tsx
-// [UPDATED] 「ログインアカウント」および「配送方法」の表示を多言語対応化
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -97,13 +96,13 @@ export default async function DashboardPage(props: {
 }) {
     const { lang } = await props.params;
     const dict = await getDictionary(lang);
-    const isEn = lang === 'en'; // [NEW] 言語判定
+    const isEn = lang === 'en'; // [NEW] サーバー側で確実な言語判定
     const searchParams = await props.searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        redirect('/login');
+        redirect(`/${lang}/login`);
     }
 
     const { data: profile } = await supabase
@@ -155,7 +154,7 @@ export default async function DashboardPage(props: {
         .eq('status', 'draft')
         .order('created_at', { ascending: false });
 
-    // [NEW] 配送方法の翻訳ヘルパー
+    // [UPDATED] 配送方法の翻訳ヘルパー
     const getTranslatedShippingMethod = (method: string) => {
         if (!method) return isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)';
         if (method.includes('最安プラン') || method.includes('航空便')) {
@@ -175,6 +174,7 @@ export default async function DashboardPage(props: {
                     <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
+                            {/* [UPDATED] 言語判定を確実に適用 */}
                             {isEn ? 'Login Account:' : 'ログインアカウント:'} <span className="font-mono font-medium text-slate-700">{user.email}</span>
                         </p>
                     </div>
@@ -242,7 +242,7 @@ export default async function DashboardPage(props: {
                         const invoiceDetails = calculateUserInvoiceDetails(order);
                         const paymentServiceName = order.payment_method || 'Wise';
                         
-                        // [UPDATED] 言語に応じて配送方法名を変換
+                        // [UPDATED] 配送方法名を変換
                         const resolvedShippingDisp = getTranslatedShippingMethod(invoiceDetails.resolvedShippingName);
 
                         return (
@@ -253,7 +253,7 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict?.dashboard?.table?.order}
+                                            {new Date(order.created_at).toLocaleDateString(isEn ? 'en-US' : 'ja-JP')} {dict?.dashboard?.table?.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
                                             {dict?.dashboard?.itemCount} {itemCount}
@@ -304,12 +304,12 @@ export default async function DashboardPage(props: {
                                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.productTotal}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict?.dashboard?.invoice?.proxyFee}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
@@ -317,7 +317,7 @@ export default async function DashboardPage(props: {
                                                         {dict?.dashboard?.invoice?.shipping} <span className="text-slate-500 font-normal">({resolvedShippingDisp})</span>
                                                     </span>
                                                     <div className="flex items-baseline gap-1">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                     </div>
                                                 </div>
 
@@ -326,7 +326,7 @@ export default async function DashboardPage(props: {
                                                         {dict?.dashboard?.invoice?.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
                                                     </span>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                         {invoiceDetails.paymentFeeDetail && (
                                                             <span className="text-[9px] text-slate-500 font-normal">
                                                                 {invoiceDetails.paymentFeeDetail}
@@ -337,7 +337,7 @@ export default async function DashboardPage(props: {
 
                                                 <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
                                                     <span className="text-[10px] text-amber-800 font-bold">{dict?.dashboard?.invoice?.grandTotal}</span>
-                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {lang === 'ja' ? '円' : 'JPY'}</span>
+                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {isEn ? 'JPY' : '円'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -404,13 +404,13 @@ export default async function DashboardPage(props: {
                                                                         )}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
-                                                                        {item?.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {item?.desired_price ? `${Number(item.desired_price).toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${lang === 'ja' ? '円' : 'JPY'}` : '-'}
+                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 whitespace-nowrap">
                                                                         <ItemStatusBadge dict={dict} status={item?.status} />
