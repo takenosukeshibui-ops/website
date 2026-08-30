@@ -8,7 +8,7 @@ export default function RarityPage() {
     const [rarities, setRarities] = useState<any[]>([]);
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
-    const [tax, setTax] = useState(''); // [NEW] 消費税用State
+    const [tax, setTax] = useState(''); 
     const [weight, setWeight] = useState('');
     const [loading, setLoading] = useState(true);
 
@@ -38,14 +38,14 @@ export default function RarityPage() {
                 type: 'rarity',
                 name,
                 price: parseFloat(price),
-                tax: parseFloat(tax || '0'), // [NEW] 消費税率データ送信
+                tax: parseFloat(tax || '0'), 
                 weight: parseFloat(weight || '0'),
             }),
         });
 
         setName('');
         setPrice('');
-        setTax(''); // [NEW]
+        setTax(''); 
         setWeight('');
         fetchRarities();
     };
@@ -74,14 +74,14 @@ export default function RarityPage() {
 
             <div className="mx-auto max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold text-zinc-900">レアリティ管理</h1>
+                    <h1 className="text-xl font-bold text-zinc-900">レアリティ・商品マスタ管理</h1>
                 </div>
 
-                {/* [UPDATED] カラム数変更（md:grid-cols-5） */}
+                {/* [UPDATED] 「名前」から「商品名」へ表記変更 */}
                 <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
                     <input
                         type="text"
-                        placeholder="名前 (例: Rare)"
+                        placeholder="商品名 (例: Rare/カード名)" // [UPDATED]
                         value={name}
                         onChange={e => setName(e.target.value)}
                         className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -95,7 +95,6 @@ export default function RarityPage() {
                         className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                         required
                     />
-                    {/* [NEW] 消費税入力フィールド */}
                     <input
                         type="number"
                         step="0.1"
@@ -120,9 +119,9 @@ export default function RarityPage() {
                     <table className="w-full text-left border-collapse text-zinc-900 text-xs">
                         <thead>
                             <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-3 font-semibold">名前</th>
+                                <th className="p-3 font-semibold">商品名</th> {/* [UPDATED] */}
                                 <th className="p-3 font-semibold text-right">単価</th>
-                                <th className="p-3 font-semibold text-right">消費税</th> {/* [NEW] */}
+                                <th className="p-3 font-semibold text-right">消費税</th>
                                 <th className="p-3 font-semibold text-right">重量 (g)</th>
                                 <th className="p-3 font-semibold text-right">操作</th>
                             </tr>
@@ -130,20 +129,18 @@ export default function RarityPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    {/* [UPDATED] colSpan を 5 に変更 */}
                                     <td colSpan={5} className="p-6 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
                             ) : rarities.length === 0 ? (
                                 <tr>
-                                    {/* [UPDATED] colSpan を 5 に変更 */}
-                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
+                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録された商品データはありません</td>
                                 </tr>
                             ) : (
                                 rarities.map((r, i) => (
                                     <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
                                         <td className="p-3 font-medium">{r.name}</td>
                                         <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
+                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td>
                                         <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
                                         <td className="p-3 text-right">
                                             <button

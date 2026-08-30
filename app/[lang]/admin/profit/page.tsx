@@ -1,9 +1,8 @@
-// [UPDATED]
+// app/admin/profit/page.tsx
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-// [NEW] 共通の国リストをインポート
 import { countries } from '@/components/countries';
 
 const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: string) => void }) => {
@@ -69,9 +68,16 @@ const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: 
 };
 
 export default function AdminProfitPage() {
+    // レアリティ（商品）マスタ一覧用 State [NEW]
+    const [masterRarities, setMasterRarities] = useState<any[]>([]);
+    const [selectedRarityId, setSelectedRarityId] = useState<string>('');
+
+    // 計算用フォーム State [UPDATED]
+    const [productName, setProductName] = useState(''); // [NEW] 商品名
     const [profitRate, setProfitRate] = useState('15');
     const [feeRate, setFeeRate] = useState('3.6');
     const [unitPrice, setUnitPrice] = useState('3000');
+    const [taxRate, setTaxRate] = useState('10'); // [NEW] 消費税率(%)
     const [quantity, setQuantity] = useState('1');
     const [weightKg, setWeightKg] = useState('0.5');
     const [destination, setDestination] = useState('US');
@@ -81,9 +87,43 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
+    // [NEW] マスタデータ（レアリティ一覧）の取得
+    useEffect(() => {
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setMasterRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("マスタデータ取得エラー:", err));
+    }, []);
+
+    // [NEW] レアリティ（商品）選択時にフォーム値を自動入力
+    const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value;
+        setSelectedRarityId(id);
+
+        if (!id) return;
+
+        const target = masterRarities.find(r => String(r.id) === String(id));
+        if (target) {
+            setProductName(target.name || '');
+            setUnitPrice(String(target.price ?? '0'));
+            setTaxRate(String(target.tax ?? '10'));
+            // 重量(g)をkg単位に換算 (/1000)
+            const kgVal = (Number(target.weight || 0) / 1000).toFixed(3);
+            setWeightKg(String(parseFloat(kgVal)));
+        }
+    };
+
     const parsedQty = parseInt(quantity.replace(/[^0-9]/g, '') || '0', 10);
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
-    const totalPrice = parsedPrice * parsedQty;
+    const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
+    
+    // [UPDATED] 消費税を考慮した仕入れ原価小計・消費税額・原価合計
+    const subtotalPrice = parsedPrice * parsedQty;
+    const taxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
+    const totalPrice = subtotalPrice + taxAmount; // 税込仕入れ原価合計
+
     const parsedWeight = parseFloat(weightKg) || 0;
 
     useEffect(() => {
@@ -94,7 +134,6 @@ export default function AdminProfitPage() {
             setFedexApiError(null);
 
             try {
-                // [UPDATED] フロントエンドでのダミー設定を削除し、APIにisEstimateを送るだけにする
                 const res = await fetch('/api/calculate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -138,6 +177,7 @@ export default function AdminProfitPage() {
 
         if (denominator <= 0) return { sellPrice: 0, profit: 0 };
 
+        // 税込仕入れ原価 (totalPrice) + 送料 を基準に計算
         const sellPrice = (totalPrice + shippingFee) / denominator;
         const profit = sellPrice * targetRate;
 
@@ -177,6 +217,25 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
+                    {/* [NEW] マスタ登録商品からの自動セット機能 */}
+                    <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
+                        <label className="block text-[11px] font-bold text-blue-900">
+                            📦 マスタ登録商品からセット
+                        </label>
+                        <select
+                            value={selectedRarityId}
+                            onChange={handleSelectRarity}
+                            className="w-full h-8 px-2 rounded border border-blue-300 text-slate-900 font-medium bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="">-- マスタ商品を選択して自動入力 --</option>
+                            {masterRarities.map(r => (
+                                <option key={r.id} value={r.id}>
+                                    {r.name} (単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">目標利益率 (%)</label>
@@ -200,13 +259,36 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* [NEW] 商品名入力項目 */}
+                    <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">商品名 (任意)</label>
+                        <input
+                            type="text"
+                            placeholder="例: ポケモンカード PSA10"
+                            value={productName}
+                            onChange={e => setProductName(e.target.value)}
+                            className="w-full h-9 px-2 rounded border border-slate-300 font-medium bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {/* [UPDATED] 単価・消費税率・数量 */}
+                    <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価 (円)</label>
                             <input
                                 type="number"
                                 value={unitPrice}
                                 onChange={e => setUnitPrice(e.target.value)}
+                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税 (%)</label> {/* [NEW] */}
+                            <input
+                                type="number"
+                                step="0.1"
+                                value={taxRate}
+                                onChange={e => setTaxRate(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
@@ -230,7 +312,7 @@ export default function AdminProfitPage() {
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">総重量 (kg)</label>
                             <input
                                 type="number"
-                                step="0.1"
+                                step="0.001"
                                 value={weightKg}
                                 onChange={e => setWeightKg(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -238,15 +320,28 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-                        <span className="text-slate-500 font-medium">仕入れ原価合計:</span>
-                        <span className="text-base font-bold font-mono text-slate-900">¥{totalPrice.toLocaleString()}</span>
+                    {/* [UPDATED] 税抜き・消費税額・税込合計の表示 */}
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                        <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                            <span>仕入れ小計 (税抜):</span>
+                            <span className="font-mono">¥{subtotalPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                            <span>仕入れ消費税額 ({parsedTaxRate}%):</span>
+                            <span className="font-mono">¥{taxAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                            <span className="text-slate-700 font-bold">仕入れ原価合計 (税込):</span>
+                            <span className="text-base font-bold font-mono text-slate-900">¥{totalPrice.toLocaleString()}</span>
+                        </div>
                     </div>
                 </div>
 
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                        <span className="font-bold text-slate-700 text-sm">全配送プラン比較</span>
+                        <span className="font-bold text-slate-700 text-sm">
+                            全配送プラン比較 {productName && <span className="text-blue-700 font-normal">({productName})</span>}
+                        </span>
                         {apiLoading ? (
                             <span className="text-blue-600 text-[11px] font-bold animate-pulse">運賃計算中...</span>
                         ) : (

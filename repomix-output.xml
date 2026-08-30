@@ -91,6 +91,8 @@ app/
         route.ts
     calculate/
       route.ts
+    data/
+      route.ts
     wise/
       quote/
         route.ts
@@ -283,324 +285,6 @@ export default function FeePage() {
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/admin/data/rarity/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function RarityPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [name, setName] = useState('');
-    const [price, setPrice] = useState('');
-    const [weight, setWeight] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    const fetchRarities = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchRarities();
-    }, []);
-
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !price) return;
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name,
-                price: parseFloat(price),
-                weight: parseFloat(weight || '0'),
-            }),
-        });
-
-        setName('');
-        setPrice('');
-        setWeight('');
-        fetchRarities();
-    };
-
-    const handleDelete = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchRarities();
-    };
-
-    return (
-        <main className="min-h-screen bg-zinc-50 p-4 md:p-8 text-xs space-y-4">
-            {/* ナビゲーションバー [NEW] */}
-            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-2">
-                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
-                    ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
-                </Link>
-            </div>
-
-            <div className="mx-auto max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold text-zinc-900">レアリティ管理</h1>
-                </div>
-
-                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-6">
-                    <input
-                        type="text"
-                        placeholder="名前 (例: Rare)"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <input
-                        type="number"
-                        placeholder="単価 (円)"
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <input
-                        type="number"
-                        placeholder="重量 (g)"
-                        value={weight}
-                        onChange={e => setWeight(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <button type="submit" className="h-10 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-colors">
-                        追加
-                    </button>
-                </form>
-
-                <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-zinc-900 text-xs">
-                        <thead>
-                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-3 font-semibold">名前</th>
-                                <th className="p-3 font-semibold text-right">単価</th>
-                                <th className="p-3 font-semibold text-right">重量 (g)</th>
-                                <th className="p-3 font-semibold text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={4} className="p-6 text-center text-zinc-400">読み込み中...</td>
-                                </tr>
-                            ) : rarities.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
-                                </tr>
-                            ) : (
-                                rarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-3 font-medium">{r.name}</td>
-                                        <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
-                                        <td className="p-3 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(r.id, r.name)}
-                                                className="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-[11px] font-bold transition-colors"
-                                            >
-                                                削除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/[lang]/admin/data/page.tsx">
-// app/admin/data/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function AdminDataPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [fees, setFees] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const handleDeleteRarity = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    const handleDeleteFee = async (id: number, feeName: string) => {
-        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=fee&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    return (
-        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* [NEW] 共通ナビゲーションバー */}
-            <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
-                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
-                    ← 管理画面トップ
-                </Link>
-                <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
-                    📊 利益計算ダッシュボード
-                </Link>
-                <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
-                    ＋ レアリティ新規作成
-                </Link>
-                <Link href="/admin/data/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
-                    ＋ 手数料新規作成
-                </Link>
-            </div>
-
-            <div className="flex justify-between items-center mb-2">
-                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
-            </div>
-
-            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
-                {loading ? (
-                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>レアリティ管理</span>
-                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">名前</th>
-                                        <th className="p-2 font-semibold text-right">単価</th>
-                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {rarities.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={4} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        rarities.map((r) => (
-                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{r.name}</td>
-                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>手数料管理</span>
-                                <Link href="/admin/data/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">名称</th>
-                                        <th className="p-2 font-semibold text-right">手数料率</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {fees.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        fees.map((f) => (
-                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{f.name}</td>
-                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteFee(f.id, f.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
             </div>
         </main>
     );
@@ -3396,6 +3080,126 @@ export async function GET() {
 }
 </file>
 
+<file path="app/api/data/route.ts">
+// [NEW] マスタデータ（レアリティ・手数料）管理用 API Route
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+// [NEW] GET: レアリティおよび手数料一覧の取得
+export async function GET() {
+    try {
+        const supabase = await createClient()
+
+        const [raritiesRes, feesRes] = await Promise.all([
+            supabase.from('rarities').select('*').order('created_at', { ascending: true }),
+            supabase.from('fees').select('*').order('created_at', { ascending: true })
+        ])
+
+        if (raritiesRes.error) {
+            console.error('Rarities fetch error:', raritiesRes.error.message)
+        }
+        if (feesRes.error) {
+            console.error('Fees fetch error:', feesRes.error.message)
+        }
+
+        return NextResponse.json({
+            rarities: raritiesRes.data || [],
+            fees: feesRes.data || []
+        })
+    } catch (err: any) {
+        console.error('API GET Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ取得エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [NEW] POST: レアリティまたは手数料の新規登録
+export async function POST(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
+
+        const { type, name, price, tax, weight, rate } = body
+
+        if (type === 'rarity') {
+            const { data, error } = await supabase
+                .from('rarities')
+                .insert({
+                    name,
+                    price: Number(price) || 0,
+                    tax: Number(tax) || 0, // [NEW] 消費税率
+                    weight: Number(weight) || 0
+                })
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Rarity insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        if (type === 'fee') {
+            const { data, error } = await supabase
+                .from('fees')
+                .insert({
+                    name,
+                    rate: Number(rate) || 0
+                })
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Fee insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API POST Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [NEW] DELETE: レアリティまたは手数料の削除
+export async function DELETE(req: Request) {
+    try {
+        const supabase = await createClient()
+        const { searchParams } = new URL(req.url)
+        const type = searchParams.get('type')
+        const id = searchParams.get('id')
+
+        if (!type || !id) {
+            return NextResponse.json({ error: 'type と id は必須パラメータです' }, { status: 400 })
+        }
+
+        const tableName = type === 'rarity' ? 'rarities' : type === 'fee' ? 'fees' : null
+        if (!tableName) {
+            return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+        }
+
+        const { error } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error(`${tableName} delete error:`, error.message)
+            return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (err: any) {
+        console.error('API DELETE Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ削除エラーが発生しました' }, { status: 500 })
+    }
+}
+</file>
+
 <file path="app/api/wise/quote/route.ts">
 // app/api/wise/quote/route.ts
 import { NextResponse } from 'next/server' // [UPDATED] 'next' から 'next/server' に修正
@@ -4667,6 +4471,344 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   "exclude": [
     "node_modules"
   ]
+}
+</file>
+
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/admin/data/rarity/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function RarityPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [name, setName] = useState('');
+    const [price, setPrice] = useState('');
+    const [tax, setTax] = useState(''); // [NEW] 消費税用State
+    const [weight, setWeight] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    const fetchRarities = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchRarities();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || !price) return;
+
+        await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'rarity',
+                name,
+                price: parseFloat(price),
+                tax: parseFloat(tax || '0'), // [NEW] 消費税率データ送信
+                weight: parseFloat(weight || '0'),
+            }),
+        });
+
+        setName('');
+        setPrice('');
+        setTax(''); // [NEW]
+        setWeight('');
+        fetchRarities();
+    };
+
+    const handleDelete = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=rarity&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchRarities();
+    };
+
+    return (
+        <main className="min-h-screen bg-zinc-50 p-4 md:p-8 text-xs space-y-4">
+            {/* ナビゲーションバー */}
+            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-2">
+                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
+                    ← マスタ管理ハブへ戻る
+                </Link>
+                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
+                    📊 利益計算ダッシュボードへ
+                </Link>
+            </div>
+
+            <div className="mx-auto max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-xl font-bold text-zinc-900">レアリティ管理</h1>
+                </div>
+
+                {/* [UPDATED] カラム数変更（md:grid-cols-5） */}
+                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
+                    <input
+                        type="text"
+                        placeholder="名前 (例: Rare)"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    <input
+                        type="number"
+                        placeholder="単価 (円)"
+                        value={price}
+                        onChange={e => setPrice(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    {/* [NEW] 消費税入力フィールド */}
+                    <input
+                        type="number"
+                        step="0.1"
+                        placeholder="消費税 (%)"
+                        value={tax}
+                        onChange={e => setTax(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                        type="number"
+                        placeholder="重量 (g)"
+                        value={weight}
+                        onChange={e => setWeight(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button type="submit" className="h-10 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-colors">
+                        追加
+                    </button>
+                </form>
+
+                <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-zinc-900 text-xs">
+                        <thead>
+                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
+                                <th className="p-3 font-semibold">名前</th>
+                                <th className="p-3 font-semibold text-right">単価</th>
+                                <th className="p-3 font-semibold text-right">消費税</th> {/* [NEW] */}
+                                <th className="p-3 font-semibold text-right">重量 (g)</th>
+                                <th className="p-3 font-semibold text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    {/* [UPDATED] colSpan を 5 に変更 */}
+                                    <td colSpan={5} className="p-6 text-center text-zinc-400">読み込み中...</td>
+                                </tr>
+                            ) : rarities.length === 0 ? (
+                                <tr>
+                                    {/* [UPDATED] colSpan を 5 に変更 */}
+                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
+                                </tr>
+                            ) : (
+                                rarities.map((r, i) => (
+                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                        <td className="p-3 font-medium">{r.name}</td>
+                                        <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
+                                        <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
+                                        <td className="p-3 text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(r.id, r.name)}
+                                                className="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-[11px] font-bold transition-colors"
+                                            >
+                                                削除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/[lang]/admin/data/page.tsx">
+// app/admin/data/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function AdminDataPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [fees, setFees] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const handleDeleteRarity = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=rarity&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    const handleDeleteFee = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=fee&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    return (
+        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
+            {/* 共通ナビゲーションバー */}
+            <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
+                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
+                    ← 管理画面トップ
+                </Link>
+                <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
+                    📊 利益計算ダッシュボード
+                </Link>
+                <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
+                    ＋ レアリティ新規作成
+                </Link>
+                <Link href="/admin/data/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
+                    ＋ 手数料新規作成
+                </Link>
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
+            </div>
+
+            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
+                {loading ? (
+                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>レアリティ管理</span>
+                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">名前</th>
+                                        <th className="p-2 font-semibold text-right">単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税</th> {/* [NEW] */}
+                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {rarities.length === 0 ? (
+                                        <tr>
+                                            {/* [UPDATED] colSpan を 5 に変更 */}
+                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        rarities.map((r) => (
+                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{r.name}</td>
+                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
+                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>手数料管理</span>
+                                <Link href="/admin/data/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">名称</th>
+                                        <th className="p-2 font-semibold text-right">手数料率</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {fees.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        fees.map((f) => (
+                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{f.name}</td>
+                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFee(f.id, f.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </main>
+    );
 }
 </file>
 

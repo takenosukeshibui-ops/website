@@ -74,7 +74,7 @@ export default function AdminDataPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>レアリティ管理</span>
+                                <span>レアリティ・商品マスタ管理</span>
                                 <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
                                     ＋ 編集・個別追加
                                 </Link>
@@ -82,9 +82,9 @@ export default function AdminDataPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
                                     <tr>
-                                        <th className="p-2 font-semibold">名前</th>
+                                        <th className="p-2 font-semibold">商品名</th> {/* [UPDATED] */}
                                         <th className="p-2 font-semibold text-right">単価</th>
-                                        <th className="p-2 font-semibold text-right">消費税</th> {/* [NEW] */}
+                                        <th className="p-2 font-semibold text-right">消費税</th>
                                         <th className="p-2 font-semibold text-right">重量 (g)</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
                                     </tr>
@@ -92,7 +92,6 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            {/* [UPDATED] colSpan を 5 に変更 */}
                                             <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
@@ -100,7 +99,7 @@ export default function AdminDataPage() {
                                             <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
                                                 <td className="p-2 font-medium">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
+                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
                                                 <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
                                                 <td className="p-2 text-right">
                                                     <button
