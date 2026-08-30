@@ -205,7 +205,7 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // [UPDATED] 送料と販売価格を切り分けた利益試算ロジック
+    // 送料と販売価格を切り分けた利益試算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const targetRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
@@ -276,7 +276,6 @@ export default function AdminProfitPage() {
                         </select>
                     </div>
 
-                    {/* [UPDATED] タイトルから単位を削り、入力欄内右側に単位を表示 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">目標利益率</label>
@@ -321,7 +320,7 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* [UPDATED] 単価・消費税率・数量 (単位表示つき) */}
+                    {/* 単価・消費税率・数量 */}
                     <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
@@ -364,7 +363,7 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* [UPDATED] 仕向国・総重量 (単位表示つき) */}
+                    {/* 仕向国・総重量 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
@@ -405,7 +404,7 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* [UPDATED] 全配送プラン比較：商品販売価格と国際送料を完全に分離して表示 */}
+                {/* 全配送プラン比較：販売価格の内訳表記に更新 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -426,7 +425,7 @@ export default function AdminProfitPage() {
                                     <span className="font-bold text-slate-800 text-xs">日本郵便 (船便)</span>
                                 </div>
 
-                                {/* 1. [UPDATED] 商品販売価格と送料を分けて表示 */}
+                                {/* 1. 商品販売価格と送料を分けて表示 */}
                                 <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-2 gap-2 text-xs">
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
@@ -438,10 +437,10 @@ export default function AdminProfitPage() {
                                     </div>
                                 </div>
 
-                                {/* 2. 経費の内訳 */}
+                                {/* 2. 販売価格の内訳 [UPDATED] */}
                                 <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px]">
                                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">
-                                        <span>経費内訳</span>
+                                        <span>販売価格の内訳</span> {/* [UPDATED] */}
                                         <span>(合計請求額: ¥{jpCalculation.totalAmount.toLocaleString()})</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
@@ -475,7 +474,7 @@ export default function AdminProfitPage() {
                                         <span className="font-bold text-amber-950 text-xs">{fRate.serviceName}</span>
                                     </div>
 
-                                    {/* 1. [UPDATED] 商品販売価格と送料を分けて表示 */}
+                                    {/* 1. 商品販売価格と送料を分けて表示 */}
                                     <div className="bg-blue-50/70 p-3 rounded-md border border-blue-200 grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex flex-col">
                                             <span className="text-[10px] font-bold text-blue-900">商品販売価格</span>
@@ -487,10 +486,10 @@ export default function AdminProfitPage() {
                                         </div>
                                     </div>
 
-                                    {/* 2. 経費の内訳 */}
+                                    {/* 2. 販売価格の内訳 [UPDATED] */}
                                     <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px]">
                                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">
-                                            <span>経費内訳</span>
+                                            <span>販売価格の内訳</span> {/* [UPDATED] */}
                                             <span>(合計請求額: ¥{calc.totalAmount.toLocaleString()})</span>
                                         </div>
                                         <div className="flex justify-between text-slate-600">
