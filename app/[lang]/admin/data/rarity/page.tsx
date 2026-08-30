@@ -1,5 +1,5 @@
 // app/[lang]/admin/data/rarity/page.tsx
-// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
+// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -32,35 +32,54 @@ export default function RarityPage() {
         fetchRarities();
     }, []);
 
+    // [UPDATED] 保存処理にエラーハンドリングと通知を追加
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || !price) return;
+        
+        // 必須チェック
+        if (!name || !price) {
+            alert('「商品名」と「仕入れ単価」は必須です。');
+            return;
+        }
 
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name,
-                price: parseFloat(price),
-                sell_price: parseFloat(sellPrice || '0'),
-                tax: parseFloat(tax || '0'),
-                profit_rate: parseFloat(profitRate || '0'),
-                profit_type: profitType,
-                weight: parseFloat(weight || '0'),
-                stock: parseInt(stock || '0', 10),
-            }),
-        });
+        try {
+            const res = await fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'rarity',
+                    name,
+                    price: parseFloat(price),
+                    sell_price: parseFloat(sellPrice || '0'),
+                    tax: parseFloat(tax || '0'),
+                    profit_rate: parseFloat(profitRate || '0'),
+                    profit_type: profitType,
+                    weight: parseFloat(weight || '0'),
+                    stock: parseInt(stock || '0', 10),
+                }),
+            });
 
-        setName('');
-        setSellPrice('');
-        setPrice('');
-        setTax('10');
-        setProfitRate('');
-        setProfitType('cost');
-        setWeight('');
-        setStock('0');
-        fetchRarities();
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || '保存に失敗しました');
+            }
+
+            setName('');
+            setSellPrice('');
+            setPrice('');
+            setTax('10');
+            setProfitRate('');
+            setProfitType('cost');
+            setWeight('');
+            setStock('0');
+            fetchRarities();
+            alert('✅ 商品マスタを追加しました');
+            
+        } catch (error: any) {
+            console.error('保存エラー:', error);
+            alert(`⚠️ エラーが発生しました: ${error.message}`);
+        }
     };
 
     const handleDelete = async (id: number, rarityName: string) => {
@@ -75,7 +94,6 @@ export default function RarityPage() {
 
     return (
         <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            {/* [UPDATED] 利益計算ダッシュボードボタンを削除し、戻るリンクのみに変更 */}
             <div className="max-w-5xl mx-auto flex items-center justify-start gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る

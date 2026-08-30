@@ -152,147 +152,6 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/[lang]/admin/data/rarity/fee/page.tsx">
-// app/admin/data/fee/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function FeePage() {
-    const [fees, setFees] = useState<any[]>([]);
-    const [name, setName] = useState('');
-    const [rate, setRate] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    const fetchFees = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setFees(data?.fees || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchFees();
-    }, []);
-
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !rate) return;
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'fee',
-                name,
-                rate: parseFloat(rate),
-            }),
-        });
-
-        setName('');
-        setRate('');
-        fetchFees();
-    };
-
-    const handleDelete = async (id: number, feeName: string) => {
-        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=fee&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchFees();
-    };
-
-    return (
-        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            {/* ナビゲーションバー [NEW] */}
-            <div className="max-w-md mx-auto flex items-center justify-between gap-2 pb-1">
-                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
-                    ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
-                </Link>
-            </div>
-
-            <div className="mx-auto max-w-md bg-white p-3 rounded-lg shadow-2xs border border-zinc-200">
-                <div className="flex justify-between items-center mb-2.5">
-                    <h1 className="text-xs font-bold text-zinc-900">手数料管理</h1>
-                </div>
-
-                <form onSubmit={handleAdd} className="flex gap-1.5 mb-3 items-center">
-                    <input
-                        type="text"
-                        placeholder="名称 (例: Paypal)"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="h-8 px-2 w-[140px] rounded border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <input
-                        type="number"
-                        step="0.01"
-                        placeholder="手数料率(%)"
-                        value={rate}
-                        onChange={e => setRate(e.target.value)}
-                        className="h-8 px-2 w-[100px] rounded border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <button type="submit" className="h-8 px-3 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 ml-auto transition-colors">
-                        追加
-                    </button>
-                </form>
-
-                <div className="border border-zinc-200 rounded overflow-hidden">
-                    <table className="w-full text-left border-collapse text-zinc-900">
-                        <thead>
-                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-1.5 font-semibold">名称</th>
-                                <th className="p-1.5 font-semibold text-right">手数料率</th>
-                                <th className="p-1.5 font-semibold text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={3} className="p-4 text-center text-zinc-400">読み込み中...</td>
-                                </tr>
-                            ) : fees.length === 0 ? (
-                                <tr>
-                                    <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
-                                </tr>
-                            ) : (
-                                fees.map((f, i) => (
-                                    <tr key={f.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-1.5 font-medium">{f.name}</td>
-                                        <td className="p-1.5 text-right font-mono">{f.rate}%</td>
-                                        <td className="p-1.5 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(f.id, f.name)}
-                                                className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                            >
-                                                削除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="app/[lang]/dashboard/settings/page.tsx">
 // app/dashboard/settings/page.tsx
 import { createClient } from '@/lib/supabase/server'
@@ -4209,6 +4068,145 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="app/[lang]/admin/data/rarity/fee/page.tsx">
+// app/[lang]/admin/data/rarity/fee/page.tsx
+// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function FeePage() {
+    const [fees, setFees] = useState<any[]>([]);
+    const [name, setName] = useState('');
+    const [rate, setRate] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    const fetchFees = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setFees(data?.fees || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchFees();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || !rate) return;
+
+        await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'fee',
+                name,
+                rate: parseFloat(rate),
+            }),
+        });
+
+        setName('');
+        setRate('');
+        fetchFees();
+    };
+
+    const handleDelete = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=fee&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchFees();
+    };
+
+    return (
+        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
+            {/* [UPDATED] 利益計算ダッシュボードボタンを削除 */}
+            <div className="max-w-md mx-auto flex items-center justify-start gap-2 pb-1">
+                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
+                    ← マスタ管理ハブへ戻る
+                </Link>
+            </div>
+
+            <div className="mx-auto max-w-md bg-white p-3 rounded-lg shadow-2xs border border-zinc-200">
+                <div className="flex justify-between items-center mb-2.5">
+                    <h1 className="text-xs font-bold text-zinc-900">手数料管理</h1>
+                </div>
+
+                <form onSubmit={handleAdd} className="flex gap-1.5 mb-3 items-center">
+                    <input
+                        type="text"
+                        placeholder="名称 (例: Paypal)"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        className="h-8 px-2 w-[140px] rounded border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    <input
+                        type="number"
+                        step="0.01"
+                        placeholder="手数料率(%)"
+                        value={rate}
+                        onChange={e => setRate(e.target.value)}
+                        className="h-8 px-2 w-[100px] rounded border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    <button type="submit" className="h-8 px-3 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 ml-auto transition-colors">
+                        追加
+                    </button>
+                </form>
+
+                <div className="border border-zinc-200 rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-zinc-900">
+                        <thead>
+                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
+                                <th className="p-1.5 font-semibold">名称</th>
+                                <th className="p-1.5 font-semibold text-right">手数料率</th>
+                                <th className="p-1.5 font-semibold text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                </tr>
+                            ) : fees.length === 0 ? (
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                </tr>
+                            ) : (
+                                fees.map((f, i) => (
+                                    <tr key={f.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                        <td className="p-1.5 font-medium">{f.name}</td>
+                                        <td className="p-1.5 text-right font-mono">{f.rate}%</td>
+                                        <td className="p-1.5 text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(f.id, f.name)}
+                                                className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                            >
+                                                削除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
 'use client'
 
@@ -5735,42 +5733,6 @@ export default async function RootLayout({
 }
 </file>
 
-<file path="app/[lang]/page.tsx">
-// app/[lang]/page.tsx
-// [UPDATED] 在庫リストページへのアクセスボタンを追加
-import Link from "next/link";
-
-export default async function Home({
-  params,
-}: {
-  params: Promise<{ lang: string }>;
-}) {
-  const { lang } = await params;
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-4">Welcome to our Service</h1>
-      <p className="text-xl mb-8">Providing efficient management tools.</p>
-      <div className="flex flex-wrap gap-4 justify-center">
-        <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
-          Login
-        </Link>
-        <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
-          Sign Up
-        </Link>
-        <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
-          Shipping Calculator
-        </Link>
-        {/* [NEW] 当社在庫リストへのリンクボタン */}
-        <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
-          📦 当社在庫リスト (Inventory)
-        </Link>
-      </div>
-    </main>
-  );
-}
-</file>
-
 <file path="components/LanguageSwitcher.tsx">
 // [UPDATED]
 'use client'
@@ -6051,6 +6013,42 @@ export default async function AdminPage() {
 }
 </file>
 
+<file path="app/[lang]/page.tsx">
+// app/[lang]/page.tsx
+// [UPDATED] 取扱商品へのリンクボタン名称を更新
+import Link from "next/link";
+
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params;
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold mb-4">Welcome to our Service</h1>
+      <p className="text-xl mb-8">Providing efficient management tools.</p>
+      <div className="flex flex-wrap gap-4 justify-center">
+        <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
+          Login
+        </Link>
+        <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
+          Sign Up
+        </Link>
+        <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
+          Shipping Calculator
+        </Link>
+        {/* [UPDATED] 取扱商品へのボタン名称表記に変更 */}
+        <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
+          📦 取扱商品 (Inventory)
+        </Link>
+      </div>
+    </main>
+  );
+}
+</file>
+
 <file path="app/api/data/route.ts">
 // app/api/data/route.ts
 // [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
@@ -6267,136 +6265,9 @@ export async function POST(request: Request) {
 }
 </file>
 
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-// [UPDATED] 「利益額」列を削除し、テーブル構成を更新
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function InventoryPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-
-    useEffect(() => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    }, []);
-
-    const filteredRarities = rarities.filter(r =>
-        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-6xl mx-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
-                    ← ホームへ戻る
-                </Link>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800">当社在庫リスト</h1>
-                        <p className="text-slate-500 text-[11px] mt-0.5">取扱商品・マスタ在庫データ一覧</p>
-                    </div>
-
-                    <div className="w-full md:w-64">
-                        <input
-                            type="text"
-                            placeholder="商品名で検索..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
-                        <thead>
-                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
-                                <th className="p-3 font-semibold">商品名</th>
-                                <th className="p-3 font-semibold text-right">販売価格</th>
-                                <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
-                                <th className="p-3 font-semibold text-right">適用消費税率</th>
-                                <th className="p-3 font-semibold text-right">利益率</th>
-                                <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
-                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-400">読み込み中...</td>
-                                </tr>
-                            ) : filteredRarities.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-400">
-                                        {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredRarities.map((r, i) => {
-                                    const buyPrice = Number(r.price || 0);
-                                    const sellPriceVal = Number(r.sell_price || 0);
-
-                                    return (
-                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
-                                            {/* 1. 商品名 */}
-                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
-                                            {/* 2. 販売価格 */}
-                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                                ¥{sellPriceVal.toLocaleString()}
-                                            </td>
-                                            {/* 3. 仕入れ単価 */}
-                                            <td className="p-3 text-right font-mono font-bold text-slate-900">
-                                                ¥{buyPrice.toLocaleString()}
-                                            </td>
-                                            {/* 4. 消費税率 */}
-                                            <td className="p-3 text-right font-mono text-slate-600">
-                                                {r.tax ?? 0}%
-                                            </td>
-                                            {/* 5. 利益率 */}
-                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                                                {r.profit_rate || 0}%
-                                                <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
-                                                    {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
-                                                </span>
-                                            </td>
-                                            {/* 6. 重量 */}
-                                            <td className="p-3 text-right font-mono text-slate-600">
-                                                {r.weight || 0} g
-                                            </td>
-                                            {/* 7. 在庫数 */}
-                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                                {r.stock ?? 0} 個
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/admin/data/rarity/page.tsx
-// [UPDATED] テーブル・フォームから「利益額」列を削除し表示レイアウトを調整
+// app/[lang]/admin/data/rarity/page.tsx
+// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6472,12 +6343,10 @@ export default function RarityPage() {
 
     return (
         <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 pb-1">
+            {/* [UPDATED] 利益計算ダッシュボードボタンを削除し、戻るリンクのみに変更 */}
+            <div className="max-w-5xl mx-auto flex items-center justify-start gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
                 </Link>
             </div>
 
@@ -6623,6 +6492,106 @@ export default function RarityPage() {
                                                 >
                                                     削除
                                                 </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/[lang]/inventory/page.tsx">
+// app/[lang]/inventory/page.tsx
+// [UPDATED] 「現在の在庫数」表示を削除し、表示項目を「商品名」「販売価格」の2列に変更
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function InventoryPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const filteredRarities = rarities.filter(r =>
+        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-4xl mx-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+                    ← ホームへ戻る
+                </Link>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-800">取扱商品</h1>
+                    </div>
+
+                    <div className="w-full md:w-64">
+                        <input
+                            type="text"
+                            placeholder="商品名で検索..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
+                        <thead>
+                            {/* [UPDATED] 表示項目を「商品名」「販売価格」の2列に限定 */}
+                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
+                                <th className="p-3 font-semibold">商品名</th>
+                                <th className="p-3 font-semibold text-right">販売価格</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    {/* [UPDATED] colSpan を 2 に変更 */}
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                </tr>
+                            ) : filteredRarities.length === 0 ? (
+                                <tr>
+                                    {/* [UPDATED] colSpan を 2 に変更 */}
+                                    <td colSpan={2} className="p-8 text-center text-slate-400">
+                                        {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredRarities.map((r, i) => {
+                                    const sellPriceVal = Number(r.sell_price || 0);
+
+                                    return (
+                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
+                                            {/* 1. 商品名 */}
+                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                            {/* 2. 販売価格 */}
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                ¥{sellPriceVal.toLocaleString()}
                                             </td>
                                         </tr>
                                     );
@@ -6877,9 +6846,12 @@ export default function AdminDataPage() {
 </file>
 
 <file path="app/[lang]/calculator/page.tsx">
+// app/[lang]/calculator/page.tsx
+// [UPDATED] タイトルを「Shipping Calculator」に変更し、「ホームへ戻る」ボタンを追加
 "use client";
 
 import { useState } from "react";
+import Link from "next/link"; // [NEW]
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage() {
@@ -6907,7 +6879,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({
           destination: countryCode,
           weight: Number(weight) || 1.0,
-          isEstimate: true // 概算試算であることを明示
+          isEstimate: true
         }),
       });
 
@@ -6927,8 +6899,16 @@ export default function CalculatorPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
+      {/* [NEW] ホームへ戻るボタン */}
+      <div className="flex items-center justify-between pb-2 border-b border-gray-200 mb-4">
+        <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+          ← ホームへ戻る
+        </Link>
+      </div>
+
+      {/* [UPDATED] タイトルを Shipping Calculator に変更 */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
-        国際送料・概算試算シミュレーター
+        Shipping Calculator
       </h1>
 
       <div className="space-y-4">
