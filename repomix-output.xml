@@ -3957,6 +3957,366 @@ export const config = {
 }
 </file>
 
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+
+export default async function AdminPage() {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect('/login')
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        redirect('/dashboard')
+    }
+
+    const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+            *,
+            profiles:user_id (
+                email,
+                contact_email,
+                full_name,
+                company_name,
+                phone,
+                fedex_account_number,
+                tax_id,
+                wise_email,
+                paypal_email,
+                country,
+                zip_code,
+                state_province,
+                city,
+                address_line1,
+                address_line2,
+                address_line3,
+                is_residential
+            ),
+            order_items (
+                id,
+                items (
+                    id,
+                    title,
+                    url,
+                    price,
+                    quantity,
+                    admin_quantity,
+                    desired_price,
+                    status,
+                    admin_note,
+                    remarks
+                )
+            )
+        `)
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching orders:', error)
+    }
+
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <div className="bg-slate-900 text-white p-4 shadow-md">
+                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm bg-blue-600 px-2.5 py-1 rounded">ADMIN</span>
+                        <h1 className="text-base font-bold">管理者ダッシュボード</h1>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+                        <Link 
+                            href="/admin/data" 
+                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            📦 当社在庫・マスタ管理
+                        </Link>
+
+                        <Link 
+                            href="/admin/profit" 
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            📊 利益・送料試算
+                        </Link>
+
+                        <Link 
+                            href="/calculator" 
+                            target="_blank"
+                            className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            ↗ 送料シミュレーター (ユーザー用)
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <ClientAdminPage orders={orders || []} />
+        </div>
+    )
+}
+</file>
+
+<file path="components/StatusBadge.tsx">
+// components/StatusBadge.tsx
+import React from 'react';
+
+interface StatusBadgeProps {
+    status?: string;
+    dict?: any; // [UPDATED] オプショナルに変更し、管理画面等で未渡しの際のエラーを防止
+}
+
+const statusStyles: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    procured: 'bg-teal-100 text-teal-800 border-teal-300',
+    calculating: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    payment_required: 'bg-amber-100 text-amber-800 border-amber-300',
+    shipped: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
+};
+
+const defaultLabels: Record<string, string> = {
+    pending: '依頼済み',
+    procured: '買い付け完了',
+    calculating: '国際発送準備中',
+    payment_required: '決済待ち',
+    shipped: '国際発送済み',
+    cancelled: 'キャンセル',
+};
+
+export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
+    const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
+    
+    // [UPDATED] dict が渡されている場合は辞書を参照、無ければデフォルト日本語ラベルを返却
+    let label = '不明';
+    if (status) {
+        if (dict?.dashboard?.badge?.status?.[status]) {
+            label = dict.dashboard.badge.status[status];
+        } else if (defaultLabels[status]) {
+            label = defaultLabels[status];
+        }
+    }
+
+    return (
+        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>
+            {label}
+        </span>
+    );
+};
+</file>
+
+<file path="dictionaries/en.json">
+{
+  "home": {
+    "title": "Welcome to our service",
+    "description": "Providing efficient management tools.",
+    "login": "Login",
+    "signup": "Sign Up",
+    "calculator": "Shipping Simulator",
+    "inventory": "📦 Inventory"
+  },
+  "dashboard": {
+    "title": "My Page",
+    "logout": "Logout",
+    "accountSettings": "⚙️ Account Settings",
+    "shippingCalculator": "✈️ International Shipping Simulator ↗",
+    "orderHistory": "Order History",
+    "noOrders": "No orders found.",
+    "itemCount": "Items:",
+    "status": {
+      "shipping": "Shipping:",
+      "payment": "Payment:",
+      "tracking": "Tracking:",
+      "attention": "Attention (User action required)"
+    },
+    "invoice": {
+      "title": "■ Invoice",
+      "shippingNote": "※Estimated based on user shipping method & weight",
+      "productTotal": "Product Total",
+      "proxyFee": "Proxy Fee (5%)",
+      "shipping": "Shipping",
+      "paymentFee": "Payment Fee",
+      "grandTotal": "Grand Total"
+    },
+    "form": {
+      "urlPlaceholder": "Product URL",
+      "titlePlaceholder": "Product Name",
+      "pricePlaceholder": "Desired Price (optional)",
+      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
+      "addButton": "Add to Cart",
+      "addingButton": "Adding...",
+      "replyButton": "Send Answer",
+      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
+      "adminNoteLabel": "⚠️ Admin Comment:"
+    },
+    "bookmarklet": {
+      "title": "Bookmarklet",
+      "description": "Drag and drop the button below to your bookmarks bar.",
+      "addButton": "Add to Request"
+    },
+    "cart": {
+      "title": "Items in Cart",
+      "noItems": "No items in cart.",
+      "name": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "quantity": "Quantity",
+      "desiredPrice": "Desired Price",
+      "action": "Action",
+      "delete": "Delete",
+      "shippingMethod": "Shipping Method:",
+      "paymentMethod": "Payment Method:",
+      "submitButton": "Submit Purchase Request",
+      "submittingButton": "Submitting..."
+    },
+    "table": {
+      "order": "Order",
+      "item": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "requestedQuantity": "Req. Qty",
+      "confirmedQuantity": "Conf. Qty",
+      "desiredPrice": "Desired Price",
+      "price": "Price (Conf.)",
+      "subtotal": "Subtotal",
+      "status": "Status"
+    },
+    "badge": {
+      "status": {
+        "ordered": "Ordered",
+        "purchased": "Purchased",
+        "shipping_prep": "Shipping Prep",
+        "payment_waiting": "Awaiting Payment",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled"
+      },
+      "item": {
+        "cart": "Cart",
+        "ordered": "Ordered",
+        "out_of_stock": "Out of Stock",
+        "purchased": "Purchased",
+        "warehouse_arrival": "Arrived at Warehouse",
+        "cancelled": "Cancelled",
+        "info_required": "Action Required"
+      }
+    }
+  }
+}
+</file>
+
+<file path="dictionaries/ja.json">
+{
+  "home": {
+    "title": "私たちのサービスへようこそ",
+    "description": "効率的な管理ツールを提供します。",
+    "login": "ログイン",
+    "signup": "新規登録",
+    "calculator": "送料シミュレーター",
+    "inventory": "📦 取扱商品"
+  },
+  "dashboard": {
+    "title": "マイページ",
+    "logout": "ログアウト",
+    "accountSettings": "⚙️ アカウント設定",
+    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
+    "orderHistory": "依頼済みの注文一覧",
+    "noOrders": "依頼済みの注文はありません。",
+    "itemCount": "商品数:",
+    "status": {
+      "shipping": "配送:",
+      "payment": "決済:",
+      "tracking": "追跡:",
+      "attention": "要確認（ユーザー対応待ち）"
+    },
+    "invoice": {
+      "title": "■ 請求明細",
+      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
+      "productTotal": "商品価格合計",
+      "proxyFee": "代理手数料 (5%)",
+      "shipping": "送料",
+      "paymentFee": "決済手数料",
+      "grandTotal": "お支払い金額"
+    },
+    "form": {
+      "urlPlaceholder": "商品URL",
+      "titlePlaceholder": "商品名",
+      "pricePlaceholder": "希望価格(任意)",
+      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
+      "addButton": "カートに追加",
+      "addingButton": "追加中...",
+      "replyButton": "回答を送信",
+      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
+      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
+    },
+    "bookmarklet": {
+      "title": "ブックマークレット",
+      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
+      "addButton": "依頼に追加"
+    },
+    "cart": {
+      "title": "カート内の商品",
+      "noItems": "カートに商品はありません。",
+      "name": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "quantity": "数量",
+      "desiredPrice": "希望価格",
+      "action": "操作",
+      "delete": "削除",
+      "shippingMethod": "配送方法:",
+      "paymentMethod": "決済方法:",
+      "submitButton": "購入依頼を送信する",
+      "submittingButton": "送信中..."
+    },
+    "table": {
+      "order": "注文",
+      "item": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "requestedQuantity": "依頼数量",
+      "confirmedQuantity": "確定数量",
+      "desiredPrice": "希望価格",
+      "price": "購入価格(確定)",
+      "subtotal": "小計",
+      "status": "ステータス"
+    },
+    "badge": {
+      "status": {
+        "ordered": "依頼済み",
+        "purchased": "買い付け完了",
+        "shipping_prep": "国際発送準備中",
+        "payment_waiting": "決済待ち",
+        "shipped": "国際発送済み",
+        "cancelled": "キャンセル"
+      },
+      "item": {
+        "cart": "カート",
+        "ordered": "依頼済み",
+        "out_of_stock": "在庫切れ",
+        "purchased": "購入完了",
+        "warehouse_arrival": "倉庫到着",
+        "cancelled": "キャンセル",
+        "info_required": "要確認"
+      }
+    }
+  }
+}
+</file>
+
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
 // app/[lang]/admin/ClientAdminPage.tsx
 'use client'
@@ -4159,7 +4519,7 @@ function AdminNoteForm({
 }) {
     const [isEditing, setIsEditing] = useState(false)
     const [showHistory, setShowHistory] = useState(false)
-    const isNoteActive = item.status === 'info_required'
+    const isNoteActive = item?.status === 'info_required'
 
     if (isNoteActive && !isEditing) {
         return (
@@ -4178,7 +4538,7 @@ function AdminNoteForm({
                 {showHistory && (
                     <div className="mt-1 flex flex-col gap-1.5 animate-fadeIn">
                         <div className="bg-red-50 border border-red-200 text-red-800 p-1.5 rounded text-xs whitespace-pre-wrap break-all shadow-inner">
-                            {item.admin_note}
+                            {item?.admin_note}
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -4208,7 +4568,7 @@ function AdminNoteForm({
 
     return (
         <div className="flex flex-col gap-1">
-            {!isNoteActive && item.admin_note && (
+            {!isNoteActive && item?.admin_note && (
                 <div className="mb-0.5">
                     <button
                         type="button"
@@ -4219,7 +4579,7 @@ function AdminNoteForm({
                     </button>
                     {showHistory && (
                         <div className="bg-slate-50 border border-slate-200 p-1.5 rounded mt-1 text-[10px] text-slate-600 whitespace-pre-wrap break-all animate-fadeIn">
-                            {item.admin_note}
+                            {item?.admin_note}
                         </div>
                     )}
                 </div>
@@ -4235,7 +4595,7 @@ function AdminNoteForm({
                     <div className="flex items-center gap-1.5 w-full">
                         <input
                             name="adminNote"
-                            defaultValue={isEditing ? item.admin_note : ''}
+                            defaultValue={isEditing ? item?.admin_note : ''}
                             placeholder="ユーザーへ確認(サイズ等)"
                             className="w-full p-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-red-500 outline-none"
                             required
@@ -4635,7 +4995,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     }
 
-    // [UPDATED] 配送方法の引数を追加
     const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) => {
         const weightStr = formData.get('weightStr') as string;
         const weightNum = parseFloat(weightStr);
@@ -4664,7 +5023,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         setOrders((prevOrders) =>
             prevOrders.map((order) => {
                 if (order.id !== orderId) return order
-                // [NEW] 配送方法も更新状態に含める
                 return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount, shipping_method: currentShippingMethod }
             })
         )
@@ -5204,7 +5562,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                     <td className="border border-slate-200 p-2">
                                                                         <input
                                                                             type="text"
-                                                                            defaultValue={item.title || ''}
+                                                                            defaultValue={item?.title || ''}
                                                                             placeholder="商品名を入力"
                                                                             onFocus={(e) => {
                                                                                 const target = e.target
@@ -5212,7 +5570,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                             }}
                                                                             onBlur={(e) => {
                                                                                 const val = e.target.value.trim()
-                                                                                if (val !== (item.title || '')) {
+                                                                                if (val !== (item?.title || '')) {
                                                                                     handleTitleChange(item.id, val)
                                                                                 }
                                                                             }}
@@ -5435,366 +5793,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             )}
         </div>
     )
-}
-</file>
-
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-
-export default async function AdminPage() {
-    const supabase = await createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-        redirect('/login')
-    }
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (profile?.role !== 'admin') {
-        redirect('/dashboard')
-    }
-
-    const { data: orders, error } = await supabase
-        .from('orders')
-        .select(`
-            *,
-            profiles:user_id (
-                email,
-                contact_email,
-                full_name,
-                company_name,
-                phone,
-                fedex_account_number,
-                tax_id,
-                wise_email,
-                paypal_email,
-                country,
-                zip_code,
-                state_province,
-                city,
-                address_line1,
-                address_line2,
-                address_line3,
-                is_residential
-            ),
-            order_items (
-                id,
-                items (
-                    id,
-                    title,
-                    url,
-                    price,
-                    quantity,
-                    admin_quantity,
-                    desired_price,
-                    status,
-                    admin_note,
-                    remarks
-                )
-            )
-        `)
-        .order('created_at', { ascending: false })
-
-    if (error) {
-        console.error('Error fetching orders:', error)
-    }
-
-    return (
-        <div className="min-h-screen bg-slate-50">
-            <div className="bg-slate-900 text-white p-4 shadow-md">
-                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm bg-blue-600 px-2.5 py-1 rounded">ADMIN</span>
-                        <h1 className="text-base font-bold">管理者ダッシュボード</h1>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
-                        <Link 
-                            href="/admin/data" 
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            📦 当社在庫・マスタ管理
-                        </Link>
-
-                        <Link 
-                            href="/admin/profit" 
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            📊 利益・送料試算
-                        </Link>
-
-                        <Link 
-                            href="/calculator" 
-                            target="_blank"
-                            className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            ↗ 送料シミュレーター (ユーザー用)
-                        </Link>
-                    </div>
-                </div>
-            </div>
-
-            <ClientAdminPage orders={orders || []} />
-        </div>
-    )
-}
-</file>
-
-<file path="components/StatusBadge.tsx">
-// components/StatusBadge.tsx
-import React from 'react';
-
-interface StatusBadgeProps {
-    status?: string;
-    dict?: any; // [UPDATED] オプショナルに変更し、管理画面等で未渡しの際のエラーを防止
-}
-
-const statusStyles: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    procured: 'bg-teal-100 text-teal-800 border-teal-300',
-    calculating: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    payment_required: 'bg-amber-100 text-amber-800 border-amber-300',
-    shipped: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
-};
-
-const defaultLabels: Record<string, string> = {
-    pending: '依頼済み',
-    procured: '買い付け完了',
-    calculating: '国際発送準備中',
-    payment_required: '決済待ち',
-    shipped: '国際発送済み',
-    cancelled: 'キャンセル',
-};
-
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
-    const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
-    
-    // [UPDATED] dict が渡されている場合は辞書を参照、無ければデフォルト日本語ラベルを返却
-    let label = '不明';
-    if (status) {
-        if (dict?.dashboard?.badge?.status?.[status]) {
-            label = dict.dashboard.badge.status[status];
-        } else if (defaultLabels[status]) {
-            label = defaultLabels[status];
-        }
-    }
-
-    return (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>
-            {label}
-        </span>
-    );
-};
-</file>
-
-<file path="dictionaries/en.json">
-{
-  "home": {
-    "title": "Welcome to our service",
-    "description": "Providing efficient management tools.",
-    "login": "Login",
-    "signup": "Sign Up",
-    "calculator": "Shipping Simulator",
-    "inventory": "📦 Inventory"
-  },
-  "dashboard": {
-    "title": "My Page",
-    "logout": "Logout",
-    "accountSettings": "⚙️ Account Settings",
-    "shippingCalculator": "✈️ International Shipping Simulator ↗",
-    "orderHistory": "Order History",
-    "noOrders": "No orders found.",
-    "itemCount": "Items:",
-    "status": {
-      "shipping": "Shipping:",
-      "payment": "Payment:",
-      "tracking": "Tracking:",
-      "attention": "Attention (User action required)"
-    },
-    "invoice": {
-      "title": "■ Invoice",
-      "shippingNote": "※Estimated based on user shipping method & weight",
-      "productTotal": "Product Total",
-      "proxyFee": "Proxy Fee (5%)",
-      "shipping": "Shipping",
-      "paymentFee": "Payment Fee",
-      "grandTotal": "Grand Total"
-    },
-    "form": {
-      "urlPlaceholder": "Product URL",
-      "titlePlaceholder": "Product Name",
-      "pricePlaceholder": "Desired Price (optional)",
-      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
-      "addButton": "Add to Cart",
-      "addingButton": "Adding...",
-      "replyButton": "Send Answer",
-      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
-      "adminNoteLabel": "⚠️ Admin Comment:"
-    },
-    "bookmarklet": {
-      "title": "Bookmarklet",
-      "description": "Drag and drop the button below to your bookmarks bar.",
-      "addButton": "Add to Request"
-    },
-    "cart": {
-      "title": "Items in Cart",
-      "noItems": "No items in cart.",
-      "name": "Product Name",
-      "url": "URL",
-      "remarks": "Remarks",
-      "quantity": "Quantity",
-      "desiredPrice": "Desired Price",
-      "action": "Action",
-      "delete": "Delete",
-      "shippingMethod": "Shipping Method:",
-      "paymentMethod": "Payment Method:",
-      "submitButton": "Submit Purchase Request",
-      "submittingButton": "Submitting..."
-    },
-    "table": {
-      "order": "Order",
-      "item": "Product Name",
-      "url": "URL",
-      "remarks": "Remarks",
-      "requestedQuantity": "Req. Qty",
-      "confirmedQuantity": "Conf. Qty",
-      "desiredPrice": "Desired Price",
-      "price": "Price (Conf.)",
-      "subtotal": "Subtotal",
-      "status": "Status"
-    },
-    "badge": {
-      "status": {
-        "ordered": "Ordered",
-        "purchased": "Purchased",
-        "shipping_prep": "Shipping Prep",
-        "payment_waiting": "Awaiting Payment",
-        "shipped": "Shipped",
-        "cancelled": "Cancelled"
-      },
-      "item": {
-        "cart": "Cart",
-        "ordered": "Ordered",
-        "out_of_stock": "Out of Stock",
-        "purchased": "Purchased",
-        "warehouse_arrival": "Arrived at Warehouse",
-        "cancelled": "Cancelled",
-        "info_required": "Action Required"
-      }
-    }
-  }
-}
-</file>
-
-<file path="dictionaries/ja.json">
-{
-  "home": {
-    "title": "私たちのサービスへようこそ",
-    "description": "効率的な管理ツールを提供します。",
-    "login": "ログイン",
-    "signup": "新規登録",
-    "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品"
-  },
-  "dashboard": {
-    "title": "マイページ",
-    "logout": "ログアウト",
-    "accountSettings": "⚙️ アカウント設定",
-    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
-    "orderHistory": "依頼済みの注文一覧",
-    "noOrders": "依頼済みの注文はありません。",
-    "itemCount": "商品数:",
-    "status": {
-      "shipping": "配送:",
-      "payment": "決済:",
-      "tracking": "追跡:",
-      "attention": "要確認（ユーザー対応待ち）"
-    },
-    "invoice": {
-      "title": "■ 請求明細",
-      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
-      "productTotal": "商品価格合計",
-      "proxyFee": "代理手数料 (5%)",
-      "shipping": "送料",
-      "paymentFee": "決済手数料",
-      "grandTotal": "お支払い金額"
-    },
-    "form": {
-      "urlPlaceholder": "商品URL",
-      "titlePlaceholder": "商品名",
-      "pricePlaceholder": "希望価格(任意)",
-      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
-      "addButton": "カートに追加",
-      "addingButton": "追加中...",
-      "replyButton": "回答を送信",
-      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
-      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
-    },
-    "bookmarklet": {
-      "title": "ブックマークレット",
-      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
-      "addButton": "依頼に追加"
-    },
-    "cart": {
-      "title": "カート内の商品",
-      "noItems": "カートに商品はありません。",
-      "name": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "quantity": "数量",
-      "desiredPrice": "希望価格",
-      "action": "操作",
-      "delete": "削除",
-      "shippingMethod": "配送方法:",
-      "paymentMethod": "決済方法:",
-      "submitButton": "購入依頼を送信する",
-      "submittingButton": "送信中..."
-    },
-    "table": {
-      "order": "注文",
-      "item": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "requestedQuantity": "依頼数量",
-      "confirmedQuantity": "確定数量",
-      "desiredPrice": "希望価格",
-      "price": "購入価格(確定)",
-      "subtotal": "小計",
-      "status": "ステータス"
-    },
-    "badge": {
-      "status": {
-        "ordered": "依頼済み",
-        "purchased": "買い付け完了",
-        "shipping_prep": "国際発送準備中",
-        "payment_waiting": "決済待ち",
-        "shipped": "国際発送済み",
-        "cancelled": "キャンセル"
-      },
-      "item": {
-        "cart": "カート",
-        "ordered": "依頼済み",
-        "out_of_stock": "在庫切れ",
-        "purchased": "購入完了",
-        "warehouse_arrival": "倉庫到着",
-        "cancelled": "キャンセル",
-        "info_required": "要確認"
-      }
-    }
-  }
 }
 </file>
 
@@ -6053,6 +6051,51 @@ export async function POST(request: Request) {
 }
 </file>
 
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+
+export default function BookmarkletGenerator({ dict }: { dict?: any }) {
+    const linkRef = useRef<HTMLAnchorElement>(null)
+    const [baseUrl, setBaseUrl] = useState('')
+
+    useEffect(() => {
+        setBaseUrl(window.location.origin)
+    }, [])
+
+    useEffect(() => {
+        if (linkRef.current && baseUrl) {
+            const code = `javascript:(function(){if(document.getElementById('__bm_modal'))return;var d=document.createElement('div');d.id='__bm_modal';d.style.cssText='position:fixed;top:20px;right:20px;background:#fff;border:1px solid #ccc;padding:15px;z-index:999999;box-shadow:0 4px 6px rgba(0,0,0,0.1);border-radius:8px;font-family:sans-serif;color:#333;width:300px;text-align:left;';d.innerHTML='<h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;color:#111;">カートに追加</h3><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">希望価格 (任意)</label><input type="number" id="__bm_price" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">数量</label><input type="number" id="__bm_qty" value="1" min="1" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">備考 (サイズ・カラー等)</label><input type="text" id="__bm_remarks" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><div style="display:flex;justify-content:flex-end;gap:8px;"><button id="__bm_cancel" style="padding:6px 12px;cursor:pointer;border:none;background:#e5e7eb;border-radius:4px;color:#374151;font-size:12px;font-weight:bold;">キャンセル</button><button id="__bm_submit" style="padding:6px 12px;cursor:pointer;border:none;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:bold;">追加する</button></div>';document.body.appendChild(d);document.getElementById('__bm_cancel').onclick=function(){d.remove();};document.getElementById('__bm_submit').onclick=function(){var p=document.getElementById('__bm_price').value;var q=document.getElementById('__bm_qty').value;var r=document.getElementById('__bm_remarks').value;var url="${baseUrl}/api/bookmarklet/add?url="+encodeURIComponent(window.location.href)+"&title="+encodeURIComponent(document.title)+"&desiredPrice="+encodeURIComponent(p)+"&quantity="+encodeURIComponent(q)+"&remarks="+encodeURIComponent(r);window.open(url,"_bm_add","width=400,height=300,left=200,top=200");d.remove();};})();`;
+            linkRef.current.href = code;
+        }
+    }, [baseUrl])
+
+    // フォールバック用の定義
+    const title = dict?.dashboard?.bookmarklet?.title || 'ブックマークレット'
+    const description = dict?.dashboard?.bookmarklet?.description || '以下のボタンをブラウザのお気に入りバー（ブックマークバー）にドラッグ＆ドロップしてください。'
+    const addButton = dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'
+
+    return (
+        <div className="mt-8 p-4 bg-yellow-50 border rounded">
+            <h2 className="font-bold">{title}</h2>
+            <p className="text-sm mb-2">{description}</p>
+            <a 
+                ref={linkRef}
+                onClick={(e) => {
+                    e.preventDefault(); 
+                    alert('このボタンはクリックせず、ブックマークバーへドラッグ＆ドロップしてください。');
+                }}
+                className="inline-block bg-yellow-500 text-white px-4 py-2 rounded font-bold cursor-pointer hover:bg-yellow-600 transition-colors"
+            >
+                {addButton}
+            </a>
+        </div>
+    )
+}
+</file>
+
 <file path="app/[lang]/dashboard/page.tsx">
 // app/dashboard/page.tsx
 import { getDictionary } from "@/lib/dictionaries";
@@ -6269,7 +6312,6 @@ export default async function DashboardPage(props: {
                 <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
-            {/* [UPDATED] dict Propsを正しく渡す */}
             <BookmarkletGenerator dict={dict} />
 
             <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
@@ -6415,6 +6457,7 @@ export default async function DashboardPage(props: {
                                                     {order.order_items.map((oi: any, idx: number) => {
                                                         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
 
+                                                        // [UPDATED] item が存在しない場合は安全にスキップ
                                                         if (!item) return null;
 
                                                         const cartQty = item.quantity ?? 1;
@@ -6428,7 +6471,8 @@ export default async function DashboardPage(props: {
                                                             <React.Fragment key={item.id || idx}>
                                                                 <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
                                                                     <td className="p-2.5 font-medium text-slate-800">
-                                                                        {item.title || '名称未設定'}
+                                                                        {/* [UPDATED] title が undefined の場合の安全ガードを追加 */}
+                                                                        {item?.title || '名称未設定'}
                                                                     </td>
                                                                     <td className="p-2.5 max-w-[180px] truncate">
                                                                         {item.url ? (
@@ -6515,51 +6559,6 @@ export default async function DashboardPage(props: {
             </div>
         </div>
     );
-}
-</file>
-
-<file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
-'use client'
-
-import { useEffect, useRef, useState } from 'react'
-
-export default function BookmarkletGenerator({ dict }: { dict?: any }) {
-    const linkRef = useRef<HTMLAnchorElement>(null)
-    const [baseUrl, setBaseUrl] = useState('')
-
-    useEffect(() => {
-        setBaseUrl(window.location.origin)
-    }, [])
-
-    useEffect(() => {
-        if (linkRef.current && baseUrl) {
-            const code = `javascript:(function(){if(document.getElementById('__bm_modal'))return;var d=document.createElement('div');d.id='__bm_modal';d.style.cssText='position:fixed;top:20px;right:20px;background:#fff;border:1px solid #ccc;padding:15px;z-index:999999;box-shadow:0 4px 6px rgba(0,0,0,0.1);border-radius:8px;font-family:sans-serif;color:#333;width:300px;text-align:left;';d.innerHTML='<h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;color:#111;">カートに追加</h3><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">希望価格 (任意)</label><input type="number" id="__bm_price" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">数量</label><input type="number" id="__bm_qty" value="1" min="1" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">備考 (サイズ・カラー等)</label><input type="text" id="__bm_remarks" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><div style="display:flex;justify-content:flex-end;gap:8px;"><button id="__bm_cancel" style="padding:6px 12px;cursor:pointer;border:none;background:#e5e7eb;border-radius:4px;color:#374151;font-size:12px;font-weight:bold;">キャンセル</button><button id="__bm_submit" style="padding:6px 12px;cursor:pointer;border:none;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:bold;">追加する</button></div>';document.body.appendChild(d);document.getElementById('__bm_cancel').onclick=function(){d.remove();};document.getElementById('__bm_submit').onclick=function(){var p=document.getElementById('__bm_price').value;var q=document.getElementById('__bm_qty').value;var r=document.getElementById('__bm_remarks').value;var url="${baseUrl}/api/bookmarklet/add?url="+encodeURIComponent(window.location.href)+"&title="+encodeURIComponent(document.title)+"&desiredPrice="+encodeURIComponent(p)+"&quantity="+encodeURIComponent(q)+"&remarks="+encodeURIComponent(r);window.open(url,"_bm_add","width=400,height=300,left=200,top=200");d.remove();};})();`;
-            linkRef.current.href = code;
-        }
-    }, [baseUrl])
-
-    // フォールバック用の定義
-    const title = dict?.dashboard?.bookmarklet?.title || 'ブックマークレット'
-    const description = dict?.dashboard?.bookmarklet?.description || '以下のボタンをブラウザのお気に入りバー（ブックマークバー）にドラッグ＆ドロップしてください。'
-    const addButton = dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'
-
-    return (
-        <div className="mt-8 p-4 bg-yellow-50 border rounded">
-            <h2 className="font-bold">{title}</h2>
-            <p className="text-sm mb-2">{description}</p>
-            <a 
-                ref={linkRef}
-                onClick={(e) => {
-                    e.preventDefault(); 
-                    alert('このボタンはクリックせず、ブックマークバーへドラッグ＆ドロップしてください。');
-                }}
-                className="inline-block bg-yellow-500 text-white px-4 py-2 rounded font-bold cursor-pointer hover:bg-yellow-600 transition-colors"
-            >
-                {addButton}
-            </a>
-        </div>
-    )
 }
 </file>
 

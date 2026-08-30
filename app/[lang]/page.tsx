@@ -13,22 +13,22 @@ export default async function Home({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      {/* [UPDATED] ハードコーディングされていたテキストを辞書データ (dict) に置き換え */}
-      <h1 className="text-4xl font-bold mb-4">{dict.home.title}</h1>
-      <p className="text-xl mb-8">{dict.home.description}</p>
+      {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
+      <h1 className="text-4xl font-bold mb-4">{dict?.home?.title || 'Welcome'}</h1>
+      <p className="text-xl mb-8">{dict?.home?.description || 'Service Description'}</p>
       
       <div className="flex flex-wrap gap-4 justify-center">
         <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
-          {dict.home.login}
+          {dict?.home?.login || 'Login'}
         </Link>
         <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
-          {dict.home.signup}
+          {dict?.home?.signup || 'Sign Up'}
         </Link>
         <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
-          {dict.home.calculator}
+          {dict?.home?.calculator || 'Calculator'}
         </Link>
         <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
-          {dict.home.inventory}
+          {dict?.home?.inventory || 'Inventory'}
         </Link>
       </div>
     </main>
