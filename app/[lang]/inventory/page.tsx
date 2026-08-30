@@ -1,5 +1,5 @@
 // app/[lang]/inventory/page.tsx
-// [UPDATED] 原価列を削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせて更新
+// [UPDATED] 「利益額」列を削除し、テーブル構成を更新
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -60,7 +60,6 @@ export default function InventoryPage() {
                                 <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
                                 <th className="p-3 font-semibold text-right">利益率</th>
-                                <th className="p-3 font-semibold text-right">利益額</th>
                                 <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
                                 <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
@@ -68,21 +67,18 @@ export default function InventoryPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    <td colSpan={7} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-400">
+                                    <td colSpan={7} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
                             ) : (
                                 filteredRarities.map((r, i) => {
                                     const buyPrice = Number(r.price || 0);
-                                    const taxVal = Number(r.tax || 0);
                                     const sellPriceVal = Number(r.sell_price || 0);
-                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
-                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
 
                                     return (
                                         <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
@@ -107,15 +103,11 @@ export default function InventoryPage() {
                                                     {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                 </span>
                                             </td>
-                                            {/* 6. 利益額 */}
-                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                                                ¥{profitAmount.toLocaleString()}
-                                            </td>
-                                            {/* 7. 重量 */}
+                                            {/* 6. 重量 */}
                                             <td className="p-3 text-right font-mono text-slate-600">
                                                 {r.weight || 0} g
                                             </td>
-                                            {/* 8. 在庫数 */}
+                                            {/* 7. 在庫数 */}
                                             <td className="p-3 text-right font-mono font-bold text-blue-700">
                                                 {r.stock ?? 0} 個
                                             </td>

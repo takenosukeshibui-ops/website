@@ -1,5 +1,5 @@
 // app/admin/data/rarity/page.tsx
-// [UPDATED] 原価フィールドを削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせてフォームとテーブルを更新
+// [UPDATED] テーブル・フォームから「利益額」列を削除し表示レイアウトを調整
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -89,7 +89,6 @@ export default function RarityPage() {
                     <h1 className="text-sm font-bold text-zinc-900">レアリティ・商品マスタ登録</h1>
                 </div>
 
-                {/* [UPDATED] 入力フォームの並び順を調整 */}
                 <form onSubmit={handleAdd} className="space-y-3 bg-zinc-50 p-3 rounded border border-zinc-200">
                     <h2 className="font-bold text-zinc-700 text-xs">＋ 新規登録</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
@@ -146,7 +145,7 @@ export default function RarityPage() {
                             onChange={e => setProfitRate(e.target.value)}
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        {/* 7. 重量 */}
+                        {/* 6. 重量 */}
                         <input
                             type="number"
                             placeholder="重量 (g)"
@@ -154,7 +153,7 @@ export default function RarityPage() {
                             onChange={e => setWeight(e.target.value)}
                             className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        {/* 8. 初期在庫数 */}
+                        {/* 7. 初期在庫数 */}
                         <input
                             type="number"
                             placeholder="初期在庫数"
@@ -179,7 +178,6 @@ export default function RarityPage() {
                                 <th className="p-2 font-semibold text-right">仕入れ単価</th>
                                 <th className="p-2 font-semibold text-right">消費税率</th>
                                 <th className="p-2 font-semibold text-right">利益率</th>
-                                <th className="p-2 font-semibold text-right">利益額</th>
                                 <th className="p-2 font-semibold text-right">重量</th>
                                 <th className="p-2 font-semibold text-right">在庫数</th>
                                 <th className="p-2 font-semibold text-right">操作</th>
@@ -188,19 +186,16 @@ export default function RarityPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={9} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                    <td colSpan={8} className="p-4 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
                             ) : rarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
+                                    <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
                                 </tr>
                             ) : (
                                 rarities.map((r, i) => {
                                     const buyPrice = Number(r.price || 0);
-                                    const taxVal = Number(r.tax || 0);
                                     const sellPriceVal = Number(r.sell_price || 0);
-                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
-                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
 
                                     return (
                                         <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
@@ -219,11 +214,9 @@ export default function RarityPage() {
                                                     {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                 </span>
                                             </td>
-                                            {/* 6. 利益額 */}
-                                            <td className="p-2 text-right font-mono font-bold text-emerald-600">¥{profitAmount.toLocaleString()}</td>
-                                            {/* 7. 重量 */}
+                                            {/* 6. 重量 */}
                                             <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
-                                            {/* 8. 在庫数 */}
+                                            {/* 7. 在庫数 */}
                                             <td className="p-2 text-right font-mono font-bold text-blue-700">{r.stock || 0}個</td>
                                             <td className="p-2 text-right">
                                                 <button

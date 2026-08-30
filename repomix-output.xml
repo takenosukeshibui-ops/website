@@ -5771,158 +5771,6 @@ export default async function Home({
 }
 </file>
 
-<file path="app/api/data/route.ts">
-// app/api/data/route.ts
-// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数 stock 対応追加)
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-
-// [NEW] GET: レアリティおよび手数料一覧の取得
-export async function GET() {
-    try {
-        const supabase = await createClient()
-
-        const [raritiesRes, feesRes] = await Promise.all([
-            supabase.from('rarities').select('*').order('created_at', { ascending: true }),
-            supabase.from('fees').select('*').order('created_at', { ascending: true })
-        ])
-
-        if (raritiesRes.error) {
-            console.error('Rarities fetch error:', raritiesRes.error.message)
-        }
-        if (feesRes.error) {
-            console.error('Fees fetch error:', feesRes.error.message)
-        }
-
-        return NextResponse.json({
-            rarities: raritiesRes.data || [],
-            fees: feesRes.data || []
-        })
-    } catch (err: any) {
-        console.error('API GET Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ取得エラーが発生しました' }, { status: 500 })
-    }
-}
-
-// [UPDATED] POST: レアリティまたは手数料の新規登録 (stock 対応)
-export async function POST(req: Request) {
-    try {
-        const supabase = await createClient()
-        const body = await req.json()
-
-        const { type, name, price, tax, weight, stock, rate } = body // [UPDATED] stock を追加
-
-        if (type === 'rarity') {
-            const { data, error } = await supabase
-                .from('rarities')
-                .insert({
-                    name,
-                    price: Number(price) || 0,
-                    tax: Number(tax) || 0,
-                    weight: Number(weight) || 0,
-                    stock: Number(stock) || 0 // [NEW] 在庫数
-                })
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Rarity insert error:', error.message)
-                return NextResponse.json({ error: error.message }, { status: 400 })
-            }
-
-            return NextResponse.json({ success: true, data })
-        }
-
-        if (type === 'fee') {
-            const { data, error } = await supabase
-                .from('fees')
-                .insert({
-                    name,
-                    rate: Number(rate) || 0
-                })
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Fee insert error:', error.message)
-                return NextResponse.json({ error: error.message }, { status: 400 })
-            }
-
-            return NextResponse.json({ success: true, data })
-        }
-
-        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
-    } catch (err: any) {
-        console.error('API POST Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
-    }
-}
-
-// [NEW] PATCH: 在庫数の即時更新用API
-export async function PATCH(req: Request) {
-    try {
-        const supabase = await createClient()
-        const body = await req.json()
-        const { type, id, stock } = body
-
-        if (type === 'rarity_stock') {
-            const { data, error } = await supabase
-                .from('rarities')
-                .update({ stock: Math.max(0, Number(stock) || 0) })
-                .eq('id', id)
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Stock update error:', error.message)
-                return NextResponse.json({ error: error.message }, { status: 400 })
-            }
-
-            return NextResponse.json({ success: true, data })
-        }
-
-        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
-    } catch (err: any) {
-        console.error('API PATCH Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || '在庫数更新エラーが発生しました' }, { status: 500 })
-    }
-}
-
-// [NEW] DELETE: レアリティまたは手数料の削除
-export async function DELETE(req: Request) {
-    try {
-        const supabase = await createClient()
-        const { searchParams } = new URL(req.url)
-        const type = searchParams.get('type')
-        const id = searchParams.get('id')
-
-        if (!type || !id) {
-            return NextResponse.json({ error: 'type と id は必須パラメータです' }, { status: 400 })
-        }
-
-        const tableName = type === 'rarity' ? 'rarities' : type === 'fee' ? 'fees' : null
-        if (!tableName) {
-            return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
-        }
-
-        const { error } = await supabase
-            .from(tableName)
-            .delete()
-            .eq('id', id)
-
-        if (error) {
-            console.error(`${tableName} delete error:`, error.message)
-            return NextResponse.json({ error: error.message }, { status: 400 })
-        }
-
-        return NextResponse.json({ success: true })
-    } catch (err: any) {
-        console.error('API DELETE Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ削除エラーが発生しました' }, { status: 500 })
-    }
-}
-</file>
-
 <file path="components/LanguageSwitcher.tsx">
 // [UPDATED]
 'use client'
@@ -6203,292 +6051,161 @@ export default async function AdminPage() {
 }
 </file>
 
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/admin/data/rarity/page.tsx
-// [UPDATED] レアリティ・商品個別追加ページ (在庫数 stock 追加)
-'use client';
+<file path="app/api/data/route.ts">
+// app/api/data/route.ts
+// [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+// GET: レアリティおよび手数料一覧の取得
+export async function GET() {
+    try {
+        const supabase = await createClient()
 
-export default function RarityPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [name, setName] = useState('');
-    const [price, setPrice] = useState('');
-    const [tax, setTax] = useState('10');
-    const [weight, setWeight] = useState('');
-    const [stock, setStock] = useState('0'); // [NEW] 在庫数初期値
-    const [loading, setLoading] = useState(true);
+        const [raritiesRes, feesRes] = await Promise.all([
+            supabase.from('rarities').select('*').order('created_at', { ascending: true }),
+            supabase.from('fees').select('*').order('created_at', { ascending: true })
+        ])
 
-    const fetchRarities = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
+        if (raritiesRes.error) {
+            console.error('Rarities fetch error:', raritiesRes.error.message)
+        }
+        if (feesRes.error) {
+            console.error('Fees fetch error:', feesRes.error.message)
+        }
 
-    useEffect(() => {
-        fetchRarities();
-    }, []);
-
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !price) return;
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name,
-                price: parseFloat(price),
-                tax: parseFloat(tax || '0'),
-                weight: parseFloat(weight || '0'),
-                stock: parseInt(stock || '0', 10), // [NEW] 在庫数
-            }),
-        });
-
-        setName('');
-        setPrice('');
-        setTax('10');
-        setWeight('');
-        setStock('0');
-        fetchRarities();
-    };
-
-    const handleDelete = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchRarities();
-    };
-
-    return (
-        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-1">
-                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
-                    ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
-                </Link>
-            </div>
-
-            <div className="mx-auto max-w-xl bg-white p-4 rounded-lg shadow-2xs border border-zinc-200 space-y-4">
-                <div className="flex justify-between items-center border-b pb-2">
-                    <h1 className="text-sm font-bold text-zinc-900">レアリティ・商品マスタ登録</h1>
-                </div>
-
-                <form onSubmit={handleAdd} className="space-y-3 bg-zinc-50 p-3 rounded border border-zinc-200">
-                    <h2 className="font-bold text-zinc-700 text-xs">＋ 新規登録</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                        <input
-                            type="text"
-                            placeholder="商品名 (例: PSA10)"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            required
-                        />
-                        <input
-                            type="number"
-                            placeholder="単価 (円)"
-                            value={price}
-                            onChange={e => setPrice(e.target.value)}
-                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            required
-                        />
-                        <input
-                            type="number"
-                            step="0.1"
-                            placeholder="消費税 (%)"
-                            value={tax}
-                            onChange={e => setTax(e.target.value)}
-                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <input
-                            type="number"
-                            placeholder="重量 (g)"
-                            value={weight}
-                            onChange={e => setWeight(e.target.value)}
-                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        {/* [NEW] 在庫数入力欄 */}
-                        <input
-                            type="number"
-                            placeholder="初期在庫数"
-                            value={stock}
-                            onChange={e => setStock(e.target.value)}
-                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                    </div>
-                    <div className="flex justify-end">
-                        <button type="submit" className="h-8 px-4 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 transition-colors">
-                            追加保存
-                        </button>
-                    </div>
-                </form>
-
-                <div className="border border-zinc-200 rounded overflow-hidden">
-                    <table className="w-full text-left border-collapse text-zinc-900">
-                        <thead>
-                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-2 font-semibold">名称</th>
-                                <th className="p-2 font-semibold text-right">単価</th>
-                                <th className="p-2 font-semibold text-right">消費税</th>
-                                <th className="p-2 font-semibold text-right">重量</th>
-                                <th className="p-2 font-semibold text-right">在庫数</th>
-                                <th className="p-2 font-semibold text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="p-4 text-center text-zinc-400">読み込み中...</td>
-                                </tr>
-                            ) : rarities.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
-                                </tr>
-                            ) : (
-                                rarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-2 font-medium">{r.name}</td>
-                                        <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                        <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
-                                        <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
-                                        <td className="p-2 text-right font-mono font-bold text-blue-700">{r.stock || 0}個</td>
-                                        <td className="p-2 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(r.id, r.name)}
-                                                className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                            >
-                                                削除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
+        return NextResponse.json({
+            rarities: raritiesRes.data || [],
+            fees: feesRes.data || []
+        })
+    } catch (err: any) {
+        console.error('API GET Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ取得エラーが発生しました' }, { status: 500 })
+    }
 }
-</file>
 
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-// [UPDATED] 在庫数（r.stock）カラム表示を追加
-'use client';
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price 削除)
+export async function POST(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+        const { type, name, price, tax, weight, stock, rate, sell_price, profit_rate, profit_type } = body 
 
-export default function InventoryPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+        if (type === 'rarity') {
+            const parsedPrice = Number(price) || 0
+            const parsedTax = Number(tax) || 0
 
-    useEffect(() => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    }, []);
+            const { data, error } = await supabase
+                .from('rarities')
+                .insert({
+                    name,
+                    price: parsedPrice, // 仕入れ単価
+                    sell_price: Number(sell_price) || 0, // 販売価格
+                    profit_rate: Number(profit_rate) || 0, // 利益率
+                    profit_type: profit_type || 'cost', // 利益率タイプ ('cost' | 'sales')
+                    tax: parsedTax, // 消費税率
+                    weight: Number(weight) || 0, // 重量
+                    stock: Number(stock) || 0 // 在庫数
+                })
+                .select()
+                .single()
 
-    const filteredRarities = rarities.filter(r =>
-        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+            if (error) {
+                console.error('Rarity insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
 
-    return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
-                    ← ホームへ戻る
-                </Link>
-            </div>
+            return NextResponse.json({ success: true, data })
+        }
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800">当社在庫リスト</h1>
-                        <p className="text-slate-500 text-[11px] mt-0.5">取扱商品・マスタ在庫データ一覧</p>
-                    </div>
+        if (type === 'fee') {
+            const { data, error } = await supabase
+                .from('fees')
+                .insert({
+                    name,
+                    rate: Number(rate) || 0
+                })
+                .select()
+                .single()
 
-                    <div className="w-full md:w-64">
-                        <input
-                            type="text"
-                            placeholder="商品名で検索..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
+            if (error) {
+                console.error('Fee insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
 
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
-                        <thead>
-                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
-                                <th className="p-3 font-semibold">商品名</th>
-                                <th className="p-3 font-semibold text-right">単価 (参考)</th>
-                                <th className="p-3 font-semibold text-right">適用消費税率</th>
-                                <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
-                                {/* [NEW] 在庫数カラム */}
-                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-slate-400">読み込み中...</td>
-                                </tr>
-                            ) : filteredRarities.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-slate-400">
-                                        {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredRarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
-                                        <td className="p-3 font-medium text-slate-800">{r.name}</td>
-                                        <td className="p-3 text-right font-mono font-bold text-slate-900">
-                                            ¥{Number(r.price).toLocaleString()}
-                                        </td>
-                                        <td className="p-3 text-right font-mono text-slate-600">
-                                            {r.tax ?? 0}%
-                                        </td>
-                                        <td className="p-3 text-right font-mono text-slate-600">
-                                            {r.weight || 0} g
-                                        </td>
-                                        {/* [NEW] 在庫数表示 */}
-                                        <td className="p-3 text-right font-mono font-bold text-blue-700">
-                                            {r.stock ?? 0} 個
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API POST Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// PATCH: 在庫数の即時更新用API
+export async function PATCH(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
+        const { type, id, stock } = body
+
+        if (type === 'rarity_stock') {
+            const { data, error } = await supabase
+                .from('rarities')
+                .update({ stock: Math.max(0, Number(stock) || 0) })
+                .eq('id', id)
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Stock update error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API PATCH Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || '在庫数更新エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// DELETE: レアリティまたは手数料の削除
+export async function DELETE(req: Request) {
+    try {
+        const supabase = await createClient()
+        const { searchParams } = new URL(req.url)
+        const type = searchParams.get('type')
+        const id = searchParams.get('id')
+
+        if (!type || !id) {
+            return NextResponse.json({ error: 'type と id は必須パラメータです' }, { status: 400 })
+        }
+
+        const tableName = type === 'rarity' ? 'rarities' : type === 'fee' ? 'fees' : null
+        if (!tableName) {
+            return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+        }
+
+        const { error } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error(`${tableName} delete error:`, error.message)
+            return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (err: any) {
+        console.error('API DELETE Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ削除エラーが発生しました' }, { status: 500 })
+    }
 }
 </file>
 
@@ -6550,9 +6267,394 @@ export async function POST(request: Request) {
 }
 </file>
 
+<file path="app/[lang]/inventory/page.tsx">
+// app/[lang]/inventory/page.tsx
+// [UPDATED] 原価列を削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせて更新
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function InventoryPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    }, []);
+
+    const filteredRarities = rarities.filter(r =>
+        !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-6xl mx-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+                    ← ホームへ戻る
+                </Link>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-800">当社在庫リスト</h1>
+                        <p className="text-slate-500 text-[11px] mt-0.5">取扱商品・マスタ在庫データ一覧</p>
+                    </div>
+
+                    <div className="w-full md:w-64">
+                        <input
+                            type="text"
+                            placeholder="商品名で検索..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
+                        <thead>
+                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
+                                <th className="p-3 font-semibold">商品名</th>
+                                <th className="p-3 font-semibold text-right">販売価格</th>
+                                <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
+                                <th className="p-3 font-semibold text-right">適用消費税率</th>
+                                <th className="p-3 font-semibold text-right">利益率</th>
+                                <th className="p-3 font-semibold text-right">利益額</th>
+                                <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
+                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={8} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                </tr>
+                            ) : filteredRarities.length === 0 ? (
+                                <tr>
+                                    <td colSpan={8} className="p-8 text-center text-slate-400">
+                                        {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredRarities.map((r, i) => {
+                                    const buyPrice = Number(r.price || 0);
+                                    const taxVal = Number(r.tax || 0);
+                                    const sellPriceVal = Number(r.sell_price || 0);
+                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
+                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
+
+                                    return (
+                                        <tr key={r.id || i} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
+                                            {/* 1. 商品名 */}
+                                            <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                            {/* 2. 販売価格 */}
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                ¥{sellPriceVal.toLocaleString()}
+                                            </td>
+                                            {/* 3. 仕入れ単価 */}
+                                            <td className="p-3 text-right font-mono font-bold text-slate-900">
+                                                ¥{buyPrice.toLocaleString()}
+                                            </td>
+                                            {/* 4. 消費税率 */}
+                                            <td className="p-3 text-right font-mono text-slate-600">
+                                                {r.tax ?? 0}%
+                                            </td>
+                                            {/* 5. 利益率 */}
+                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                                                {r.profit_rate || 0}%
+                                                <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
+                                                    {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                </span>
+                                            </td>
+                                            {/* 6. 利益額 */}
+                                            <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                                                ¥{profitAmount.toLocaleString()}
+                                            </td>
+                                            {/* 7. 重量 */}
+                                            <td className="p-3 text-right font-mono text-slate-600">
+                                                {r.weight || 0} g
+                                            </td>
+                                            {/* 8. 在庫数 */}
+                                            <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                                {r.stock ?? 0} 個
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/admin/data/rarity/page.tsx
+// [UPDATED] 原価フィールドを削除し、指定の並び順（商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数）に合わせてフォームとテーブルを更新
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function RarityPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [name, setName] = useState('');
+    const [sellPrice, setSellPrice] = useState(''); // 販売価格
+    const [price, setPrice] = useState(''); // 仕入れ単価
+    const [tax, setTax] = useState('10'); // 消費税率
+    const [profitRate, setProfitRate] = useState(''); // 利益率
+    const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
+    const [weight, setWeight] = useState(''); // 重量
+    const [stock, setStock] = useState('0'); // 在庫数
+    const [loading, setLoading] = useState(true);
+
+    const fetchRarities = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities(data?.rarities || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchRarities();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || !price) return;
+
+        await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'rarity',
+                name,
+                price: parseFloat(price),
+                sell_price: parseFloat(sellPrice || '0'),
+                tax: parseFloat(tax || '0'),
+                profit_rate: parseFloat(profitRate || '0'),
+                profit_type: profitType,
+                weight: parseFloat(weight || '0'),
+                stock: parseInt(stock || '0', 10),
+            }),
+        });
+
+        setName('');
+        setSellPrice('');
+        setPrice('');
+        setTax('10');
+        setProfitRate('');
+        setProfitType('cost');
+        setWeight('');
+        setStock('0');
+        fetchRarities();
+    };
+
+    const handleDelete = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=rarity&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchRarities();
+    };
+
+    return (
+        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
+            <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 pb-1">
+                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
+                    ← マスタ管理ハブへ戻る
+                </Link>
+                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
+                    📊 利益計算ダッシュボードへ
+                </Link>
+            </div>
+
+            <div className="mx-auto max-w-5xl bg-white p-4 rounded-lg shadow-2xs border border-zinc-200 space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                    <h1 className="text-sm font-bold text-zinc-900">レアリティ・商品マスタ登録</h1>
+                </div>
+
+                {/* [UPDATED] 入力フォームの並び順を調整 */}
+                <form onSubmit={handleAdd} className="space-y-3 bg-zinc-50 p-3 rounded border border-zinc-200">
+                    <h2 className="font-bold text-zinc-700 text-xs">＋ 新規登録</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                        {/* 1. 商品名 */}
+                        <input
+                            type="text"
+                            placeholder="商品名 (例: PSA10)"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            required
+                        />
+                        {/* 2. 販売価格 */}
+                        <input
+                            type="number"
+                            placeholder="販売価格 (円)"
+                            value={sellPrice}
+                            onChange={e => setSellPrice(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {/* 3. 仕入れ単価 */}
+                        <input
+                            type="number"
+                            placeholder="仕入れ単価 (円)"
+                            value={price}
+                            onChange={e => setPrice(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            required
+                        />
+                        {/* 4. 消費税率 */}
+                        <input
+                            type="number"
+                            step="0.1"
+                            placeholder="消費税 (%)"
+                            value={tax}
+                            onChange={e => setTax(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {/* 5-1. 利益率タイプ */}
+                        <select
+                            value={profitType}
+                            onChange={e => setProfitType(e.target.value as 'cost' | 'sales')}
+                            className="h-8 px-1 rounded border border-zinc-300 text-zinc-900 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="cost">仕入れ単価比</option>
+                            <option value="sales">売上比</option>
+                        </select>
+                        {/* 5-2. 利益率 */}
+                        <input
+                            type="number"
+                            step="0.1"
+                            placeholder="利益率 (%)"
+                            value={profitRate}
+                            onChange={e => setProfitRate(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {/* 7. 重量 */}
+                        <input
+                            type="number"
+                            placeholder="重量 (g)"
+                            value={weight}
+                            onChange={e => setWeight(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {/* 8. 初期在庫数 */}
+                        <input
+                            type="number"
+                            placeholder="初期在庫数"
+                            value={stock}
+                            onChange={e => setStock(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" className="h-8 px-4 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 transition-colors">
+                            追加保存
+                        </button>
+                    </div>
+                </form>
+
+                <div className="border border-zinc-200 rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-zinc-900">
+                        <thead>
+                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
+                                <th className="p-2 font-semibold">名称</th>
+                                <th className="p-2 font-semibold text-right">販売価格</th>
+                                <th className="p-2 font-semibold text-right">仕入れ単価</th>
+                                <th className="p-2 font-semibold text-right">消費税率</th>
+                                <th className="p-2 font-semibold text-right">利益率</th>
+                                <th className="p-2 font-semibold text-right">利益額</th>
+                                <th className="p-2 font-semibold text-right">重量</th>
+                                <th className="p-2 font-semibold text-right">在庫数</th>
+                                <th className="p-2 font-semibold text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={9} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                </tr>
+                            ) : rarities.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
+                                </tr>
+                            ) : (
+                                rarities.map((r, i) => {
+                                    const buyPrice = Number(r.price || 0);
+                                    const taxVal = Number(r.tax || 0);
+                                    const sellPriceVal = Number(r.sell_price || 0);
+                                    const effectiveCost = buyPrice - Math.floor(buyPrice * (taxVal / 100));
+                                    const profitAmount = sellPriceVal > 0 ? (sellPriceVal - effectiveCost) : 0;
+
+                                    return (
+                                        <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                            {/* 1. 商品名 */}
+                                            <td className="p-2 font-medium">{r.name}</td>
+                                            {/* 2. 販売価格 */}
+                                            <td className="p-2 text-right font-mono text-blue-700">¥{sellPriceVal.toLocaleString()}</td>
+                                            {/* 3. 仕入れ単価 */}
+                                            <td className="p-2 text-right font-mono">¥{buyPrice.toLocaleString()}</td>
+                                            {/* 4. 消費税率 */}
+                                            <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                            {/* 5. 利益率 */}
+                                            <td className="p-2 text-right font-mono text-emerald-700">
+                                                {r.profit_rate || 0}%
+                                                <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-600 font-normal">
+                                                    {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                </span>
+                                            </td>
+                                            {/* 6. 利益額 */}
+                                            <td className="p-2 text-right font-mono font-bold text-emerald-600">¥{profitAmount.toLocaleString()}</td>
+                                            {/* 7. 重量 */}
+                                            <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+                                            {/* 8. 在庫数 */}
+                                            <td className="p-2 text-right font-mono font-bold text-blue-700">{r.stock || 0}個</td>
+                                            <td className="p-2 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(r.id, r.name)}
+                                                    className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                >
+                                                    削除
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/[lang]/admin/data/page.tsx">
 // app/admin/data/page.tsx
-// [UPDATED] 在庫数フィールド・簡単即時調整ボタンの追加
+// [UPDATED] 原価列を削除し、「商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数」の並び順に変更
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6579,11 +6681,9 @@ export default function AdminDataPage() {
         fetchData();
     }, []);
 
-    // [NEW] 在庫数の即時更新ハンドラー
     const handleUpdateStock = async (id: number, newStock: number) => {
         const targetStock = Math.max(0, newStock);
 
-        // UIを先行更新 (ローカル反映)
         setRarities(prev => prev.map(r => r.id === id ? { ...r, stock: targetStock } : r));
 
         try {
@@ -6598,7 +6698,7 @@ export default function AdminDataPage() {
             });
         } catch (err) {
             console.error('在庫数更新エラー:', err);
-            fetchData(); // エラー時は再取得してロールバック
+            fetchData();
         }
     };
 
@@ -6623,7 +6723,7 @@ export default function AdminDataPage() {
     };
 
     return (
-        <main className="p-4 max-w-6xl mx-auto text-xs space-y-4">
+        <main className="p-4 max-w-7xl mx-auto text-xs space-y-4">
             <div className="flex pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
@@ -6639,8 +6739,8 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* レアリティ・商品マスタ管理 (7列) */}
-                        <div className="lg:col-span-7 border border-zinc-200 rounded-lg overflow-hidden">
+                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 利益額, 重量, 在庫数 */}
+                        <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
                                 <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
@@ -6651,10 +6751,13 @@ export default function AdminDataPage() {
                                 <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
                                     <tr>
                                         <th className="p-2 font-semibold">商品名</th>
-                                        <th className="p-2 font-semibold text-right">単価</th>
-                                        <th className="p-2 font-semibold text-right">消費税</th>
+                                        <th className="p-2 font-semibold text-right">販売価格</th>
+                                        <th className="p-2 font-semibold text-right">仕入れ単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税率</th>
+                                        <th className="p-2 font-semibold text-right">利益率</th>
+                                        {/* [NEW] 利益額カラム */}
+                                        <th className="p-2 font-semibold text-right">利益額</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
-                                        {/* [NEW] 在庫数調整用カラム */}
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
                                     </tr>
@@ -6662,69 +6765,96 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
-                                        rarities.map((r) => (
-                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{r.name}</td>
-                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
-                                                <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+                                        rarities.map((r) => {
+                                            const buyPrice = Number(r.price || 0);
+                                            const tax = Number(r.tax || 0);
+                                            const sellPrice = Number(r.sell_price || 0);
+                                            // 実質原価（仕入れ単価 - 消費税還付分）
+                                            const effectiveCost = buyPrice - Math.floor(buyPrice * (tax / 100));
+                                            // 利益額 = 販売価格 - 実質原価（販売価格未設定時は0）
+                                            const profitAmount = sellPrice > 0 ? (sellPrice - effectiveCost) : 0;
 
-                                                {/* [NEW] ワンクリック在庫調整UI */}
-                                                <td className="p-1.5 text-center">
-                                                    <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                            return (
+                                                <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
+                                                    {/* 1. 商品名 */}
+                                                    <td className="p-2 font-medium">{r.name}</td>
+                                                    {/* 2. 販売価格 */}
+                                                    <td className="p-2 text-right font-mono text-blue-700">¥{sellPrice.toLocaleString()}</td>
+                                                    {/* 3. 仕入れ単価 */}
+                                                    <td className="p-2 text-right font-mono">¥{buyPrice.toLocaleString()}</td>
+                                                    {/* 4. 消費税率 */}
+                                                    <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                                    {/* 5. 利益率 */}
+                                                    <td className="p-2 text-right font-mono text-emerald-700">
+                                                        {r.profit_rate || 0}%
+                                                        <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-600 font-normal">
+                                                            {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                        </span>
+                                                    </td>
+                                                    {/* 6. 利益額 [NEW] */}
+                                                    <td className="p-2 text-right font-mono font-bold text-emerald-600">
+                                                        ¥{profitAmount.toLocaleString()}
+                                                    </td>
+                                                    {/* 7. 重量 */}
+                                                    <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+
+                                                    {/* 8. 在庫数 */}
+                                                    <td className="p-1.5 text-center">
+                                                        <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
+                                                                className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                                title="1減らす"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                value={r.stock ?? 0}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value, 10);
+                                                                    setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
+                                                                }}
+                                                                onBlur={(e) => {
+                                                                    const val = parseInt(e.target.value, 10);
+                                                                    handleUpdateStock(r.id, isNaN(val) ? 0 : val);
+                                                                }}
+                                                                className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
+                                                                className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                                title="1増やす"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="p-2 text-right">
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
-                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                                            title="1減らす"
+                                                            onClick={() => handleDeleteRarity(r.id, r.name)}
+                                                            className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
                                                         >
-                                                            -
+                                                            削除
                                                         </button>
-                                                        <input
-                                                            type="number"
-                                                            value={r.stock ?? 0}
-                                                            onChange={(e) => {
-                                                                const val = parseInt(e.target.value, 10);
-                                                                setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
-                                                            }}
-                                                            onBlur={(e) => {
-                                                                const val = parseInt(e.target.value, 10);
-                                                                handleUpdateStock(r.id, isNaN(val) ? 0 : val);
-                                                            }}
-                                                            className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
-                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
-                                                            title="1増やす"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    </div>
-                                                </td>
-
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* 手数料管理 (5列) */}
-                        <div className="lg:col-span-5 border border-zinc-200 rounded-lg overflow-hidden">
+                        {/* 手数料管理 */}
+                        <div className="lg:col-span-4 border border-zinc-200 rounded-lg overflow-hidden h-fit">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>
                                 <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
@@ -7225,6 +7355,7 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 
 <file path="app/[lang]/admin/profit/page.tsx">
 // app/admin/profit/page.tsx
+// [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -7305,6 +7436,7 @@ export default function AdminProfitPage() {
     const [profitRate, setProfitRate] = useState('15'); 
     const [feeRate, setFeeRate] = useState('3.6'); 
     const [unitPrice, setUnitPrice] = useState(''); 
+    const [costPrice, setCostPrice] = useState(''); // [NEW] 手動原価
     const [taxRate, setTaxRate] = useState(''); 
     const [quantity, setQuantity] = useState('1');
     const [weightKg, setWeightKg] = useState(''); 
@@ -7326,7 +7458,6 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
-    // 最新の為替レート (USD/JPY) を自動取得
     useEffect(() => {
         setRateLoading(true);
         fetch('https://open.er-api.com/v6/latest/USD')
@@ -7345,7 +7476,6 @@ export default function AdminProfitPage() {
             .finally(() => setRateLoading(false));
     }, []);
 
-    // マスタデータ（商品・手数料）の取得
     useEffect(() => {
         fetch('/api/data')
             .then(res => res.json())
@@ -7362,7 +7492,6 @@ export default function AdminProfitPage() {
             .catch(err => console.error("マスタデータ取得エラー:", err));
     }, []);
 
-    // マスタ商品選択または数量変更時に「単価重量 × 数量」で総重量(kg)を自動算出して反映
     useEffect(() => {
         if (!selectedRarityId) return;
 
@@ -7375,7 +7504,7 @@ export default function AdminProfitPage() {
         }
     }, [selectedRarityId, quantity, masterRarities]);
 
-    // マスタ商品選択処理
+    // [UPDATED] マスタ商品選択時に原価・利益率・利益率タイプも連動セット
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
@@ -7383,6 +7512,7 @@ export default function AdminProfitPage() {
         if (!id) {
             setProductName('');
             setUnitPrice('');
+            setCostPrice('');
             setTaxRate('');
             setWeightKg('');
             return;
@@ -7392,11 +7522,18 @@ export default function AdminProfitPage() {
         if (target) {
             setProductName(target.name || '');
             setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
+            setCostPrice(target.cost_price !== undefined && target.cost_price !== null ? String(target.cost_price) : '');
             setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
+            
+            if (target.profit_rate !== undefined && target.profit_rate !== null) {
+                setProfitRate(String(target.profit_rate));
+            }
+            if (target.profit_type) {
+                setProfitType(target.profit_type as 'cost' | 'sales');
+            }
         }
     };
 
-    // マスタ手数料選択処理
     const handleSelectFee = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedFeeId(id);
@@ -7407,7 +7544,6 @@ export default function AdminProfitPage() {
         }
     };
 
-    // 日本円をドル表記文字列に変換するヘルパー
     const formatUsd = (yenAmount: number) => {
         if (!exchangeRate || exchangeRate <= 0) return '';
         const usd = yenAmount / exchangeRate;
@@ -7418,10 +7554,13 @@ export default function AdminProfitPage() {
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
     
-    // 消費税還付計算ロジック
     const subtotalPrice = parsedPrice * parsedQty; 
     const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); 
-    const effectiveCost = subtotalPrice - refundTaxAmount; 
+
+    // 原価が明示的に手動設定されていればそれを優先、無ければ自動計算
+    const effectiveCost = costPrice !== '' && !isNaN(parseFloat(costPrice))
+        ? parseFloat(costPrice) * parsedQty
+        : subtotalPrice - refundTaxAmount;
 
     const parsedWeight = parseFloat(weightKg) || 0;
 
@@ -7469,7 +7608,6 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // 仕入れ利益率 / 売上利益率 の切り替え対応計算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const inputRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
@@ -7524,14 +7662,12 @@ export default function AdminProfitPage() {
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] 管理者へ戻るボタンのみ残す */}
             <div className="flex pb-3 border-b border-slate-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
                 </Link>
             </div>
 
-            {/* 為替レート情報のリアルタイム表示 */}
             <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">管理者用 利益・送料自動計算ダッシュボード</h1>
@@ -7551,7 +7687,6 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
-                    {/* マスタ登録商品からの自動セット機能 */}
                     <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
                         <label className="block text-[11px] font-bold text-blue-900">
                             📦 マスタ登録商品からセット (未選択で自由入力)
@@ -7564,7 +7699,7 @@ export default function AdminProfitPage() {
                             <option value="">-- 手動入力（またはマスタ商品を選択） --</option>
                             {masterRarities.map(r => (
                                 <option key={r.id} value={r.id}>
-                                    {r.name} (単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
+                                    {r.name} (仕入れ単価: ¥{Number(r.price).toLocaleString()} / 原価: ¥{Number(r.cost_price ?? r.price).toLocaleString()} / 利益率: {r.profit_rate}% / {r.weight}g)
                                 </option>
                             ))}
                         </select>
@@ -7622,7 +7757,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 商品名入力項目 */}
                     <div>
                         <label className="block text-[11px] font-medium text-slate-600 mb-1">商品名 (任意)</label>
                         <input
@@ -7633,7 +7767,6 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* 単価・消費税率・数量 */}
                     <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
@@ -7674,7 +7807,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 仕向国・総重量 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
@@ -7697,7 +7829,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 消費税還付計算に基づくサマリー表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
                             <span>仕入れ金額 ({parsedQty}枚):</span>
@@ -7716,7 +7847,6 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* 全配送プラン比較 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -7730,7 +7860,6 @@ export default function AdminProfitPage() {
                     </div>
 
                     <div className="p-4 space-y-4">
-                        {/* 日本郵便 (船便) */}
                         {shippingFeeJp !== null && jpCalculation && (
                             <div className="border border-slate-200 rounded-lg p-3.5 bg-white shadow-xs space-y-2.5">
                                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -7792,7 +7921,6 @@ export default function AdminProfitPage() {
                                     </div>
                                 )}
 
-                                {/* 想定利益額 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-emerald-900">
                                         想定利益額 (売上比: {jpCalculation.salesProfitRateDisp}% / 仕入れ金額比: {jpCalculation.costProfitRateDisp}%)
@@ -7805,7 +7933,6 @@ export default function AdminProfitPage() {
                             </div>
                         )}
 
-                        {/* FedEx 各種プラン */}
                         {fedexRatesList.map((fRate, i) => {
                             const calc = calculateProfitRow(fRate.total);
                             const cardKey = `fedex_${i}`;
@@ -7870,7 +7997,6 @@ export default function AdminProfitPage() {
                                         </div>
                                     )}
 
-                                    {/* 想定利益額 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-emerald-900">
                                             想定利益額 (売上比: {calc.salesProfitRateDisp}% / 仕入れ金額比: {calc.costProfitRateDisp}%)

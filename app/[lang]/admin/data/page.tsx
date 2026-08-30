@@ -1,5 +1,5 @@
 // app/admin/data/page.tsx
-// [UPDATED] 原価列を削除し、「商品名、販売価格、仕入れ単価、消費税率、利益率、利益額、重量、在庫数」の並び順に変更
+// [UPDATED] 「利益額」列を削除し、テーブルヘッダー・ボディおよび colSpan を調整
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -84,7 +84,7 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 利益額, 重量, 在庫数 */}
+                        {/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 重量, 在庫数 */}
                         <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
@@ -100,8 +100,6 @@ export default function AdminDataPage() {
                                         <th className="p-2 font-semibold text-right">仕入れ単価</th>
                                         <th className="p-2 font-semibold text-right">消費税率</th>
                                         <th className="p-2 font-semibold text-right">利益率</th>
-                                        {/* [NEW] 利益額カラム */}
-                                        <th className="p-2 font-semibold text-right">利益額</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
@@ -110,17 +108,12 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => {
                                             const buyPrice = Number(r.price || 0);
-                                            const tax = Number(r.tax || 0);
                                             const sellPrice = Number(r.sell_price || 0);
-                                            // 実質原価（仕入れ単価 - 消費税還付分）
-                                            const effectiveCost = buyPrice - Math.floor(buyPrice * (tax / 100));
-                                            // 利益額 = 販売価格 - 実質原価（販売価格未設定時は0）
-                                            const profitAmount = sellPrice > 0 ? (sellPrice - effectiveCost) : 0;
 
                                             return (
                                                 <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
@@ -139,14 +132,10 @@ export default function AdminDataPage() {
                                                             {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
                                                         </span>
                                                     </td>
-                                                    {/* 6. 利益額 [NEW] */}
-                                                    <td className="p-2 text-right font-mono font-bold text-emerald-600">
-                                                        ¥{profitAmount.toLocaleString()}
-                                                    </td>
-                                                    {/* 7. 重量 */}
+                                                    {/* 6. 重量 */}
                                                     <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
 
-                                                    {/* 8. 在庫数 */}
+                                                    {/* 7. 在庫数 */}
                                                     <td className="p-1.5 text-center">
                                                         <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
                                                             <button
