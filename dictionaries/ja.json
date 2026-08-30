@@ -40,6 +40,57 @@
       "replyButton": "回答を送信",
       "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
       "adminNoteLabel": "⚠️ 管理者からの確認事項:"
+    },
+    "bookmarklet": {
+      "title": "ブックマークレット",
+      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
+      "addButton": "依頼に追加"
+    },
+    "cart": {
+      "title": "カート内の商品",
+      "noItems": "カートに商品はありません。",
+      "name": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "quantity": "数量",
+      "desiredPrice": "希望価格",
+      "action": "操作",
+      "delete": "削除",
+      "shippingMethod": "配送方法:",
+      "paymentMethod": "決済方法:",
+      "submitButton": "購入依頼を送信する",
+      "submittingButton": "送信中..."
+    },
+    "table": {
+      "order": "注文",
+      "item": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "requestedQuantity": "依頼数量",
+      "confirmedQuantity": "確定数量",
+      "desiredPrice": "希望価格",
+      "price": "購入価格(確定)",
+      "subtotal": "小計",
+      "status": "ステータス"
+    },
+    "badge": {
+      "status": {
+        "ordered": "依頼済み",
+        "purchased": "買い付け完了",
+        "shipping_prep": "国際発送準備中",
+        "payment_waiting": "決済待ち",
+        "shipped": "国際発送済み",
+        "cancelled": "キャンセル"
+      },
+      "item": {
+        "cart": "カート",
+        "ordered": "依頼済み",
+        "out_of_stock": "在庫切れ",
+        "purchased": "購入完了",
+        "warehouse_arrival": "倉庫到着",
+        "cancelled": "キャンセル",
+        "info_required": "要確認"
+      }
     }
   }
 }

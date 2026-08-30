@@ -2,6 +2,7 @@ import React from 'react';
 
 interface StatusBadgeProps {
     status?: string;
+    dict: any;
 }
 
 const statusStyles: Record<string, string> = {
@@ -13,24 +14,13 @@ const statusStyles: Record<string, string> = {
     cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
 };
 
-const getStatusLabel = (status: string | undefined): string => {
-    switch (status) {
-        case 'pending': return '依頼済み';
-        case 'procured': return '買い付け完了';
-        case 'calculating': return '国際発送準備中';
-        case 'payment_required': return '決済待ち';
-        case 'shipped': return '国際発送済み';
-        case 'cancelled': return 'キャンセル';
-        default: return '不明';
-    }
-};
-
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
+export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
     const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
+    const label = status ? dict.dashboard.badge.status[status] || '不明' : '不明';
 
     return (
         <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>
-            {getStatusLabel(status)}
+            {label}
         </span>
     );
 };

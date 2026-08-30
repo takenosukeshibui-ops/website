@@ -40,6 +40,57 @@
       "replyButton": "Send Answer",
       "replyPlaceholder": "Enter details (size, color, etc.) to reply",
       "adminNoteLabel": "⚠️ Admin Comment:"
+    },
+    "bookmarklet": {
+      "title": "Bookmarklet",
+      "description": "Drag and drop the button below to your bookmarks bar.",
+      "addButton": "Add to Request"
+    },
+    "cart": {
+      "title": "Items in Cart",
+      "noItems": "No items in cart.",
+      "name": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "quantity": "Quantity",
+      "desiredPrice": "Desired Price",
+      "action": "Action",
+      "delete": "Delete",
+      "shippingMethod": "Shipping Method:",
+      "paymentMethod": "Payment Method:",
+      "submitButton": "Submit Purchase Request",
+      "submittingButton": "Submitting..."
+    },
+    "table": {
+      "order": "Order",
+      "item": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "requestedQuantity": "Req. Qty",
+      "confirmedQuantity": "Conf. Qty",
+      "desiredPrice": "Desired Price",
+      "price": "Price (Conf.)",
+      "subtotal": "Subtotal",
+      "status": "Status"
+    },
+    "badge": {
+      "status": {
+        "ordered": "Ordered",
+        "purchased": "Purchased",
+        "shipping_prep": "Shipping Prep",
+        "payment_waiting": "Awaiting Payment",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled"
+      },
+      "item": {
+        "cart": "Cart",
+        "ordered": "Ordered",
+        "out_of_stock": "Out of Stock",
+        "purchased": "Purchased",
+        "warehouse_arrival": "Arrived at Warehouse",
+        "cancelled": "Cancelled",
+        "info_required": "Action Required"
+      }
     }
   }
 }

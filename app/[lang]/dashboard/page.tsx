@@ -213,9 +213,9 @@ export default async function DashboardPage(props: {
                 <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
-            <BookmarkletGenerator />
+            <BookmarkletGenerator dict={dict} />
 
-            <CartManager initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
+            <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
 
             <div className="grid gap-4 mt-8">
                 <h2 className="text-xl font-bold text-slate-800">{dict.dashboard.orderHistory}</h2>
@@ -247,7 +247,7 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString('ja-JP')} 注文
+                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.table.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
                                             {dict.dashboard.itemCount} {itemCount}
@@ -279,7 +279,7 @@ export default async function DashboardPage(props: {
                                         )}
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <StatusBadge status={order.status} />
+                                        <StatusBadge dict={dict} status={order.status} />
                                     </div>
                                 </summary>
 
@@ -298,12 +298,12 @@ export default async function DashboardPage(props: {
                                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.productTotal}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} 円</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.proxyFee}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} 円</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
 
                                                 <div className="flex flex-col">
@@ -311,7 +311,7 @@ export default async function DashboardPage(props: {
                                                         {dict.dashboard.invoice.shipping} <span className="text-slate-500 font-normal">({invoiceDetails.resolvedShippingName})</span>
                                                     </span>
                                                     <div className="flex items-baseline gap-1">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} 円</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                     </div>
                                                 </div>
 
@@ -320,7 +320,7 @@ export default async function DashboardPage(props: {
                                                         {dict.dashboard.invoice.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
                                                     </span>
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} 円</span>
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                         {invoiceDetails.paymentFeeDetail && (
                                                             <span className="text-[9px] text-slate-500 font-normal">
                                                                 {invoiceDetails.paymentFeeDetail}
@@ -331,7 +331,7 @@ export default async function DashboardPage(props: {
 
                                                 <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
                                                     <span className="text-[10px] text-amber-800 font-bold">{dict.dashboard.invoice.grandTotal}</span>
-                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} 円</span>
+                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -343,15 +343,15 @@ export default async function DashboardPage(props: {
                                             <table className="min-w-full border-collapse text-xs text-left">
                                                 <thead>
                                                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                                        <th className="p-2.5">商品名</th>
-                                                        <th className="p-2.5 max-w-[180px]">URL</th>
-                                                        <th className="p-2.5 w-32">備考(サイズ等)</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">依頼数量</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">確定数量</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">希望価格</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">購入価格(確定)</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">小計</th>
-                                                        <th className="p-2.5 w-28 whitespace-nowrap">ステータス</th>
+                                                        <th className="p-2.5">{dict.table.item}</th>
+                                                        <th className="p-2.5 max-w-[180px]">{dict.table.url}</th>
+                                                        <th className="p-2.5 w-32">{dict.table.remarks}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.requestedQuantity}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.confirmedQuantity}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.desiredPrice}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.price}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.subtotal}</th>
+                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict.table.status}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -398,16 +398,16 @@ export default async function DashboardPage(props: {
                                                                         )}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
-                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
+                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} 円` : '-'}
+                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} 円` : '-'}
+                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
                                                                     </td>
                                                                     <td className="p-2.5 whitespace-nowrap">
-                                                                        <ItemStatusBadge status={item.status} />
+                                                                        <ItemStatusBadge dict={dict} status={item.status} />
                                                                     </td>
                                                                 </tr>
                                                                 {/* 返信フォーム */}
