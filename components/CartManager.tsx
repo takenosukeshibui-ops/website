@@ -1,4 +1,5 @@
 // components/CartManager.tsx
+// [UPDATED] プルダウンやダイアログのハードコードされたテキストを多言語対応化
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -16,7 +17,9 @@ export default function CartManager({
     userProfile?: any;
     dict: any;
 }) {
-    // [UPDATED] item が存在するかどうかの安全確認を追加
+    // [NEW] 辞書データから現在の言語が英語かを判定
+    const isEn = dict?.cart?.title === 'Items in Cart';
+
     const filterCartItems = (items: any[]) => {
         return (items || []).filter(item => item && (!item.status || item.status === 'draft'))
     }
@@ -69,8 +72,12 @@ export default function CartManager({
     const handleCheckout = async () => {
         if (cartItems.length === 0) return;
 
-        // [UPDATED] dict が undefined の場合を考慮
-        if (!window.confirm(`${dict?.cart?.submitButton || '購入依頼を送信しますか？'}`)) return;
+        // [UPDATED] 言語に応じた確認メッセージの表示
+        const confirmMsg = isEn 
+            ? 'Are you sure you want to submit the purchase request?' 
+            : (dict?.cart?.submitButton || '購入依頼を送信しますか？');
+        
+        if (!window.confirm(confirmMsg)) return;
 
         setLoading(true);
         try {
@@ -78,7 +85,7 @@ export default function CartManager({
             await createOrderFromCart(itemIds, shippingMethod, paymentMethod);
         } catch (e: any) {
             console.error(e);
-            alert('Error: ' + (e.message || 'Unknown error'));
+            alert((isEn ? 'Error: ' : 'エラー: ') + (e.message || 'Unknown error'));
         } finally {
             setLoading(false);
         }
@@ -86,7 +93,10 @@ export default function CartManager({
 
     const handleDelete = async (itemId: string) => {
         if (!itemId) return;
-        if (!window.confirm('Delete?')) return;
+        
+        // [UPDATED] 削除時のダイアログも多言語化
+        const delMsg = isEn ? 'Are you sure you want to delete this item?' : '削除してもよろしいですか？';
+        if (!window.confirm(delMsg)) return;
 
         const previousItems = items;
         setItems(prev => prev.filter(item => item?.id !== itemId));
@@ -95,13 +105,12 @@ export default function CartManager({
             await deleteCartItem(itemId);
         } catch (e: any) {
             setItems(previousItems);
-            alert('Error: ' + (e?.message || 'Unknown error'));
+            alert((isEn ? 'Error: ' : 'エラー: ') + (e?.message || 'Unknown error'));
         }
     };
 
     return (
         <div className="bg-white p-4 rounded-lg border border-slate-200 my-6 shadow-sm">
-            {/* [UPDATED] dict.cart.title 等の undefined エラーを回避 */}
             <h2 className="text-lg font-bold mb-3 text-slate-800">{dict?.cart?.title || 'カート'} ({cartItems.length})</h2>
 
             {cartItems.length === 0 ? (
@@ -122,7 +131,6 @@ export default function CartManager({
                             </thead>
                             <tbody>
                                 {cartItems.map((item) => {
-                                    // [UPDATED] item 自体の undefined ガード
                                     if (!item) return null;
                                     
                                     return (
@@ -141,7 +149,7 @@ export default function CartManager({
                                                 }} className="border border-slate-300 p-1 rounded text-xs w-12 text-center" />
                                             </td>
                                             <td className="p-2 text-right font-mono">
-                                                {item.desired_price ? `${Number(item.desired_price).toLocaleString()}円` : '-'}
+                                                {item.desired_price ? `${Number(item.desired_price).toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
                                             </td>
                                             <td className="p-2 text-center">
                                                 {item.id && (
@@ -160,8 +168,9 @@ export default function CartManager({
                             <div className="flex items-center gap-2">
                                 <label className="text-xs font-bold text-slate-700">{dict?.cart?.shippingMethod || '配送方法:'}</label>
                                 <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
-                                    <option value="最安プラン自動選択 (航空便)">最安プラン自動選択 (航空便)</option>
-                                    <option value="船便">船便</option>
+                                    {/* [UPDATED] value はDB保存用に日本語のまま、表示テキストのみ言語切替 */}
+                                    <option value="最安プラン自動選択 (航空便)">{isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)'}</option>
+                                    <option value="船便">{isEn ? 'Japan Post (Sea)' : '船便'}</option>
                                 </select>
                             </div>
 

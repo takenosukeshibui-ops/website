@@ -1,25 +1,31 @@
 // components/ItemStatusSelect.tsx
+// [UPDATED] dict をオプションで受け取り、プルダウン内のラベルを多言語対応化
 'use client'
 
 import React, { useState } from 'react'
 
 export default function ItemStatusSelect({ 
     item, 
-    onStatusChange 
+    onStatusChange,
+    dict 
 }: { 
     item: any, 
-    onStatusChange: (status: string) => void 
+    onStatusChange: (status: string) => void,
+    dict?: any // [NEW] 辞書データをオプションで受け取る
 }) {
     const [isUpdating, setIsUpdating] = useState(false)
 
-    // ステータスごとのラベルと色設定（draftを除外）
+    // [NEW] 辞書データから言語を判定（dictがない場合は日本語フォールバック）
+    const isEn = dict?.cart?.title === 'Items in Cart';
+
+    // ステータスごとのラベルと色設定（言語に応じてラベルを切り替え）
     const statusConfig: Record<string, { label: string; className: string }> = {
-        pending: { label: '依頼済み', className: 'bg-blue-100 text-blue-800 border-blue-200' },
-        out_of_stock: { label: '在庫切れ', className: 'bg-rose-100 text-rose-800 border-rose-200' },
-        purchased: { label: '購入完了', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-        in_warehouse: { label: '倉庫到着', className: 'bg-purple-100 text-purple-800 border-purple-200' },
-        cancelled: { label: 'キャンセル', className: 'bg-slate-200 text-slate-600 border-slate-300' },
-        info_required: { label: '要確認', className: 'bg-amber-100 text-amber-800 font-bold border-amber-300' },
+        pending: { label: isEn ? 'Ordered' : '依頼済み', className: 'bg-blue-100 text-blue-800 border-blue-200' },
+        out_of_stock: { label: isEn ? 'Out of Stock' : '在庫切れ', className: 'bg-rose-100 text-rose-800 border-rose-200' },
+        purchased: { label: isEn ? 'Purchased' : '購入完了', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        in_warehouse: { label: isEn ? 'Arrived' : '倉庫到着', className: 'bg-purple-100 text-purple-800 border-purple-200' },
+        cancelled: { label: isEn ? 'Cancelled' : 'キャンセル', className: 'bg-slate-200 text-slate-600 border-slate-300' },
+        info_required: { label: isEn ? 'Action Required' : '要確認', className: 'bg-amber-100 text-amber-800 font-bold border-amber-300' },
     }
 
     const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -28,8 +34,8 @@ export default function ItemStatusSelect({
         try {
             await onStatusChange(newStatus)
         } catch (error) {
-            console.error('ステータス更新失敗:', error)
-            alert('ステータスの更新に失敗しました')
+            console.error('Status update failed:', error)
+            alert(isEn ? 'Failed to update status.' : 'ステータスの更新に失敗しました')
         } finally {
             setIsUpdating(false)
         }

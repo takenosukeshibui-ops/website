@@ -1,4 +1,5 @@
-// app/dashboard/settings/ProfileForm.tsx
+// app/[lang]/dashboard/settings/ProfileForm.tsx
+// [UPDATED] 辞書(dict)を受け取るようにPropsを拡張し、ハードコードされたテキストを多言語対応化
 'use client'
 
 import React, { useActionState, useEffect, useState } from 'react'
@@ -8,7 +9,8 @@ import { SubmitButton } from '@/components/SubmitButtons'
 import { countries } from '@/components/countries'
 import Link from 'next/link'
 
-export default function ProfileForm({ profile, userEmail }: { profile: any, userEmail: string }) {
+// [UPDATED] dict を受け取るように変更
+export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
     // プロフィール更新用 State
     const [state, action] = useActionState(updateProfile, null)
     const [showToast, setShowToast] = useState(false)
@@ -17,7 +19,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
     const [pwState, pwAction] = useActionState(changePassword, null)
     const [showPwToast, setShowPwToast] = useState(false)
 
-    // メール変更用 State [UPDATED]
+    // メール変更用 State 
     const [emailState, emailAction] = useActionState(changeEmail, null)
     const [emailInput, setEmailInput] = useState(userEmail || '')
 
@@ -137,7 +139,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
                             style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
                         >
-                            ✅ 設定を保存しました
+                            ✅ {dict?.settings?.save ? 'Saved' : '設定を保存しました'}
                         </div>
                     )}
                 </div>
@@ -158,18 +160,17 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
                             style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
                         >
-                            ✅ パスワードを変更しました
+                            ✅ {dict?.settings?.change ? 'Password Changed' : 'パスワードを変更しました'}
                         </div>
                     )}
                 </div>
             )}
 
             <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
-                <h2 className="font-bold text-slate-800 border-b pb-2">ログイン情報・セキュリティ</h2>
+                <h2 className="font-bold text-slate-800 border-b pb-2">{dict?.settings?.loginSecurity || 'ログイン情報・セキュリティ'}</h2>
                 
                 <div className="mb-2">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス</label>
-                    {/* [UPDATED] 入力値を保持し、仕様に関する注意書きを追加 */}
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.loginEmail || 'ログイン用メールアドレス'}</label>
                     <form action={emailAction} className="flex gap-2 items-start">
                         <div className="w-full flex flex-col gap-1">
                             <input 
@@ -182,21 +183,21 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             />
                             {emailState?.error && <span className="text-[10px] text-red-600 font-bold">⚠️ {emailState.error}</span>}
                             {emailState?.success && <span className="text-[10px] text-emerald-600 font-bold">✅ {emailState.message}</span>}
-                            <span className="text-[10px] text-slate-500">※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。</span>
+                            <span className="text-[10px] text-slate-500">{dict?.settings?.emailNote || '※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。'}</span>
                         </div>
-                        <SubmitButton pendingText="送信中...">変更</SubmitButton>
+                        <SubmitButton pendingText={dict?.settings?.changing || "送信中..."}>{dict?.settings?.change || '変更'}</SubmitButton>
                     </form>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">パスワード設定</span>
+                        <span className="text-xs font-bold text-slate-700">{dict?.settings?.passwordSettings || 'パスワード設定'}</span>
                         <button
                             type="button"
                             onClick={() => setIsOpenPwForm(!isOpenPwForm)}
                             className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
                         >
-                            {isOpenPwForm ? 'キャンセル' : 'パスワードの変更'}
+                            {isOpenPwForm ? (dict?.settings?.cancel || 'キャンセル') : (dict?.settings?.changePassword || 'パスワードの変更')}
                         </button>
                     </div>
 
@@ -204,7 +205,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         <form action={pwAction} className="mt-2 p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-4 animate-fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (6文字以上)</label>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.newPassword || '新しいパスワード (6文字以上)'}</label>
                                     <div className="relative">
                                         <input
                                             name="password"
@@ -224,7 +225,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (確認用)</label>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.confirmPassword || '新しいパスワード (確認用)'}</label>
                                     <div className="relative">
                                         <input
                                             name="confirm_password"
@@ -245,7 +246,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             </div>
 
                             <div className="flex justify-end">
-                                <SubmitButton pendingText="変更中...">変更</SubmitButton>
+                                <SubmitButton pendingText={dict?.settings?.changing || "変更中..."}>{dict?.settings?.change || '変更'}</SubmitButton>
                             </div>
                         </form>
                     )}
@@ -255,10 +256,10 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
             <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
                 
                 <section>
-                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">基本情報</h2>
+                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">{dict?.settings?.basicInfo || '基本情報'}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">担当者名 (Full Name) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.fullName || '担当者名 (Full Name)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="full_name" 
                                 defaultValue={getValue('full_name')} 
@@ -268,7 +269,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">会社名 (Company Name)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.companyName || '会社名 (Company Name)'}</label>
                             <input 
                                 name="company_name" 
                                 defaultValue={getValue('company_name')} 
@@ -277,7 +278,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">電話番号 (Phone) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.phone || '電話番号 (Phone)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="phone" 
                                 defaultValue={getValue('phone')} 
@@ -289,7 +290,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="block text-xs font-bold text-slate-600">
-                                    連絡用メールアドレス (Contact Email) <span className="text-red-500">*</span>
+                                    {dict?.settings?.contactEmail || '連絡用メールアドレス (Contact Email)'} <span className="text-red-500">*</span>
                                 </label>
                                 <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
                                     <input 
@@ -298,7 +299,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                                         onChange={handleSameForContactChange}
                                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                                     />
-                                    ログイン用と同じ
+                                    {dict?.settings?.sameAsLogin || 'ログイン用と同じ'}
                                 </label>
                             </div>
                             <input 
@@ -316,7 +317,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">国 (Country) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.country || '国 (Country)'} <span className="text-red-500">*</span></label>
                             <select
                                 name="country"
                                 value={selectedCountry}
@@ -334,7 +335,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
 
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-1">
-                                FedEx アカウント番号 {isUS && <span className="text-red-500">*</span>}
+                                {dict?.settings?.fedexAccount || 'FedEx アカウント番号'} {isUS && <span className="text-red-500">*</span>}
                             </label>
                             <input 
                                 name="fedex_account_number" 
@@ -347,13 +348,13 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             />
                             {isUS && (
                                 <span className="text-[10px] text-amber-700 mt-1 block">
-                                    ※ 航空便利用時の関税支払い手続きに必須となります。
+                                    {dict?.settings?.fedexNote || '※ 航空便利用時の関税支払い手続きに必須となります。'}
                                 </span>
                             )}
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">郵便番号 (Zip Code) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.zipCode || '郵便番号 (Zip Code)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="zip_code" 
                                 defaultValue={getValue('zip_code')} 
@@ -363,7 +364,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">納税番号 (Tax ID)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.taxId || '納税番号 (Tax ID)'}</label>
                             <input 
                                 name="tax_id" 
                                 defaultValue={getValue('tax_id')} 
@@ -372,7 +373,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">都市名 (City) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.city || '都市名 (City)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="city" 
                                 defaultValue={getValue('city')} 
@@ -382,7 +383,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">州または省 (State/Province)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.stateProvince || '州または省 (State/Province)'}</label>
                             <input 
                                 name="state_province" 
                                 defaultValue={getValue('state_province')} 
@@ -393,7 +394,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                     
                     <div className="flex flex-col gap-3 mb-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所1 (Address Line 1) <span className="text-red-500">*</span></label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.addressLine1 || '住所1 (Address Line 1)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="address_line1" 
                                 defaultValue={getValue('address_line1')} 
@@ -402,7 +403,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所2 (Address Line 2)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.addressLine2 || '住所2 (Address Line 2)'}</label>
                             <input 
                                 name="address_line2" 
                                 defaultValue={getValue('address_line2')} 
@@ -410,7 +411,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所3 (Address Line 3)</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.addressLine3 || '住所3 (Address Line 3)'}</label>
                             <input 
                                 name="address_line3" 
                                 defaultValue={getValue('address_line3')} 
@@ -420,34 +421,34 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                     </div>
 
                     <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded">
-                        <label className="block text-xs font-bold text-slate-600 mb-2">お届け先の種類 (Residential or Commercial) <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-bold text-slate-600 mb-2">{dict?.settings?.addressType || 'お届け先の種類 (Residential or Commercial)'} <span className="text-red-500">*</span></label>
                         <div className="flex items-center gap-6">
                             <label className="flex items-center gap-2 text-sm cursor-pointer">
                                 <input type="radio" name="is_residential" value="true" defaultChecked={getBoolValue('is_residential', true) === true} className="cursor-pointer" />
-                                個人宅 (Residential)
+                                {dict?.settings?.residential || '個人宅 (Residential)'}
                             </label>
                             <label className="flex items-center gap-2 text-sm cursor-pointer">
                                 <input type="radio" name="is_residential" value="false" defaultChecked={getBoolValue('is_residential', true) === false} className="cursor-pointer" />
-                                事業所・会社 (Commercial)
+                                {dict?.settings?.commercial || '事業所・会社 (Commercial)'}
                             </label>
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-2">※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。</p>
+                        <p className="text-[10px] text-slate-500 mt-2">{dict?.settings?.addressNote || '※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。'}</p>
                     </div>
                 </section>
 
                 <section>
                     <div className="flex items-center gap-3 border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">お支払いアカウント情報</h2>
+                        <h2 className="font-bold text-slate-800">{dict?.settings?.paymentAccount || 'お支払いアカウント情報'}</h2>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">PayPal アカウント連携</label>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.paypalLink || 'PayPal アカウント連携'}</label>
                                 {getValue('paypal_email') ? (
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">
-                                            ✅ 連携済み
+                                            ✅ {dict?.settings?.paypalLinked || '連携済み'}
                                         </span>
                                         <span className="text-sm font-medium text-slate-800">
                                             {getValue('paypal_email')}
@@ -461,7 +462,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                                     href="/api/auth/paypal"
                                     className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#0070BA] hover:bg-[#003087] text-white text-xs font-bold rounded transition-colors shadow-sm"
                                 >
-                                    {getValue('paypal_email') ? 'PayPalアカウントを再連携' : 'PayPalと連携する'}
+                                    {getValue('paypal_email') ? (dict?.settings?.paypalRelink || 'PayPalアカウントを再連携') : (dict?.settings?.paypalDoLink || 'PayPalと連携する')}
                                 </a>
                             </div>
                         </div>
@@ -469,7 +470,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                         <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-xs font-bold text-slate-600">Wise用 メールアドレス</label>
+                                    <label className="block text-xs font-bold text-slate-600">{dict?.settings?.wiseEmail || 'Wise用 メールアドレス'}</label>
                                     <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
                                         <input 
                                             type="checkbox" 
@@ -477,7 +478,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                                             onChange={handleSameForWiseChange}
                                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                                         />
-                                        ログイン用と同じ
+                                        {dict?.settings?.sameAsLogin || 'ログイン用と同じ'}
                                     </label>
                                 </div>
                                 <input 
@@ -497,13 +498,13 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
 
                 <section>
                     <div className="flex items-baseline justify-between border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">デフォルトの注文設定</h2>
-                        <span className="text-[11px] text-slate-500">カートで依頼を送信する際の初期選択になります。</span>
+                        <h2 className="font-bold text-slate-800">{dict?.settings?.defaultOrderSettings || 'デフォルトの注文設定'}</h2>
+                        <span className="text-[11px] text-slate-500">{dict?.settings?.defaultOrderNote || 'カートで依頼を送信する際の初期選択になります。'}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">配送方法</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.shippingMethod || '配送方法'}</label>
                             <select 
                                 name="default_shipping_method"
                                 value={defaultShipping}
@@ -515,7 +516,7 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">決済方法</label>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{dict?.settings?.paymentMethod || '決済方法'}</label>
                             <select 
                                 name="default_payment_method"
                                 value={defaultPayment}
@@ -532,9 +533,9 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
 
                 <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4">
                     <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
-                        キャンセル
+                        {dict?.settings?.cancel || 'キャンセル'}
                     </Link>
-                    <SubmitButton pendingText="保存中...">保存</SubmitButton>
+                    <SubmitButton pendingText={dict?.settings?.saving || "保存中..."}>{dict?.settings?.save || '保存'}</SubmitButton>
                 </div>
             </form>
         </div>

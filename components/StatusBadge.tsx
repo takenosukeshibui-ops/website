@@ -1,9 +1,10 @@
 // components/StatusBadge.tsx
+// [UPDATED] DBのステータス値と、辞書(en.json/ja.json)のキーを紐づけるマッピングを追加
 import React from 'react';
 
 interface StatusBadgeProps {
     status?: string;
-    dict?: any; // [UPDATED] オプショナルに変更し、管理画面等で未渡しの際のエラーを防止
+    dict?: any; 
 }
 
 const statusStyles: Record<string, string> = {
@@ -24,14 +25,26 @@ const defaultLabels: Record<string, string> = {
     cancelled: 'キャンセル',
 };
 
+// [NEW] DBに保存されるステータスと、辞書のキーをマッピング
+const dictKeyMap: Record<string, string> = {
+    pending: 'ordered',
+    procured: 'purchased',
+    calculating: 'shipping_prep',
+    payment_required: 'payment_waiting',
+    shipped: 'shipped',
+    cancelled: 'cancelled',
+};
+
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
     const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
     
-    // [UPDATED] dict が渡されている場合は辞書を参照、無ければデフォルト日本語ラベルを返却
     let label = '不明';
     if (status) {
-        if (dict?.dashboard?.badge?.status?.[status]) {
-            label = dict.dashboard.badge.status[status];
+        // マッピングされた辞書キーを取得
+        const dictKey = dictKeyMap[status];
+        
+        if (dictKey && dict?.dashboard?.badge?.status?.[dictKey]) {
+            label = dict.dashboard.badge.status[dictKey];
         } else if (defaultLabels[status]) {
             label = defaultLabels[status];
         }
