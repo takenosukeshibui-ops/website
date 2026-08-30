@@ -1,5 +1,5 @@
 // app/api/data/route.ts
-// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数 stock 対応追加)
+// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数・販売価格・利益率 追加)
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -30,23 +30,26 @@ export async function GET() {
     }
 }
 
-// [UPDATED] POST: レアリティまたは手数料の新規登録 (stock 対応)
+// [UPDATED] POST: レアリティまたは手数料の新規登録
 export async function POST(req: Request) {
     try {
         const supabase = await createClient()
         const body = await req.json()
 
-        const { type, name, price, tax, weight, stock, rate } = body // [UPDATED] stock を追加
+        // [UPDATED] sell_price, profit_rate を追加
+        const { type, name, price, tax, weight, stock, rate, sell_price, profit_rate } = body 
 
         if (type === 'rarity') {
             const { data, error } = await supabase
                 .from('rarities')
                 .insert({
                     name,
-                    price: Number(price) || 0,
+                    price: Number(price) || 0, // 仕入れ単価
+                    sell_price: Number(sell_price) || 0, // [NEW] 販売価格
+                    profit_rate: Number(profit_rate) || 0, // [NEW] 利益率
                     tax: Number(tax) || 0,
                     weight: Number(weight) || 0,
-                    stock: Number(stock) || 0 // [NEW] 在庫数
+                    stock: Number(stock) || 0 
                 })
                 .select()
                 .single()

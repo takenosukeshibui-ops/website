@@ -49,8 +49,6 @@ app/
             page.tsx
           page.tsx
         page.tsx
-      inventory/
-        page.tsx
       profit/
         page.tsx
       ClientAdminPage.tsx
@@ -285,316 +283,6 @@ export default function FeePage() {
                                         </td>
                                     </tr>
                                 ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/[lang]/admin/inventory/page.tsx">
-// app/[lang]/admin/inventory/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function AdminInventoryPage() {
-    const [items, setItems] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-
-    // 新規登録用フォーム State
-    const [name, setName] = useState('');
-    const [price, setPrice] = useState('');
-    const [tax, setTax] = useState('10');
-    const [weight, setWeight] = useState('');
-
-    // 編集モード用 State
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [editName, setEditName] = useState('');
-    const [editPrice, setEditPrice] = useState('');
-    const [editTax, setEditTax] = useState('');
-    const [editWeight, setEditWeight] = useState('');
-
-    // データ取得
-    const fetchInventory = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setItems(data?.rarities || []);
-            })
-            .catch(err => console.error("在庫データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchInventory();
-    }, []);
-
-    // 新規追加処理
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !price) return;
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name,
-                price: parseFloat(price),
-                tax: parseFloat(tax || '0'),
-                weight: parseFloat(weight || '0'),
-            }),
-        });
-
-        setName('');
-        setPrice('');
-        setTax('10');
-        setWeight('');
-        fetchInventory();
-    };
-
-    // 編集保存処理
-    const handleSaveEdit = async (id: number) => {
-        if (!editName || !editPrice) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name: editName,
-                price: parseFloat(editPrice),
-                tax: parseFloat(editTax || '0'),
-                weight: parseFloat(editWeight || '0'),
-            }),
-        });
-
-        setEditingId(null);
-        fetchInventory();
-    };
-
-    // 削除処理
-    const handleDelete = async (id: number, itemName: string) => {
-        if (!confirm(`「${itemName}」を在庫リストから削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchInventory();
-    };
-
-    // 編集開始
-    const startEditing = (item: any) => {
-        setEditingId(item.id);
-        setEditName(item.name || '');
-        setEditPrice(String(item.price ?? '0'));
-        setEditTax(String(item.tax ?? '0'));
-        setEditWeight(String(item.weight ?? '0'));
-    };
-
-    const filteredItems = items.filter(item =>
-        !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    return (
-        <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
-            {/* [UPDATED] ナビゲーションバー（管理者ダッシュボードへ戻るのみに一元化） */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <Link href="/admin" className="text-blue-600 hover:underline font-bold flex items-center gap-1">
-                    ← 管理者ダッシュボードへ戻る
-                </Link>
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800">当社在庫リスト 編集・管理</h1>
-                        <p className="text-slate-500 text-[11px] mt-0.5">自社在庫商品の登録・価格・消費税・重量データの更新</p>
-                    </div>
-
-                    <div className="w-full md:w-64">
-                        <input
-                            type="text"
-                            placeholder="在庫商品を検索..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full h-9 px-3 rounded-lg border border-slate-300 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                    </div>
-                </div>
-
-                {/* 在庫登録フォーム */}
-                <form onSubmit={handleAdd} className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                    <h2 className="font-bold text-slate-700 text-xs">＋ 新規在庫商品の登録</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                        <input
-                            type="text"
-                            placeholder="商品名 (必須)"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            className="h-9 px-3 rounded-lg border border-slate-300 text-slate-900 bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                            required
-                        />
-                        <input
-                            type="number"
-                            placeholder="仕入れ単価 (円)"
-                            value={price}
-                            onChange={e => setPrice(e.target.value)}
-                            className="h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-right bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                            required
-                        />
-                        <input
-                            type="number"
-                            step="0.1"
-                            placeholder="消費税率 (%)"
-                            value={tax}
-                            onChange={e => setTax(e.target.value)}
-                            className="h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-right bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <input
-                            type="number"
-                            placeholder="1枚重量 (g)"
-                            value={weight}
-                            onChange={e => setWeight(e.target.value)}
-                            className="h-9 px-3 rounded-lg border border-slate-300 text-slate-900 text-right bg-white outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <button type="submit" className="h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold transition-colors shadow-sm">
-                            在庫に追加
-                        </button>
-                    </div>
-                </form>
-
-                {/* 在庫テーブル */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-slate-900 text-xs">
-                        <thead>
-                            <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
-                                <th className="p-3 font-semibold">商品名</th>
-                                <th className="p-3 font-semibold text-right">単価 (円)</th>
-                                <th className="p-3 font-semibold text-right">消費税率 (%)</th>
-                                <th className="p-3 font-semibold text-right">重量 (g)</th>
-                                <th className="p-3 font-semibold text-center w-28">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-slate-400">読み込み中...</td>
-                                </tr>
-                            ) : filteredItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-slate-400">登録された在庫データはありません</td>
-                                </tr>
-                            ) : (
-                                filteredItems.map((item) => {
-                                    const isEditing = editingId === item.id;
-                                    return (
-                                        <tr key={item.id} className="border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
-                                            <td className="p-2.5">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="text"
-                                                        value={editName}
-                                                        onChange={e => setEditName(e.target.value)}
-                                                        className="w-full p-1 border border-slate-300 rounded text-xs"
-                                                    />
-                                                ) : (
-                                                    <span className="font-medium text-slate-800">{item.name}</span>
-                                                )}
-                                            </td>
-
-                                            <td className="p-2.5 text-right font-mono">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        value={editPrice}
-                                                        onChange={e => setEditPrice(e.target.value)}
-                                                        className="w-24 p-1 border border-slate-300 rounded text-xs text-right font-mono"
-                                                    />
-                                                ) : (
-                                                    `¥${Number(item.price).toLocaleString()}`
-                                                )}
-                                            </td>
-
-                                            <td className="p-2.5 text-right font-mono">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        step="0.1"
-                                                        value={editTax}
-                                                        onChange={e => setEditTax(e.target.value)}
-                                                        className="w-16 p-1 border border-slate-300 rounded text-xs text-right font-mono"
-                                                    />
-                                                ) : (
-                                                    `${item.tax ?? 0}%`
-                                                )}
-                                            </td>
-
-                                            <td className="p-2.5 text-right font-mono">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        value={editWeight}
-                                                        onChange={e => setEditWeight(e.target.value)}
-                                                        className="w-16 p-1 border border-slate-300 rounded text-xs text-right font-mono"
-                                                    />
-                                                ) : (
-                                                    `${item.weight || 0} g`
-                                                )}
-                                            </td>
-
-                                            <td className="p-2.5 text-center">
-                                                {isEditing ? (
-                                                    <div className="flex justify-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleSaveEdit(item.id)}
-                                                            className="px-2 py-1 bg-blue-600 text-white rounded font-bold text-[10px]"
-                                                        >
-                                                            保存
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setEditingId(null)}
-                                                            className="px-2 py-1 bg-slate-200 text-slate-600 rounded font-bold text-[10px]"
-                                                        >
-                                                            取消
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex justify-center gap-1.5">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => startEditing(item)}
-                                                            className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold transition-colors"
-                                                        >
-                                                            編集
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDelete(item.id, item.name)}
-                                                            className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[11px] font-bold transition-colors"
-                                                        >
-                                                            削除
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
                             )}
                         </tbody>
                     </table>
@@ -3244,126 +2932,6 @@ export async function GET() {
     const paypalAuthUrl = `https://www.sandbox.paypal.com/signin/authorize?${params.toString()}`
 
     return NextResponse.redirect(paypalAuthUrl)
-}
-</file>
-
-<file path="app/api/data/route.ts">
-// [NEW] マスタデータ（レアリティ・手数料）管理用 API Route
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-
-// [NEW] GET: レアリティおよび手数料一覧の取得
-export async function GET() {
-    try {
-        const supabase = await createClient()
-
-        const [raritiesRes, feesRes] = await Promise.all([
-            supabase.from('rarities').select('*').order('created_at', { ascending: true }),
-            supabase.from('fees').select('*').order('created_at', { ascending: true })
-        ])
-
-        if (raritiesRes.error) {
-            console.error('Rarities fetch error:', raritiesRes.error.message)
-        }
-        if (feesRes.error) {
-            console.error('Fees fetch error:', feesRes.error.message)
-        }
-
-        return NextResponse.json({
-            rarities: raritiesRes.data || [],
-            fees: feesRes.data || []
-        })
-    } catch (err: any) {
-        console.error('API GET Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ取得エラーが発生しました' }, { status: 500 })
-    }
-}
-
-// [NEW] POST: レアリティまたは手数料の新規登録
-export async function POST(req: Request) {
-    try {
-        const supabase = await createClient()
-        const body = await req.json()
-
-        const { type, name, price, tax, weight, rate } = body
-
-        if (type === 'rarity') {
-            const { data, error } = await supabase
-                .from('rarities')
-                .insert({
-                    name,
-                    price: Number(price) || 0,
-                    tax: Number(tax) || 0, // [NEW] 消費税率
-                    weight: Number(weight) || 0
-                })
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Rarity insert error:', error.message)
-                return NextResponse.json({ error: error.message }, { status: 400 })
-            }
-
-            return NextResponse.json({ success: true, data })
-        }
-
-        if (type === 'fee') {
-            const { data, error } = await supabase
-                .from('fees')
-                .insert({
-                    name,
-                    rate: Number(rate) || 0
-                })
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Fee insert error:', error.message)
-                return NextResponse.json({ error: error.message }, { status: 400 })
-            }
-
-            return NextResponse.json({ success: true, data })
-        }
-
-        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
-    } catch (err: any) {
-        console.error('API POST Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
-    }
-}
-
-// [NEW] DELETE: レアリティまたは手数料の削除
-export async function DELETE(req: Request) {
-    try {
-        const supabase = await createClient()
-        const { searchParams } = new URL(req.url)
-        const type = searchParams.get('type')
-        const id = searchParams.get('id')
-
-        if (!type || !id) {
-            return NextResponse.json({ error: 'type と id は必須パラメータです' }, { status: 400 })
-        }
-
-        const tableName = type === 'rarity' ? 'rarities' : type === 'fee' ? 'fees' : null
-        if (!tableName) {
-            return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
-        }
-
-        const { error } = await supabase
-            .from(tableName)
-            .delete()
-            .eq('id', id)
-
-        if (error) {
-            console.error(`${tableName} delete error:`, error.message)
-            return NextResponse.json({ error: error.message }, { status: 400 })
-        }
-
-        return NextResponse.json({ success: true })
-    } catch (err: any) {
-        console.error('API DELETE Data Internal Error:', err)
-        return NextResponse.json({ error: err.message || 'データ削除エラーが発生しました' }, { status: 500 })
-    }
 }
 </file>
 
@@ -6120,130 +5688,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 }
 </file>
 
-<file path="app/[lang]/admin/page.tsx">
-// app/admin/page.tsx
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-
-export default async function AdminPage() {
-    const supabase = await createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-        redirect('/login')
-    }
-
-    // 管理者権限チェック
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (profile?.role !== 'admin') {
-        redirect('/dashboard')
-    }
-
-    // 担当者名(full_name), 電話番号(phone), 会社名(company_name)等を含む全必要なプロファイルカラムを取得
-    const { data: orders, error } = await supabase
-        .from('orders')
-        .select(`
-            *,
-            profiles:user_id (
-                email,
-                contact_email,
-                full_name,
-                company_name,
-                phone,
-                fedex_account_number,
-                tax_id,
-                wise_email,
-                paypal_email,
-                country,
-                zip_code,
-                state_province,
-                city,
-                address_line1,
-                address_line2,
-                address_line3,
-                is_residential
-            ),
-            order_items (
-                id,
-                items (
-                    id,
-                    title,
-                    url,
-                    price,
-                    quantity,
-                    admin_quantity,
-                    desired_price,
-                    status,
-                    admin_note,
-                    remarks
-                )
-            )
-        `)
-        .order('created_at', { ascending: false })
-
-    if (error) {
-        console.error('Error fetching orders:', error)
-    }
-
-    return (
-        <div className="min-h-screen bg-slate-50">
-            {/* [UPDATED] 管理者ナビゲーションヘッダー（一元化ハブ） */}
-            <div className="bg-slate-900 text-white p-4 shadow-md">
-                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm bg-blue-600 px-2.5 py-1 rounded">ADMIN</span>
-                        <h1 className="text-base font-bold">管理者ダッシュボード</h1>
-                    </div>
-                    
-                    {/* [UPDATED] 管理者用アクセスボタン群の一元化 */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <Link 
-                            href="/admin/inventory" 
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            📦 当社在庫管理
-                        </Link>
-
-                        <Link 
-                            href="/admin/profit" 
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            📊 利益・送料試算
-                        </Link>
-
-                        <Link 
-                            href="/admin/data" 
-                            className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            ⚙️ マスタ管理
-                        </Link>
-
-                        <Link 
-                            href="/calculator" 
-                            target="_blank"
-                            className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            ↗ 送料シミュレーター (ユーザー用)
-                        </Link>
-                    </div>
-                </div>
-            </div>
-
-            {/* 従来の管理メイン画面 */}
-            <ClientAdminPage orders={orders || []} />
-        </div>
-    )
-}
-</file>
-
 <file path="app/[lang]/layout.tsx">
 // [UPDATED]
 import type { Metadata } from "next";
@@ -6324,6 +5768,158 @@ export default async function Home({
       </div>
     </main>
   );
+}
+</file>
+
+<file path="app/api/data/route.ts">
+// app/api/data/route.ts
+// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数 stock 対応追加)
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+// [NEW] GET: レアリティおよび手数料一覧の取得
+export async function GET() {
+    try {
+        const supabase = await createClient()
+
+        const [raritiesRes, feesRes] = await Promise.all([
+            supabase.from('rarities').select('*').order('created_at', { ascending: true }),
+            supabase.from('fees').select('*').order('created_at', { ascending: true })
+        ])
+
+        if (raritiesRes.error) {
+            console.error('Rarities fetch error:', raritiesRes.error.message)
+        }
+        if (feesRes.error) {
+            console.error('Fees fetch error:', feesRes.error.message)
+        }
+
+        return NextResponse.json({
+            rarities: raritiesRes.data || [],
+            fees: feesRes.data || []
+        })
+    } catch (err: any) {
+        console.error('API GET Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ取得エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (stock 対応)
+export async function POST(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
+
+        const { type, name, price, tax, weight, stock, rate } = body // [UPDATED] stock を追加
+
+        if (type === 'rarity') {
+            const { data, error } = await supabase
+                .from('rarities')
+                .insert({
+                    name,
+                    price: Number(price) || 0,
+                    tax: Number(tax) || 0,
+                    weight: Number(weight) || 0,
+                    stock: Number(stock) || 0 // [NEW] 在庫数
+                })
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Rarity insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        if (type === 'fee') {
+            const { data, error } = await supabase
+                .from('fees')
+                .insert({
+                    name,
+                    rate: Number(rate) || 0
+                })
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Fee insert error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API POST Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [NEW] PATCH: 在庫数の即時更新用API
+export async function PATCH(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
+        const { type, id, stock } = body
+
+        if (type === 'rarity_stock') {
+            const { data, error } = await supabase
+                .from('rarities')
+                .update({ stock: Math.max(0, Number(stock) || 0) })
+                .eq('id', id)
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Stock update error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API PATCH Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || '在庫数更新エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [NEW] DELETE: レアリティまたは手数料の削除
+export async function DELETE(req: Request) {
+    try {
+        const supabase = await createClient()
+        const { searchParams } = new URL(req.url)
+        const type = searchParams.get('type')
+        const id = searchParams.get('id')
+
+        if (!type || !id) {
+            return NextResponse.json({ error: 'type と id は必須パラメータです' }, { status: 400 })
+        }
+
+        const tableName = type === 'rarity' ? 'rarities' : type === 'fee' ? 'fees' : null
+        if (!tableName) {
+            return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+        }
+
+        const { error } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error(`${tableName} delete error:`, error.message)
+            return NextResponse.json({ error: error.message }, { status: 400 })
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (err: any) {
+        console.error('API DELETE Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || 'データ削除エラーが発生しました' }, { status: 500 })
+    }
 }
 </file>
 
@@ -6493,67 +6089,190 @@ export const config = {
 }
 </file>
 
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+
+export default async function AdminPage() {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect('/login')
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (profile?.role !== 'admin') {
+        redirect('/dashboard')
+    }
+
+    const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`
+            *,
+            profiles:user_id (
+                email,
+                contact_email,
+                full_name,
+                company_name,
+                phone,
+                fedex_account_number,
+                tax_id,
+                wise_email,
+                paypal_email,
+                country,
+                zip_code,
+                state_province,
+                city,
+                address_line1,
+                address_line2,
+                address_line3,
+                is_residential
+            ),
+            order_items (
+                id,
+                items (
+                    id,
+                    title,
+                    url,
+                    price,
+                    quantity,
+                    admin_quantity,
+                    desired_price,
+                    status,
+                    admin_note,
+                    remarks
+                )
+            )
+        `)
+        .order('created_at', { ascending: false })
+
+    if (error) {
+        console.error('Error fetching orders:', error)
+    }
+
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <div className="bg-slate-900 text-white p-4 shadow-md">
+                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm bg-blue-600 px-2.5 py-1 rounded">ADMIN</span>
+                        <h1 className="text-base font-bold">管理者ダッシュボード</h1>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+                        <Link 
+                            href="/admin/data" 
+                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            📦 当社在庫・マスタ管理
+                        </Link>
+
+                        <Link 
+                            href="/admin/profit" 
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            📊 利益・送料試算
+                        </Link>
+
+                        <Link 
+                            href="/calculator" 
+                            target="_blank"
+                            className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                        >
+                            ↗ 送料シミュレーター (ユーザー用)
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <ClientAdminPage orders={orders || []} />
+        </div>
+    )
+}
+</file>
+
 <file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/admin/data/rarity/fee/page.tsx
+// app/admin/data/rarity/page.tsx
+// [UPDATED] レアリティ・商品個別追加ページ (在庫数 stock 追加)
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export default function FeePage() {
-    const [fees, setFees] = useState<any[]>([]);
+export default function RarityPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
     const [name, setName] = useState('');
-    const [rate, setRate] = useState('');
+    const [price, setPrice] = useState('');
+    const [tax, setTax] = useState('10');
+    const [weight, setWeight] = useState('');
+    const [stock, setStock] = useState('0'); // [NEW] 在庫数初期値
     const [loading, setLoading] = useState(true);
 
-    const fetchFees = () => {
+    const fetchRarities = () => {
         setLoading(true);
         fetch('/api/data')
             .then(res => res.json())
             .then(data => {
-                setFees(data?.fees || []);
+                setRarities(data?.rarities || []);
             })
             .catch(err => console.error("データ取得エラー:", err))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        fetchFees();
+        fetchRarities();
     }, []);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || !rate) return;
+        if (!name || !price) return;
 
         await fetch('/api/data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                type: 'fee',
+                type: 'rarity',
                 name,
-                rate: parseFloat(rate),
+                price: parseFloat(price),
+                tax: parseFloat(tax || '0'),
+                weight: parseFloat(weight || '0'),
+                stock: parseInt(stock || '0', 10), // [NEW] 在庫数
             }),
         });
 
         setName('');
-        setRate('');
-        fetchFees();
+        setPrice('');
+        setTax('10');
+        setWeight('');
+        setStock('0');
+        fetchRarities();
     };
 
-    const handleDelete = async (id: number, feeName: string) => {
-        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+    const handleDelete = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
 
-        await fetch(`/api/data?type=fee&id=${id}`, {
+        await fetch(`/api/data?type=rarity&id=${id}`, {
             method: 'DELETE',
         });
 
-        fetchFees();
+        fetchRarities();
     };
 
     return (
         <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
-            {/* ナビゲーションバー */}
-            <div className="max-w-md mx-auto flex items-center justify-between gap-2 pb-1">
+            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-1">
                 <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
                     ← マスタ管理ハブへ戻る
                 </Link>
@@ -6562,61 +6281,94 @@ export default function FeePage() {
                 </Link>
             </div>
 
-            <div className="mx-auto max-w-md bg-white p-3 rounded-lg shadow-2xs border border-zinc-200">
-                <div className="flex justify-between items-center mb-2.5">
-                    <h1 className="text-xs font-bold text-zinc-900">手数料管理</h1>
+            <div className="mx-auto max-w-xl bg-white p-4 rounded-lg shadow-2xs border border-zinc-200 space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                    <h1 className="text-sm font-bold text-zinc-900">レアリティ・商品マスタ登録</h1>
                 </div>
 
-                <form onSubmit={handleAdd} className="flex gap-1.5 mb-3 items-center">
-                    <input
-                        type="text"
-                        placeholder="名称 (例: Paypal)"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="h-8 px-2 w-[140px] rounded border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <input
-                        type="number"
-                        step="0.01"
-                        placeholder="手数料率(%)"
-                        value={rate}
-                        onChange={e => setRate(e.target.value)}
-                        className="h-8 px-2 w-[100px] rounded border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <button type="submit" className="h-8 px-3 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 ml-auto transition-colors">
-                        追加
-                    </button>
+                <form onSubmit={handleAdd} className="space-y-3 bg-zinc-50 p-3 rounded border border-zinc-200">
+                    <h2 className="font-bold text-zinc-700 text-xs">＋ 新規登録</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        <input
+                            type="text"
+                            placeholder="商品名 (例: PSA10)"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            required
+                        />
+                        <input
+                            type="number"
+                            placeholder="単価 (円)"
+                            value={price}
+                            onChange={e => setPrice(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            required
+                        />
+                        <input
+                            type="number"
+                            step="0.1"
+                            placeholder="消費税 (%)"
+                            value={tax}
+                            onChange={e => setTax(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <input
+                            type="number"
+                            placeholder="重量 (g)"
+                            value={weight}
+                            onChange={e => setWeight(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {/* [NEW] 在庫数入力欄 */}
+                        <input
+                            type="number"
+                            placeholder="初期在庫数"
+                            value={stock}
+                            onChange={e => setStock(e.target.value)}
+                            className="h-8 px-2 rounded border border-zinc-300 text-zinc-900 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div className="flex justify-end">
+                        <button type="submit" className="h-8 px-4 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 transition-colors">
+                            追加保存
+                        </button>
+                    </div>
                 </form>
 
                 <div className="border border-zinc-200 rounded overflow-hidden">
                     <table className="w-full text-left border-collapse text-zinc-900">
                         <thead>
                             <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-1.5 font-semibold">名称</th>
-                                <th className="p-1.5 font-semibold text-right">手数料率</th>
-                                <th className="p-1.5 font-semibold text-right">操作</th>
+                                <th className="p-2 font-semibold">名称</th>
+                                <th className="p-2 font-semibold text-right">単価</th>
+                                <th className="p-2 font-semibold text-right">消費税</th>
+                                <th className="p-2 font-semibold text-right">重量</th>
+                                <th className="p-2 font-semibold text-right">在庫数</th>
+                                <th className="p-2 font-semibold text-right">操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={3} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                    <td colSpan={6} className="p-4 text-center text-zinc-400">読み込み中...</td>
                                 </tr>
-                            ) : fees.length === 0 ? (
+                            ) : rarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                    <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
                                 </tr>
                             ) : (
-                                fees.map((f, i) => (
-                                    <tr key={f.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-1.5 font-medium">{f.name}</td>
-                                        <td className="p-1.5 text-right font-mono">{f.rate}%</td>
-                                        <td className="p-1.5 text-right">
+                                rarities.map((r, i) => (
+                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                        <td className="p-2 font-medium">{r.name}</td>
+                                        <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                        <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                        <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+                                        <td className="p-2 text-right font-mono font-bold text-blue-700">{r.stock || 0}個</td>
+                                        <td className="p-2 text-right">
                                             <button
                                                 type="button"
-                                                onClick={() => handleDelete(f.id, f.name)}
+                                                onClick={() => handleDelete(r.id, r.name)}
                                                 className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
                                             >
                                                 削除
@@ -6636,6 +6388,7 @@ export default function FeePage() {
 
 <file path="app/[lang]/inventory/page.tsx">
 // app/[lang]/inventory/page.tsx
+// [UPDATED] 在庫数（r.stock）カラム表示を追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6657,14 +6410,12 @@ export default function InventoryPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    // 検索フィルター処理
     const filteredRarities = rarities.filter(r =>
         !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
         <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
-            {/* ナビゲーションバー（ホームへ戻るのみ） */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
                     ← ホームへ戻る
@@ -6678,7 +6429,6 @@ export default function InventoryPage() {
                         <p className="text-slate-500 text-[11px] mt-0.5">取扱商品・マスタ在庫データ一覧</p>
                     </div>
 
-                    {/* 検索バー */}
                     <div className="w-full md:w-64">
                         <input
                             type="text"
@@ -6690,7 +6440,6 @@ export default function InventoryPage() {
                     </div>
                 </div>
 
-                {/* 在庫リストテーブル */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse text-slate-900 text-xs">
                         <thead>
@@ -6699,16 +6448,18 @@ export default function InventoryPage() {
                                 <th className="p-3 font-semibold text-right">単価 (参考)</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
                                 <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
+                                {/* [NEW] 在庫数カラム */}
+                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    <td colSpan={5} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-400">
+                                    <td colSpan={5} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
@@ -6725,171 +6476,16 @@ export default function InventoryPage() {
                                         <td className="p-3 text-right font-mono text-slate-600">
                                             {r.weight || 0} g
                                         </td>
+                                        {/* [NEW] 在庫数表示 */}
+                                        <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                            {r.stock ?? 0} 個
+                                        </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/[lang]/admin/data/page.tsx">
-// app/admin/data/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function AdminDataPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [fees, setFees] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const handleDeleteRarity = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    const handleDeleteFee = async (id: number, feeName: string) => {
-        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=fee&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    return (
-        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] ナビゲーションバー（管理者ダッシュボードへ戻るのみに一元化） */}
-            <div className="flex pb-3 border-b border-zinc-200">
-                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
-                    ← 管理者ダッシュボードへ戻る
-                </Link>
-            </div>
-
-            <div className="flex justify-between items-center mb-2">
-                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
-            </div>
-
-            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
-                {loading ? (
-                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>レアリティ・商品マスタ管理</span>
-                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">商品名</th>
-                                        <th className="p-2 font-semibold text-right">単価</th>
-                                        <th className="p-2 font-semibold text-right">消費税</th>
-                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {rarities.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        rarities.map((r) => (
-                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{r.name}</td>
-                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
-                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>手数料管理</span>
-                                <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">名称</th>
-                                        <th className="p-2 font-semibold text-right">手数料率</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {fees.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        fees.map((f) => (
-                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{f.name}</td>
-                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteFee(f.id, f.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
             </div>
         </main>
     );
@@ -6951,6 +6547,228 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+}
+</file>
+
+<file path="app/[lang]/admin/data/page.tsx">
+// app/admin/data/page.tsx
+// [UPDATED] 在庫数フィールド・簡単即時調整ボタンの追加
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function AdminDataPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [fees, setFees] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    // [NEW] 在庫数の即時更新ハンドラー
+    const handleUpdateStock = async (id: number, newStock: number) => {
+        const targetStock = Math.max(0, newStock);
+
+        // UIを先行更新 (ローカル反映)
+        setRarities(prev => prev.map(r => r.id === id ? { ...r, stock: targetStock } : r));
+
+        try {
+            await fetch('/api/data', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'rarity_stock',
+                    id,
+                    stock: targetStock
+                })
+            });
+        } catch (err) {
+            console.error('在庫数更新エラー:', err);
+            fetchData(); // エラー時は再取得してロールバック
+        }
+    };
+
+    const handleDeleteRarity = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=rarity&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    const handleDeleteFee = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=fee&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    return (
+        <main className="p-4 max-w-6xl mx-auto text-xs space-y-4">
+            <div className="flex pb-3 border-b border-zinc-200">
+                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
+                    ← 管理者ダッシュボードへ戻る
+                </Link>
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
+            </div>
+
+            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
+                {loading ? (
+                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                        {/* レアリティ・商品マスタ管理 (7列) */}
+                        <div className="lg:col-span-7 border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>レアリティ・商品マスタ管理</span>
+                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">商品名</th>
+                                        <th className="p-2 font-semibold text-right">単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税</th>
+                                        <th className="p-2 font-semibold text-right">重量</th>
+                                        {/* [NEW] 在庫数調整用カラム */}
+                                        <th className="p-2 font-semibold text-center w-32">在庫数</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {rarities.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        rarities.map((r) => (
+                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{r.name}</td>
+                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                                <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+
+                                                {/* [NEW] ワンクリック在庫調整UI */}
+                                                <td className="p-1.5 text-center">
+                                                    <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
+                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                            title="1減らす"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <input
+                                                            type="number"
+                                                            value={r.stock ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                handleUpdateStock(r.id, isNaN(val) ? 0 : val);
+                                                            }}
+                                                            className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
+                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                            title="1増やす"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                </td>
+
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 手数料管理 (5列) */}
+                        <div className="lg:col-span-5 border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>手数料管理</span>
+                                <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">名称</th>
+                                        <th className="p-2 font-semibold text-right">手数料率</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {fees.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        fees.map((f) => (
+                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{f.name}</td>
+                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFee(f.id, f.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </main>
+    );
 }
 </file>
 

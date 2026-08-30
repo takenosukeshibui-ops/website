@@ -1,5 +1,5 @@
 // app/admin/data/page.tsx
-// [UPDATED] 在庫数フィールド・簡単即時調整ボタンの追加
+// [UPDATED] 「単価」を「仕入れ単価」に変更し、販売価格と利益率カラムを追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -26,11 +26,9 @@ export default function AdminDataPage() {
         fetchData();
     }, []);
 
-    // [NEW] 在庫数の即時更新ハンドラー
     const handleUpdateStock = async (id: number, newStock: number) => {
         const targetStock = Math.max(0, newStock);
 
-        // UIを先行更新 (ローカル反映)
         setRarities(prev => prev.map(r => r.id === id ? { ...r, stock: targetStock } : r));
 
         try {
@@ -45,7 +43,7 @@ export default function AdminDataPage() {
             });
         } catch (err) {
             console.error('在庫数更新エラー:', err);
-            fetchData(); // エラー時は再取得してロールバック
+            fetchData();
         }
     };
 
@@ -70,7 +68,7 @@ export default function AdminDataPage() {
     };
 
     return (
-        <main className="p-4 max-w-6xl mx-auto text-xs space-y-4">
+        <main className="p-4 max-w-7xl mx-auto text-xs space-y-4">
             <div className="flex pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
@@ -86,8 +84,8 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* レアリティ・商品マスタ管理 (7列) */}
-                        <div className="lg:col-span-7 border border-zinc-200 rounded-lg overflow-hidden">
+                        {/* レアリティ・商品マスタ管理 */}
+                        <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
                                 <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
@@ -98,10 +96,11 @@ export default function AdminDataPage() {
                                 <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
                                     <tr>
                                         <th className="p-2 font-semibold">商品名</th>
-                                        <th className="p-2 font-semibold text-right">単価</th>
+                                        <th className="p-2 font-semibold text-right">仕入れ単価</th>
+                                        <th className="p-2 font-semibold text-right">販売価格</th>
+                                        <th className="p-2 font-semibold text-right">利益率</th>
                                         <th className="p-2 font-semibold text-right">消費税</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
-                                        {/* [NEW] 在庫数調整用カラム */}
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
                                     </tr>
@@ -109,17 +108,18 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => (
                                             <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
                                                 <td className="p-2 font-medium">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono text-blue-700">¥{Number(r.sell_price || 0).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono text-emerald-700">{r.profit_rate || 0}%</td>
                                                 <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
                                                 <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
 
-                                                {/* [NEW] ワンクリック在庫調整UI */}
                                                 <td className="p-1.5 text-center">
                                                     <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
                                                         <button
@@ -170,8 +170,8 @@ export default function AdminDataPage() {
                             </table>
                         </div>
 
-                        {/* 手数料管理 (5列) */}
-                        <div className="lg:col-span-5 border border-zinc-200 rounded-lg overflow-hidden">
+                        {/* 手数料管理 */}
+                        <div className="lg:col-span-4 border border-zinc-200 rounded-lg overflow-hidden h-fit">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>
                                 <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">

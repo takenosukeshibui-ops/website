@@ -100,7 +100,6 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
-    // 最新の為替レート (USD/JPY) を自動取得
     useEffect(() => {
         setRateLoading(true);
         fetch('https://open.er-api.com/v6/latest/USD')
@@ -119,7 +118,6 @@ export default function AdminProfitPage() {
             .finally(() => setRateLoading(false));
     }, []);
 
-    // マスタデータ（商品・手数料）の取得
     useEffect(() => {
         fetch('/api/data')
             .then(res => res.json())
@@ -136,7 +134,6 @@ export default function AdminProfitPage() {
             .catch(err => console.error("マスタデータ取得エラー:", err));
     }, []);
 
-    // マスタ商品選択または数量変更時に「単価重量 × 数量」で総重量(kg)を自動算出して反映
     useEffect(() => {
         if (!selectedRarityId) return;
 
@@ -149,7 +146,7 @@ export default function AdminProfitPage() {
         }
     }, [selectedRarityId, quantity, masterRarities]);
 
-    // マスタ商品選択処理
+    // [UPDATED] マスタ商品選択時に利益率（profit_rate）も自動セットするよう対応
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
@@ -167,10 +164,13 @@ export default function AdminProfitPage() {
             setProductName(target.name || '');
             setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
             setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
+            
+            if (target.profit_rate !== undefined && target.profit_rate !== null && Number(target.profit_rate) > 0) {
+                setProfitRate(String(target.profit_rate));
+            }
         }
     };
 
-    // マスタ手数料選択処理
     const handleSelectFee = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedFeeId(id);
@@ -181,7 +181,6 @@ export default function AdminProfitPage() {
         }
     };
 
-    // 日本円をドル表記文字列に変換するヘルパー
     const formatUsd = (yenAmount: number) => {
         if (!exchangeRate || exchangeRate <= 0) return '';
         const usd = yenAmount / exchangeRate;
@@ -192,7 +191,6 @@ export default function AdminProfitPage() {
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
     const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
     
-    // 消費税還付計算ロジック
     const subtotalPrice = parsedPrice * parsedQty; 
     const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); 
     const effectiveCost = subtotalPrice - refundTaxAmount; 
@@ -243,7 +241,6 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // 仕入れ利益率 / 売上利益率 の切り替え対応計算ロジック
     const calculateProfitRow = (shippingFee: number) => {
         const inputRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
@@ -298,14 +295,12 @@ export default function AdminProfitPage() {
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] 管理者へ戻るボタンのみ残す */}
             <div className="flex pb-3 border-b border-slate-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
                 </Link>
             </div>
 
-            {/* 為替レート情報のリアルタイム表示 */}
             <div className="flex flex-wrap justify-between items-center gap-2">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">管理者用 利益・送料自動計算ダッシュボード</h1>
@@ -325,7 +320,7 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
-                    {/* マスタ登録商品からの自動セット機能 */}
+                    {/* [UPDATED] プルダウン内の表記を「仕入れ単価」に変更 */}
                     <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
                         <label className="block text-[11px] font-bold text-blue-900">
                             📦 マスタ登録商品からセット (未選択で自由入力)
@@ -338,7 +333,7 @@ export default function AdminProfitPage() {
                             <option value="">-- 手動入力（またはマスタ商品を選択） --</option>
                             {masterRarities.map(r => (
                                 <option key={r.id} value={r.id}>
-                                    {r.name} (単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
+                                    {r.name} (仕入れ単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
                                 </option>
                             ))}
                         </select>
@@ -396,7 +391,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 商品名入力項目 */}
                     <div>
                         <label className="block text-[11px] font-medium text-slate-600 mb-1">商品名 (任意)</label>
                         <input
@@ -407,8 +401,8 @@ export default function AdminProfitPage() {
                         />
                     </div>
 
-                    {/* 単価・消費税率・数量 */}
                     <div className="grid grid-cols-3 gap-2">
+                        {/* [UPDATED] 単価から仕入れ単価へ名称変更 */}
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
                             <div className="relative flex items-center">
@@ -448,7 +442,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 仕向国・総重量 */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
@@ -471,7 +464,6 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    {/* 消費税還付計算に基づくサマリー表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
                             <span>仕入れ金額 ({parsedQty}枚):</span>
@@ -490,7 +482,6 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* 全配送プラン比較 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -504,7 +495,6 @@ export default function AdminProfitPage() {
                     </div>
 
                     <div className="p-4 space-y-4">
-                        {/* 日本郵便 (船便) */}
                         {shippingFeeJp !== null && jpCalculation && (
                             <div className="border border-slate-200 rounded-lg p-3.5 bg-white shadow-xs space-y-2.5">
                                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -566,7 +556,6 @@ export default function AdminProfitPage() {
                                     </div>
                                 )}
 
-                                {/* 想定利益額 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-emerald-900">
                                         想定利益額 (売上比: {jpCalculation.salesProfitRateDisp}% / 仕入れ金額比: {jpCalculation.costProfitRateDisp}%)
@@ -579,7 +568,6 @@ export default function AdminProfitPage() {
                             </div>
                         )}
 
-                        {/* FedEx 各種プラン */}
                         {fedexRatesList.map((fRate, i) => {
                             const calc = calculateProfitRow(fRate.total);
                             const cardKey = `fedex_${i}`;
@@ -644,7 +632,6 @@ export default function AdminProfitPage() {
                                         </div>
                                     )}
 
-                                    {/* 想定利益額 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-emerald-900">
                                             想定利益額 (売上比: {calc.salesProfitRateDisp}% / 仕入れ金額比: {calc.costProfitRateDisp}%)
