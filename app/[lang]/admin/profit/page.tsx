@@ -298,13 +298,10 @@ export default function AdminProfitPage() {
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] ナビゲーションバーの統一化 */}
-            <div className="flex flex-wrap gap-2 pb-3 border-b border-slate-200">
+            {/* [UPDATED] ナビゲーションバー（管理者ダッシュボードへ戻るのみに一元化） */}
+            <div className="flex pb-3 border-b border-slate-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
-                </Link>
-                <Link href="/calculator" target="_blank" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors ml-auto">
-                    ↗ 送料シミュレーター確認
                 </Link>
             </div>
 

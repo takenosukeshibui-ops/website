@@ -47,22 +47,10 @@ export default function AdminDataPage() {
 
     return (
         <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* 共通ナビゲーションバー [UPDATED] ダッシュボードへの統一 */}
-            <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
+            {/* [UPDATED] ナビゲーションバー（管理者ダッシュボードへ戻るのみに一元化） */}
+            <div className="flex pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
-                </Link>
-                <Link href="/admin/inventory" className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition-colors">
-                    📦 当社在庫管理
-                </Link>
-                <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
-                    📊 利益計算ダッシュボード
-                </Link>
-                <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
-                    ＋ レアリティ新規作成
-                </Link>
-                <Link href="/admin/data/rarity/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
-                    ＋ 手数料新規作成
                 </Link>
             </div>
 
