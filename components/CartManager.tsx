@@ -1,5 +1,5 @@
 // components/CartManager.tsx
-// [UPDATED] プルダウンやダイアログのハードコードされたテキストを多言語対応化
+// [UPDATED] 辞書欠損時でもURLから言語を判定し、項目名やセレクトボックス内を強制的に多言語対応
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -17,8 +17,10 @@ export default function CartManager({
     userProfile?: any;
     dict: any;
 }) {
-    // [NEW] 辞書データから現在の言語が英語かを判定
-    const isEn = dict?.cart?.title === 'Items in Cart';
+    // [NEW] URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+    const isEn = typeof window !== 'undefined' 
+        ? window.location.pathname.startsWith('/en') 
+        : (dict?.cart?.title === 'Items in Cart');
 
     const filterCartItems = (items: any[]) => {
         return (items || []).filter(item => item && (!item.status || item.status === 'draft'))
@@ -72,10 +74,10 @@ export default function CartManager({
     const handleCheckout = async () => {
         if (cartItems.length === 0) return;
 
-        // [UPDATED] 言語に応じた確認メッセージの表示
+        // [UPDATED] 確実な言語判定でダイアログを表示
         const confirmMsg = isEn 
             ? 'Are you sure you want to submit the purchase request?' 
-            : (dict?.cart?.submitButton || '購入依頼を送信しますか？');
+            : '購入依頼を送信しますか？';
         
         if (!window.confirm(confirmMsg)) return;
 
@@ -94,7 +96,6 @@ export default function CartManager({
     const handleDelete = async (itemId: string) => {
         if (!itemId) return;
         
-        // [UPDATED] 削除時のダイアログも多言語化
         const delMsg = isEn ? 'Are you sure you want to delete this item?' : '削除してもよろしいですか？';
         if (!window.confirm(delMsg)) return;
 
@@ -111,22 +112,24 @@ export default function CartManager({
 
     return (
         <div className="bg-white p-4 rounded-lg border border-slate-200 my-6 shadow-sm">
-            <h2 className="text-lg font-bold mb-3 text-slate-800">{dict?.cart?.title || 'カート'} ({cartItems.length})</h2>
+            <h2 className="text-lg font-bold mb-3 text-slate-800">
+                {isEn ? 'Items in Cart' : 'カート'} ({cartItems.length})
+            </h2>
 
             {cartItems.length === 0 ? (
-                <p className="text-sm text-slate-500 py-2">{dict?.cart?.noItems || 'カートに商品はありません'}</p>
+                <p className="text-sm text-slate-500 py-2">{isEn ? 'No items in cart.' : 'カートに商品はありません'}</p>
             ) : (
                 <div className="space-y-4">
                     <div className="overflow-x-auto border border-slate-200 rounded">
                         <table className="min-w-full border-collapse text-xs text-left">
                             <thead>
                                 <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                    <th className="p-2">{dict?.cart?.name || '商品名'}</th>
-                                    <th className="p-2 max-w-[150px]">{dict?.cart?.url || 'URL'}</th>
-                                    <th className="p-2 min-w-[120px]">{dict?.cart?.remarks || '備考'}</th>
-                                    <th className="p-2 text-center w-16">{dict?.cart?.quantity || '数量'}</th>
-                                    <th className="p-2 text-right w-24">{dict?.cart?.desiredPrice || '希望価格'}</th>
-                                    <th className="p-2 text-center w-16">{dict?.cart?.action || '操作'}</th>
+                                    <th className="p-2">{isEn ? 'Product Name' : '商品名'}</th>
+                                    <th className="p-2 max-w-[150px]">URL</th>
+                                    <th className="p-2 min-w-[120px]">{isEn ? 'Remarks' : '備考'}</th>
+                                    <th className="p-2 text-center w-16">{isEn ? 'Quantity' : '数量'}</th>
+                                    <th className="p-2 text-right w-24">{isEn ? 'Desired Price' : '希望価格'}</th>
+                                    <th className="p-2 text-center w-16">{isEn ? 'Action' : '操作'}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -153,7 +156,7 @@ export default function CartManager({
                                             </td>
                                             <td className="p-2 text-center">
                                                 {item.id && (
-                                                    <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px]">{dict?.cart?.delete || '削除'}</button>
+                                                    <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px]">{isEn ? 'Delete' : '削除'}</button>
                                                 )}
                                             </td>
                                         </tr>
@@ -166,16 +169,16 @@ export default function CartManager({
                     <div className="bg-slate-50 border border-slate-200 rounded p-3 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                             <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-slate-700">{dict?.cart?.shippingMethod || '配送方法:'}</label>
+                                <label className="text-xs font-bold text-slate-700">{isEn ? 'Shipping Method:' : '配送方法:'}</label>
                                 <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
-                                    {/* [UPDATED] value はDB保存用に日本語のまま、表示テキストのみ言語切替 */}
+                                    {/* DBに保存するvalueは日本語のまま、表示テキストのみ言語で切り替え */}
                                     <option value="最安プラン自動選択 (航空便)">{isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)'}</option>
                                     <option value="船便">{isEn ? 'Japan Post (Sea)' : '船便'}</option>
                                 </select>
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-slate-700">{dict?.cart?.paymentMethod || '決済方法:'}</label>
+                                <label className="text-xs font-bold text-slate-700">{isEn ? 'Payment Method:' : '決済方法:'}</label>
                                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
                                     <option value="Wise">Wise</option>
                                     <option value="CreditCard">Credit Card</option>
@@ -185,7 +188,7 @@ export default function CartManager({
                         </div>
 
                         <button onClick={handleCheckout} disabled={loading} className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm">
-                            {loading ? (dict?.cart?.submittingButton || '送信中...') : (dict?.cart?.submitButton || '購入依頼を送信する')}
+                            {loading ? (isEn ? 'Submitting...' : '送信中...') : (isEn ? 'Submit Purchase Request' : '購入依頼を送信する')}
                         </button>
                     </div>
                 </div>
