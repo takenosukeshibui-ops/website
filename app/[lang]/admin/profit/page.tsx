@@ -76,7 +76,7 @@ export default function AdminProfitPage() {
 
     const [productName, setProductName] = useState(''); 
     const [profitRate, setProfitRate] = useState('15');
-    const [feeRate, setFeeRate] = useState('3.6'); // 手数料率 (%)
+    const [feeRate, setFeeRate] = useState('3.6');
     const [unitPrice, setUnitPrice] = useState(''); 
     const [taxRate, setTaxRate] = useState(''); 
     const [quantity, setQuantity] = useState('1');
@@ -88,7 +88,7 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
-    // マスタデータ（商品・手数料）の取得 [UPDATED]
+    // マスタデータ（商品・手数料）の取得
     useEffect(() => {
         fetch('/api/data')
             .then(res => res.json())
@@ -97,7 +97,6 @@ export default function AdminProfitPage() {
                 const fees = data?.fees || [];
                 setMasterFees(fees);
 
-                // [NEW] 最初の手数料マスタが存在すれば自動で初期選択
                 if (fees.length > 0) {
                     setSelectedFeeId(String(fees[0].id));
                     setFeeRate(String(fees[0].rate ?? '3.6'));
@@ -106,12 +105,26 @@ export default function AdminProfitPage() {
             .catch(err => console.error("マスタデータ取得エラー:", err));
     }, []);
 
-    // マスタ商品選択処理
+    // [UPDATED] マスタ商品選択または数量変更時に「単価重量 × 数量」で総重量(kg)を自動算出して反映
+    useEffect(() => {
+        if (!selectedRarityId) return;
+
+        const target = masterRarities.find(r => String(r.id) === String(selectedRarityId));
+        if (target && target.weight !== undefined && target.weight !== null) {
+            const parsedQ = parseInt(quantity.replace(/[^0-9]/g, '') || '0', 10);
+            const totalWeightG = Number(target.weight) * parsedQ;
+            const kgVal = (totalWeightG / 1000).toFixed(3);
+            setWeightKg(kgVal ? String(parseFloat(kgVal)) : '');
+        }
+    }, [selectedRarityId, quantity, masterRarities]);
+
+    // [UPDATED] マスタ商品選択処理
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
 
         if (!id) {
+            // 未選択（手動入力）時は空にして直接入力可能に
             setProductName('');
             setUnitPrice('');
             setTaxRate('');
@@ -124,12 +137,10 @@ export default function AdminProfitPage() {
             setProductName(target.name || '');
             setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
             setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
-            const kgVal = target.weight ? (Number(target.weight) / 1000).toFixed(3) : '';
-            setWeightKg(kgVal ? String(parseFloat(kgVal)) : '');
         }
     };
 
-    // [UPDATED] マスタ手数料選択処理（プルダウン選択のみで率をセット）
+    // マスタ手数料選択処理
     const handleSelectFee = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedFeeId(id);
@@ -195,7 +206,6 @@ export default function AdminProfitPage() {
         return () => clearTimeout(timer);
     }, [destination, parsedWeight]);
 
-    // [UPDATED] 各金額・内訳を詳細に算出する計算関数
     const calculateProfitRow = (shippingFee: number) => {
         const targetRate = (parseFloat(profitRate) || 0) / 100;
         const feeRatio = (parseFloat(feeRate) || 0) / 100;
@@ -275,7 +285,6 @@ export default function AdminProfitPage() {
                             />
                         </div>
 
-                        {/* [UPDATED] 手動入力フィールドを削除し、プルダウン選択のみに変更 */}
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">想定決済手数料 (マスタ選択)</label>
                             <select
@@ -329,7 +338,7 @@ export default function AdminProfitPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">数量</label>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">数量 (枚数)</label>
                             <input
                                 type="text"
                                 value={quantity}
@@ -344,8 +353,11 @@ export default function AdminProfitPage() {
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕向国</label>
                             <CountryCombobox value={destination} onChange={setDestination} />
                         </div>
+                        {/* [UPDATED] マスタ選択時は「1枚重量×数量」の合計重量(kg)が自動計算され手動修正も可能 */}
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">総重量 (kg)</label>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                                総重量 (kg) {selectedRarityId && <span className="text-blue-600 font-normal">(マスタ×枚数で連動中)</span>}
+                            </label>
                             <input
                                 type="number"
                                 step="0.001"
@@ -360,7 +372,7 @@ export default function AdminProfitPage() {
                     {/* 消費税還付計算に基づくサマリー表示 */}
                     <div className="pt-2 border-t border-slate-100 space-y-1">
                         <div className="flex justify-between items-center text-slate-500 text-[11px]">
-                            <span>仕入れ金額:</span>
+                            <span>仕入れ金額 ({parsedQty}枚):</span>
                             <span className="font-mono">¥{subtotalPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center text-emerald-600 text-[11px] font-medium">
@@ -374,7 +386,7 @@ export default function AdminProfitPage() {
                     </div>
                 </div>
 
-                {/* [UPDATED] 全配送プラン比較：販売価格 ➔ 経費内訳 ➔ 利益額 の順で分かりやすく整理されたカード構造 */}
+                {/* 全配送プラン比較 */}
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                         <span className="font-bold text-slate-700 text-sm">
@@ -398,13 +410,13 @@ export default function AdminProfitPage() {
                                     </span>
                                 </div>
 
-                                {/* 1. 最上部：推奨販売価格 */}
+                                {/* 1. 推奨販売価格 */}
                                 <div className="bg-blue-50/70 p-2.5 rounded-md border border-blue-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-blue-900">推奨販売価格</span>
                                     <span className="text-lg font-extrabold font-mono text-blue-700">¥{jpCalculation.sellPrice.toLocaleString()}</span>
                                 </div>
 
-                                {/* 2. 中間：経費の内訳 */}
+                                {/* 2. 経費の内訳 */}
                                 <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 space-y-1 text-[11px]">
                                     <div className="text-[10px] font-bold text-slate-500 border-b border-slate-200/60 pb-0.5">経費内訳</div>
                                     <div className="flex justify-between text-slate-600">
@@ -421,7 +433,7 @@ export default function AdminProfitPage() {
                                     </div>
                                 </div>
 
-                                {/* 3. 最下部：想定利益額 */}
+                                {/* 3. 想定利益額 */}
                                 <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                     <span className="text-[11px] font-bold text-emerald-900">想定利益額 (利益率: {profitRate}%)</span>
                                     <span className="text-lg font-extrabold font-mono text-emerald-600">¥{jpCalculation.profit.toLocaleString()}</span>
@@ -441,13 +453,13 @@ export default function AdminProfitPage() {
                                         </span>
                                     </div>
 
-                                    {/* 1. 最上部：推奨販売価格 */}
+                                    {/* 1. 推奨販売価格 */}
                                     <div className="bg-blue-50/70 p-2.5 rounded-md border border-blue-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-blue-900">推奨販売価格</span>
                                         <span className="text-lg font-extrabold font-mono text-blue-700">¥{calc.sellPrice.toLocaleString()}</span>
                                     </div>
 
-                                    {/* 2. 中間：経費の内訳 */}
+                                    {/* 2. 経費の内訳 */}
                                     <div className="bg-white p-2.5 rounded-md border border-amber-200/60 space-y-1 text-[11px]">
                                         <div className="text-[10px] font-bold text-slate-500 border-b border-slate-100 pb-0.5">経費内訳</div>
                                         <div className="flex justify-between text-slate-600">
@@ -464,7 +476,7 @@ export default function AdminProfitPage() {
                                         </div>
                                     </div>
 
-                                    {/* 3. 最下部：想定利益額 */}
+                                    {/* 3. 想定利益額 */}
                                     <div className="bg-emerald-50/80 p-2.5 rounded-md border border-emerald-200 flex justify-between items-center">
                                         <span className="text-[11px] font-bold text-emerald-900">想定利益額 (利益率: {profitRate}%)</span>
                                         <span className="text-lg font-extrabold font-mono text-emerald-600">¥{calc.profit.toLocaleString()}</span>
