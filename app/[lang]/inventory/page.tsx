@@ -1,5 +1,5 @@
 // app/[lang]/inventory/page.tsx
-// [UPDATED] 「単価」を「仕入れ単価」に変更、販売価格・利益率の表示を追加
+// [UPDATED] 「原価 (cost_price)」カラムを追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -57,6 +57,8 @@ export default function InventoryPage() {
                             <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
                                 <th className="p-3 font-semibold">商品名</th>
                                 <th className="p-3 font-semibold text-right">仕入れ単価 (参考)</th>
+                                {/* [NEW] 原価表示 */}
+                                <th className="p-3 font-semibold text-right">原価</th>
                                 <th className="p-3 font-semibold text-right">販売価格</th>
                                 <th className="p-3 font-semibold text-right">利益率</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
@@ -67,11 +69,11 @@ export default function InventoryPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    <td colSpan={8} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                                    <td colSpan={8} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
@@ -82,11 +84,18 @@ export default function InventoryPage() {
                                         <td className="p-3 text-right font-mono font-bold text-slate-900">
                                             ¥{Number(r.price).toLocaleString()}
                                         </td>
+                                        {/* [NEW] 原価 */}
+                                        <td className="p-3 text-right font-mono text-slate-600">
+                                            ¥{Number(r.cost_price ?? r.price).toLocaleString()}
+                                        </td>
                                         <td className="p-3 text-right font-mono font-bold text-blue-700">
                                             ¥{Number(r.sell_price || 0).toLocaleString()}
                                         </td>
                                         <td className="p-3 text-right font-mono font-bold text-emerald-600">
                                             {r.profit_rate || 0}%
+                                            <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-normal">
+                                                {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                            </span>
                                         </td>
                                         <td className="p-3 text-right font-mono text-slate-600">
                                             {r.tax ?? 0}%

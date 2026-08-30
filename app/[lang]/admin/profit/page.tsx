@@ -1,4 +1,5 @@
 // app/admin/profit/page.tsx
+// [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -79,6 +80,7 @@ export default function AdminProfitPage() {
     const [profitRate, setProfitRate] = useState('15'); 
     const [feeRate, setFeeRate] = useState('3.6'); 
     const [unitPrice, setUnitPrice] = useState(''); 
+    const [costPrice, setCostPrice] = useState(''); // [NEW] 手動原価
     const [taxRate, setTaxRate] = useState(''); 
     const [quantity, setQuantity] = useState('1');
     const [weightKg, setWeightKg] = useState(''); 
@@ -146,7 +148,7 @@ export default function AdminProfitPage() {
         }
     }, [selectedRarityId, quantity, masterRarities]);
 
-    // [UPDATED] マスタ商品選択時に連動させるのは「商品名」「仕入れ単価」「消費税率」「重量」のみ
+    // [UPDATED] マスタ商品選択時に原価・利益率・利益率タイプも連動セット
     const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const id = e.target.value;
         setSelectedRarityId(id);
@@ -154,6 +156,7 @@ export default function AdminProfitPage() {
         if (!id) {
             setProductName('');
             setUnitPrice('');
+            setCostPrice('');
             setTaxRate('');
             setWeightKg('');
             return;
@@ -163,8 +166,15 @@ export default function AdminProfitPage() {
         if (target) {
             setProductName(target.name || '');
             setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
+            setCostPrice(target.cost_price !== undefined && target.cost_price !== null ? String(target.cost_price) : '');
             setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
-            // ※利益率・販売価格はマスタデータ連動から除外し、このダッシュボード側で独立して試算可能
+            
+            if (target.profit_rate !== undefined && target.profit_rate !== null) {
+                setProfitRate(String(target.profit_rate));
+            }
+            if (target.profit_type) {
+                setProfitType(target.profit_type as 'cost' | 'sales');
+            }
         }
     };
 
@@ -190,7 +200,11 @@ export default function AdminProfitPage() {
     
     const subtotalPrice = parsedPrice * parsedQty; 
     const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100)); 
-    const effectiveCost = subtotalPrice - refundTaxAmount; 
+
+    // 原価が明示的に手動設定されていればそれを優先、無ければ自動計算
+    const effectiveCost = costPrice !== '' && !isNaN(parseFloat(costPrice))
+        ? parseFloat(costPrice) * parsedQty
+        : subtotalPrice - refundTaxAmount;
 
     const parsedWeight = parseFloat(weightKg) || 0;
 
@@ -317,7 +331,6 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
-                    {/* [UPDATED] プルダウン表示を商品名、仕入れ単価、消費税率、重量のみに統一 */}
                     <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
                         <label className="block text-[11px] font-bold text-blue-900">
                             📦 マスタ登録商品からセット (未選択で自由入力)
@@ -330,7 +343,7 @@ export default function AdminProfitPage() {
                             <option value="">-- 手動入力（またはマスタ商品を選択） --</option>
                             {masterRarities.map(r => (
                                 <option key={r.id} value={r.id}>
-                                    {r.name} (仕入れ単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
+                                    {r.name} (仕入れ単価: ¥{Number(r.price).toLocaleString()} / 原価: ¥{Number(r.cost_price ?? r.price).toLocaleString()} / 利益率: {r.profit_rate}% / {r.weight}g)
                                 </option>
                             ))}
                         </select>
@@ -399,7 +412,6 @@ export default function AdminProfitPage() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
-                        {/* [UPDATED] 「単価」から「仕入れ単価」へ変更 */}
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価</label>
                             <div className="relative flex items-center">

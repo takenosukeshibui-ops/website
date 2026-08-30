@@ -1,4 +1,5 @@
 // app/admin/data/page.tsx
+// [UPDATED] レアリティテーブルに原価(cost_price)および選択された利益率タイプ(profit_type)を表示
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -83,7 +84,7 @@ export default function AdminDataPage() {
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        {/* [UPDATED] 「仕入れ単価」「販売価格」「利益率」を表示 */}
+                        {/* レアリティ・商品マスタ管理 */}
                         <div className="lg:col-span-8 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
@@ -96,8 +97,10 @@ export default function AdminDataPage() {
                                     <tr>
                                         <th className="p-2 font-semibold">商品名</th>
                                         <th className="p-2 font-semibold text-right">仕入れ単価</th>
-                                        <th className="p-2 font-semibold text-right">販売価格</th>
+                                        {/* [NEW] 原価・利益率（タイプ付き） */}
+                                        <th className="p-2 font-semibold text-right">原価</th>
                                         <th className="p-2 font-semibold text-right">利益率</th>
+                                        <th className="p-2 font-semibold text-right">販売価格</th>
                                         <th className="p-2 font-semibold text-right">消費税</th>
                                         <th className="p-2 font-semibold text-right">重量</th>
                                         <th className="p-2 font-semibold text-center w-32">在庫数</th>
@@ -107,15 +110,25 @@ export default function AdminDataPage() {
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={9} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => (
                                             <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
                                                 <td className="p-2 font-medium">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                {/* [NEW] 原価表示 */}
+                                                <td className="p-2 text-right font-mono text-zinc-600">
+                                                    ¥{Number(r.cost_price ?? r.price).toLocaleString()}
+                                                </td>
+                                                {/* [NEW] 利益率（仕入れ単価比 or 売上比バッジ付き） */}
+                                                <td className="p-2 text-right font-mono text-emerald-700">
+                                                    {r.profit_rate || 0}%
+                                                    <span className="ml-1 text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-600 font-normal">
+                                                        {r.profit_type === 'sales' ? '売上比' : '仕入れ比'}
+                                                    </span>
+                                                </td>
                                                 <td className="p-2 text-right font-mono text-blue-700">¥{Number(r.sell_price || 0).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono text-emerald-700">{r.profit_rate || 0}%</td>
                                                 <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
                                                 <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
 
@@ -169,6 +182,7 @@ export default function AdminDataPage() {
                             </table>
                         </div>
 
+                        {/* 手数料管理 */}
                         <div className="lg:col-span-4 border border-zinc-200 rounded-lg overflow-hidden h-fit">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>

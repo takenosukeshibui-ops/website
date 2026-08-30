@@ -1,9 +1,9 @@
 // app/api/data/route.ts
-// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数・販売価格・利益率 追加)
+// [UPDATED] 原価 (cost_price) および 利益率タイプ (profit_type) の保存・取得処理を追加
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-// [NEW] GET: レアリティおよび手数料一覧の取得
+// GET: レアリティおよび手数料一覧の取得
 export async function GET() {
     try {
         const supabase = await createClient()
@@ -30,24 +30,33 @@ export async function GET() {
     }
 }
 
-// [UPDATED] POST: レアリティまたは手数料の新規登録
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price, profit_type 対応)
 export async function POST(req: Request) {
     try {
         const supabase = await createClient()
         const body = await req.json()
 
-        // [UPDATED] sell_price, profit_rate を追加
-        const { type, name, price, tax, weight, stock, rate, sell_price, profit_rate } = body 
+        // [NEW] cost_price (原価), profit_type (利益率タイプ) を追加取得
+        const { type, name, price, cost_price, tax, weight, stock, rate, sell_price, profit_rate, profit_type } = body 
 
         if (type === 'rarity') {
+            const parsedPrice = Number(price) || 0
+            const parsedTax = Number(tax) || 0
+            // 原価が指定されていない場合は仕入れ単価から還付控除分を自動試算
+            const calculatedCost = cost_price !== undefined && cost_price !== '' && !isNaN(Number(cost_price))
+                ? Number(cost_price)
+                : Math.floor(parsedPrice - (parsedPrice * (parsedTax / 100)))
+
             const { data, error } = await supabase
                 .from('rarities')
                 .insert({
                     name,
-                    price: Number(price) || 0, // 仕入れ単価
-                    sell_price: Number(sell_price) || 0, // [NEW] 販売価格
-                    profit_rate: Number(profit_rate) || 0, // [NEW] 利益率
-                    tax: Number(tax) || 0,
+                    price: parsedPrice, // 仕入れ単価
+                    cost_price: calculatedCost, // [NEW] 原価
+                    sell_price: Number(sell_price) || 0, // 販売価格
+                    profit_rate: Number(profit_rate) || 0, // [NEW] 手動入力利益率
+                    profit_type: profit_type || 'cost', // [NEW] 利益率タイプ ('cost' | 'sales')
+                    tax: parsedTax,
                     weight: Number(weight) || 0,
                     stock: Number(stock) || 0 
                 })
@@ -87,7 +96,7 @@ export async function POST(req: Request) {
     }
 }
 
-// [NEW] PATCH: 在庫数の即時更新用API
+// PATCH: 在庫数の即時更新用API
 export async function PATCH(req: Request) {
     try {
         const supabase = await createClient()
@@ -117,7 +126,7 @@ export async function PATCH(req: Request) {
     }
 }
 
-// [NEW] DELETE: レアリティまたは手数料の削除
+// DELETE: レアリティまたは手数料の削除
 export async function DELETE(req: Request) {
     try {
         const supabase = await createClient()
