@@ -4474,344 +4474,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/admin/data/rarity/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function RarityPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [name, setName] = useState('');
-    const [price, setPrice] = useState('');
-    const [tax, setTax] = useState(''); // [NEW] 消費税用State
-    const [weight, setWeight] = useState('');
-    const [loading, setLoading] = useState(true);
-
-    const fetchRarities = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities(data?.rarities || []);
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchRarities();
-    }, []);
-
-    const handleAdd = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !price) return;
-
-        await fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'rarity',
-                name,
-                price: parseFloat(price),
-                tax: parseFloat(tax || '0'), // [NEW] 消費税率データ送信
-                weight: parseFloat(weight || '0'),
-            }),
-        });
-
-        setName('');
-        setPrice('');
-        setTax(''); // [NEW]
-        setWeight('');
-        fetchRarities();
-    };
-
-    const handleDelete = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchRarities();
-    };
-
-    return (
-        <main className="min-h-screen bg-zinc-50 p-4 md:p-8 text-xs space-y-4">
-            {/* ナビゲーションバー */}
-            <div className="max-w-xl mx-auto flex items-center justify-between gap-2 pb-2">
-                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
-                    ← マスタ管理ハブへ戻る
-                </Link>
-                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
-                    📊 利益計算ダッシュボードへ
-                </Link>
-            </div>
-
-            <div className="mx-auto max-w-xl bg-white p-6 rounded-2xl shadow-sm border border-zinc-200">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-xl font-bold text-zinc-900">レアリティ管理</h1>
-                </div>
-
-                {/* [UPDATED] カラム数変更（md:grid-cols-5） */}
-                <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-6">
-                    <input
-                        type="text"
-                        placeholder="名前 (例: Rare)"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    <input
-                        type="number"
-                        placeholder="単価 (円)"
-                        value={price}
-                        onChange={e => setPrice(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        required
-                    />
-                    {/* [NEW] 消費税入力フィールド */}
-                    <input
-                        type="number"
-                        step="0.1"
-                        placeholder="消費税 (%)"
-                        value={tax}
-                        onChange={e => setTax(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <input
-                        type="number"
-                        placeholder="重量 (g)"
-                        value={weight}
-                        onChange={e => setWeight(e.target.value)}
-                        className="h-10 px-3 rounded-lg border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <button type="submit" className="h-10 bg-zinc-900 text-white rounded-lg font-bold hover:bg-zinc-800 transition-colors">
-                        追加
-                    </button>
-                </form>
-
-                <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-zinc-900 text-xs">
-                        <thead>
-                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
-                                <th className="p-3 font-semibold">名前</th>
-                                <th className="p-3 font-semibold text-right">単価</th>
-                                <th className="p-3 font-semibold text-right">消費税</th> {/* [NEW] */}
-                                <th className="p-3 font-semibold text-right">重量 (g)</th>
-                                <th className="p-3 font-semibold text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    {/* [UPDATED] colSpan を 5 に変更 */}
-                                    <td colSpan={5} className="p-6 text-center text-zinc-400">読み込み中...</td>
-                                </tr>
-                            ) : rarities.length === 0 ? (
-                                <tr>
-                                    {/* [UPDATED] colSpan を 5 に変更 */}
-                                    <td colSpan={5} className="p-6 text-center text-zinc-400">登録されたレアリティデータはありません</td>
-                                </tr>
-                            ) : (
-                                rarities.map((r, i) => (
-                                    <tr key={r.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
-                                        <td className="p-3 font-medium">{r.name}</td>
-                                        <td className="p-3 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                        <td className="p-3 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
-                                        <td className="p-3 text-right font-mono">{r.weight || 0} g</td>
-                                        <td className="p-3 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(r.id, r.name)}
-                                                className="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-[11px] font-bold transition-colors"
-                                            >
-                                                削除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </main>
-    );
-}
-</file>
-
-<file path="app/[lang]/admin/data/page.tsx">
-// app/admin/data/page.tsx
-'use client';
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-
-export default function AdminDataPage() {
-    const [rarities, setRarities] = useState<any[]>([]);
-    const [fees, setFees] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = () => {
-        setLoading(true);
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
-            })
-            .catch(err => console.error("データ取得エラー:", err))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const handleDeleteRarity = async (id: number, rarityName: string) => {
-        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=rarity&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    const handleDeleteFee = async (id: number, feeName: string) => {
-        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
-
-        await fetch(`/api/data?type=fee&id=${id}`, {
-            method: 'DELETE',
-        });
-
-        fetchData();
-    };
-
-    return (
-        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* 共通ナビゲーションバー */}
-            <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
-                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
-                    ← 管理画面トップ
-                </Link>
-                <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
-                    📊 利益計算ダッシュボード
-                </Link>
-                <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
-                    ＋ レアリティ新規作成
-                </Link>
-                <Link href="/admin/data/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
-                    ＋ 手数料新規作成
-                </Link>
-            </div>
-
-            <div className="flex justify-between items-center mb-2">
-                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
-            </div>
-
-            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
-                {loading ? (
-                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>レアリティ管理</span>
-                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">名前</th>
-                                        <th className="p-2 font-semibold text-right">単価</th>
-                                        <th className="p-2 font-semibold text-right">消費税</th> {/* [NEW] */}
-                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {rarities.length === 0 ? (
-                                        <tr>
-                                            {/* [UPDATED] colSpan を 5 に変更 */}
-                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        rarities.map((r) => (
-                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{r.name}</td>
-                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
-                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td> {/* [NEW] */}
-                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
-                                <span>手数料管理</span>
-                                <Link href="/admin/data/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
-                                    ＋ 編集・個別追加
-                                </Link>
-                            </div>
-                            <table className="w-full text-left border-collapse">
-                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
-                                    <tr>
-                                        <th className="p-2 font-semibold">名称</th>
-                                        <th className="p-2 font-semibold text-right">手数料率</th>
-                                        <th className="p-2 font-semibold text-right">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 font-medium">
-                                    {fees.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
-                                        </tr>
-                                    ) : (
-                                        fees.map((f) => (
-                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
-                                                <td className="p-2 font-medium">{f.name}</td>
-                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
-                                                <td className="p-2 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteFee(f.id, f.name)}
-                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
-                                                    >
-                                                        削除
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </main>
-    );
-}
-</file>
-
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
 'use client'
 
@@ -6504,13 +6166,322 @@ export const config = {
 }
 </file>
 
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/admin/data/rarity/fee/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function FeePage() {
+    const [fees, setFees] = useState<any[]>([]);
+    const [name, setName] = useState('');
+    const [rate, setRate] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    const fetchFees = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setFees(data?.fees || []);
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchFees();
+    }, []);
+
+    const handleAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name || !rate) return;
+
+        await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'fee',
+                name,
+                rate: parseFloat(rate),
+            }),
+        });
+
+        setName('');
+        setRate('');
+        fetchFees();
+    };
+
+    const handleDelete = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=fee&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchFees();
+    };
+
+    return (
+        <main className="min-h-screen bg-zinc-50 p-3 text-xs space-y-3">
+            {/* ナビゲーションバー */}
+            <div className="max-w-md mx-auto flex items-center justify-between gap-2 pb-1">
+                <Link href="/admin/data" className="text-blue-600 hover:underline font-bold">
+                    ← マスタ管理ハブへ戻る
+                </Link>
+                <Link href="/admin/profit" className="text-emerald-700 hover:underline font-bold">
+                    📊 利益計算ダッシュボードへ
+                </Link>
+            </div>
+
+            <div className="mx-auto max-w-md bg-white p-3 rounded-lg shadow-2xs border border-zinc-200">
+                <div className="flex justify-between items-center mb-2.5">
+                    <h1 className="text-xs font-bold text-zinc-900">手数料管理</h1>
+                </div>
+
+                <form onSubmit={handleAdd} className="flex gap-1.5 mb-3 items-center">
+                    <input
+                        type="text"
+                        placeholder="名称 (例: Paypal)"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        className="h-8 px-2 w-[140px] rounded border border-zinc-300 text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    <input
+                        type="number"
+                        step="0.01"
+                        placeholder="手数料率(%)"
+                        value={rate}
+                        onChange={e => setRate(e.target.value)}
+                        className="h-8 px-2 w-[100px] rounded border border-zinc-300 text-zinc-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                    />
+                    <button type="submit" className="h-8 px-3 bg-zinc-900 text-white rounded font-bold hover:bg-zinc-800 ml-auto transition-colors">
+                        追加
+                    </button>
+                </form>
+
+                <div className="border border-zinc-200 rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-zinc-900">
+                        <thead>
+                            <tr className="bg-zinc-100 border-b border-zinc-200 text-zinc-500">
+                                <th className="p-1.5 font-semibold">名称</th>
+                                <th className="p-1.5 font-semibold text-right">手数料率</th>
+                                <th className="p-1.5 font-semibold text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">読み込み中...</td>
+                                </tr>
+                            ) : fees.length === 0 ? (
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                </tr>
+                            ) : (
+                                fees.map((f, i) => (
+                                    <tr key={f.id || i} className="border-b border-zinc-100 last:border-none hover:bg-zinc-50 transition-colors">
+                                        <td className="p-1.5 font-medium">{f.name}</td>
+                                        <td className="p-1.5 text-right font-mono">{f.rate}%</td>
+                                        <td className="p-1.5 text-right">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(f.id, f.name)}
+                                                className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                            >
+                                                削除
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    );
+}
+</file>
+
+<file path="app/[lang]/admin/data/page.tsx">
+// app/admin/data/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function AdminDataPage() {
+    const [rarities, setRarities] = useState<any[]>([]);
+    const [fees, setFees] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = () => {
+        setLoading(true);
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setRarities((data?.rarities || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+                setFees((data?.fees || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)));
+            })
+            .catch(err => console.error("データ取得エラー:", err))
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const handleDeleteRarity = async (id: number, rarityName: string) => {
+        if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=rarity&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    const handleDeleteFee = async (id: number, feeName: string) => {
+        if (!confirm(`「${feeName}」を削除してもよろしいですか？`)) return;
+
+        await fetch(`/api/data?type=fee&id=${id}`, {
+            method: 'DELETE',
+        });
+
+        fetchData();
+    };
+
+    return (
+        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
+            {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
+            <div className="flex flex-wrap gap-2 pb-3 border-b border-zinc-200">
+                <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
+                    ← 管理画面トップ
+                </Link>
+                <Link href="/admin/profit" className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded font-bold transition-colors">
+                    📊 利益計算ダッシュボード
+                </Link>
+                <Link href="/admin/data/rarity" className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-bold transition-colors ml-auto">
+                    ＋ レアリティ新規作成
+                </Link>
+                <Link href="/admin/data/rarity/fee" className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-bold transition-colors">
+                    ＋ 手数料新規作成
+                </Link>
+            </div>
+
+            <div className="flex justify-between items-center mb-2">
+                <h1 className="text-lg font-bold text-zinc-900">マスタデータ管理ハブ</h1>
+            </div>
+
+            <div className="w-full bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
+                {loading ? (
+                    <div className="text-center py-6 text-zinc-400">読み込み中...</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>レアリティ・商品マスタ管理</span>
+                                <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">商品名</th>
+                                        <th className="p-2 font-semibold text-right">単価</th>
+                                        <th className="p-2 font-semibold text-right">消費税</th>
+                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {rarities.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        rarities.map((r) => (
+                                            <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{r.name}</td>
+                                                <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
+                                                <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
+                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteRarity(r.id, r.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                            <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
+                                <span>手数料管理</span>
+                                {/* [UPDATED] 404エラー防止のためリンクパスを正しい /admin/data/rarity/fee へ修正 */}
+                                <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">
+                                    ＋ 編集・個別追加
+                                </Link>
+                            </div>
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-zinc-100/70 text-zinc-500 border-b border-zinc-200">
+                                    <tr>
+                                        <th className="p-2 font-semibold">名称</th>
+                                        <th className="p-2 font-semibold text-right">手数料率</th>
+                                        <th className="p-2 font-semibold text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 font-medium">
+                                    {fees.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="p-4 text-center text-zinc-400">データがありません</td>
+                                        </tr>
+                                    ) : (
+                                        fees.map((f) => (
+                                            <tr key={f.id} className="hover:bg-zinc-50 transition-colors">
+                                                <td className="p-2 font-medium">{f.name}</td>
+                                                <td className="p-2 text-right font-mono">{f.rate}%</td>
+                                                <td className="p-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFee(f.id, f.name)}
+                                                        className="px-2 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded text-[10px] font-bold transition-colors"
+                                                    >
+                                                        削除
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </main>
+    );
+}
+</file>
+
 <file path="app/[lang]/admin/profit/page.tsx">
-// [UPDATED]
+// app/admin/profit/page.tsx
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-// [NEW] 共通の国リストをインポート
 import { countries } from '@/components/countries';
 
 const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: string) => void }) => {
@@ -6576,11 +6547,21 @@ const CountryCombobox = ({ value, onChange }: { value: string; onChange: (code: 
 };
 
 export default function AdminProfitPage() {
+    // [NEW] マスタ登録データ（商品・手数料）用 State
+    const [masterRarities, setMasterRarities] = useState<any[]>([]);
+    const [masterFees, setMasterFees] = useState<any[]>([]);
+    
+    const [selectedRarityId, setSelectedRarityId] = useState<string>('');
+    const [selectedFeeId, setSelectedFeeId] = useState<string>(''); // [NEW] 手数料プルダウン用
+
+    // [UPDATED] 計算用フォーム State (未選択時は空文字にして手動入力可能に)
+    const [productName, setProductName] = useState(''); 
     const [profitRate, setProfitRate] = useState('15');
     const [feeRate, setFeeRate] = useState('3.6');
-    const [unitPrice, setUnitPrice] = useState('3000');
+    const [unitPrice, setUnitPrice] = useState(''); // [UPDATED] デフォルト空文字
+    const [taxRate, setTaxRate] = useState(''); // [UPDATED] デフォルト空文字
     const [quantity, setQuantity] = useState('1');
-    const [weightKg, setWeightKg] = useState('0.5');
+    const [weightKg, setWeightKg] = useState(''); // [UPDATED] デフォルト空文字
     const [destination, setDestination] = useState('US');
 
     const [apiLoading, setApiLoading] = useState(false);
@@ -6588,9 +6569,66 @@ export default function AdminProfitPage() {
     const [fedexRatesList, setFedexRatesList] = useState<any[]>([]); 
     const [fedexApiError, setFedexApiError] = useState<string | null>(null);
 
+    // [NEW] マスタデータ（商品一覧・手数料一覧）の取得
+    useEffect(() => {
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                setMasterRarities(data?.rarities || []);
+                setMasterFees(data?.fees || []); // [NEW] 手数料マスタの保持
+            })
+            .catch(err => console.error("マスタデータ取得エラー:", err));
+    }, []);
+
+    // [UPDATED] マスタ商品選択処理 (未選択時は空にして手動入力)
+    const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value;
+        setSelectedRarityId(id);
+
+        if (!id) {
+            // [NEW] 未選択の場合は空にして自由に入力可能にする
+            setProductName('');
+            setUnitPrice('');
+            setTaxRate('');
+            setWeightKg('');
+            return;
+        }
+
+        const target = masterRarities.find(r => String(r.id) === String(id));
+        if (target) {
+            setProductName(target.name || '');
+            setUnitPrice(target.price !== undefined && target.price !== null ? String(target.price) : '');
+            setTaxRate(target.tax !== undefined && target.tax !== null ? String(target.tax) : '');
+            const kgVal = target.weight ? (Number(target.weight) / 1000).toFixed(3) : '';
+            setWeightKg(kgVal ? String(parseFloat(kgVal)) : '');
+        }
+    };
+
+    // [NEW] マスタ手数料選択処理
+    const handleSelectFee = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value;
+        setSelectedFeeId(id);
+
+        if (!id) return;
+
+        const target = masterFees.find(f => String(f.id) === String(id));
+        if (target && target.rate !== undefined) {
+            setFeeRate(String(target.rate));
+        }
+    };
+
     const parsedQty = parseInt(quantity.replace(/[^0-9]/g, '') || '0', 10);
     const parsedPrice = parseFloat(unitPrice.replace(/[^0-9.]/g, '') || '0');
-    const totalPrice = parsedPrice * parsedQty;
+    const parsedTaxRate = parseFloat(taxRate.replace(/[^0-9.]/g, '') || '0');
+    
+    // [UPDATED] 消費税還付計算ロジック
+    // 仕入れ小計 = 単価 × 数量
+    const subtotalPrice = parsedPrice * parsedQty;
+    // 還付される消費税額
+    const refundTaxAmount = Math.floor(subtotalPrice * (parsedTaxRate / 100));
+    // 実質仕入れ原価 (仕入れ金額 - 消費税還付額)
+    const effectiveCost = subtotalPrice - refundTaxAmount; // [NEW] 消費税還付分を控除
+
     const parsedWeight = parseFloat(weightKg) || 0;
 
     useEffect(() => {
@@ -6601,7 +6639,6 @@ export default function AdminProfitPage() {
             setFedexApiError(null);
 
             try {
-                // [UPDATED] フロントエンドでのダミー設定を削除し、APIにisEstimateを送るだけにする
                 const res = await fetch('/api/calculate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -6645,7 +6682,8 @@ export default function AdminProfitPage() {
 
         if (denominator <= 0) return { sellPrice: 0, profit: 0 };
 
-        const sellPrice = (totalPrice + shippingFee) / denominator;
+        // [UPDATED] 実質仕入れ原価 (effectiveCost) + 送料 を基準に推奨販売価格と利益を算出
+        const sellPrice = (effectiveCost + shippingFee) / denominator;
         const profit = sellPrice * targetRate;
 
         return {
@@ -6655,9 +6693,9 @@ export default function AdminProfitPage() {
     };
 
     const jpCalculation = useMemo(() => {
-        if (totalPrice <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
+        if (effectiveCost <= 0 || parsedWeight <= 0 || shippingFeeJp === null) return null;
         return calculateProfitRow(shippingFeeJp);
-    }, [totalPrice, parsedWeight, shippingFeeJp, profitRate, feeRate]);
+    }, [effectiveCost, parsedWeight, shippingFeeJp, profitRate, feeRate]);
 
     return (
         <main className="p-6 max-w-6xl mx-auto text-xs space-y-4">
@@ -6684,6 +6722,25 @@ export default function AdminProfitPage() {
                 <div className="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
                     <h2 className="text-sm font-bold text-slate-700 border-b pb-2">試算条件設定</h2>
                     
+                    {/* マスタ登録商品からの自動セット機能 */}
+                    <div className="p-2.5 bg-blue-50/60 border border-blue-200 rounded-lg space-y-1">
+                        <label className="block text-[11px] font-bold text-blue-900">
+                            📦 マスタ登録商品からセット (未選択で自由入力)
+                        </label>
+                        <select
+                            value={selectedRarityId}
+                            onChange={handleSelectRarity}
+                            className="w-full h-8 px-2 rounded border border-blue-300 text-slate-900 font-medium bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="">-- 手動入力（またはマスタ商品を選択） --</option>
+                            {masterRarities.map(r => (
+                                <option key={r.id} value={r.id}>
+                                    {r.name} (単価: ¥{Number(r.price).toLocaleString()} / 税: {r.tax}% / {r.weight}g)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">目標利益率 (%)</label>
@@ -6695,25 +6752,70 @@ export default function AdminProfitPage() {
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
+
+                        {/* [UPDATED] 想定決済手数料マスタからのプルダウン選択 */}
                         <div>
-                            <label className="block text-[11px] font-medium text-slate-600 mb-1">想定決済手数料率 (%)</label>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={feeRate}
-                                onChange={e => setFeeRate(e.target.value)}
-                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">想定決済手数料</label>
+                            <div className="flex gap-1">
+                                <select
+                                    value={selectedFeeId}
+                                    onChange={handleSelectFee}
+                                    className="w-1/2 h-9 px-1 rounded border border-slate-300 text-slate-900 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-[10px]"
+                                >
+                                    <option value="">(マスタ選択)</option>
+                                    {masterFees.map(f => (
+                                        <option key={f.id} value={f.id}>
+                                            {f.name} ({f.rate}%)
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="w-1/2 relative flex items-center">
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={feeRate}
+                                        onChange={e => setFeeRate(e.target.value)}
+                                        placeholder="率"
+                                        className="w-full h-9 pr-4 text-right rounded border border-slate-300 font-bold bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <span className="absolute right-1 text-[10px] text-slate-400 font-bold">%</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* 商品名入力項目 */}
+                    <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">商品名 (任意)</label>
+                        <input
+                            type="text"
+                            placeholder="例: ポケモンカード PSA10"
+                            value={productName}
+                            onChange={e => setProductName(e.target.value)}
+                            className="w-full h-9 px-2 rounded border border-slate-300 font-medium bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {/* 単価・消費税率・数量 */}
+                    <div className="grid grid-cols-3 gap-2">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">仕入れ単価 (円)</label>
                             <input
                                 type="number"
+                                placeholder="例: 3000"
                                 value={unitPrice}
                                 onChange={e => setUnitPrice(e.target.value)}
+                                className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">消費税率 (%)</label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                placeholder="例: 10"
+                                value={taxRate}
+                                onChange={e => setTaxRate(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
@@ -6737,7 +6839,8 @@ export default function AdminProfitPage() {
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">総重量 (kg)</label>
                             <input
                                 type="number"
-                                step="0.1"
+                                step="0.001"
+                                placeholder="例: 0.5"
                                 value={weightKg}
                                 onChange={e => setWeightKg(e.target.value)}
                                 className="w-full h-9 px-2 rounded border border-slate-300 font-bold bg-white text-slate-900 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -6745,15 +6848,28 @@ export default function AdminProfitPage() {
                         </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-                        <span className="text-slate-500 font-medium">仕入れ原価合計:</span>
-                        <span className="text-base font-bold font-mono text-slate-900">¥{totalPrice.toLocaleString()}</span>
+                    {/* [UPDATED] 消費税還付計算に基づく表示 */}
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                        <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                            <span>仕入れ金額:</span>
+                            <span className="font-mono">¥{subtotalPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-emerald-600 text-[11px] font-medium">
+                            <span>還付消費税額 (控除分):</span>
+                            <span className="font-mono">- ¥{refundTaxAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                            <span className="text-slate-700 font-bold">実質仕入れ原価:</span>
+                            <span className="text-base font-bold font-mono text-slate-900">¥{effectiveCost.toLocaleString()}</span>
+                        </div>
                     </div>
                 </div>
 
                 <div className="lg:col-span-7 bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                        <span className="font-bold text-slate-700 text-sm">全配送プラン比較</span>
+                        <span className="font-bold text-slate-700 text-sm">
+                            全配送プラン比較 {productName && <span className="text-blue-700 font-normal">({productName})</span>}
+                        </span>
                         {apiLoading ? (
                             <span className="text-blue-600 text-[11px] font-bold animate-pulse">運賃計算中...</span>
                         ) : (
