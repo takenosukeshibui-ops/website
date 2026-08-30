@@ -1,8 +1,9 @@
+// components/StatusBadge.tsx
 import React from 'react';
 
 interface StatusBadgeProps {
     status?: string;
-    dict: any;
+    dict?: any; // [UPDATED] オプショナルに変更し、管理画面等で未渡しの際のエラーを防止
 }
 
 const statusStyles: Record<string, string> = {
@@ -14,9 +15,27 @@ const statusStyles: Record<string, string> = {
     cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
 };
 
+const defaultLabels: Record<string, string> = {
+    pending: '依頼済み',
+    procured: '買い付け完了',
+    calculating: '国際発送準備中',
+    payment_required: '決済待ち',
+    shipped: '国際発送済み',
+    cancelled: 'キャンセル',
+};
+
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
     const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
-    const label = status ? dict.dashboard.badge.status[status] || '不明' : '不明';
+    
+    // [UPDATED] dict が渡されている場合は辞書を参照、無ければデフォルト日本語ラベルを返却
+    let label = '不明';
+    if (status) {
+        if (dict?.dashboard?.badge?.status?.[status]) {
+            label = dict.dashboard.badge.status[status];
+        } else if (defaultLabels[status]) {
+            label = defaultLabels[status];
+        }
+    }
 
     return (
         <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>

@@ -247,7 +247,8 @@ export default async function DashboardPage(props: {
                                             #{order.order_number ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.table.order}
+                                            {/* [UPDATED] dict.dashboard.table.order を参照するように修正 */}
+                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.dashboard.table.order}
                                         </span>
                                         <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
                                             {dict.dashboard.itemCount} {itemCount}
@@ -342,16 +343,17 @@ export default async function DashboardPage(props: {
                                         <div className="overflow-x-auto border border-slate-200 rounded">
                                             <table className="min-w-full border-collapse text-xs text-left">
                                                 <thead>
+                                                    {/* [UPDATED] 全すべて dict.dashboard.table.xxx を参照するよう修正 */}
                                                     <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                                        <th className="p-2.5">{dict.table.item}</th>
-                                                        <th className="p-2.5 max-w-[180px]">{dict.table.url}</th>
-                                                        <th className="p-2.5 w-32">{dict.table.remarks}</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.requestedQuantity}</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.confirmedQuantity}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.desiredPrice}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.price}</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.subtotal}</th>
-                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict.table.status}</th>
+                                                        <th className="p-2.5">{dict.dashboard.table.item}</th>
+                                                        <th className="p-2.5 max-w-[180px]">{dict.dashboard.table.url}</th>
+                                                        <th className="p-2.5 w-32">{dict.dashboard.table.remarks}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.dashboard.table.requestedQuantity}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.dashboard.table.confirmedQuantity}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.desiredPrice}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.price}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.dashboard.table.subtotal}</th>
+                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict.dashboard.table.status}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>

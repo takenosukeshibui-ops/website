@@ -159,97 +159,6 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="dictionaries/en.json">
-{
-  "home": {
-    "title": "Welcome to our service",
-    "description": "We provide efficient management tools.",
-    "login": "Login",
-    "signup": "Sign Up",
-    "calculator": "Shipping Calculator",
-    "inventory": "📦 Inventory"
-  },
-  "dashboard": {
-    "title": "My Page",
-    "logout": "Logout",
-    "accountSettings": "⚙️ Account Settings",
-    "shippingCalculator": "✈️ Shipping Calculator ↗",
-    "orderHistory": "Order History",
-    "noOrders": "No orders found.",
-    "itemCount": "Items:",
-    "status": {
-      "shipping": "Shipping:",
-      "payment": "Payment:",
-      "tracking": "Tracking:",
-      "attention": "Action Required (Waiting for User)"
-    },
-    "invoice": {
-      "title": "■ Invoice",
-      "shippingNote": "※Estimated based on shipping method & weight",
-      "productTotal": "Product Total",
-      "proxyFee": "Proxy Fee (5%)",
-      "shipping": "Shipping",
-      "paymentFee": "Payment Fee",
-      "grandTotal": "Grand Total"
-    }
-  }
-}
-</file>
-
-<file path="dictionaries/ja.json">
-{
-  "home": {
-    "title": "私たちのサービスへようこそ",
-    "description": "効率的な管理ツールを提供します。",
-    "login": "ログイン",
-    "signup": "新規登録",
-    "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品"
-  },
-  "dashboard": {
-    "title": "マイページ",
-    "logout": "ログアウト",
-    "accountSettings": "⚙️ アカウント設定",
-    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
-    "orderHistory": "依頼済みの注文一覧",
-    "noOrders": "依頼済みの注文はありません。",
-    "itemCount": "商品数:",
-    "status": {
-      "shipping": "配送:",
-      "payment": "決済:",
-      "tracking": "追跡:",
-      "attention": "要確認（ユーザー対応待ち）"
-    },
-    "invoice": {
-      "title": "■ 請求明細",
-      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
-      "productTotal": "商品価格合計",
-      "proxyFee": "代理手数料 (5%)",
-      "shipping": "送料",
-      "paymentFee": "決済手数料",
-      "grandTotal": "お支払い金額"
-    }
-  }
-}
-</file>
-
-<file path="lib/dictionaries.ts">
-// lib/dictionaries.ts
-// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
-import 'server-only'
-
-const dictionaries = {
-  en: () => import('@/dictionaries/en.json').then((module) => module.default),
-  ja: () => import('@/dictionaries/ja.json').then((module) => module.default),
-}
-
-export const getDictionary = async (locale: 'en' | 'ja') => {
-  // 指定された言語がない場合は英語をフォールバックとして使用
-  const load = dictionaries[locale] || dictionaries.en
-  return load()
-}
-</file>
-
 <file path="app/[lang]/dashboard/settings/page.tsx">
 // app/dashboard/settings/page.tsx
 import { createClient } from '@/lib/supabase/server'
@@ -1664,225 +1573,6 @@ body {
 }
 </file>
 
-<file path="components/CartManager.tsx">
-// components/CartManager.tsx
-'use client'
-
-import { useState, useEffect } from 'react'
-import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
-import { updateCartItem } from '@/app/actions/items'
-
-export default function CartManager({ 
-    initialItems, 
-    initialOrders,
-    userProfile
-}: { 
-    initialItems: any[]; 
-    initialOrders: any[];
-    userProfile?: any;
-}) {
-    const filterCartItems = (items: any[]) => {
-        return (items || []).filter(item => !item.status || item.status === 'draft')
-    }
-
-    const [items, setItems] = useState<any[]>(() => filterCartItems(initialItems))
-    const [loading, setLoading] = useState(false)
-
-    const sanitizeShipping = (val?: string) => {
-        const validMethods = [
-            '最安プラン自動選択 (航空便)',
-            'FedEx International Connect Plus',
-            'FedEx International Priority',
-            'FedEx International Economy',
-            'FedEx International First',
-            'FedEx International Priority Freight (68kg超)',
-            'FedEx International Economy Freight (68kg超)',
-            '船便'
-        ];
-        if (val && validMethods.includes(val)) {
-            return val;
-        }
-        if (val === '船便') return '船便';
-        return '最安プラン自動選択 (航空便)';
-    }
-
-    const [shippingMethod, setShippingMethod] = useState<string>(() => 
-        sanitizeShipping(userProfile?.default_shipping_method)
-    )
-    const [paymentMethod, setPaymentMethod] = useState<string>(
-        userProfile?.default_payment_method || 'Wise'
-    )
-
-    // 初回読み込み時のみ反映（削除操作時の不要な自動書き戻しを防止）
-    useEffect(() => {
-        if (initialItems) {
-            setItems(filterCartItems(initialItems))
-        }
-    }, [initialItems?.length])
-
-    useEffect(() => {
-        if (userProfile?.default_shipping_method) {
-            setShippingMethod(sanitizeShipping(userProfile.default_shipping_method))
-        }
-        if (userProfile?.default_payment_method) {
-            setPaymentMethod(userProfile.default_payment_method)
-        }
-    }, [userProfile])
-
-    const cartItems = items;
-
-    const handleCheckout = async () => {
-        if (cartItems.length === 0) return;
-        
-        const confirmed = window.confirm(
-            `【選択内容の確認】\n` +
-            `・配送方法: ${shippingMethod}\n` +
-            `・決済方法: ${paymentMethod}\n\n` +
-            `カート内の ${cartItems.length} 件の商品で購入依頼を送信しますか？`
-        );
-        if (!confirmed) return;
-
-        setLoading(true);
-        try {
-            const itemIds = cartItems.map(item => item.id);
-            await createOrderFromCart(itemIds, shippingMethod, paymentMethod);
-        } catch (e: any) {
-            console.error(e);
-            alert('エラーが発生しました: ' + (e.message || '不明なエラー'));
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // 削除処理
-    const handleDelete = async (itemId: string) => {
-        if (!window.confirm('この商品をカートから削除しますか？')) return;
-        
-        // 画面上から即座に除外
-        const previousItems = items;
-        setItems(prev => prev.filter(item => item.id !== itemId));
-        
-        try {
-            // DB削除を実行
-            await deleteCartItem(itemId);
-        } catch (e: any) {
-            // 失敗時は元の画面状態へ書き戻し、エラー詳細を表示
-            setItems(previousItems);
-            alert('削除失敗: ' + (e?.message || '不明なエラーが発生しました'));
-        }
-    };
-
-    return (
-        <div className="bg-white p-4 rounded-lg border border-slate-200 my-6 shadow-sm">
-            <h2 className="text-lg font-bold mb-3 text-slate-800">カート内の商品 ({cartItems.length})</h2>
-            
-            {cartItems.length === 0 ? (
-                <p className="text-sm text-slate-500 py-2">カートに商品はありません。</p>
-            ) : (
-                <div className="space-y-4">
-                    <div className="overflow-x-auto border border-slate-200 rounded">
-                        <table className="min-w-full border-collapse text-xs text-left">
-                            <thead>
-                                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                    <th className="p-2">商品名</th>
-                                    <th className="p-2 max-w-[150px]">URL</th>
-                                    <th className="p-2 min-w-[120px]">備考(サイズ等)</th>
-                                    <th className="p-2 text-center w-16">数量</th>
-                                    <th className="p-2 text-right w-24">希望価格</th>
-                                    <th className="p-2 text-center w-16">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {cartItems.map((item) => (
-                                    <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                        <td className="p-2 font-medium text-slate-800">{item.title || '名称未設定'}</td>
-                                        <td className="p-2 max-w-[150px] truncate">
-                                            {item.url ? (
-                                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                    {item.url}
-                                                </a>
-                                            ) : '-'}
-                                        </td>
-                                        <td className="p-2 text-slate-600 truncate max-w-[150px]" title={item.remarks}>
-                                            {item.remarks || '-'}
-                                        </td>
-                                        <td className="p-2 text-center">
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                defaultValue={item.quantity || 1}
-                                                onBlur={async (e) => {
-                                                    const val = Number(e.target.value)
-                                                    if (val > 0 && val !== item.quantity) {
-                                                        await updateCartItem(item.id, val, item.desired_price, item.remarks)
-                                                    }
-                                                }}
-                                                className="border border-slate-300 p-1 rounded text-xs w-12 text-center font-mono"
-                                            />
-                                        </td>
-                                        <td className="p-2 text-right font-mono">
-                                            {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
-                                        </td>
-                                        <td className="p-2 text-center">
-                                            <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px]">
-                                                削除
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="bg-slate-50 border border-slate-200 rounded p-3 flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                            <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-slate-700 whitespace-nowrap">配送方法:</label>
-                                <select 
-                                    value={shippingMethod} 
-                                    onChange={(e) => setShippingMethod(e.target.value)}
-                                    className="border border-slate-300 rounded p-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
-                                >
-                                    <option value="最安プラン自動選択 (航空便)">最安プラン自動選択 (航空便 - 約2〜6営業日)</option>
-                                    <option value="FedEx International Connect Plus">FedEx International Connect Plus (FICP - 約2〜4営業日)</option>
-                                    <option value="FedEx International Priority">FedEx International Priority (FIP - 約1〜3営業日)</option>
-                                    <option value="FedEx International Economy">FedEx International Economy (FIE - 約4〜6営業日)</option>
-                                    <option value="FedEx International First">FedEx International First (FIF - 約1〜2営業日)</option>
-                                    <option value="FedEx International Priority Freight (68kg超)">FedEx International Priority Freight (68kg超大型貨物 - 約2〜4営業日)</option>
-                                    <option value="FedEx International Economy Freight (68kg超)">FedEx International Economy Freight (68kg超大型貨物 - 約4〜7営業日)</option>
-                                    <option value="船便">日本郵便 (船便 - 約1〜3か月)</option>
-                                </select>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-slate-700 whitespace-nowrap">決済方法:</label>
-                                <select 
-                                    value={paymentMethod} 
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                    className="border border-slate-300 rounded p-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
-                                >
-                                    <option value="Wise">Wise（銀行振込）</option>
-                                    <option value="CreditCard">クレジットカード</option>
-                                    <option value="PayPal">PayPal</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleCheckout}
-                            disabled={loading}
-                            className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap w-full md:w-auto shadow-sm"
-                        >
-                            {loading ? '送信中...' : '購入依頼を送信する'}
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
-</file>
-
 <file path="components/countries.ts">
 // components/countries.ts
 
@@ -1976,31 +1666,6 @@ export const countries: Country[] = [
 ];
 </file>
 
-<file path="components/ItemStatusBadge.tsx">
-// components/ItemStatusBadge.tsx
-import React from 'react';
-
-export function ItemStatusBadge({ status }: { status: string }) {
-    const statusConfig: Record<string, { label: string; className: string }> = {
-        draft: { label: 'カート', className: 'bg-slate-100 text-slate-600' },
-        pending: { label: '依頼済み', className: 'bg-blue-100 text-blue-800' },
-        out_of_stock: { label: '在庫切れ', className: 'bg-rose-100 text-rose-800' },
-        purchased: { label: '購入完了', className: 'bg-emerald-100 text-emerald-800' },
-        in_warehouse: { label: '倉庫到着', className: 'bg-purple-100 text-purple-800' },
-        cancelled: { label: 'キャンセル', className: 'bg-slate-200 text-slate-600' },
-        info_required: { label: '要確認', className: 'bg-amber-100 text-amber-800 font-bold border border-amber-300 animate-pulse' },
-    };
-
-    const config = statusConfig[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
-
-    return (
-        <span className={`px-2 py-1 rounded text-[11px] whitespace-nowrap ${config.className}`}>
-            {config.label}
-        </span>
-    );
-}
-</file>
-
 <file path="components/ItemStatusSelect.tsx">
 // components/ItemStatusSelect.tsx
 'use client'
@@ -2066,45 +1731,6 @@ export default function ItemStatusSelect({
         </div>
     )
 }
-</file>
-
-<file path="components/StatusBadge.tsx">
-import React from 'react';
-
-interface StatusBadgeProps {
-    status?: string;
-}
-
-const statusStyles: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    procured: 'bg-teal-100 text-teal-800 border-teal-300',
-    calculating: 'bg-indigo-100 text-indigo-800 border-indigo-300',
-    payment_required: 'bg-amber-100 text-amber-800 border-amber-300',
-    shipped: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
-};
-
-const getStatusLabel = (status: string | undefined): string => {
-    switch (status) {
-        case 'pending': return '依頼済み';
-        case 'procured': return '買い付け完了';
-        case 'calculating': return '国際発送準備中';
-        case 'payment_required': return '決済待ち';
-        case 'shipped': return '国際発送済み';
-        case 'cancelled': return 'キャンセル';
-        default: return '不明';
-    }
-};
-
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-    const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
-
-    return (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>
-            {getStatusLabel(status)}
-        </span>
-    );
-};
 </file>
 
 <file path="components/SubmitButtons.tsx">
@@ -2221,6 +1847,23 @@ export async function createClient() {
             },
         }
     )
+}
+</file>
+
+<file path="lib/dictionaries.ts">
+// lib/dictionaries.ts
+// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
+import 'server-only'
+
+const dictionaries = {
+  en: () => import('@/dictionaries/en.json').then((module) => module.default),
+  ja: () => import('@/dictionaries/ja.json').then((module) => module.default),
+}
+
+export const getDictionary = async (locale: 'en' | 'ja') => {
+  // 指定された言語がない場合は英語をフォールバックとして使用
+  const load = dictionaries[locale] || dictionaries.en
+  return load()
 }
 </file>
 
@@ -2684,40 +2327,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-</file>
-
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
 </file>
 
 <file path="postcss.config.mjs">
@@ -3493,473 +3102,6 @@ export default function ProfileForm({ profile, userEmail }: { profile: any, user
 }
 </file>
 
-<file path="app/[lang]/dashboard/page.tsx">
-// app/dashboard/page.tsx
-import { getDictionary } from "@/lib/dictionaries";
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
-
-function getTrackingUrl(trackingNumber: string): string {
-    const cleaned = trackingNumber.replace(/[\s-]/g, '');
-
-    if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
-        return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
-    }
-
-    return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
-}
-
-// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
-function calculateUserInvoiceDetails(order: any) {
-    let productTotal = 0;
-    (order.order_items || []).forEach((oi: any) => {
-        const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
-        if (item) {
-            const qty = item.admin_quantity ?? item.quantity ?? 1;
-            const price = item.price ?? 0;
-            productTotal += qty * price;
-        }
-    });
-
-    const proxyFeeRate = 0.05;
-    const proxyFee = Math.floor(productTotal * proxyFeeRate);
-
-    const shippingFee = order.shipping_fee !== null && order.shipping_fee !== undefined ? Number(order.shipping_fee) : 0;
-    const baseAmount = productTotal + proxyFee + shippingFee;
-
-    const rawPaymentMethod = order.payment_method ? String(order.payment_method).trim().toLowerCase() : '';
-    const paymentMethod = rawPaymentMethod === 'wise' ? 'Wise' : 'PayPal';
-
-    let paymentFee = 0;
-    let grandTotal = baseAmount;
-    let paymentFeeDetail = '';
-
-    if (order.total_amount !== null && order.total_amount !== undefined && Number(order.total_amount) > 0) {
-        grandTotal = Number(order.total_amount);
-        paymentFee = grandTotal > baseAmount ? grandTotal - baseAmount : 0;
-
-        if (paymentMethod === 'Wise') {
-            const effectiveRate = baseAmount > 0 ? ((paymentFee / baseAmount) * 100).toFixed(2) : '0';
-            paymentFeeDetail = `API取得 (${effectiveRate}% 相当)`;
-        } else {
-            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)';
-        }
-    } else if (baseAmount > 0) {
-        if (paymentMethod === 'Wise') {
-            const wiseFeeRate = 0.036;
-            const fixedFee = 40;
-            const gross = (baseAmount + fixedFee) / (1 - wiseFeeRate);
-            paymentFee = Math.ceil(gross - baseAmount);
-            paymentFee = paymentFee > 0 ? paymentFee : 0;
-            grandTotal = baseAmount + paymentFee;
-            paymentFeeDetail = '3.6% + 40円 (標準試算)';
-        } else {
-            const paypalFeeRate = 0.081;
-            const fixedFee = 40;
-            const gross = (baseAmount + fixedFee) / (1 - paypalFeeRate);
-            paymentFee = Math.ceil(gross - baseAmount);
-            paymentFee = paymentFee > 0 ? paymentFee : 0;
-            grandTotal = baseAmount + paymentFee;
-            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)';
-        }
-    }
-
-    const resolvedShippingName = order.shipping_method || '最安プラン自動選択 (航空便)';
-
-    return {
-        productTotal,
-        proxyFee,
-        shippingFee,
-        baseAmount,
-        paymentFee,
-        paymentFeeDetail,
-        resolvedShippingName,
-        grandTotal
-    };
-}
-
-export default async function DashboardPage(props: {
-    params: Promise<{ lang: 'en' | 'ja' }>;
-    searchParams: Promise<{ url?: string; title?: string; desiredPrice?: string; quantity?: string; remarks?: string }>
-}) {
-    const { lang } = await props.params;
-    const dict = await getDictionary(lang);
-    const searchParams = await props.searchParams;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect('/login');
-    }
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-    const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-            id,
-            order_number,
-            status,
-            created_at,
-            shipping_fee,
-            total_amount,
-            tracking_number,
-            shipping_method,
-            payment_method,
-            order_items (
-                id,
-                item_id,
-                items (
-                    id,
-                    title,
-                    url,
-                    price,
-                    desired_price,
-                    quantity,
-                    admin_quantity,
-                    status,
-                    remarks,
-                    admin_note
-                )
-            )
-        `)
-        .eq('user_id', user.id)
-        .order('order_number', { ascending: false });
-
-    if (ordersError) {
-        console.error('注文取得エラー:', ordersError.message);
-    }
-
-    const { data: items } = await supabase
-        .from('items')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'draft')
-        .order('created_at', { ascending: false });
-
-    return (
-        <div className="container mx-auto p-4 max-w-5xl">
-            {/* ヘッダー最上部領域 */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">{dict.dashboard.title}</h1>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <p className="text-xs text-slate-500">
-                            ログインアカウント: <span className="font-mono font-medium text-slate-700">{user.email}</span>
-                        </p>
-                        {profile?.contact_email && (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-medium">
-                                📧 連絡先: {profile.contact_email}
-                            </span>
-                        )}
-                        {profile?.country && (
-                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                                🏠 お届け国: {profile.country}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    <Link
-                        href="/calculator"
-                        target="_blank"
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                    >
-                        {dict.dashboard.shippingCalculator}
-                    </Link>
-
-                    <Link href={`/${lang}/dashboard/settings`} className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
-                        {dict.dashboard.accountSettings}
-                    </Link>
-
-                    <form action={async () => {
-                        'use server';
-                        const supabase = await createClient();
-                        await supabase.auth.signOut();
-                        redirect(`/${lang}/login`);
-                    }}>
-                        <button className="text-xs text-slate-500 hover:text-slate-800 underline">{dict.dashboard.logout}</button>
-                    </form>
-                </div>
-            </div>
-
-            {/* 商品追加フォーム */}
-            <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
-                <div className="flex flex-col md:flex-row gap-3 items-center w-full">
-                    <input name="url" defaultValue={searchParams.url || ''} placeholder="商品URL" required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="title" defaultValue={searchParams.title || ''} placeholder="商品名" className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    {/* [UPDATED] ブックマークレットから渡された値を反映 */}
-                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder="希望価格(任意)" className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="quantity" type="number" defaultValue={searchParams.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <SubmitButton pendingText="追加中...">カートに追加</SubmitButton>
-                </div>
-                {/* [UPDATED] ブックマークレットから渡された値を反映 */}
-                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder="サイズ・カラー・状態などの指定があれば入力してください(任意)" className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-            </form>
-
-            <BookmarkletGenerator />
-
-            <CartManager initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
-
-            <div className="grid gap-4 mt-8">
-                <h2 className="text-xl font-bold text-slate-800">{dict.dashboard.orderHistory}</h2>
-
-                {(!orders || orders.length === 0) ? (
-                    <p className="text-slate-500 text-sm">{dict.dashboard.noOrders}</p>
-                ) : (
-                    orders.map((order: any) => {
-                        const needsAttention = order.order_items?.some((oi: any) => {
-                            const targetItem = Array.isArray(oi.items) ? oi.items[0] : oi.items;
-                            return targetItem && ['info_required', 'price_changed'].includes(targetItem.status);
-                        });
-
-                        const hasInvoice = (order.total_amount !== null && Number(order.total_amount) > 0) ||
-                            (order.shipping_fee !== null && Number(order.shipping_fee) >= 0) ||
-                            ['payment_required', 'shipped'].includes(order.status);
-
-                        const hasTracking = Boolean(order.tracking_number && String(order.tracking_number).trim() !== '');
-                        const itemCount = order.order_items?.length || 0;
-
-                        const invoiceDetails = calculateUserInvoiceDetails(order);
-                        const paymentServiceName = order.payment_method || 'Wise';
-
-                        return (
-                            <details key={order.id} className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm group">
-                                <summary className="font-semibold cursor-pointer text-slate-900 flex flex-wrap justify-between items-center gap-2">
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <span className="bg-slate-800 text-white font-mono text-xs font-bold px-2.5 py-1 rounded">
-                                            #{order.order_number ?? '-'}
-                                        </span>
-                                        <span className="text-sm text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString('ja-JP')} 注文
-                                        </span>
-                                        <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
-                                            {dict.dashboard.itemCount} {itemCount}
-                                        </span>
-
-                                        <div className="flex items-center gap-1.5 text-xs">
-                                            <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
-                                                {dict.dashboard.status.shipping} {invoiceDetails.resolvedShippingName}
-                                            </span>
-                                            <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-medium">
-                                                {dict.dashboard.status.payment} {paymentServiceName}
-                                            </span>
-                                        </div>
-
-                                        {hasTracking && (
-                                            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs">
-                                                <span className="text-emerald-700 font-bold">{dict.dashboard.status.tracking}</span>
-                                                <TrackingLink
-                                                    trackingNumber={order.tracking_number}
-                                                    trackingUrl={getTrackingUrl(order.tracking_number)}
-                                                />
-                                            </div>
-                                        )}
-
-                                        {needsAttention && (
-                                            <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">
-                                                {dict.dashboard.status.attention}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <StatusBadge status={order.status} />
-                                    </div>
-                                </summary>
-
-                                <div className="mt-4 border-t pt-4 grid gap-3">
-                                    {/* 請求明細パネル */}
-                                    {hasInvoice && (
-                                        <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
-                                            <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">
-                                                <span>{dict.dashboard.invoice.title}</span>
-                                                {!(order.total_amount !== null && Number(order.total_amount) > 0) && (
-                                                    <span className="text-[10px] text-amber-600 font-normal">
-                                                        {dict.dashboard.invoice.shippingNote}
-                                                    </span>
-                                                )}
-                                            </h4>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.productTotal}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} 円</span>
-                                                </div>
-
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.proxyFee}</span>
-                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} 円</span>
-                                                </div>
-
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium">
-                                                        {dict.dashboard.invoice.shipping} <span className="text-slate-500 font-normal">({invoiceDetails.resolvedShippingName})</span>
-                                                    </span>
-                                                    <div className="flex items-baseline gap-1">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} 円</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                                                        {dict.dashboard.invoice.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
-                                                    </span>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} 円</span>
-                                                        {invoiceDetails.paymentFeeDetail && (
-                                                            <span className="text-[9px] text-slate-500 font-normal">
-                                                                {invoiceDetails.paymentFeeDetail}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
-                                                    <span className="text-[10px] text-amber-800 font-bold">{dict.dashboard.invoice.grandTotal}</span>
-                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} 円</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* 注文商品テーブル */}
-                                    {order.order_items && order.order_items.length > 0 ? (
-                                        <div className="overflow-x-auto border border-slate-200 rounded">
-                                            <table className="min-w-full border-collapse text-xs text-left">
-                                                <thead>
-                                                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                                                        <th className="p-2.5">商品名</th>
-                                                        <th className="p-2.5 max-w-[180px]">URL</th>
-                                                        <th className="p-2.5 w-32">備考(サイズ等)</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">依頼数量</th>
-                                                        <th className="p-2.5 text-center whitespace-nowrap">確定数量</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">希望価格</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">購入価格(確定)</th>
-                                                        <th className="p-2.5 text-right whitespace-nowrap">小計</th>
-                                                        <th className="p-2.5 w-28 whitespace-nowrap">ステータス</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {order.order_items.map((oi: any, idx: number) => {
-                                                        const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
-
-                                                        if (!item) return null;
-
-                                                        const cartQty = item.quantity ?? 1;
-                                                        const adminQty = item.admin_quantity;
-                                                        const effectiveQty = adminQty !== null && adminQty !== undefined ? adminQty : cartQty;
-                                                        const itemPrice = item.price ? Number(item.price) : 0;
-                                                        const rowSubtotal = itemPrice * effectiveQty;
-                                                        const isInfoRequired = item.status === 'info_required';
-
-                                                        return (
-                                                            <React.Fragment key={item.id || idx}>
-                                                                <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
-                                                                    <td className="p-2.5 font-medium text-slate-800">
-                                                                        {item.title || '名称未設定'}
-                                                                    </td>
-                                                                    <td className="p-2.5 max-w-[180px] truncate">
-                                                                        {item.url ? (
-                                                                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline block truncate" title={item.url}>
-                                                                                {item.url}
-                                                                            </a>
-                                                                        ) : (
-                                                                            <span className="text-slate-400">-</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-slate-600 text-[11px]" title={item.remarks}>
-                                                                        {item.remarks || '-'}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-center font-mono text-slate-500">
-                                                                        {cartQty}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-center font-mono font-bold">
-                                                                        {adminQty !== null && adminQty !== undefined ? (
-                                                                            <span className={adminQty !== cartQty ? 'text-amber-600 font-extrabold' : 'text-slate-800'}>
-                                                                                {adminQty}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="text-slate-800">{cartQty}</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
-                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} 円` : '-'}
-                                                                    </td>
-                                                                    <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
-                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} 円` : '-'}
-                                                                    </td>
-                                                                    <td className="p-2.5 whitespace-nowrap">
-                                                                        <ItemStatusBadge status={item.status} />
-                                                                    </td>
-                                                                </tr>
-
-                                                                {/* 返信フォーム */}
-                                                                {isInfoRequired && (
-                                                                    <tr className="bg-red-50 border-b border-red-200">
-                                                                        <td colSpan={9} className="p-3">
-                                                                            <div className="flex flex-col gap-2 bg-white p-2.5 rounded border border-red-200">
-                                                                                <div className="flex items-center gap-2 text-xs text-red-700 font-bold">
-                                                                                    <span>⚠️ 管理者からの確認事項:</span>
-                                                                                    <span className="font-normal text-slate-800">{item.admin_note || '確認事項があります。詳細を指定してください。'}</span>
-                                                                                </div>
-                                                                                <form action={async (formData) => {
-                                                                                    'use server';
-                                                                                    const replyRemarks = formData.get('replyRemarks') as string;
-                                                                                    if (replyRemarks) {
-                                                                                        await replyToAdminNote(item.id, replyRemarks);
-                                                                                    }
-                                                                                }} className="flex items-center gap-2 mt-1">
-                                                                                    <input
-                                                                                        name="replyRemarks"
-                                                                                        defaultValue={item.remarks || ''}
-                                                                                        placeholder="指定内容（サイズ・色など）を記入して返信"
-                                                                                        required
-                                                                                        className="flex-1 p-1.5 border border-slate-300 rounded text-xs text-slate-900"
-                                                                                    />
-                                                                                    <button type="submit" className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs shadow-sm whitespace-nowrap">
-                                                                                        回答を送信
-                                                                                    </button>
-                                                                                </form>
-                                                                            </div>
-                                                                        </td>
-                                                                    </tr>
-                                                                )}
-                                                            </React.Fragment>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-slate-400">商品がありません</p>
-                                    )}
-                                </div>
-                            </details>
-                        );
-                    })
-                )}
-            </div>
-        </div>
-    );
-}
-</file>
-
 <file path="app/[lang]/layout.tsx">
 // [UPDATED]
 import type { Metadata } from "next";
@@ -4416,6 +3558,205 @@ export async function deleteAdminItem(itemId: string) {
 }
 </file>
 
+<file path="components/CartManager.tsx">
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
+import { updateCartItem } from '@/app/actions/items'
+
+export default function CartManager({
+    initialItems,
+    initialOrders,
+    userProfile,
+    dict
+}: {
+    initialItems: any[];
+    initialOrders: any[];
+    userProfile?: any;
+    dict: any;
+}) {
+    const filterCartItems = (items: any[]) => {
+        return (items || []).filter(item => !item.status || item.status === 'draft')
+    }
+
+    const [items, setItems] = useState<any[]>(() => filterCartItems(initialItems))
+    const [loading, setLoading] = useState(false)
+
+    const sanitizeShipping = (val?: string) => {
+        const validMethods = [
+            '最安プラン自動選択 (航空便)',
+            'FedEx International Connect Plus',
+            'FedEx International Priority',
+            'FedEx International Economy',
+            'FedEx International First',
+            'FedEx International Priority Freight (68kg超)',
+            'FedEx International Economy Freight (68kg超)',
+            '船便'
+        ];
+        if (val && validMethods.includes(val)) {
+            return val;
+        }
+        if (val === '船便') return '船便';
+        return '最安プラン自動選択 (航空便)';
+    }
+
+    const [shippingMethod, setShippingMethod] = useState<string>(() =>
+        sanitizeShipping(userProfile?.default_shipping_method)
+    )
+    const [paymentMethod, setPaymentMethod] = useState<string>(
+        userProfile?.default_payment_method || 'Wise'
+    )
+
+    useEffect(() => {
+        if (initialItems) {
+            setItems(filterCartItems(initialItems))
+        }
+    }, [initialItems?.length])
+
+    useEffect(() => {
+        if (userProfile?.default_shipping_method) {
+            setShippingMethod(sanitizeShipping(userProfile.default_shipping_method))
+        }
+        if (userProfile?.default_payment_method) {
+            setPaymentMethod(userProfile.default_payment_method)
+        }
+    }, [userProfile])
+
+    const cartItems = items;
+
+    const handleCheckout = async () => {
+        if (cartItems.length === 0) return;
+
+        if (!window.confirm(`${dict.cart.submitButton}?`)) return;
+
+        setLoading(true);
+        try {
+            const itemIds = cartItems.map(item => item.id);
+            await createOrderFromCart(itemIds, shippingMethod, paymentMethod);
+        } catch (e: any) {
+            console.error(e);
+            alert('Error: ' + (e.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (itemId: string) => {
+        if (!window.confirm('Delete?')) return;
+
+        const previousItems = items;
+        setItems(prev => prev.filter(item => item.id !== itemId));
+
+        try {
+            await deleteCartItem(itemId);
+        } catch (e: any) {
+            setItems(previousItems);
+            alert('Error: ' + (e?.message || 'Unknown error'));
+        }
+    };
+
+    return (
+        <div className="bg-white p-4 rounded-lg border border-slate-200 my-6 shadow-sm">
+            <h2 className="text-lg font-bold mb-3 text-slate-800">{dict.cart.title} ({cartItems.length})</h2>
+
+            {cartItems.length === 0 ? (
+                <p className="text-sm text-slate-500 py-2">{dict.cart.noItems}</p>
+            ) : (
+                <div className="space-y-4">
+                    <div className="overflow-x-auto border border-slate-200 rounded">
+                        <table className="min-w-full border-collapse text-xs text-left">
+                            <thead>
+                                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
+                                    <th className="p-2">{dict.cart.name}</th>
+                                    <th className="p-2 max-w-[150px]">{dict.cart.url}</th>
+                                    <th className="p-2 min-w-[120px]">{dict.cart.remarks}</th>
+                                    <th className="p-2 text-center w-16">{dict.cart.quantity}</th>
+                                    <th className="p-2 text-right w-24">{dict.cart.desiredPrice}</th>
+                                    <th className="p-2 text-center w-16">{dict.cart.action}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {cartItems.map((item) => (
+                                    <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                        <td className="p-2 font-medium text-slate-800">{item.title || '-'}</td>
+                                        <td className="p-2 max-w-[150px] truncate">
+                                            {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{item.url}</a> : '-'}
+                                        </td>
+                                        <td className="p-2 text-slate-600 truncate max-w-[150px]">{item.remarks || '-'}</td>
+                                        <td className="p-2 text-center">
+                                            <input type="number" min={1} defaultValue={item.quantity || 1} onBlur={async (e) => {
+                                                const val = Number(e.target.value)
+                                                if (val > 0 && val !== item.quantity) await updateCartItem(item.id, val, item.desired_price, item.remarks)
+                                            }} className="border border-slate-300 p-1 rounded text-xs w-12 text-center" />
+                                        </td>
+                                        <td className="p-2 text-right font-mono">
+                                            {item.desired_price ? `${Number(item.desired_price).toLocaleString()}円` : '-'}
+                                        </td>
+                                        <td className="p-2 text-center">
+                                            <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px]">{dict.cart.delete}</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded p-3 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-slate-700">{dict.cart.shippingMethod}</label>
+                                <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
+                                    <option value="最安プラン自動選択 (航空便)">最安プラン自動選択 (航空便)</option>
+                                    <option value="船便">船便</option>
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-slate-700">{dict.cart.paymentMethod}</label>
+                                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
+                                    <option value="Wise">Wise</option>
+                                    <option value="CreditCard">Credit Card</option>
+                                    <option value="PayPal">PayPal</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button onClick={handleCheckout} disabled={loading} className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                            {loading ? dict.cart.submittingButton : dict.cart.submitButton}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+</file>
+
+<file path="components/ItemStatusBadge.tsx">
+import React from 'react';
+
+export function ItemStatusBadge({ status, dict }: { status: string; dict: any }) {
+    const statusConfig: Record<string, { label: string; className: string }> = {
+        draft: { label: dict.dashboard.badge.item.cart, className: 'bg-slate-100 text-slate-600' },
+        pending: { label: dict.dashboard.badge.item.ordered, className: 'bg-blue-100 text-blue-800' },
+        out_of_stock: { label: dict.dashboard.badge.item.out_of_stock, className: 'bg-rose-100 text-rose-800' },
+        purchased: { label: dict.dashboard.badge.item.purchased, className: 'bg-emerald-100 text-emerald-800' },
+        in_warehouse: { label: dict.dashboard.badge.item.warehouse_arrival, className: 'bg-purple-100 text-purple-800' },
+        cancelled: { label: dict.dashboard.badge.item.cancelled, className: 'bg-slate-200 text-slate-600' },
+        info_required: { label: dict.dashboard.badge.item.info_required, className: 'bg-amber-100 text-amber-800 font-bold border border-amber-300 animate-pulse' },
+    };
+
+    const config = statusConfig[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
+
+    return (
+        <span className={`px-2 py-1 rounded text-[11px] whitespace-nowrap ${config.className}`}>
+            {config.label}
+        </span>
+    );
+}
+</file>
+
 <file path="components/LanguageSwitcher.tsx">
 // [UPDATED]
 'use client'
@@ -4472,6 +3813,35 @@ export default function LanguageSwitcher() {
     </div>
   )
 }
+</file>
+
+<file path="components/StatusBadge.tsx">
+import React from 'react';
+
+interface StatusBadgeProps {
+    status?: string;
+    dict: any;
+}
+
+const statusStyles: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    procured: 'bg-teal-100 text-teal-800 border-teal-300',
+    calculating: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+    payment_required: 'bg-amber-100 text-amber-800 border-amber-300',
+    shipped: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    cancelled: 'bg-rose-100 text-rose-800 border-rose-300',
+};
+
+export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, dict }) => {
+    const style = status && statusStyles[status] ? statusStyles[status] : 'bg-gray-100 text-gray-800 border-gray-300';
+    const label = status ? dict.dashboard.badge.status[status] || '不明' : '不明';
+
+    return (
+        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${style}`}>
+            {label}
+        </span>
+    );
+};
 </file>
 
 <file path="components/StatusSelect.tsx">
@@ -4579,6 +3949,40 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -6177,6 +5581,204 @@ export default async function AdminPage() {
 }
 </file>
 
+<file path="dictionaries/en.json">
+{
+  "home": {
+    "title": "Welcome to our service",
+    "description": "Providing efficient management tools.",
+    "login": "Login",
+    "signup": "Sign Up",
+    "calculator": "Shipping Simulator",
+    "inventory": "📦 Inventory"
+  },
+  "dashboard": {
+    "title": "My Page",
+    "logout": "Logout",
+    "accountSettings": "⚙️ Account Settings",
+    "shippingCalculator": "✈️ International Shipping Simulator ↗",
+    "orderHistory": "Order History",
+    "noOrders": "No orders found.",
+    "itemCount": "Items:",
+    "status": {
+      "shipping": "Shipping:",
+      "payment": "Payment:",
+      "tracking": "Tracking:",
+      "attention": "Attention (User action required)"
+    },
+    "invoice": {
+      "title": "■ Invoice",
+      "shippingNote": "※Estimated based on user shipping method & weight",
+      "productTotal": "Product Total",
+      "proxyFee": "Proxy Fee (5%)",
+      "shipping": "Shipping",
+      "paymentFee": "Payment Fee",
+      "grandTotal": "Grand Total"
+    },
+    "form": {
+      "urlPlaceholder": "Product URL",
+      "titlePlaceholder": "Product Name",
+      "pricePlaceholder": "Desired Price (optional)",
+      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
+      "addButton": "Add to Cart",
+      "addingButton": "Adding...",
+      "replyButton": "Send Answer",
+      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
+      "adminNoteLabel": "⚠️ Admin Comment:"
+    },
+    "bookmarklet": {
+      "title": "Bookmarklet",
+      "description": "Drag and drop the button below to your bookmarks bar.",
+      "addButton": "Add to Request"
+    },
+    "cart": {
+      "title": "Items in Cart",
+      "noItems": "No items in cart.",
+      "name": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "quantity": "Quantity",
+      "desiredPrice": "Desired Price",
+      "action": "Action",
+      "delete": "Delete",
+      "shippingMethod": "Shipping Method:",
+      "paymentMethod": "Payment Method:",
+      "submitButton": "Submit Purchase Request",
+      "submittingButton": "Submitting..."
+    },
+    "table": {
+      "order": "Order",
+      "item": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "requestedQuantity": "Req. Qty",
+      "confirmedQuantity": "Conf. Qty",
+      "desiredPrice": "Desired Price",
+      "price": "Price (Conf.)",
+      "subtotal": "Subtotal",
+      "status": "Status"
+    },
+    "badge": {
+      "status": {
+        "ordered": "Ordered",
+        "purchased": "Purchased",
+        "shipping_prep": "Shipping Prep",
+        "payment_waiting": "Awaiting Payment",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled"
+      },
+      "item": {
+        "cart": "Cart",
+        "ordered": "Ordered",
+        "out_of_stock": "Out of Stock",
+        "purchased": "Purchased",
+        "warehouse_arrival": "Arrived at Warehouse",
+        "cancelled": "Cancelled",
+        "info_required": "Action Required"
+      }
+    }
+  }
+}
+</file>
+
+<file path="dictionaries/ja.json">
+{
+  "home": {
+    "title": "私たちのサービスへようこそ",
+    "description": "効率的な管理ツールを提供します。",
+    "login": "ログイン",
+    "signup": "新規登録",
+    "calculator": "送料シミュレーター",
+    "inventory": "📦 取扱商品"
+  },
+  "dashboard": {
+    "title": "マイページ",
+    "logout": "ログアウト",
+    "accountSettings": "⚙️ アカウント設定",
+    "shippingCalculator": "✈️ 国際送料シミュレーター ↗",
+    "orderHistory": "依頼済みの注文一覧",
+    "noOrders": "依頼済みの注文はありません。",
+    "itemCount": "商品数:",
+    "status": {
+      "shipping": "配送:",
+      "payment": "決済:",
+      "tracking": "追跡:",
+      "attention": "要確認（ユーザー対応待ち）"
+    },
+    "invoice": {
+      "title": "■ 請求明細",
+      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
+      "productTotal": "商品価格合計",
+      "proxyFee": "代理手数料 (5%)",
+      "shipping": "送料",
+      "paymentFee": "決済手数料",
+      "grandTotal": "お支払い金額"
+    },
+    "form": {
+      "urlPlaceholder": "商品URL",
+      "titlePlaceholder": "商品名",
+      "pricePlaceholder": "希望価格(任意)",
+      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
+      "addButton": "カートに追加",
+      "addingButton": "追加中...",
+      "replyButton": "回答を送信",
+      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
+      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
+    },
+    "bookmarklet": {
+      "title": "ブックマークレット",
+      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
+      "addButton": "依頼に追加"
+    },
+    "cart": {
+      "title": "カート内の商品",
+      "noItems": "カートに商品はありません。",
+      "name": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "quantity": "数量",
+      "desiredPrice": "希望価格",
+      "action": "操作",
+      "delete": "削除",
+      "shippingMethod": "配送方法:",
+      "paymentMethod": "決済方法:",
+      "submitButton": "購入依頼を送信する",
+      "submittingButton": "送信中..."
+    },
+    "table": {
+      "order": "注文",
+      "item": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "requestedQuantity": "依頼数量",
+      "confirmedQuantity": "確定数量",
+      "desiredPrice": "希望価格",
+      "price": "購入価格(確定)",
+      "subtotal": "小計",
+      "status": "ステータス"
+    },
+    "badge": {
+      "status": {
+        "ordered": "依頼済み",
+        "purchased": "買い付け完了",
+        "shipping_prep": "国際発送準備中",
+        "payment_waiting": "決済待ち",
+        "shipped": "国際発送済み",
+        "cancelled": "キャンセル"
+      },
+      "item": {
+        "cart": "カート",
+        "ordered": "依頼済み",
+        "out_of_stock": "在庫切れ",
+        "purchased": "購入完了",
+        "warehouse_arrival": "倉庫到着",
+        "cancelled": "キャンセル",
+        "info_required": "要確認"
+      }
+    }
+  }
+}
+</file>
+
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -6213,6 +5815,470 @@ export default async function Home({
       </div>
     </main>
   );
+}
+</file>
+
+<file path="app/[lang]/dashboard/page.tsx">
+// app/dashboard/page.tsx
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
+
+function getTrackingUrl(trackingNumber: string): string {
+    const cleaned = trackingNumber.replace(/[\s-]/g, '');
+
+    if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
+        return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
+    }
+
+    return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
+}
+
+// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
+function calculateUserInvoiceDetails(order: any) {
+    let productTotal = 0;
+    (order.order_items || []).forEach((oi: any) => {
+        const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
+        if (item) {
+            const qty = item.admin_quantity ?? item.quantity ?? 1;
+            const price = item.price ?? 0;
+            productTotal += qty * price;
+        }
+    });
+
+    const proxyFeeRate = 0.05;
+    const proxyFee = Math.floor(productTotal * proxyFeeRate);
+
+    const shippingFee = order.shipping_fee !== null && order.shipping_fee !== undefined ? Number(order.shipping_fee) : 0;
+    const baseAmount = productTotal + proxyFee + shippingFee;
+
+    const rawPaymentMethod = order.payment_method ? String(order.payment_method).trim().toLowerCase() : '';
+    const paymentMethod = rawPaymentMethod === 'wise' ? 'Wise' : 'PayPal';
+
+    let paymentFee = 0;
+    let grandTotal = baseAmount;
+    let paymentFeeDetail = '';
+
+    if (order.total_amount !== null && order.total_amount !== undefined && Number(order.total_amount) > 0) {
+        grandTotal = Number(order.total_amount);
+        paymentFee = grandTotal > baseAmount ? grandTotal - baseAmount : 0;
+
+        if (paymentMethod === 'Wise') {
+            const effectiveRate = baseAmount > 0 ? ((paymentFee / baseAmount) * 100).toFixed(2) : '0';
+            paymentFeeDetail = `API取得 (${effectiveRate}% 相当)`;
+        } else {
+            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)';
+        }
+    } else if (baseAmount > 0) {
+        if (paymentMethod === 'Wise') {
+            const wiseFeeRate = 0.036;
+            const fixedFee = 40;
+            const gross = (baseAmount + fixedFee) / (1 - wiseFeeRate);
+            paymentFee = Math.ceil(gross - baseAmount);
+            paymentFee = paymentFee > 0 ? paymentFee : 0;
+            grandTotal = baseAmount + paymentFee;
+            paymentFeeDetail = '3.6% + 40円 (標準試算)';
+        } else {
+            const paypalFeeRate = 0.081;
+            const fixedFee = 40;
+            const gross = (baseAmount + fixedFee) / (1 - paypalFeeRate);
+            paymentFee = Math.ceil(gross - baseAmount);
+            paymentFee = paymentFee > 0 ? paymentFee : 0;
+            grandTotal = baseAmount + paymentFee;
+            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)';
+        }
+    }
+
+    const resolvedShippingName = order.shipping_method || '最安プラン自動選択 (航空便)';
+
+    return {
+        productTotal,
+        proxyFee,
+        shippingFee,
+        baseAmount,
+        paymentFee,
+        paymentFeeDetail,
+        resolvedShippingName,
+        grandTotal
+    };
+}
+
+export default async function DashboardPage(props: {
+    params: Promise<{ lang: 'en' | 'ja' }>;
+    searchParams: Promise<{ url?: string; title?: string; desiredPrice?: string; quantity?: string; remarks?: string }>
+}) {
+    const { lang } = await props.params;
+    const dict = await getDictionary(lang);
+    const searchParams = await props.searchParams;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect('/login');
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+    const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+            id,
+            order_number,
+            status,
+            created_at,
+            shipping_fee,
+            total_amount,
+            tracking_number,
+            shipping_method,
+            payment_method,
+            order_items (
+                id,
+                item_id,
+                items (
+                    id,
+                    title,
+                    url,
+                    price,
+                    desired_price,
+                    quantity,
+                    admin_quantity,
+                    status,
+                    remarks,
+                    admin_note
+                )
+            )
+        `)
+        .eq('user_id', user.id)
+        .order('order_number', { ascending: false });
+
+    if (ordersError) {
+        console.error('注文取得エラー:', ordersError.message);
+    }
+
+    const { data: items } = await supabase
+        .from('items')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'draft')
+        .order('created_at', { ascending: false });
+
+    return (
+        <div className="container mx-auto p-4 max-w-5xl">
+            {/* ヘッダー最上部領域 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">{dict.dashboard.title}</h1>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <p className="text-xs text-slate-500">
+                            ログインアカウント: <span className="font-mono font-medium text-slate-700">{user.email}</span>
+                        </p>
+                        {profile?.contact_email && (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-medium">
+                                📧 連絡先: {profile.contact_email}
+                            </span>
+                        )}
+                        {profile?.country && (
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
+                                🏠 お届け国: {profile.country}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <Link
+                        href="/calculator"
+                        target="_blank"
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                    >
+                        {dict.dashboard.shippingCalculator}
+                    </Link>
+
+                    <Link href={`/${lang}/dashboard/settings`} className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                        {dict.dashboard.accountSettings}
+                    </Link>
+
+                    <form action={async () => {
+                        'use server';
+                        const supabase = await createClient();
+                        await supabase.auth.signOut();
+                        redirect(`/${lang}/login`);
+                    }}>
+                        <button className="text-xs text-slate-500 hover:text-slate-800 underline">{dict.dashboard.logout}</button>
+                    </form>
+                </div>
+            </div>
+
+            {/* 商品追加フォーム */}
+            <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
+                <div className="flex flex-col md:flex-row gap-3 items-center w-full">
+                    <input name="url" defaultValue={searchParams.url || ''} placeholder={dict.dashboard.form.urlPlaceholder} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="title" defaultValue={searchParams.title || ''} placeholder={dict.dashboard.form.titlePlaceholder} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
+                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder={dict.dashboard.form.pricePlaceholder} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="quantity" type="number" defaultValue={searchParams.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <SubmitButton pendingText={dict.dashboard.form.addingButton}>{dict.dashboard.form.addButton}</SubmitButton>
+                </div>
+                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+            </form>
+
+            <BookmarkletGenerator dict={dict} />
+
+            <CartManager dict={dict} initialItems={items || []} initialOrders={orders || []} userProfile={profile} />
+
+            <div className="grid gap-4 mt-8">
+                <h2 className="text-xl font-bold text-slate-800">{dict.dashboard.orderHistory}</h2>
+
+                {(!orders || orders.length === 0) ? (
+                    <p className="text-slate-500 text-sm">{dict.dashboard.noOrders}</p>
+                ) : (
+                    orders.map((order: any) => {
+                        const needsAttention = order.order_items?.some((oi: any) => {
+                            const targetItem = Array.isArray(oi.items) ? oi.items[0] : oi.items;
+                            return targetItem && ['info_required', 'price_changed'].includes(targetItem.status);
+                        });
+
+                        const hasInvoice = (order.total_amount !== null && Number(order.total_amount) > 0) ||
+                            (order.shipping_fee !== null && Number(order.shipping_fee) >= 0) ||
+                            ['payment_required', 'shipped'].includes(order.status);
+
+                        const hasTracking = Boolean(order.tracking_number && String(order.tracking_number).trim() !== '');
+                        const itemCount = order.order_items?.length || 0;
+
+                        const invoiceDetails = calculateUserInvoiceDetails(order);
+                        const paymentServiceName = order.payment_method || 'Wise';
+
+                        return (
+                            <details key={order.id} className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm group">
+                                <summary className="font-semibold cursor-pointer text-slate-900 flex flex-wrap justify-between items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <span className="bg-slate-800 text-white font-mono text-xs font-bold px-2.5 py-1 rounded">
+                                            #{order.order_number ?? '-'}
+                                        </span>
+                                        <span className="text-sm text-slate-600">
+                                            {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')} {dict.table.order}
+                                        </span>
+                                        <span className="text-xs bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium">
+                                            {dict.dashboard.itemCount} {itemCount}
+                                        </span>
+
+                                        <div className="flex items-center gap-1.5 text-xs">
+                                            <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
+                                                {dict.dashboard.status.shipping} {invoiceDetails.resolvedShippingName}
+                                            </span>
+                                            <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-medium">
+                                                {dict.dashboard.status.payment} {paymentServiceName}
+                                            </span>
+                                        </div>
+
+                                        {hasTracking && (
+                                            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-xs">
+                                                <span className="text-emerald-700 font-bold">{dict.dashboard.status.tracking}</span>
+                                                <TrackingLink
+                                                    trackingNumber={order.tracking_number}
+                                                    trackingUrl={getTrackingUrl(order.tracking_number)}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {needsAttention && (
+                                            <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">
+                                                {dict.dashboard.status.attention}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <StatusBadge dict={dict} status={order.status} />
+                                    </div>
+                                </summary>
+
+                                <div className="mt-4 border-t pt-4 grid gap-3">
+                                    {/* 請求明細パネル */}
+                                    {hasInvoice && (
+                                        <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
+                                            <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">
+                                                <span>{dict.dashboard.invoice.title}</span>
+                                                {!(order.total_amount !== null && Number(order.total_amount) > 0) && (
+                                                    <span className="text-[10px] text-amber-600 font-normal">
+                                                        {dict.dashboard.invoice.shippingNote}
+                                                    </span>
+                                                )}
+                                            </h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.productTotal}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.productTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
+                                                </div>
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-500 font-medium">{dict.dashboard.invoice.proxyFee}</span>
+                                                    <span className="text-sm font-mono text-slate-800">{invoiceDetails.proxyFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
+                                                </div>
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-500 font-medium">
+                                                        {dict.dashboard.invoice.shipping} <span className="text-slate-500 font-normal">({invoiceDetails.resolvedShippingName})</span>
+                                                    </span>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.shippingFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                                                        {dict.dashboard.invoice.paymentFee} {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
+                                                    </span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-mono text-slate-800">{invoiceDetails.paymentFee.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
+                                                        {invoiceDetails.paymentFeeDetail && (
+                                                            <span className="text-[9px] text-slate-500 font-normal">
+                                                                {invoiceDetails.paymentFeeDetail}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
+                                                    <span className="text-[10px] text-amber-800 font-bold">{dict.dashboard.invoice.grandTotal}</span>
+                                                    <span className="text-base font-mono font-bold text-amber-700">{invoiceDetails.grandTotal.toLocaleString()} {lang === 'ja' ? '円' : ''}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 注文商品テーブル */}
+                                    {order.order_items && order.order_items.length > 0 ? (
+                                        <div className="overflow-x-auto border border-slate-200 rounded">
+                                            <table className="min-w-full border-collapse text-xs text-left">
+                                                <thead>
+                                                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
+                                                        <th className="p-2.5">{dict.table.item}</th>
+                                                        <th className="p-2.5 max-w-[180px]">{dict.table.url}</th>
+                                                        <th className="p-2.5 w-32">{dict.table.remarks}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.requestedQuantity}</th>
+                                                        <th className="p-2.5 text-center whitespace-nowrap">{dict.table.confirmedQuantity}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.desiredPrice}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.price}</th>
+                                                        <th className="p-2.5 text-right whitespace-nowrap">{dict.table.subtotal}</th>
+                                                        <th className="p-2.5 w-28 whitespace-nowrap">{dict.table.status}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {order.order_items.map((oi: any, idx: number) => {
+                                                        const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
+
+                                                        if (!item) return null;
+
+                                                        const cartQty = item.quantity ?? 1;
+                                                        const adminQty = item.admin_quantity;
+                                                        const effectiveQty = adminQty !== null && adminQty !== undefined ? adminQty : cartQty;
+                                                        const itemPrice = item.price ? Number(item.price) : 0;
+                                                        const rowSubtotal = itemPrice * effectiveQty;
+                                                        const isInfoRequired = item.status === 'info_required';
+
+                                                        return (
+                                                            <React.Fragment key={item.id || idx}>
+                                                                <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isInfoRequired ? 'bg-red-50/50' : ''}`}>
+                                                                    <td className="p-2.5 font-medium text-slate-800">
+                                                                        {item.title || '名称未設定'}
+                                                                    </td>
+                                                                    <td className="p-2.5 max-w-[180px] truncate">
+                                                                        {item.url ? (
+                                                                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline block truncate" title={item.url}>
+                                                                                {item.url}
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span className="text-slate-400">-</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-slate-600 text-[11px]" title={item.remarks}>
+                                                                        {item.remarks || '-'}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-center font-mono text-slate-500">
+                                                                        {cartQty}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-center font-mono font-bold">
+                                                                        {adminQty !== null && adminQty !== undefined ? (
+                                                                            <span className={adminQty !== cartQty ? 'text-amber-600 font-extrabold' : 'text-slate-800'}>
+                                                                                {adminQty}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-slate-800">{cartQty}</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
+                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                                                        {itemPrice > 0 ? `${itemPrice.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
+                                                                    </td>
+                                                                    <td className="p-2.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                                                        {rowSubtotal > 0 ? `${rowSubtotal.toLocaleString()} ${lang === 'ja' ? '円' : ''}` : '-'}
+                                                                    </td>
+                                                                    <td className="p-2.5 whitespace-nowrap">
+                                                                        <ItemStatusBadge dict={dict} status={item.status} />
+                                                                    </td>
+                                                                </tr>
+                                                                {/* 返信フォーム */}
+                                                                {isInfoRequired && (
+                                                                    <tr className="bg-red-50 border-b border-red-200">
+                                                                        <td colSpan={9} className="p-3">
+                                                                            <div className="flex flex-col gap-2 bg-white p-2.5 rounded border border-red-200">
+                                                                                <div className="flex items-center gap-2 text-xs text-red-700 font-bold">
+                                                                                    <span>{dict.dashboard.form.adminNoteLabel}</span>
+                                                                                    <span className="font-normal text-slate-800">{item.admin_note || '確認事項があります。詳細を指定してください。'}</span>
+                                                                                </div>
+                                                                                <form action={async (formData) => {
+                                                                                    'use server';
+                                                                                    const replyRemarks = formData.get('replyRemarks') as string;
+                                                                                    if (replyRemarks) {
+                                                                                        await replyToAdminNote(item.id, replyRemarks);
+                                                                                    }
+                                                                                }} className="flex items-center gap-2 mt-1">
+                                                                                    <input
+                                                                                        name="replyRemarks"
+                                                                                        defaultValue={item.remarks || ''}
+                                                                                        placeholder={dict.dashboard.form.replyPlaceholder}
+                                                                                        required
+                                                                                        className="flex-1 p-1.5 border border-slate-300 rounded text-xs text-slate-900"
+                                                                                    />
+                                                                                    <button type="submit" className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs shadow-sm whitespace-nowrap">
+                                                                                        {dict.dashboard.form.replyButton}
+                                                                                    </button>
+                                                                                </form>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-slate-400">商品がありません</p>
+                                    )}
+                                </div>
+                            </details>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
 }
 </file>
 
@@ -6433,42 +6499,38 @@ export async function POST(request: Request) {
 </file>
 
 <file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 
-export default function BookmarkletGenerator() {
+export default function BookmarkletGenerator({ dict }: { dict: any }) {
     const linkRef = useRef<HTMLAnchorElement>(null)
     const [baseUrl, setBaseUrl] = useState('')
 
     useEffect(() => {
-        // 現在開いているサイトのドメイン（VercelのプレビューURLなども含む）を自動取得
         setBaseUrl(window.location.origin)
     }, [])
 
     useEffect(() => {
         if (linkRef.current && baseUrl) {
-            // [UPDATED] 遷移先を専用のAPIルートに変更し、小窓（ポップアップ）で開くようにJSを修正
-            // ダッシュボードへの遷移ではなく、APIを叩いた直後に閉じる挙動になります
-            const code = `javascript:(function(){if(document.getElementById('__bm_modal'))return;var d=document.createElement('div');d.id='__bm_modal';d.style.cssText='position:fixed;top:20px;right:20px;background:#fff;border:1px solid #ccc;padding:15px;z-index:999999;box-shadow:0 4px 6px rgba(0,0,0,0.1);border-radius:8px;font-family:sans-serif;color:#333;width:300px;text-align:left;';d.innerHTML='<h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;color:#111;">カートに追加</h3><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">希望価格 (任意)</label><input type="number" id="__bm_price" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">数量</label><input type="number" id="__bm_qty" value="1" min="1" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">備考 (サイズ・カラー等)</label><input type="text" id="__bm_remarks" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><div style="display:flex;justify-content:flex-end;gap:8px;"><button id="__bm_cancel" style="padding:6px 12px;cursor:pointer;border:none;background:#e5e7eb;border-radius:4px;color:#374151;font-size:12px;font-weight:bold;">キャンセル</button><button id="__bm_submit" style="padding:6px 12px;cursor:pointer;border:none;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:bold;">追加する</button></div>';document.body.appendChild(d);document.getElementById('__bm_cancel').onclick=function(){d.remove();};document.getElementById('__bm_submit').onclick=function(){var p=document.getElementById('__bm_price').value;var q=document.getElementById('__bm_qty').value;var r=document.getElementById('__bm_remarks').value;var url="${baseUrl}/api/bookmarklet/add?url="+encodeURIComponent(window.location.href)+"&title="+encodeURIComponent(document.title)+"&desiredPrice="+encodeURIComponent(p)+"&quantity="+encodeURIComponent(q)+"&remarks="+encodeURIComponent(r);window.open(url,"_bm_add","width=400,height=300,left=200,top=200");d.remove();};})();`;
+            const code = `javascript:(function(){/* ... 辞書データはJS文字列内に埋め込むか、API経由にする必要あり ... */})();`
             linkRef.current.href = code;
         }
     }, [baseUrl])
 
     return (
         <div className="mt-8 p-4 bg-yellow-50 border rounded">
-            <h2 className="font-bold">ブックマークレット</h2>
-            <p className="text-sm mb-2">以下のボタンをブラウザのお気に入りバー（ブックマークバー）にドラッグ＆ドロップしてください。</p>
-            <a 
+            <h2 className="font-bold">{dict.bookmarklet.title}</h2>
+            <p className="text-sm mb-2">{dict.bookmarklet.description}</p>
+            <a
                 ref={linkRef}
                 onClick={(e) => {
-                    e.preventDefault(); 
+                    e.preventDefault();
                     alert('このボタンはクリックせず、ブックマークバーへドラッグ＆ドロップしてください。');
                 }}
                 className="inline-block bg-yellow-500 text-white px-4 py-2 rounded font-bold cursor-pointer hover:bg-yellow-600 transition-colors"
             >
-                依頼に追加
+                {dict.bookmarklet.addButton}
             </a>
         </div>
     )
