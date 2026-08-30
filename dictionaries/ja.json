@@ -29,6 +29,17 @@
       "shipping": "送料",
       "paymentFee": "決済手数料",
       "grandTotal": "お支払い金額"
+    },
+    "form": {
+      "urlPlaceholder": "商品URL",
+      "titlePlaceholder": "商品名",
+      "pricePlaceholder": "希望価格(任意)",
+      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
+      "addButton": "カートに追加",
+      "addingButton": "追加中...",
+      "replyButton": "回答を送信",
+      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
+      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
     }
   }
 }

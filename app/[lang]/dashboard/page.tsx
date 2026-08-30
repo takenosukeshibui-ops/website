@@ -204,15 +204,13 @@ export default async function DashboardPage(props: {
             {/* 商品追加フォーム */}
             <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
-                    <input name="url" defaultValue={searchParams.url || ''} placeholder="商品URL" required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="title" defaultValue={searchParams.title || ''} placeholder="商品名" className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    {/* [UPDATED] ブックマークレットから渡された値を反映 */}
-                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder="希望価格(任意)" className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="url" defaultValue={searchParams.url || ''} placeholder={dict.dashboard.form.urlPlaceholder} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="title" defaultValue={searchParams.title || ''} placeholder={dict.dashboard.form.titlePlaceholder} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
+                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder={dict.dashboard.form.pricePlaceholder} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <input name="quantity" type="number" defaultValue={searchParams.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <SubmitButton pendingText="追加中...">カートに追加</SubmitButton>
+                    <SubmitButton pendingText={dict.dashboard.form.addingButton}>{dict.dashboard.form.addButton}</SubmitButton>
                 </div>
-                {/* [UPDATED] ブックマークレットから渡された値を反映 */}
-                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder="サイズ・カラー・状態などの指定があれば入力してください(任意)" className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder={dict.dashboard.form.remarksPlaceholder} className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
             <BookmarkletGenerator />
@@ -412,14 +410,13 @@ export default async function DashboardPage(props: {
                                                                         <ItemStatusBadge status={item.status} />
                                                                     </td>
                                                                 </tr>
-
                                                                 {/* 返信フォーム */}
                                                                 {isInfoRequired && (
                                                                     <tr className="bg-red-50 border-b border-red-200">
                                                                         <td colSpan={9} className="p-3">
                                                                             <div className="flex flex-col gap-2 bg-white p-2.5 rounded border border-red-200">
                                                                                 <div className="flex items-center gap-2 text-xs text-red-700 font-bold">
-                                                                                    <span>⚠️ 管理者からの確認事項:</span>
+                                                                                    <span>{dict.dashboard.form.adminNoteLabel}</span>
                                                                                     <span className="font-normal text-slate-800">{item.admin_note || '確認事項があります。詳細を指定してください。'}</span>
                                                                                 </div>
                                                                                 <form action={async (formData) => {
@@ -432,12 +429,12 @@ export default async function DashboardPage(props: {
                                                                                     <input
                                                                                         name="replyRemarks"
                                                                                         defaultValue={item.remarks || ''}
-                                                                                        placeholder="指定内容（サイズ・色など）を記入して返信"
+                                                                                        placeholder={dict.dashboard.form.replyPlaceholder}
                                                                                         required
                                                                                         className="flex-1 p-1.5 border border-slate-300 rounded text-xs text-slate-900"
                                                                                     />
                                                                                     <button type="submit" className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs shadow-sm whitespace-nowrap">
-                                                                                        回答を送信
+                                                                                        {dict.dashboard.form.replyButton}
                                                                                     </button>
                                                                                 </form>
                                                                             </div>

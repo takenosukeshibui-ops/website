@@ -1,17 +1,17 @@
 {
   "home": {
     "title": "Welcome to our service",
-    "description": "We provide efficient management tools.",
+    "description": "Providing efficient management tools.",
     "login": "Login",
     "signup": "Sign Up",
-    "calculator": "Shipping Calculator",
+    "calculator": "Shipping Simulator",
     "inventory": "📦 Inventory"
   },
   "dashboard": {
     "title": "My Page",
     "logout": "Logout",
     "accountSettings": "⚙️ Account Settings",
-    "shippingCalculator": "✈️ Shipping Calculator ↗",
+    "shippingCalculator": "✈️ International Shipping Simulator ↗",
     "orderHistory": "Order History",
     "noOrders": "No orders found.",
     "itemCount": "Items:",
@@ -19,16 +19,27 @@
       "shipping": "Shipping:",
       "payment": "Payment:",
       "tracking": "Tracking:",
-      "attention": "Action Required (Waiting for User)"
+      "attention": "Attention (User action required)"
     },
     "invoice": {
       "title": "■ Invoice",
-      "shippingNote": "※Estimated based on shipping method & weight",
+      "shippingNote": "※Estimated based on user shipping method & weight",
       "productTotal": "Product Total",
       "proxyFee": "Proxy Fee (5%)",
       "shipping": "Shipping",
       "paymentFee": "Payment Fee",
       "grandTotal": "Grand Total"
+    },
+    "form": {
+      "urlPlaceholder": "Product URL",
+      "titlePlaceholder": "Product Name",
+      "pricePlaceholder": "Desired Price (optional)",
+      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
+      "addButton": "Add to Cart",
+      "addingButton": "Adding...",
+      "replyButton": "Send Answer",
+      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
+      "adminNoteLabel": "⚠️ Admin Comment:"
     }
   }
 }
