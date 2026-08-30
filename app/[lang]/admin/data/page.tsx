@@ -1,4 +1,5 @@
 // app/admin/data/page.tsx
+// [UPDATED] 在庫数フィールド・簡単即時調整ボタンの追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -25,6 +26,29 @@ export default function AdminDataPage() {
         fetchData();
     }, []);
 
+    // [NEW] 在庫数の即時更新ハンドラー
+    const handleUpdateStock = async (id: number, newStock: number) => {
+        const targetStock = Math.max(0, newStock);
+
+        // UIを先行更新 (ローカル反映)
+        setRarities(prev => prev.map(r => r.id === id ? { ...r, stock: targetStock } : r));
+
+        try {
+            await fetch('/api/data', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'rarity_stock',
+                    id,
+                    stock: targetStock
+                })
+            });
+        } catch (err) {
+            console.error('在庫数更新エラー:', err);
+            fetchData(); // エラー時は再取得してロールバック
+        }
+    };
+
     const handleDeleteRarity = async (id: number, rarityName: string) => {
         if (!confirm(`「${rarityName}」を削除してもよろしいですか？`)) return;
 
@@ -46,8 +70,7 @@ export default function AdminDataPage() {
     };
 
     return (
-        <main className="p-4 max-w-5xl mx-auto text-xs space-y-4">
-            {/* [UPDATED] ナビゲーションバー（管理者ダッシュボードへ戻るのみに一元化） */}
+        <main className="p-4 max-w-6xl mx-auto text-xs space-y-4">
             <div className="flex pb-3 border-b border-zinc-200">
                 <Link href="/admin" className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded font-bold transition-colors">
                     ← 管理者ダッシュボードへ戻る
@@ -62,8 +85,9 @@ export default function AdminDataPage() {
                 {loading ? (
                     <div className="text-center py-6 text-zinc-400">読み込み中...</div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                        {/* レアリティ・商品マスタ管理 (7列) */}
+                        <div className="lg:col-span-7 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>レアリティ・商品マスタ管理</span>
                                 <Link href="/admin/data/rarity" className="text-blue-600 hover:underline text-[11px] font-bold">
@@ -76,14 +100,16 @@ export default function AdminDataPage() {
                                         <th className="p-2 font-semibold">商品名</th>
                                         <th className="p-2 font-semibold text-right">単価</th>
                                         <th className="p-2 font-semibold text-right">消費税</th>
-                                        <th className="p-2 font-semibold text-right">重量 (g)</th>
+                                        <th className="p-2 font-semibold text-right">重量</th>
+                                        {/* [NEW] 在庫数調整用カラム */}
+                                        <th className="p-2 font-semibold text-center w-32">在庫数</th>
                                         <th className="p-2 font-semibold text-right">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-100 font-medium">
                                     {rarities.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="p-4 text-center text-zinc-400">データがありません</td>
+                                            <td colSpan={6} className="p-4 text-center text-zinc-400">データがありません</td>
                                         </tr>
                                     ) : (
                                         rarities.map((r) => (
@@ -91,7 +117,43 @@ export default function AdminDataPage() {
                                                 <td className="p-2 font-medium">{r.name}</td>
                                                 <td className="p-2 text-right font-mono">¥{Number(r.price).toLocaleString()}</td>
                                                 <td className="p-2 text-right font-mono">{r.tax ?? 0}%</td>
-                                                <td className="p-2 text-right font-mono">{r.weight || 0} g</td>
+                                                <td className="p-2 text-right font-mono">{r.weight || 0}g</td>
+
+                                                {/* [NEW] ワンクリック在庫調整UI */}
+                                                <td className="p-1.5 text-center">
+                                                    <div className="inline-flex items-center justify-center gap-1 bg-zinc-50 p-1 border border-zinc-200 rounded-lg">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) - 1)}
+                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                            title="1減らす"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <input
+                                                            type="number"
+                                                            value={r.stock ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                setRarities(prev => prev.map(item => item.id === r.id ? { ...item, stock: isNaN(val) ? 0 : val } : item));
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                handleUpdateStock(r.id, isNaN(val) ? 0 : val);
+                                                            }}
+                                                            className="w-12 text-center border border-zinc-300 rounded h-5 text-xs font-mono font-bold bg-white text-zinc-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleUpdateStock(r.id, (r.stock || 0) + 1)}
+                                                            className="w-5 h-5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-bold text-xs flex items-center justify-center transition-colors"
+                                                            title="1増やす"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                </td>
+
                                                 <td className="p-2 text-right">
                                                     <button
                                                         type="button"
@@ -108,7 +170,8 @@ export default function AdminDataPage() {
                             </table>
                         </div>
 
-                        <div className="border border-zinc-200 rounded-lg overflow-hidden">
+                        {/* 手数料管理 (5列) */}
+                        <div className="lg:col-span-5 border border-zinc-200 rounded-lg overflow-hidden">
                             <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200 font-bold text-zinc-700 flex justify-between items-center">
                                 <span>手数料管理</span>
                                 <Link href="/admin/data/rarity/fee" className="text-blue-600 hover:underline text-[11px] font-bold">

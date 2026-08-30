@@ -1,4 +1,5 @@
-// [NEW] マスタデータ（レアリティ・手数料）管理用 API Route
+// app/api/data/route.ts
+// [UPDATED] マスタデータ（レアリティ・手数料）管理用 API Route (在庫数 stock 対応追加)
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -29,13 +30,13 @@ export async function GET() {
     }
 }
 
-// [NEW] POST: レアリティまたは手数料の新規登録
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (stock 対応)
 export async function POST(req: Request) {
     try {
         const supabase = await createClient()
         const body = await req.json()
 
-        const { type, name, price, tax, weight, rate } = body
+        const { type, name, price, tax, weight, stock, rate } = body // [UPDATED] stock を追加
 
         if (type === 'rarity') {
             const { data, error } = await supabase
@@ -43,8 +44,9 @@ export async function POST(req: Request) {
                 .insert({
                     name,
                     price: Number(price) || 0,
-                    tax: Number(tax) || 0, // [NEW] 消費税率
-                    weight: Number(weight) || 0
+                    tax: Number(tax) || 0,
+                    weight: Number(weight) || 0,
+                    stock: Number(stock) || 0 // [NEW] 在庫数
                 })
                 .select()
                 .single()
@@ -79,6 +81,36 @@ export async function POST(req: Request) {
     } catch (err: any) {
         console.error('API POST Data Internal Error:', err)
         return NextResponse.json({ error: err.message || 'データ追加エラーが発生しました' }, { status: 500 })
+    }
+}
+
+// [NEW] PATCH: 在庫数の即時更新用API
+export async function PATCH(req: Request) {
+    try {
+        const supabase = await createClient()
+        const body = await req.json()
+        const { type, id, stock } = body
+
+        if (type === 'rarity_stock') {
+            const { data, error } = await supabase
+                .from('rarities')
+                .update({ stock: Math.max(0, Number(stock) || 0) })
+                .eq('id', id)
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Stock update error:', error.message)
+                return NextResponse.json({ error: error.message }, { status: 400 })
+            }
+
+            return NextResponse.json({ success: true, data })
+        }
+
+        return NextResponse.json({ error: '不正な type が指定されました' }, { status: 400 })
+    } catch (err: any) {
+        console.error('API PATCH Data Internal Error:', err)
+        return NextResponse.json({ error: err.message || '在庫数更新エラーが発生しました' }, { status: 500 })
     }
 }
 

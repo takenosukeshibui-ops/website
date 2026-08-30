@@ -1,4 +1,5 @@
-// app/admin/page.tsx
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -13,7 +14,6 @@ export default async function AdminPage() {
         redirect('/login')
     }
 
-    // 管理者権限チェック
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -24,7 +24,6 @@ export default async function AdminPage() {
         redirect('/dashboard')
     }
 
-    // 担当者名(full_name), 電話番号(phone), 会社名(company_name)等を含む全必要なプロファイルカラムを取得
     const { data: orders, error } = await supabase
         .from('orders')
         .select(`
@@ -72,7 +71,6 @@ export default async function AdminPage() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* [UPDATED] 管理者ナビゲーションヘッダー（一元化ハブ） */}
             <div className="bg-slate-900 text-white p-4 shadow-md">
                 <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -80,13 +78,13 @@ export default async function AdminPage() {
                         <h1 className="text-base font-bold">管理者ダッシュボード</h1>
                     </div>
                     
-                    {/* [UPDATED] 管理者用アクセスボタン群の一元化 */}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
                         <Link 
-                            href="/admin/inventory" 
+                            href="/admin/data" 
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
-                            📦 当社在庫管理
+                            📦 当社在庫・マスタ管理
                         </Link>
 
                         <Link 
@@ -94,13 +92,6 @@ export default async function AdminPage() {
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
                             📊 利益・送料試算
-                        </Link>
-
-                        <Link 
-                            href="/admin/data" 
-                            className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                        >
-                            ⚙️ マスタ管理
                         </Link>
 
                         <Link 
@@ -114,7 +105,6 @@ export default async function AdminPage() {
                 </div>
             </div>
 
-            {/* 従来の管理メイン画面 */}
             <ClientAdminPage orders={orders || []} />
         </div>
     )

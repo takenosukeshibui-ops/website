@@ -1,4 +1,5 @@
 // app/[lang]/inventory/page.tsx
+// [UPDATED] 在庫数（r.stock）カラム表示を追加
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,14 +21,12 @@ export default function InventoryPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    // 検索フィルター処理
     const filteredRarities = rarities.filter(r =>
         !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
         <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
-            {/* ナビゲーションバー（ホームへ戻るのみ） */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
                     ← ホームへ戻る
@@ -41,7 +40,6 @@ export default function InventoryPage() {
                         <p className="text-slate-500 text-[11px] mt-0.5">取扱商品・マスタ在庫データ一覧</p>
                     </div>
 
-                    {/* 検索バー */}
                     <div className="w-full md:w-64">
                         <input
                             type="text"
@@ -53,7 +51,6 @@ export default function InventoryPage() {
                     </div>
                 </div>
 
-                {/* 在庫リストテーブル */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                     <table className="w-full text-left border-collapse text-slate-900 text-xs">
                         <thead>
@@ -62,16 +59,18 @@ export default function InventoryPage() {
                                 <th className="p-3 font-semibold text-right">単価 (参考)</th>
                                 <th className="p-3 font-semibold text-right">適用消費税率</th>
                                 <th className="p-3 font-semibold text-right">1枚重量 (g)</th>
+                                {/* [NEW] 在庫数カラム */}
+                                <th className="p-3 font-semibold text-right">現在の在庫数</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-400">読み込み中...</td>
+                                    <td colSpan={5} className="p-8 text-center text-slate-400">読み込み中...</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center text-slate-400">
+                                    <td colSpan={5} className="p-8 text-center text-slate-400">
                                         {searchQuery ? '検索条件に一致する商品はありません' : '登録された商品データはありません'}
                                     </td>
                                 </tr>
@@ -87,6 +86,10 @@ export default function InventoryPage() {
                                         </td>
                                         <td className="p-3 text-right font-mono text-slate-600">
                                             {r.weight || 0} g
+                                        </td>
+                                        {/* [NEW] 在庫数表示 */}
+                                        <td className="p-3 text-right font-mono font-bold text-blue-700">
+                                            {r.stock ?? 0} 個
                                         </td>
                                     </tr>
                                 ))
