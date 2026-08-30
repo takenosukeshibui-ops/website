@@ -21,7 +21,7 @@ function getTrackingUrl(trackingNumber: string): string {
     return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
 }
 
-// [UPDATED] 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
+// 管理者画面に表示される文字・テキストと1言一句完全に同じ文字列を出力する関数
 function calculateUserInvoiceDetails(order: any) {
     let productTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
@@ -46,16 +46,15 @@ function calculateUserInvoiceDetails(order: any) {
     let grandTotal = baseAmount;
     let paymentFeeDetail = '';
 
-    // [UPDATED] 管理者画面と全く同じ条件・テキストで内訳文字列を生成
     if (order.total_amount !== null && order.total_amount !== undefined && Number(order.total_amount) > 0) {
         grandTotal = Number(order.total_amount);
         paymentFee = grandTotal > baseAmount ? grandTotal - baseAmount : 0;
 
         if (paymentMethod === 'Wise') {
             const effectiveRate = baseAmount > 0 ? ((paymentFee / baseAmount) * 100).toFixed(2) : '0';
-            paymentFeeDetail = `API取得 (${effectiveRate}% 相当)`; // [UPDATED] 管理者画面の表記と一致
+            paymentFeeDetail = `API取得 (${effectiveRate}% 相当)`; 
         } else {
-            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)'; // [UPDATED] 管理者画面の表記と一致
+            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)'; 
         }
     } else if (baseAmount > 0) {
         if (paymentMethod === 'Wise') {
@@ -65,7 +64,7 @@ function calculateUserInvoiceDetails(order: any) {
             paymentFee = Math.ceil(gross - baseAmount);
             paymentFee = paymentFee > 0 ? paymentFee : 0;
             grandTotal = baseAmount + paymentFee;
-            paymentFeeDetail = '3.6% + 40円 (標準試算)'; // [UPDATED] 管理者画面の表記と一致
+            paymentFeeDetail = '3.6% + 40円 (標準試算)'; 
         } else {
             const paypalFeeRate = 0.081;
             const fixedFee = 40;
@@ -73,11 +72,10 @@ function calculateUserInvoiceDetails(order: any) {
             paymentFee = Math.ceil(gross - baseAmount);
             paymentFee = paymentFee > 0 ? paymentFee : 0;
             grandTotal = baseAmount + paymentFee;
-            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)'; // [UPDATED] 管理者画面の表記と一致
+            paymentFeeDetail = '8.1% + 40円 (海外決済+為替換算)'; 
         }
     }
 
-    // [UPDATED] DBに保存された実際の確定サービス名を反映（管理者画面の resolvedShippingDisp と同じ表示）
     const resolvedShippingName = order.shipping_method || '最安プラン自動選択 (航空便)';
 
     return {
@@ -93,7 +91,8 @@ function calculateUserInvoiceDetails(order: any) {
 }
 
 export default async function DashboardPage(props: {
-    searchParams: Promise<{ url?: string; title?: string }>
+    // [UPDATED] ブックマークレットから渡される希望価格、数量、備考を受け取れるように拡張
+    searchParams: Promise<{ url?: string; title?: string; desiredPrice?: string; quantity?: string; remarks?: string }>
 }) {
     const searchParams = await props.searchParams;
     const supabase = await createClient();
@@ -204,11 +203,13 @@ export default async function DashboardPage(props: {
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
                     <input name="url" defaultValue={searchParams.url || ''} placeholder="商品URL" required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <input name="title" defaultValue={searchParams.title || ''} placeholder="商品名" className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    <input name="desiredPrice" type="number" placeholder="希望価格(任意)" className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="quantity" type="number" defaultValue={1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    {/* [UPDATED] ブックマークレットから渡された値を反映 */}
+                    <input name="desiredPrice" type="number" defaultValue={searchParams.desiredPrice || ''} placeholder="希望価格(任意)" className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="quantity" type="number" defaultValue={searchParams.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <SubmitButton pendingText="追加中...">カートに追加</SubmitButton>
                 </div>
-                <input name="remarks" placeholder="サイズ・カラー・状態などの指定があれば入力してください(任意)" className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                {/* [UPDATED] ブックマークレットから渡された値を反映 */}
+                <input name="remarks" defaultValue={searchParams.remarks || ''} placeholder="サイズ・カラー・状態などの指定があれば入力してください(任意)" className="w-full p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
             </form>
 
             <BookmarkletGenerator />
@@ -282,7 +283,7 @@ export default async function DashboardPage(props: {
                                 </summary>
 
                                 <div className="mt-4 border-t pt-4 grid gap-3">
-                                    {/* 請求明細パネル [UPDATED - 管理者画面の文字・レイアウトと一言一句一致] */}
+                                    {/* 請求明細パネル */}
                                     {hasInvoice && (
                                         <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
                                             <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">

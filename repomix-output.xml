@@ -189,542 +189,6 @@ export default async function SettingsPage() {
 }
 </file>
 
-<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
-// app/dashboard/settings/ProfileForm.tsx
-'use client'
-
-import React, { useActionState, useEffect, useState } from 'react'
-import { updateProfile } from '@/app/actions/profile'
-import { changePassword } from '@/app/actions/auth'
-import { SubmitButton } from '@/components/SubmitButtons'
-import { countries } from '@/components/countries'
-import Link from 'next/link'
-
-export default function ProfileForm({ profile, userEmail }: { profile: any, userEmail: string }) {
-    // プロフィール更新用 State
-    const [state, action] = useActionState(updateProfile, null)
-    const [showToast, setShowToast] = useState(false)
-
-    // パスワード変更用 State
-    const [pwState, pwAction] = useActionState(changePassword, null)
-    const [showPwToast, setShowPwToast] = useState(false)
-
-    // パスワード変更フォームの開閉状態
-    const [isOpenPwForm, setIsOpenPwForm] = useState(false)
-
-    // パスワード表示/非表示の切り替え状態
-    const [showPassword, setShowPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-
-    // 連絡用メールアドレス・Wise用メールアドレスの State 管理
-    const [contactEmail, setContactEmail] = useState<string>(profile?.contact_email || '')
-    const [wiseEmail, setWiseEmail] = useState<string>(profile?.wise_email || '')
-
-    // 選択された国 (Country) の State 管理
-    const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
-
-    // 同一アドレス適用チェックボックスの State 管理
-    const safeUserEmail = userEmail || ''
-    const [useSameForContact, setUseSameForContact] = useState<boolean>(
-        Boolean(profile?.contact_email && profile.contact_email === safeUserEmail && safeUserEmail !== '')
-    )
-    const [useSameForWise, setUseSameForWise] = useState<boolean>(
-        Boolean(profile?.wise_email && profile.wise_email === safeUserEmail && safeUserEmail !== '')
-    )
-
-    // デフォルト配送方法・決済方法のState管理
-    const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
-    const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
-
-    // 保存完了時（state更新時）に最新データを同期
-    useEffect(() => {
-        if (state?.data?.contact_email !== undefined) {
-            setContactEmail(state.data.contact_email || '')
-        }
-        if (state?.data?.wise_email !== undefined) {
-            setWiseEmail(state.data.wise_email || '')
-        }
-        if (state?.data?.country !== undefined) {
-            setSelectedCountry(state.data.country || 'US')
-        }
-        if (state?.data?.default_shipping_method !== undefined) {
-            setDefaultShipping(state.data.default_shipping_method || '航空便 (最安プラン)')
-        }
-        if (state?.data?.default_payment_method !== undefined) {
-            setDefaultPayment(state.data.default_payment_method || 'Wise')
-        }
-    }, [state])
-
-    // プロフィール更新トースト (3秒)
-    useEffect(() => {
-        if (state?.error || state?.success) {
-            setShowToast(true)
-            const timer = setTimeout(() => setShowToast(false), 3000) 
-            return () => clearTimeout(timer)
-        }
-    }, [state])
-
-    // パスワード変更トースト (3秒)
-    useEffect(() => {
-        if (pwState?.error || pwState?.success) {
-            setShowPwToast(true)
-            if (pwState.success) {
-                setIsOpenPwForm(false)
-            }
-            const timer = setTimeout(() => setShowPwToast(false), 3000) 
-            return () => clearTimeout(timer)
-        }
-    }, [pwState])
-
-    // 連絡用メールアドレスの「ログイン用と同じ」トグル処理
-    const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked
-        setUseSameForContact(checked)
-        if (checked) {
-            setContactEmail(safeUserEmail)
-        }
-    }
-
-    // Wise用メールアドレスの「ログイン用と同じ」トグル処理
-    const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked
-        setUseSameForWise(checked)
-        if (checked) {
-            setWiseEmail(safeUserEmail)
-        }
-    }
-
-    const getValue = (key: string) => {
-        if (state?.data && state.data[key] !== undefined) {
-            return state.data[key] || ''
-        }
-        return profile?.[key] || ''
-    }
-
-    const getBoolValue = (key: string, defaultVal: boolean) => {
-        if (state?.data && state.data[key] !== undefined) {
-            return Boolean(state.data[key])
-        }
-        return profile?.[key] ?? defaultVal
-    }
-
-    const isUS = selectedCountry === 'US'
-
-    return (
-        <div className="flex flex-col gap-8">
-            {/* プロフィール用トースト通知 */}
-            {showToast && (state?.error || state?.success) && (
-                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
-                    {state?.error && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ⚠️ {state.error}
-                        </div>
-                    )}
-                    {state?.success && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ✅ 設定を保存しました
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* パスワード変更用トースト通知 */}
-            {showPwToast && (pwState?.error || pwState?.success) && (
-                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
-                    {pwState?.error && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ⚠️ {pwState.error}
-                        </div>
-                    )}
-                    {pwState?.success && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ✅ パスワードを変更しました
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* 1. ログイン情報 兼 パスワード変更カード */}
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
-                <h2 className="font-bold text-slate-800 border-b pb-2">ログイン情報・セキュリティ</h2>
-                
-                <div className="mb-2">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス (変更不可)</label>
-                    <input type="email" value={safeUserEmail} readOnly disabled className="w-full p-2 border border-slate-200 rounded text-slate-500 bg-slate-50 text-sm font-mono" />
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">パスワード設定</span>
-                        <button
-                            type="button"
-                            onClick={() => setIsOpenPwForm(!isOpenPwForm)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
-                        >
-                            {isOpenPwForm ? 'キャンセル' : 'パスワードの変更'}
-                        </button>
-                    </div>
-
-                    {isOpenPwForm && (
-                        <form action={pwAction} className="mt-2 p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-4 animate-fade-in">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (6文字以上)</label>
-                                    <div className="relative">
-                                        <input
-                                            name="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            required
-                                            minLength={6}
-                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
-                                        >
-                                            {showPassword ? '🙈' : '👁️'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (確認用)</label>
-                                    <div className="relative">
-                                        <input
-                                            name="confirm_password"
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            required
-                                            minLength={6}
-                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
-                                        >
-                                            {showConfirmPassword ? '🙈' : '👁️'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end">
-                                <SubmitButton pendingText="変更中...">変更</SubmitButton>
-                            </div>
-                        </form>
-                    )}
-                </div>
-            </div>
-
-            {/* 2. 基本情報（住所・住宅種別まですべて内包） */}
-            <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
-                
-                <section>
-                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">基本情報</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">担当者名 (Full Name) <span className="text-red-500">*</span></label>
-                            <input 
-                                name="full_name" 
-                                defaultValue={getValue('full_name')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">会社名 (Company Name)</label>
-                            <input 
-                                name="company_name" 
-                                defaultValue={getValue('company_name')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">電話番号 (Phone) <span className="text-red-500">*</span></label>
-                            <input 
-                                name="phone" 
-                                defaultValue={getValue('phone')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        {/* [UPDATED] 連絡用メールアドレスを必須（required）に変更 */}
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="block text-xs font-bold text-slate-600">
-                                    連絡用メールアドレス (Contact Email) <span className="text-red-500">*</span>
-                                </label>
-                                <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={Boolean(useSameForContact)} 
-                                        onChange={handleSameForContactChange}
-                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    ログイン用と同じ
-                                </label>
-                            </div>
-                            <input 
-                                type="email"
-                                name="contact_email" 
-                                value={contactEmail} 
-                                onChange={(e) => {
-                                    setContactEmail(e.target.value)
-                                    if (e.target.value !== safeUserEmail) setUseSameForContact(false)
-                                }}
-                                placeholder="contact@example.com"
-                                required
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">国 (Country) <span className="text-red-500">*</span></label>
-                            <select
-                                name="country"
-                                value={selectedCountry}
-                                onChange={(e) => setSelectedCountry(e.target.value)}
-                                required
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                {countries.map((c: any) => (
-                                    <option key={c.code} value={c.code}>
-                                        {c.name} ({c.code})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">
-                                FedEx アカウント番号 {isUS && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                                name="fedex_account_number" 
-                                defaultValue={getValue('fedex_account_number')} 
-                                required={isUS}
-                                placeholder="123456789"
-                                className={`w-full p-2 border rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono ${
-                                    isUS ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300'
-                                }`} 
-                            />
-                            {isUS && (
-                                <span className="text-[10px] text-amber-700 mt-1 block">
-                                    ※ 航空便利用時の関税支払い手続きに必須となります。
-                                </span>
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">郵便番号 (Zip Code) <span className="text-red-500">*</span></label>
-                            <input 
-                                name="zip_code" 
-                                defaultValue={getValue('zip_code')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">納税番号 (Tax ID)</label>
-                            <input 
-                                name="tax_id" 
-                                defaultValue={getValue('tax_id')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">都市名 (City) <span className="text-red-500">*</span></label>
-                            <input 
-                                name="city" 
-                                defaultValue={getValue('city')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">州または省 (State/Province)</label>
-                            <input 
-                                name="state_province" 
-                                defaultValue={getValue('state_province')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所1 (Address Line 1) <span className="text-red-500">*</span></label>
-                            <input 
-                                name="address_line1" 
-                                defaultValue={getValue('address_line1')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所2 (Address Line 2)</label>
-                            <input 
-                                name="address_line2" 
-                                defaultValue={getValue('address_line2')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">住所3 (Address Line 3)</label>
-                            <input 
-                                name="address_line3" 
-                                defaultValue={getValue('address_line3')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded">
-                        <label className="block text-xs font-bold text-slate-600 mb-2">お届け先の種類 (Residential or Commercial) <span className="text-red-500">*</span></label>
-                        <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input type="radio" name="is_residential" value="true" defaultChecked={getBoolValue('is_residential', true) === true} className="cursor-pointer" />
-                                個人宅 (Residential)
-                            </label>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input type="radio" name="is_residential" value="false" defaultChecked={getBoolValue('is_residential', true) === false} className="cursor-pointer" />
-                                事業所・会社 (Commercial)
-                            </label>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-2">※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。</p>
-                    </div>
-                </section>
-
-                {/* 3. お支払いアカウント情報 */}
-                <section>
-                    <div className="flex items-center gap-3 border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">お支払いアカウント情報</h2>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* PayPal連携カード */}
-                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">PayPal アカウント連携</label>
-                                {getValue('paypal_email') ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">
-                                            ✅ 連携済み
-                                        </span>
-                                        <span className="text-sm font-medium text-slate-800">
-                                            {getValue('paypal_email')}
-                                        </span>
-                                    </div>
-                                ) : null}
-                            </div>
-
-                            <div className="pt-2">
-                                <a
-                                    href="/api/auth/paypal"
-                                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#0070BA] hover:bg-[#003087] text-white text-xs font-bold rounded transition-colors shadow-sm"
-                                >
-                                    {getValue('paypal_email') ? 'PayPalアカウントを再連携' : 'PayPalと連携する'}
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Wise用 メールアドレスカード */}
-                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-xs font-bold text-slate-600">Wise用 メールアドレス</label>
-                                    <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={Boolean(useSameForWise)} 
-                                            onChange={handleSameForWiseChange}
-                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        />
-                                        ログイン用と同じ
-                                    </label>
-                                </div>
-                                <input 
-                                    name="wise_email" 
-                                    type="email" 
-                                    value={wiseEmail} 
-                                    onChange={(e) => {
-                                        setWiseEmail(e.target.value)
-                                        if (e.target.value !== safeUserEmail) setUseSameForWise(false)
-                                    }}
-                                    className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-mono" 
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* 4. デフォルト注文設定 */}
-                <section>
-                    <div className="flex items-baseline justify-between border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">デフォルトの注文設定</h2>
-                        <span className="text-[11px] text-slate-500">カートで依頼を送信する際の初期選択になります。</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">配送方法</label>
-                            <select 
-                                name="default_shipping_method"
-                                value={defaultShipping}
-                                onChange={(e) => setDefaultShipping(e.target.value)}
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                <option value="航空便 (最安プラン)">航空便 (最安プラン自動選択)</option>
-                                <option value="船便">日本郵便 (船便)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">決済方法</label>
-                            <select 
-                                name="default_payment_method"
-                                value={defaultPayment}
-                                onChange={(e) => setDefaultPayment(e.target.value)}
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                <option value="Wise">Wise（銀行振込）</option>
-                                <option value="CreditCard">クレジットカード</option>
-                                <option value="PayPal">PayPal</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
-
-                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4">
-                    <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
-                        キャンセル
-                    </Link>
-                    <SubmitButton pendingText="保存中...">保存</SubmitButton>
-                </div>
-            </form>
-        </div>
-    )
-}
-</file>
-
 <file path="app/[lang]/dashboard/page.tsx">
 // app/dashboard/page.tsx
 import React from 'react';
@@ -1336,408 +800,6 @@ export default function SignUpPage() {
             </form>
         </div>
     )
-}
-</file>
-
-<file path="app/actions/admin.ts">
-// app/actions/admin.ts
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { cookies, headers } from 'next/headers'
-
-/**
- * 1. 商品名の更新
- */
-export async function updateItemTitle(itemId: string, title: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ title })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Item title update error:', error.message)
-        throw new Error(`商品名の更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 2. 商品ステータスの更新
- */
-export async function updateItemStatus(itemId: string, status: string, orderId?: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ status })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Item status update error:', error.message)
-        throw new Error(`ステータスの更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 3. 確定数量の更新
- */
-export async function updateItemQuantity(itemId: string, adminQuantity: number) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ admin_quantity: adminQuantity })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Item quantity update error:', error.message)
-        throw new Error(`確定数量の更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 4. 購入価格の更新
- */
-export async function updateItemPrice(itemId: string, price: number) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ price })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Item price update error:', error.message)
-        throw new Error(`購入価格の更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
- */
-export async function updateAdminNote(itemId: string, note: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ 
-            admin_note: note,
-            status: 'info_required'
-        })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Admin note update error:', error.message)
-        throw new Error(`連絡メッセージの送信に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
- */
-export async function cancelAdminNote(itemId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('items')
-        .update({ 
-            admin_note: null,
-            status: 'pending'
-        })
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Admin note cancel error:', error.message)
-        throw new Error(`送信取り消しに失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-}
-
-/**
- * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
- */
-export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({
-            shipping_fee: shippingFee,
-            total_amount: totalAmount,
-        })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Invoice save error:', error.message)
-        throw new Error(`請求金額の保存に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-}
-
-/**
- * 8. 請求金額データの削除（クリア） [UPDATED]
- */
-export async function deleteInvoice(orderId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({
-            shipping_fee: null,
-            total_amount: null,
-            status: 'pending'
-        })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Invoice delete error:', error.message)
-        throw new Error(`請求データのクリアに失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-}
-
-/**
- * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
- */
-export async function updateOrderStatusToPaymentRequired(orderId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({ status: 'payment_required' })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Update status payment_required error:', error.message)
-        throw new Error(`ステータスの更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-}
-
-/**
- * 10. 「決済待ち」の取り消し [UPDATED]
- */
-export async function cancelPaymentRequired(orderId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({ status: 'pending' })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Cancel payment_required error:', error.message)
-        throw new Error(`取り消し処理に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-}
-
-/**
- * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
- */
-export async function sendPayPalInvoice(orderId: string) {
-    const supabase = await createClient()
-
-    const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('*, profiles(*)')
-        .eq('id', orderId)
-        .single()
-
-    if (orderError || !order) {
-        throw new Error('注文情報の取得に失敗しました。')
-    }
-
-    const paypalEmail = order.profiles?.paypal_email || order.profiles?.email
-    if (!paypalEmail) {
-        throw new Error('ユーザーのPayPal用メールアドレスが登録されていません。')
-    }
-
-    const amountToSend = order.total_amount
-    if (!amountToSend || amountToSend <= 0) {
-        throw new Error('お支払い金額（合計金額）が保存されていません。総重量横の「保存」ボタンを先に押してください。')
-    }
-
-    const headersList = await headers()
-    const cookieStore = await cookies()
-    const host = headersList.get('host') || 'localhost:3000'
-    const protocol = host.includes('localhost') ? 'http' : 'https'
-    const appUrl = `${protocol}://${host}`
-
-    let res: Response
-    try {
-        res = await fetch(`${appUrl}/api/admin/paypal/invoice`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cookie': cookieStore.toString()
-            },
-            body: JSON.stringify({
-                orderId: order.id,
-                orderNumber: order.order_number,
-                recipientEmail: paypalEmail,
-                amount: amountToSend
-            })
-        })
-    } catch (err: any) {
-        console.error('PayPal API Fetch Error:', err)
-        throw new Error(`PayPal 請求APIの接続に失敗しました: ${err.message || '通信エラー'}`)
-    }
-
-    const contentType = res.headers.get('content-type') || ''
-    if (!contentType.includes('application/json')) {
-        const textErr = await res.text()
-        console.error('PayPal Invoice API returned non-JSON:', textErr)
-        throw new Error(`PayPal API エラー (Status ${res.status}): サーバーから無効なレスポンスが返されました。`)
-    }
-
-    const data = await res.json()
-    if (!res.ok || data.error) {
-        throw new Error(data.error || 'PayPal請求書の送信に失敗しました。')
-    }
-
-    await updateOrderStatusToPaymentRequired(orderId)
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-
-    return { success: true, invoiceId: data.invoiceId }
-}
-
-/**
- * 12. 追跡番号の更新・保存 [UPDATED]
- */
-export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({ tracking_number: trackingNumber })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Tracking number update error:', error.message)
-        throw new Error(`追跡番号の保存に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED]
-}
-
-/**
- * 13. 発送完了処理 [UPDATED]
- */
-export async function shipOrder(orderId: string, trackingNumber: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({
-            status: 'shipped',
-            tracking_number: trackingNumber
-        })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Ship order error:', error.message)
-        throw new Error(`発送完了への更新に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED]
-}
-
-/**
- * 14. 追跡番号のクリア（削除） [UPDATED]
- */
-export async function deleteShip(orderId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({ tracking_number: null })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Delete ship error:', error.message)
-        throw new Error(`追跡番号の削除に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED]
-}
-
-/**
- * 15. 発送済みの取り消し [UPDATED]
- */
-export async function cancelShip(orderId: string) {
-    const supabase = await createClient()
-
-    const { error } = await supabase
-        .from('orders')
-        .update({ status: 'payment_required' })
-        .eq('id', orderId)
-
-    if (error) {
-        console.error('Cancel ship error:', error.message)
-        throw new Error(`発送取り消しに失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED]
-}
-
-/**
- * 16. 注文内商品の削除 [UPDATED]
- */
-export async function deleteAdminItem(itemId: string) {
-    const supabase = await createClient()
-
-    await supabase
-        .from('order_items')
-        .delete()
-        .eq('item_id', itemId)
-
-    const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', itemId)
-
-    if (error) {
-        console.error('Admin item delete error:', error.message)
-        throw new Error(`商品の削除に失敗しました: ${error.message}`)
-    }
-
-    revalidatePath('/admin')
-    revalidatePath('/dashboard') // [UPDATED]
 }
 </file>
 
@@ -4207,7 +3269,1170 @@ export default function FeePage() {
 }
 </file>
 
+<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
+// app/dashboard/settings/ProfileForm.tsx
+'use client'
+
+import React, { useActionState, useEffect, useState } from 'react'
+import { updateProfile } from '@/app/actions/profile'
+import { changePassword } from '@/app/actions/auth'
+import { SubmitButton } from '@/components/SubmitButtons'
+import { countries } from '@/components/countries'
+import Link from 'next/link'
+
+export default function ProfileForm({ profile, userEmail }: { profile: any, userEmail: string }) {
+    // プロフィール更新用 State
+    const [state, action] = useActionState(updateProfile, null)
+    const [showToast, setShowToast] = useState(false)
+
+    // パスワード変更用 State
+    const [pwState, pwAction] = useActionState(changePassword, null)
+    const [showPwToast, setShowPwToast] = useState(false)
+
+    // パスワード変更フォームの開閉状態
+    const [isOpenPwForm, setIsOpenPwForm] = useState(false)
+
+    // パスワード表示/非表示の切り替え状態
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+    // 連絡用メールアドレス・Wise用メールアドレスの State 管理
+    const [contactEmail, setContactEmail] = useState<string>(profile?.contact_email || '')
+    const [wiseEmail, setWiseEmail] = useState<string>(profile?.wise_email || '')
+
+    // 選択された国 (Country) の State 管理
+    const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
+
+    // 同一アドレス適用チェックボックスの State 管理
+    const safeUserEmail = userEmail || ''
+    const [useSameForContact, setUseSameForContact] = useState<boolean>(
+        Boolean(profile?.contact_email && profile.contact_email === safeUserEmail && safeUserEmail !== '')
+    )
+    const [useSameForWise, setUseSameForWise] = useState<boolean>(
+        Boolean(profile?.wise_email && profile.wise_email === safeUserEmail && safeUserEmail !== '')
+    )
+
+    // デフォルト配送方法・決済方法のState管理
+    const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
+    const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
+
+    // 保存完了時（state更新時）に最新データを同期
+    useEffect(() => {
+        if (state?.data?.contact_email !== undefined) {
+            setContactEmail(state.data.contact_email || '')
+        }
+        if (state?.data?.wise_email !== undefined) {
+            setWiseEmail(state.data.wise_email || '')
+        }
+        if (state?.data?.country !== undefined) {
+            setSelectedCountry(state.data.country || 'US')
+        }
+        if (state?.data?.default_shipping_method !== undefined) {
+            setDefaultShipping(state.data.default_shipping_method || '航空便 (最安プラン)')
+        }
+        if (state?.data?.default_payment_method !== undefined) {
+            setDefaultPayment(state.data.default_payment_method || 'Wise')
+        }
+    }, [state])
+
+    // プロフィール更新トースト (3秒)
+    useEffect(() => {
+        if (state?.error || state?.success) {
+            setShowToast(true)
+            const timer = setTimeout(() => setShowToast(false), 3000) 
+            return () => clearTimeout(timer)
+        }
+    }, [state])
+
+    // パスワード変更トースト (3秒)
+    useEffect(() => {
+        if (pwState?.error || pwState?.success) {
+            setShowPwToast(true)
+            if (pwState.success) {
+                setIsOpenPwForm(false)
+            }
+            const timer = setTimeout(() => setShowPwToast(false), 3000) 
+            return () => clearTimeout(timer)
+        }
+    }, [pwState])
+
+    // 連絡用メールアドレスの「ログイン用と同じ」トグル処理
+    const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked
+        setUseSameForContact(checked)
+        if (checked) {
+            setContactEmail(safeUserEmail)
+        } else {
+            setContactEmail('') // [UPDATED] チェックを外した時にクリアする
+        }
+    }
+
+    // Wise用メールアドレスの「ログイン用と同じ」トグル処理
+    const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked
+        setUseSameForWise(checked)
+        if (checked) {
+            setWiseEmail(safeUserEmail)
+        } else {
+            setWiseEmail('') // [UPDATED] チェックを外した時にクリアする
+        }
+    }
+
+    const getValue = (key: string) => {
+        if (state?.data && state.data[key] !== undefined) {
+            return state.data[key] || ''
+        }
+        return profile?.[key] || ''
+    }
+
+    const getBoolValue = (key: string, defaultVal: boolean) => {
+        if (state?.data && state.data[key] !== undefined) {
+            return Boolean(state.data[key])
+        }
+        return profile?.[key] ?? defaultVal
+    }
+
+    const isUS = selectedCountry === 'US'
+
+    return (
+        <div className="flex flex-col gap-8">
+            {/* プロフィール用トースト通知 */}
+            {showToast && (state?.error || state?.success) && (
+                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
+                    {state?.error && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ⚠️ {state.error}
+                        </div>
+                    )}
+                    {state?.success && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ✅ 設定を保存しました
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* パスワード変更用トースト通知 */}
+            {showPwToast && (pwState?.error || pwState?.success) && (
+                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
+                    {pwState?.error && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ⚠️ {pwState.error}
+                        </div>
+                    )}
+                    {pwState?.success && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ✅ パスワードを変更しました
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 1. ログイン情報 兼 パスワード変更カード */}
+            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
+                <h2 className="font-bold text-slate-800 border-b pb-2">ログイン情報・セキュリティ</h2>
+                
+                <div className="mb-2">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">ログイン用メールアドレス (変更不可)</label>
+                    <input type="email" value={safeUserEmail} readOnly disabled className="w-full p-2 border border-slate-200 rounded text-slate-500 bg-slate-50 text-sm font-mono" />
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">パスワード設定</span>
+                        <button
+                            type="button"
+                            onClick={() => setIsOpenPwForm(!isOpenPwForm)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
+                        >
+                            {isOpenPwForm ? 'キャンセル' : 'パスワードの変更'}
+                        </button>
+                    </div>
+
+                    {isOpenPwForm && (
+                        <form action={pwAction} className="mt-2 p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-4 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (6文字以上)</label>
+                                    <div className="relative">
+                                        <input
+                                            name="password"
+                                            type={showPassword ? 'text' : 'password'}
+                                            required
+                                            minLength={6}
+                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
+                                        >
+                                            {showPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">新しいパスワード (確認用)</label>
+                                    <div className="relative">
+                                        <input
+                                            name="confirm_password"
+                                            type={showConfirmPassword ? 'text' : 'password'}
+                                            required
+                                            minLength={6}
+                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
+                                        >
+                                            {showConfirmPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <SubmitButton pendingText="変更中...">変更</SubmitButton>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+
+            {/* 2. 基本情報（住所・住宅種別まですべて内包） */}
+            <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
+                
+                <section>
+                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">基本情報</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">担当者名 (Full Name) <span className="text-red-500">*</span></label>
+                            <input 
+                                name="full_name" 
+                                defaultValue={getValue('full_name')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">会社名 (Company Name)</label>
+                            <input 
+                                name="company_name" 
+                                defaultValue={getValue('company_name')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">電話番号 (Phone) <span className="text-red-500">*</span></label>
+                            <input 
+                                name="phone" 
+                                defaultValue={getValue('phone')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        {/* [UPDATED] 連絡用メールアドレスを必須（required）に変更 */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-xs font-bold text-slate-600">
+                                    連絡用メールアドレス (Contact Email) <span className="text-red-500">*</span>
+                                </label>
+                                <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={Boolean(useSameForContact)} 
+                                        onChange={handleSameForContactChange}
+                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    ログイン用と同じ
+                                </label>
+                            </div>
+                            <input 
+                                type="email"
+                                name="contact_email" 
+                                value={contactEmail} 
+                                onChange={(e) => {
+                                    setContactEmail(e.target.value)
+                                    if (e.target.value !== safeUserEmail) setUseSameForContact(false)
+                                }}
+                                placeholder="contact@example.com"
+                                required
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">国 (Country) <span className="text-red-500">*</span></label>
+                            <select
+                                name="country"
+                                value={selectedCountry}
+                                onChange={(e) => setSelectedCountry(e.target.value)}
+                                required
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
+                            >
+                                {countries.map((c: any) => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.name} ({c.code})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">
+                                FedEx アカウント番号 {isUS && <span className="text-red-500">*</span>}
+                            </label>
+                            <input 
+                                name="fedex_account_number" 
+                                defaultValue={getValue('fedex_account_number')} 
+                                required={isUS}
+                                placeholder="123456789"
+                                className={`w-full p-2 border rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono ${
+                                    isUS ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300'
+                                }`} 
+                            />
+                            {isUS && (
+                                <span className="text-[10px] text-amber-700 mt-1 block">
+                                    ※ 航空便利用時の関税支払い手続きに必須となります。
+                                </span>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">郵便番号 (Zip Code) <span className="text-red-500">*</span></label>
+                            <input 
+                                name="zip_code" 
+                                defaultValue={getValue('zip_code')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">納税番号 (Tax ID)</label>
+                            <input 
+                                name="tax_id" 
+                                defaultValue={getValue('tax_id')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">都市名 (City) <span className="text-red-500">*</span></label>
+                            <input 
+                                name="city" 
+                                defaultValue={getValue('city')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">州または省 (State/Province)</label>
+                            <input 
+                                name="state_province" 
+                                defaultValue={getValue('state_province')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-3 mb-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">住所1 (Address Line 1) <span className="text-red-500">*</span></label>
+                            <input 
+                                name="address_line1" 
+                                defaultValue={getValue('address_line1')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">住所2 (Address Line 2)</label>
+                            <input 
+                                name="address_line2" 
+                                defaultValue={getValue('address_line2')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">住所3 (Address Line 3)</label>
+                            <input 
+                                name="address_line3" 
+                                defaultValue={getValue('address_line3')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded">
+                        <label className="block text-xs font-bold text-slate-600 mb-2">お届け先の種類 (Residential or Commercial) <span className="text-red-500">*</span></label>
+                        <div className="flex items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="is_residential" value="true" defaultChecked={getBoolValue('is_residential', true) === true} className="cursor-pointer" />
+                                個人宅 (Residential)
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="is_residential" value="false" defaultChecked={getBoolValue('is_residential', true) === false} className="cursor-pointer" />
+                                事業所・会社 (Commercial)
+                            </label>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-2">※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。</p>
+                    </div>
+                </section>
+
+                {/* 3. お支払いアカウント情報 */}
+                <section>
+                    <div className="flex items-center gap-3 border-b pb-2 mb-4">
+                        <h2 className="font-bold text-slate-800">お支払いアカウント情報</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* PayPal連携カード */}
+                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">PayPal アカウント連携</label>
+                                {getValue('paypal_email') ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">
+                                            ✅ 連携済み
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-800">
+                                            {getValue('paypal_email')}
+                                        </span>
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="pt-2">
+                                <a
+                                    href="/api/auth/paypal"
+                                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#0070BA] hover:bg-[#003087] text-white text-xs font-bold rounded transition-colors shadow-sm"
+                                >
+                                    {getValue('paypal_email') ? 'PayPalアカウントを再連携' : 'PayPalと連携する'}
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Wise用 メールアドレスカード */}
+                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-bold text-slate-600">Wise用 メールアドレス</label>
+                                    <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={Boolean(useSameForWise)} 
+                                            onChange={handleSameForWiseChange}
+                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        ログイン用と同じ
+                                    </label>
+                                </div>
+                                <input 
+                                    name="wise_email" 
+                                    type="email" 
+                                    value={wiseEmail} 
+                                    onChange={(e) => {
+                                        setWiseEmail(e.target.value)
+                                        if (e.target.value !== safeUserEmail) setUseSameForWise(false)
+                                    }}
+                                    className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-mono" 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 4. デフォルト注文設定 */}
+                <section>
+                    <div className="flex items-baseline justify-between border-b pb-2 mb-4">
+                        <h2 className="font-bold text-slate-800">デフォルトの注文設定</h2>
+                        <span className="text-[11px] text-slate-500">カートで依頼を送信する際の初期選択になります。</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">配送方法</label>
+                            <select 
+                                name="default_shipping_method"
+                                value={defaultShipping}
+                                onChange={(e) => setDefaultShipping(e.target.value)}
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
+                            >
+                                <option value="航空便 (最安プラン)">航空便 (最安プラン自動選択)</option>
+                                <option value="船便">日本郵便 (船便)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">決済方法</label>
+                            <select 
+                                name="default_payment_method"
+                                value={defaultPayment}
+                                onChange={(e) => setDefaultPayment(e.target.value)}
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
+                            >
+                                <option value="Wise">Wise（銀行振込）</option>
+                                <option value="CreditCard">クレジットカード</option>
+                                <option value="PayPal">PayPal</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4">
+                    <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
+                        キャンセル
+                    </Link>
+                    <SubmitButton pendingText="保存中...">保存</SubmitButton>
+                </div>
+            </form>
+        </div>
+    )
+}
+</file>
+
+<file path="app/[lang]/layout.tsx">
+// [UPDATED]
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "@/app/globals.css";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+}) {
+  const { lang } = await params; // [UPDATED] Promiseから非同期で解凍
+
+  return (
+    <html
+      lang={lang}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        <header className="p-4 flex justify-end">
+          <LanguageSwitcher />
+        </header>
+        {children}
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/actions/admin.ts">
+// app/actions/admin.ts
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { cookies, headers } from 'next/headers'
+
+/**
+ * 1. 商品名の更新
+ */
+export async function updateItemTitle(itemId: string, title: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ title })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Item title update error:', error.message)
+        throw new Error(`商品名の更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 2. 商品ステータスの更新
+ */
+export async function updateItemStatus(itemId: string, status: string, orderId?: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ status })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Item status update error:', error.message)
+        throw new Error(`ステータスの更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 3. 確定数量の更新
+ */
+export async function updateItemQuantity(itemId: string, adminQuantity: number) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ admin_quantity: adminQuantity })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Item quantity update error:', error.message)
+        throw new Error(`確定数量の更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 4. 購入価格の更新
+ */
+export async function updateItemPrice(itemId: string, price: number) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ price })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Item price update error:', error.message)
+        throw new Error(`購入価格の更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
+ */
+export async function updateAdminNote(itemId: string, note: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ 
+            admin_note: note,
+            status: 'info_required'
+        })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Admin note update error:', error.message)
+        throw new Error(`連絡メッセージの送信に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
+ */
+export async function cancelAdminNote(itemId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('items')
+        .update({ 
+            admin_note: null,
+            status: 'pending'
+        })
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Admin note cancel error:', error.message)
+        throw new Error(`送信取り消しに失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+}
+
+/**
+ * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
+ */
+export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string) {
+    const supabase = await createClient()
+
+    // [UPDATED] 確定した配送方法もDBに保存するよう追加
+    const updateData: any = {
+        shipping_fee: shippingFee,
+        total_amount: totalAmount,
+    }
+
+    if (shippingMethod) {
+        updateData.shipping_method = shippingMethod
+    }
+
+    const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Invoice save error:', error.message)
+        throw new Error(`請求金額の保存に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+}
+
+/**
+ * 8. 請求金額データの削除（クリア） [UPDATED]
+ */
+export async function deleteInvoice(orderId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({
+            shipping_fee: null,
+            total_amount: null,
+            status: 'pending'
+        })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Invoice delete error:', error.message)
+        throw new Error(`請求データのクリアに失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+}
+
+/**
+ * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
+ */
+export async function updateOrderStatusToPaymentRequired(orderId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ status: 'payment_required' })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Update status payment_required error:', error.message)
+        throw new Error(`ステータスの更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+}
+
+/**
+ * 10. 「決済待ち」の取り消し [UPDATED]
+ */
+export async function cancelPaymentRequired(orderId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ status: 'pending' })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Cancel payment_required error:', error.message)
+        throw new Error(`取り消し処理に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+}
+
+/**
+ * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
+ */
+export async function sendPayPalInvoice(orderId: string) {
+    const supabase = await createClient()
+
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('*, profiles(*)')
+        .eq('id', orderId)
+        .single()
+
+    if (orderError || !order) {
+        throw new Error('注文情報の取得に失敗しました。')
+    }
+
+    const paypalEmail = order.profiles?.paypal_email || order.profiles?.email
+    if (!paypalEmail) {
+        throw new Error('ユーザーのPayPal用メールアドレスが登録されていません。')
+    }
+
+    const amountToSend = order.total_amount
+    if (!amountToSend || amountToSend <= 0) {
+        throw new Error('お支払い金額（合計金額）が保存されていません。総重量横の「保存」ボタンを先に押してください。')
+    }
+
+    const headersList = await headers()
+    const cookieStore = await cookies()
+    const host = headersList.get('host') || 'localhost:3000'
+    const protocol = host.includes('localhost') ? 'http' : 'https'
+    const appUrl = `${protocol}://${host}`
+
+    let res: Response
+    try {
+        res = await fetch(`${appUrl}/api/admin/paypal/invoice`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Cookie': cookieStore.toString()
+            },
+            body: JSON.stringify({
+                orderId: order.id,
+                orderNumber: order.order_number,
+                recipientEmail: paypalEmail,
+                amount: amountToSend
+            })
+        })
+    } catch (err: any) {
+        console.error('PayPal API Fetch Error:', err)
+        throw new Error(`PayPal 請求APIの接続に失敗しました: ${err.message || '通信エラー'}`)
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+        const textErr = await res.text()
+        console.error('PayPal Invoice API returned non-JSON:', textErr)
+        throw new Error(`PayPal API エラー (Status ${res.status}): サーバーから無効なレスポンスが返されました。`)
+    }
+
+    const data = await res.json()
+    if (!res.ok || data.error) {
+        throw new Error(data.error || 'PayPal請求書の送信に失敗しました。')
+    }
+
+    await updateOrderStatusToPaymentRequired(orderId)
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+
+    return { success: true, invoiceId: data.invoiceId }
+}
+
+/**
+ * 12. 追跡番号の更新・保存 [UPDATED]
+ */
+export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ tracking_number: trackingNumber })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Tracking number update error:', error.message)
+        throw new Error(`追跡番号の保存に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED]
+}
+
+/**
+ * 13. 発送完了処理 [UPDATED]
+ */
+export async function shipOrder(orderId: string, trackingNumber: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({
+            status: 'shipped',
+            tracking_number: trackingNumber
+        })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Ship order error:', error.message)
+        throw new Error(`発送完了への更新に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED]
+}
+
+/**
+ * 14. 追跡番号のクリア（削除） [UPDATED]
+ */
+export async function deleteShip(orderId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ tracking_number: null })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Delete ship error:', error.message)
+        throw new Error(`追跡番号の削除に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED]
+}
+
+/**
+ * 15. 発送済みの取り消し [UPDATED]
+ */
+export async function cancelShip(orderId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from('orders')
+        .update({ status: 'payment_required' })
+        .eq('id', orderId)
+
+    if (error) {
+        console.error('Cancel ship error:', error.message)
+        throw new Error(`発送取り消しに失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED]
+}
+
+/**
+ * 16. 注文内商品の削除 [UPDATED]
+ */
+export async function deleteAdminItem(itemId: string) {
+    const supabase = await createClient()
+
+    await supabase
+        .from('order_items')
+        .delete()
+        .eq('item_id', itemId)
+
+    const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', itemId)
+
+    if (error) {
+        console.error('Admin item delete error:', error.message)
+        throw new Error(`商品の削除に失敗しました: ${error.message}`)
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/dashboard') // [UPDATED]
+}
+</file>
+
+<file path="components/LanguageSwitcher.tsx">
+// [UPDATED]
+'use client'
+
+import { usePathname, useRouter } from 'next/navigation'
+
+export default function LanguageSwitcher() {
+  const pathname = usePathname()
+  const router = useRouter()
+
+  // パスから現在の言語コードを取得 (/en/dashboard -> en)
+  const currentLang = pathname.split('/')[1] || 'en'
+
+  const handleLanguageChange = (newLang: string) => {
+    if (currentLang === newLang) return
+
+    const segments = pathname.split('/')
+    
+    // サポート言語がパス先頭に含まれている場合は置き換え、含まれていない場合は先頭に挿入
+    if (['en', 'ja'].includes(segments[1])) {
+      segments[1] = newLang
+    } else {
+      segments.splice(1, 0, newLang)
+    }
+
+    const newPath = segments.join('/') || `/${newLang}`
+    router.push(newPath)
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-xs bg-slate-100 p-1 rounded-lg border border-slate-200">
+      <button
+        type="button"
+        onClick={() => handleLanguageChange('en')}
+        className={`px-2 py-1 rounded font-bold transition-colors ${
+          currentLang === 'en'
+            ? 'bg-blue-600 text-white shadow-2xs'
+            : 'text-slate-600 hover:text-slate-900'
+        }`}
+      >
+        EN
+      </button>
+      <button
+        type="button"
+        onClick={() => handleLanguageChange('ja')}
+        className={`px-2 py-1 rounded font-bold transition-colors ${
+          currentLang === 'ja'
+            ? 'bg-blue-600 text-white shadow-2xs'
+            : 'text-slate-600 hover:text-slate-900'
+        }`}
+      >
+        JP
+      </button>
+    </div>
+  )
+}
+</file>
+
+<file path="components/StatusSelect.tsx">
+'use client'
+
+// 変更点1：updateOrder ではなく、admin.ts に実在する updateItemStatus を読み込みます
+import { updateItemStatus } from '@/app/actions/admin'
+
+export default function StatusSelect({ item }: { item: { id: string; status: string; admin_note?: string } }) {
+    const handleSubmit = async (formData: FormData) => {
+        try {
+            // 変更点2：読み込んだ updateItemStatus を使って更新します（// も外しました）
+            await updateItemStatus(item.id, formData.get('status') as string)
+            
+            // 画面上でわかりやすいように成功メッセージを出します
+            alert('ステータスの更新に成功しました！')
+        } catch (e: unknown) {
+            console.error(e)
+            alert('更新失敗: ' + (e instanceof Error ? e.message : 'Unknown error'))
+        }
+    }
+
+    return (
+        <form action={handleSubmit}>
+            <select name="status" defaultValue={item.status} className="bg-white text-slate-900 border border-slate-300 p-1 rounded">
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <button type="submit" className="ml-2 bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700">更新</button>
+        </form>
+    )
+}
+</file>
+
+<file path="utils/supabase/server.ts">
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+// 変更点：async と await を追加しています
+export async function createClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try { cookieStore.set({ name, value, ...options }) } catch (error) {}
+        },
+        remove(name: string, options: CookieOptions) {
+          try { cookieStore.set({ name, value: '', ...options }) } catch (error) {}
+        },
+      },
+    }
+  )
+}
+</file>
+
+<file path="middleware.ts">
+// [NEW]
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+const locales = ['en', 'ja']
+const defaultLocale = 'en'
+
+function getLocale(request: NextRequest): string {
+  const acceptLanguage = request.headers.get('accept-language')
+  if (acceptLanguage && acceptLanguage.includes('ja')) {
+    return 'ja'
+  }
+  return defaultLocale
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // 静的アセット、APIルート、内部パスはスキップ
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
+
+  // URL先頭に en または ja が含まれているか確認
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  )
+
+  if (pathnameHasLocale) return NextResponse.next()
+
+  // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
+  const locale = getLocale(request)
+  request.nextUrl.pathname = `/${locale}${pathname}`
+  return NextResponse.redirect(request.nextUrl)
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
+}
+</file>
+
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
+// app/[lang]/admin/ClientAdminPage.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -4670,7 +4895,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 }
 
                 const destCountry = order.shipping_country || order.profiles?.country || 'US';
-                // [NEW] 実際の注文に紐づく郵便番号を取得（未設定なら空文字を送信）
                 const destPostalCode = order.shipping_zip_code || order.profiles?.zip_code || '';
                 const selectedMethod = order.shipping_method || '最安プラン自動選択 (航空便)';
 
@@ -4682,7 +4906,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             destination: destCountry,
-                            postalCode: destPostalCode, // [NEW] 実在する郵便番号をAPIに送信
+                            postalCode: destPostalCode, 
                             weight: weightVal,
                             targetCurrency: 'JPY'
                         })
@@ -4885,7 +5109,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     }
 
-    const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, formData: FormData) => {
+    // [UPDATED] 配送方法の引数を追加
+    const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) => {
         const weightStr = formData.get('weightStr') as string;
         const weightNum = parseFloat(weightStr);
 
@@ -4913,12 +5138,13 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         setOrders((prevOrders) =>
             prevOrders.map((order) => {
                 if (order.id !== orderId) return order
-                return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount }
+                // [NEW] 配送方法も更新状態に含める
+                return { ...order, shipping_fee: currentShippingFee, total_amount: currentTotalAmount, shipping_method: currentShippingMethod }
             })
         )
 
         setEditingWeight(prev => { const next = new Set(prev); next.delete(orderId); return next; })
-        await sendInvoice(orderId, currentShippingFee, currentTotalAmount)
+        await sendInvoice(orderId, currentShippingFee, currentTotalAmount, currentShippingMethod)
 
         if (hasExistingTracking) {
             alert('総重量が変更されたため、新しい配送ラベルを自動作成します。')
@@ -5212,7 +5438,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 </button>
                                             </div>
                                         ) : (
-                                            <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal)} className="flex items-center justify-center gap-1.5">
+                                            <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal, resolvedShippingDisp)} className="flex items-center justify-center gap-1.5">
                                                 <input
                                                     type="number"
                                                     step="0.01"
@@ -5683,219 +5909,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             )}
         </div>
     )
-}
-</file>
-
-<file path="app/[lang]/layout.tsx">
-// [UPDATED]
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "@/app/globals.css";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "Create Next App",
-  description: "Generated by create next app",
-};
-
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ lang: string }>;
-}) {
-  const { lang } = await params; // [UPDATED] Promiseから非同期で解凍
-
-  return (
-    <html
-      lang={lang}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <header className="p-4 flex justify-end">
-          <LanguageSwitcher />
-        </header>
-        {children}
-      </body>
-    </html>
-  );
-}
-</file>
-
-<file path="components/LanguageSwitcher.tsx">
-// [UPDATED]
-'use client'
-
-import { usePathname, useRouter } from 'next/navigation'
-
-export default function LanguageSwitcher() {
-  const pathname = usePathname()
-  const router = useRouter()
-
-  // パスから現在の言語コードを取得 (/en/dashboard -> en)
-  const currentLang = pathname.split('/')[1] || 'en'
-
-  const handleLanguageChange = (newLang: string) => {
-    if (currentLang === newLang) return
-
-    const segments = pathname.split('/')
-    
-    // サポート言語がパス先頭に含まれている場合は置き換え、含まれていない場合は先頭に挿入
-    if (['en', 'ja'].includes(segments[1])) {
-      segments[1] = newLang
-    } else {
-      segments.splice(1, 0, newLang)
-    }
-
-    const newPath = segments.join('/') || `/${newLang}`
-    router.push(newPath)
-  }
-
-  return (
-    <div className="flex items-center gap-1 text-xs bg-slate-100 p-1 rounded-lg border border-slate-200">
-      <button
-        type="button"
-        onClick={() => handleLanguageChange('en')}
-        className={`px-2 py-1 rounded font-bold transition-colors ${
-          currentLang === 'en'
-            ? 'bg-blue-600 text-white shadow-2xs'
-            : 'text-slate-600 hover:text-slate-900'
-        }`}
-      >
-        EN
-      </button>
-      <button
-        type="button"
-        onClick={() => handleLanguageChange('ja')}
-        className={`px-2 py-1 rounded font-bold transition-colors ${
-          currentLang === 'ja'
-            ? 'bg-blue-600 text-white shadow-2xs'
-            : 'text-slate-600 hover:text-slate-900'
-        }`}
-      >
-        JP
-      </button>
-    </div>
-  )
-}
-</file>
-
-<file path="components/StatusSelect.tsx">
-'use client'
-
-// 変更点1：updateOrder ではなく、admin.ts に実在する updateItemStatus を読み込みます
-import { updateItemStatus } from '@/app/actions/admin'
-
-export default function StatusSelect({ item }: { item: { id: string; status: string; admin_note?: string } }) {
-    const handleSubmit = async (formData: FormData) => {
-        try {
-            // 変更点2：読み込んだ updateItemStatus を使って更新します（// も外しました）
-            await updateItemStatus(item.id, formData.get('status') as string)
-            
-            // 画面上でわかりやすいように成功メッセージを出します
-            alert('ステータスの更新に成功しました！')
-        } catch (e: unknown) {
-            console.error(e)
-            alert('更新失敗: ' + (e instanceof Error ? e.message : 'Unknown error'))
-        }
-    }
-
-    return (
-        <form action={handleSubmit}>
-            <select name="status" defaultValue={item.status} className="bg-white text-slate-900 border border-slate-300 p-1 rounded">
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-            </select>
-            <button type="submit" className="ml-2 bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700">更新</button>
-        </form>
-    )
-}
-</file>
-
-<file path="utils/supabase/server.ts">
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-// 変更点：async と await を追加しています
-export async function createClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }) } catch (error) {}
-        },
-        remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch (error) {}
-        },
-      },
-    }
-  )
-}
-</file>
-
-<file path="middleware.ts">
-// [NEW]
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-
-const locales = ['en', 'ja']
-const defaultLocale = 'en'
-
-function getLocale(request: NextRequest): string {
-  const acceptLanguage = request.headers.get('accept-language')
-  if (acceptLanguage && acceptLanguage.includes('ja')) {
-    return 'ja'
-  }
-  return defaultLocale
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // 静的アセット、APIルート、内部パスはスキップ
-  if (
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next()
-  }
-
-  // URL先頭に en または ja が含まれているか確認
-  const pathnameHasLocale = locales.some(
-    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
-  )
-
-  if (pathnameHasLocale) return NextResponse.next()
-
-  // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
-  const locale = getLocale(request)
-  request.nextUrl.pathname = `/${locale}${pathname}`
-  return NextResponse.redirect(request.nextUrl)
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
 }
 </file>
 
