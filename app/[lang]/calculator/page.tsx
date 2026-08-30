@@ -1,6 +1,9 @@
+// app/[lang]/calculator/page.tsx
+// [UPDATED] タイトルを「Shipping Calculator」に変更し、「ホームへ戻る」ボタンを追加
 "use client";
 
 import { useState } from "react";
+import Link from "next/link"; // [NEW]
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage() {
@@ -28,7 +31,7 @@ export default function CalculatorPage() {
         body: JSON.stringify({
           destination: countryCode,
           weight: Number(weight) || 1.0,
-          isEstimate: true // 概算試算であることを明示
+          isEstimate: true
         }),
       });
 
@@ -48,8 +51,16 @@ export default function CalculatorPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md my-8">
+      {/* [NEW] ホームへ戻るボタン */}
+      <div className="flex items-center justify-between pb-2 border-b border-gray-200 mb-4">
+        <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+          ← ホームへ戻る
+        </Link>
+      </div>
+
+      {/* [UPDATED] タイトルを Shipping Calculator に変更 */}
       <h1 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
-        国際送料・概算試算シミュレーター
+        Shipping Calculator
       </h1>
 
       <div className="space-y-4">
