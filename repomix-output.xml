@@ -109,6 +109,7 @@ components/
   BookmarkletGenerator.tsx
   CartManager.tsx
   countries.ts
+  CountryCombobox.tsx
   ItemStatusBadge.tsx
   ItemStatusSelect.tsx
   LanguageSwitcher.tsx
@@ -1174,6 +1175,92 @@ body {
   background: #f8fafc;
   color: #0f172a;
   font-family: Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="components/CountryCombobox.tsx">
+// components/CountryCombobox.tsx
+// [NEW] 検索可能な国選択コンポーネント
+'use client'
+
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { countries } from './countries'
+
+interface Props {
+    value: string
+    onChange: (code: string) => void
+    isEn: boolean
+    className?: string
+}
+
+export default function CountryCombobox({ value, onChange, isEn, className }: Props) {
+    const [isOpen, setIsOpen] = useState(false)
+    const [query, setQuery] = useState("")
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    const filteredCountries = useMemo(() => {
+        if (!query) return countries
+        const lowerQuery = query.toLowerCase()
+        return countries.filter(
+            (c) => c.code.toLowerCase().includes(lowerQuery) || 
+                   c.name.toLowerCase().includes(lowerQuery) || 
+                   c.enName.toLowerCase().includes(lowerQuery)
+        )
+    }, [query])
+
+    const selectedCountry = countries.find((c) => c.code === value)
+    const displayValue = selectedCountry ? (isEn ? selectedCountry.enName : selectedCountry.name) : ""
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false)
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside)
+        return () => document.removeEventListener("mousedown", handleClickOutside)
+    }, [])
+
+    return (
+        <div className="relative w-full" ref={containerRef}>
+            <input
+                type="text"
+                className={className || "w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"}
+                placeholder={isEn ? "Search country (e.g. Japan, US)..." : "国名やコードで検索..."}
+                value={isOpen ? query : (displayValue ? `${displayValue} (${value})` : "")}
+                onChange={(e) => {
+                    setQuery(e.target.value)
+                    setIsOpen(true)
+                }}
+                onFocus={() => {
+                    setQuery("")
+                    setIsOpen(true)
+                }}
+            />
+            {isOpen && (
+                <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded shadow-lg text-sm">
+                    {filteredCountries.map((country) => (
+                        <li
+                            key={country.code}
+                            className="px-3 py-2 hover:bg-slate-100 cursor-pointer text-slate-900 border-b border-slate-50 last:border-0"
+                            onClick={() => {
+                                onChange(country.code)
+                                setIsOpen(false)
+                                setQuery("")
+                            }}
+                        >
+                            {isEn ? country.enName : country.name} ({country.code})
+                        </li>
+                    ))}
+                    {filteredCountries.length === 0 && (
+                        <li className="px-3 py-2 text-slate-500 text-center">
+                            {isEn ? "No results found" : "見つかりませんでした"}
+                        </li>
+                    )}
+                </ul>
+            )}
+        </div>
+    )
 }
 </file>
 
@@ -2733,100 +2820,6 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 }
 </file>
 
-<file path="components/countries.ts">
-// components/countries.ts
-// [UPDATED] 英語名(enName)を追加し、多言語対応できるように構造を変更
-
-export interface Country {
-    code: string;
-    name: string;
-    enName: string; // [NEW]
-}
-
-export const countries: Country[] = [
-    // アジア・東アジア
-    { code: 'JP', name: '日本', enName: 'Japan' },
-    { code: 'US', name: 'アメリカ', enName: 'United States' },
-    { code: 'KR', name: '韓国', enName: 'South Korea' },
-    { code: 'CN', name: '中国', enName: 'China' },
-    { code: 'TW', name: '台湾', enName: 'Taiwan' },
-    { code: 'HK', name: '香港', enName: 'Hong Kong' },
-    { code: 'MO', name: 'マカオ', enName: 'Macau' },
-
-    // 東南アジア
-    { code: 'SG', name: 'シンガポール', enName: 'Singapore' },
-    { code: 'TH', name: 'タイ', enName: 'Thailand' },
-    { code: 'MY', name: 'マレーシア', enName: 'Malaysia' },
-    { code: 'PH', name: 'フィリピン', enName: 'Philippines' },
-    { code: 'VN', name: 'ベトナム', enName: 'Vietnam' },
-    { code: 'ID', name: 'インドネシア', enName: 'Indonesia' },
-    { code: 'IN', name: 'インド', enName: 'India' },
-    { code: 'BN', name: 'ブルネイ', enName: 'Brunei' },
-    { code: 'KH', name: 'カンボジア', enName: 'Cambodia' },
-    { code: 'LA', name: 'ラオス', enName: 'Laos' },
-
-    // 北米・中南米
-    { code: 'CA', name: 'カナダ', enName: 'Canada' },
-    { code: 'MX', name: 'メキシコ', enName: 'Mexico' },
-    { code: 'BR', name: 'ブラジル', enName: 'Brazil' },
-    { code: 'AR', name: 'アルゼンチン', enName: 'Argentina' },
-    { code: 'CL', name: 'チリ', enName: 'Chile' },
-    { code: 'CO', name: 'コロンビア', enName: 'Colombia' },
-    { code: 'PE', name: 'ペルー', enName: 'Peru' },
-
-    // オセアニア
-    { code: 'AU', name: 'オーストラリア', enName: 'Australia' },
-    { code: 'NZ', name: 'ニュージーランド', enName: 'New Zealand' },
-
-    // ヨーロッパ (EU・非EU)
-    { code: 'GB', name: 'イギリス', enName: 'United Kingdom' },
-    { code: 'DE', name: 'ドイツ', enName: 'Germany' },
-    { code: 'FR', name: 'フランス', enName: 'France' },
-    { code: 'IT', name: 'イタリア', enName: 'Italy' },
-    { code: 'ES', name: 'スペイン', enName: 'Spain' },
-    { code: 'NL', name: 'オランダ', enName: 'Netherlands' },
-    { code: 'BE', name: 'ベルギー', enName: 'Belgium' },
-    { code: 'CH', name: 'スイス', enName: 'Switzerland' },
-    { code: 'SE', name: 'スウェーデン', enName: 'Sweden' },
-    { code: 'NO', name: 'ノルウェー', enName: 'Norway' },
-    { code: 'FI', name: 'フィンランド', enName: 'Finland' },
-    { code: 'DK', name: 'デンマーク', enName: 'Denmark' },
-    { code: 'AT', name: 'オーストリア', enName: 'Austria' },
-    { code: 'PL', name: 'ポーランド', enName: 'Poland' },
-    { code: 'IE', name: 'アイルランド', enName: 'Ireland' },
-    { code: 'PT', name: 'ポルトガル', enName: 'Portugal' },
-    { code: 'GR', name: 'ギリシャ', enName: 'Greece' },
-    { code: 'CZ', name: 'チェコ', enName: 'Czech Republic' },
-    { code: 'HU', name: 'ハンガリー', enName: 'Hungary' },
-    { code: 'RO', name: 'ルーマニア', enName: 'Romania' },
-    { code: 'SK', name: 'スロバキア', enName: 'Slovakia' },
-    { code: 'BG', name: 'ブルガリア', enName: 'Bulgaria' },
-    { code: 'HR', name: 'クロアチア', enName: 'Croatia' },
-    { code: 'SI', name: 'スロベニア', enName: 'Slovenia' },
-    { code: 'EE', name: 'エストニア', enName: 'Estonia' },
-    { code: 'LV', name: 'ラトビア', enName: 'Latvia' },
-    { code: 'LT', name: 'リトアニア', enName: 'Lithuania' },
-    { code: 'LU', name: 'ルクセンブルク', enName: 'Luxembourg' },
-
-    // 中東・近東
-    { code: 'AE', name: 'アラブ首長国連邦', enName: 'UAE' },
-    { code: 'SA', name: 'サウジアラビア', enName: 'Saudi Arabia' },
-    { code: 'IL', name: 'イスラエル', enName: 'Israel' },
-    { code: 'TR', name: 'トルコ', enName: 'Turkey' },
-    { code: 'QA', name: 'カタール', enName: 'Qatar' },
-    { code: 'KW', name: 'クウェート', enName: 'Kuwait' },
-    { code: 'BH', name: 'バーレーン', enName: 'Bahrain' },
-    { code: 'OM', name: 'オマーン', enName: 'Oman' },
-
-    // アフリカ
-    { code: 'ZA', name: '南アフリカ', enName: 'South Africa' },
-    { code: 'EG', name: 'エジプト', enName: 'Egypt' },
-    { code: 'MA', name: 'モロッコ', enName: 'Morocco' },
-    { code: 'KE', name: 'ケニア', enName: 'Kenya' },
-    { code: 'NG', name: 'ナイジェリア', enName: 'Nigeria' }
-];
-</file>
-
 <file path="components/ItemStatusSelect.tsx">
 // components/ItemStatusSelect.tsx
 // [UPDATED] dict をオプションで受け取り、プルダウン内のラベルを多言語対応化
@@ -3212,6 +3205,87 @@ export default async function AdminPage() {
         </div>
     )
 }
+</file>
+
+<file path="components/countries.ts">
+// components/countries.ts
+// [UPDATED] 英語名(enName)のアルファベット順にソート
+
+export interface Country {
+    code: string;
+    name: string;
+    enName: string;
+}
+
+export const countries: Country[] = [
+    { code: 'AR', name: 'アルゼンチン', enName: 'Argentina' },
+    { code: 'AU', name: 'オーストラリア', enName: 'Australia' },
+    { code: 'AT', name: 'オーストリア', enName: 'Austria' },
+    { code: 'BH', name: 'バーレーン', enName: 'Bahrain' },
+    { code: 'BE', name: 'ベルギー', enName: 'Belgium' },
+    { code: 'BR', name: 'ブラジル', enName: 'Brazil' },
+    { code: 'BN', name: 'ブルネイ', enName: 'Brunei' },
+    { code: 'BG', name: 'ブルガリア', enName: 'Bulgaria' },
+    { code: 'KH', name: 'カンボジア', enName: 'Cambodia' },
+    { code: 'CA', name: 'カナダ', enName: 'Canada' },
+    { code: 'CL', name: 'チリ', enName: 'Chile' },
+    { code: 'CN', name: '中国', enName: 'China' },
+    { code: 'CO', name: 'コロンビア', enName: 'Colombia' },
+    { code: 'HR', name: 'クロアチア', enName: 'Croatia' },
+    { code: 'CZ', name: 'チェコ', enName: 'Czech Republic' },
+    { code: 'DK', name: 'デンマーク', enName: 'Denmark' },
+    { code: 'EG', name: 'エジプト', enName: 'Egypt' },
+    { code: 'EE', name: 'エストニア', enName: 'Estonia' },
+    { code: 'FI', name: 'フィンランド', enName: 'Finland' },
+    { code: 'FR', name: 'フランス', enName: 'France' },
+    { code: 'DE', name: 'ドイツ', enName: 'Germany' },
+    { code: 'GR', name: 'ギリシャ', enName: 'Greece' },
+    { code: 'HK', name: '香港', enName: 'Hong Kong' },
+    { code: 'HU', name: 'ハンガリー', enName: 'Hungary' },
+    { code: 'IN', name: 'インド', enName: 'India' },
+    { code: 'ID', name: 'インドネシア', enName: 'Indonesia' },
+    { code: 'IE', name: 'アイルランド', enName: 'Ireland' },
+    { code: 'IL', name: 'イスラエル', enName: 'Israel' },
+    { code: 'IT', name: 'イタリア', enName: 'Italy' },
+    { code: 'JP', name: '日本', enName: 'Japan' },
+    { code: 'KE', name: 'ケニア', enName: 'Kenya' },
+    { code: 'KW', name: 'クウェート', enName: 'Kuwait' },
+    { code: 'LA', name: 'ラオス', enName: 'Laos' },
+    { code: 'LV', name: 'ラトビア', enName: 'Latvia' },
+    { code: 'LT', name: 'リトアニア', enName: 'Lithuania' },
+    { code: 'LU', name: 'ルクセンブルク', enName: 'Luxembourg' },
+    { code: 'MO', name: 'マカオ', enName: 'Macau' },
+    { code: 'MY', name: 'マレーシア', enName: 'Malaysia' },
+    { code: 'MX', name: 'メキシコ', enName: 'Mexico' },
+    { code: 'MA', name: 'モロッコ', enName: 'Morocco' },
+    { code: 'NL', name: 'オランダ', enName: 'Netherlands' },
+    { code: 'NZ', name: 'ニュージーランド', enName: 'New Zealand' },
+    { code: 'NG', name: 'ナイジェリア', enName: 'Nigeria' },
+    { code: 'NO', name: 'ノルウェー', enName: 'Norway' },
+    { code: 'OM', name: 'オマーン', enName: 'Oman' },
+    { code: 'PE', name: 'ペルー', enName: 'Peru' },
+    { code: 'PH', name: 'フィリピン', enName: 'Philippines' },
+    { code: 'PL', name: 'ポーランド', enName: 'Poland' },
+    { code: 'PT', name: 'ポルトガル', enName: 'Portugal' },
+    { code: 'QA', name: 'カタール', enName: 'Qatar' },
+    { code: 'RO', name: 'ルーマニア', enName: 'Romania' },
+    { code: 'SA', name: 'サウジアラビア', enName: 'Saudi Arabia' },
+    { code: 'SG', name: 'シンガポール', enName: 'Singapore' },
+    { code: 'SK', name: 'スロバキア', enName: 'Slovakia' },
+    { code: 'SI', name: 'スロベニア', enName: 'Slovenia' },
+    { code: 'ZA', name: '南アフリカ', enName: 'South Africa' },
+    { code: 'KR', name: '韓国', enName: 'South Korea' },
+    { code: 'ES', name: 'スペイン', enName: 'Spain' },
+    { code: 'SE', name: 'スウェーデン', enName: 'Sweden' },
+    { code: 'CH', name: 'スイス', enName: 'Switzerland' },
+    { code: 'TW', name: '台湾', enName: 'Taiwan' },
+    { code: 'TH', name: 'タイ', enName: 'Thailand' },
+    { code: 'TR', name: 'トルコ', enName: 'Turkey' },
+    { code: 'AE', name: 'アラブ首長国連邦', enName: 'UAE' },
+    { code: 'GB', name: 'イギリス', enName: 'United Kingdom' },
+    { code: 'US', name: 'アメリカ', enName: 'United States' },
+    { code: 'VN', name: 'ベトナム', enName: 'Vietnam' }
+];
 </file>
 
 <file path="components/ItemStatusBadge.tsx">
@@ -5339,557 +5413,6 @@ export default function CartManager({
 }
 </file>
 
-<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
-// app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] URLパスから確実に言語を判定し、国名セレクトボックスも enName と name を切り替えるよう修正
-'use client'
-
-import React, { useActionState, useEffect, useState } from 'react'
-import { updateProfile } from '@/app/actions/profile'
-import { changePassword, changeEmail } from '@/app/actions/auth'
-import { SubmitButton } from '@/components/SubmitButtons'
-import { countries } from '@/components/countries'
-import Link from 'next/link'
-
-export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
-    // [NEW] 確実な言語判定
-    const isEn = typeof window !== 'undefined' 
-        ? window.location.pathname.startsWith('/en') 
-        : (dict?.settings?.save === 'Save');
-
-    // プロフィール更新用 State
-    const [state, action] = useActionState(updateProfile, null)
-    const [showToast, setShowToast] = useState(false)
-
-    // パスワード変更用 State
-    const [pwState, pwAction] = useActionState(changePassword, null)
-    const [showPwToast, setShowPwToast] = useState(false)
-
-    // メール変更用 State 
-    const [emailState, emailAction] = useActionState(changeEmail, null)
-    const [emailInput, setEmailInput] = useState(userEmail || '')
-
-    // パスワード変更フォームの開閉状態
-    const [isOpenPwForm, setIsOpenPwForm] = useState(false)
-
-    // パスワード表示/非表示の切り替え状態
-    const [showPassword, setShowPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-
-    // 連絡用メールアドレス・Wise用メールアドレスの State 管理
-    const [contactEmail, setContactEmail] = useState<string>(profile?.contact_email || '')
-    const [wiseEmail, setWiseEmail] = useState<string>(profile?.wise_email || '')
-
-    // 選択された国 (Country) の State 管理
-    const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
-
-    // 同一アドレス適用チェックボックスの State 管理
-    const safeUserEmail = userEmail || ''
-    const [useSameForContact, setUseSameForContact] = useState<boolean>(
-        Boolean(profile?.contact_email && profile.contact_email === safeUserEmail && safeUserEmail !== '')
-    )
-    const [useSameForWise, setUseSameForWise] = useState<boolean>(
-        Boolean(profile?.wise_email && profile.wise_email === safeUserEmail && safeUserEmail !== '')
-    )
-
-    const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
-    const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
-
-    useEffect(() => {
-        if (state?.data?.contact_email !== undefined) {
-            setContactEmail(state.data.contact_email || '')
-        }
-        if (state?.data?.wise_email !== undefined) {
-            setWiseEmail(state.data.wise_email || '')
-        }
-        if (state?.data?.country !== undefined) {
-            setSelectedCountry(state.data.country || 'US')
-        }
-        if (state?.data?.default_shipping_method !== undefined) {
-            setDefaultShipping(state.data.default_shipping_method || '航空便 (最安プラン)')
-        }
-        if (state?.data?.default_payment_method !== undefined) {
-            setDefaultPayment(state.data.default_payment_method || 'Wise')
-        }
-    }, [state])
-
-    useEffect(() => {
-        if (state?.error || state?.success) {
-            setShowToast(true)
-            const timer = setTimeout(() => setShowToast(false), 3000) 
-            return () => clearTimeout(timer)
-        }
-    }, [state])
-
-    useEffect(() => {
-        if (pwState?.error || pwState?.success) {
-            setShowPwToast(true)
-            if (pwState.success) {
-                setIsOpenPwForm(false)
-            }
-            const timer = setTimeout(() => setShowPwToast(false), 3000) 
-            return () => clearTimeout(timer)
-        }
-    }, [pwState])
-
-    const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked
-        setUseSameForContact(checked)
-        if (checked) {
-            setContactEmail(safeUserEmail)
-        } else {
-            setContactEmail('') 
-        }
-    }
-
-    const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked
-        setUseSameForWise(checked)
-        if (checked) {
-            setWiseEmail(safeUserEmail)
-        } else {
-            setWiseEmail('') 
-        }
-    }
-
-    const getValue = (key: string) => {
-        if (state?.data && state.data[key] !== undefined) {
-            return state.data[key] || ''
-        }
-        return profile?.[key] || ''
-    }
-
-    const getBoolValue = (key: string, defaultVal: boolean) => {
-        if (state?.data && state.data[key] !== undefined) {
-            return Boolean(state.data[key])
-        }
-        return profile?.[key] ?? defaultVal
-    }
-
-    const isUS = selectedCountry === 'US'
-
-    return (
-        <div className="flex flex-col gap-8">
-            {showToast && (state?.error || state?.success) && (
-                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
-                    {state?.error && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ⚠️ {state.error}
-                        </div>
-                    )}
-                    {state?.success && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ✅ {isEn ? 'Saved successfully' : '設定を保存しました'}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {showPwToast && (pwState?.error || pwState?.success) && (
-                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
-                    {pwState?.error && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ⚠️ {pwState.error}
-                        </div>
-                    )}
-                    {pwState?.success && (
-                        <div 
-                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
-                        >
-                            ✅ {isEn ? 'Password Changed' : 'パスワードを変更しました'}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
-                <h2 className="font-bold text-slate-800 border-b pb-2">{isEn ? 'Login Information & Security' : 'ログイン情報・セキュリティ'}</h2>
-                
-                <div className="mb-2">
-                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Login Email' : 'ログイン用メールアドレス'}</label>
-                    <form action={emailAction} className="flex gap-2 items-start">
-                        <div className="w-full flex flex-col gap-1">
-                            <input 
-                                name="email" 
-                                type="email" 
-                                value={emailInput}
-                                onChange={(e) => setEmailInput(e.target.value)}
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
-                            />
-                            {emailState?.error && <span className="text-[10px] text-red-600 font-bold">⚠️ {emailState.error}</span>}
-                            {emailState?.success && <span className="text-[10px] text-emerald-600 font-bold">✅ {emailState.message}</span>}
-                            <span className="text-[10px] text-slate-500">{isEn ? '*A confirmation email will be sent when you click change.' : '※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。'}</span>
-                        </div>
-                        <SubmitButton pendingText={isEn ? "Changing..." : "送信中..."}>{isEn ? 'Change' : '変更'}</SubmitButton>
-                    </form>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">{isEn ? 'Password Settings' : 'パスワード設定'}</span>
-                        <button
-                            type="button"
-                            onClick={() => setIsOpenPwForm(!isOpenPwForm)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
-                        >
-                            {isOpenPwForm ? (isEn ? 'Cancel' : 'キャンセル') : (isEn ? 'Change Password' : 'パスワードの変更')}
-                        </button>
-                    </div>
-
-                    {isOpenPwForm && (
-                        <form action={pwAction} className="mt-2 p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-4 animate-fade-in">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'New Password (min 6 chars)' : '新しいパスワード (6文字以上)'}</label>
-                                    <div className="relative">
-                                        <input
-                                            name="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            required
-                                            minLength={6}
-                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
-                                        >
-                                            {showPassword ? '🙈' : '👁️'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Confirm New Password' : '新しいパスワード (確認用)'}</label>
-                                    <div className="relative">
-                                        <input
-                                            name="confirm_password"
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            required
-                                            minLength={6}
-                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
-                                        >
-                                            {showConfirmPassword ? '🙈' : '👁️'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end">
-                                <SubmitButton pendingText={isEn ? "Changing..." : "変更中..."}>{isEn ? 'Change' : '変更'}</SubmitButton>
-                            </div>
-                        </form>
-                    )}
-                </div>
-            </div>
-
-            <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
-                
-                <section>
-                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">{isEn ? 'Basic Information' : '基本情報'}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Full Name' : '担当者名 (Full Name)'} <span className="text-red-500">*</span></label>
-                            <input 
-                                name="full_name" 
-                                defaultValue={getValue('full_name')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Company Name' : '会社名 (Company Name)'}</label>
-                            <input 
-                                name="company_name" 
-                                defaultValue={getValue('company_name')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Phone' : '電話番号 (Phone)'} <span className="text-red-500">*</span></label>
-                            <input 
-                                name="phone" 
-                                defaultValue={getValue('phone')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="block text-xs font-bold text-slate-600">
-                                    {isEn ? 'Contact Email' : '連絡用メールアドレス (Contact Email)'} <span className="text-red-500">*</span>
-                                </label>
-                                <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={Boolean(useSameForContact)} 
-                                        onChange={handleSameForContactChange}
-                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    {isEn ? 'Same as login' : 'ログイン用と同じ'}
-                                </label>
-                            </div>
-                            <input 
-                                type="email"
-                                name="contact_email" 
-                                value={contactEmail} 
-                                onChange={(e) => {
-                                    setContactEmail(e.target.value)
-                                    if (e.target.value !== safeUserEmail) setUseSameForContact(false)
-                                }}
-                                placeholder="contact@example.com"
-                                required
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Country' : '国 (Country)'} <span className="text-red-500">*</span></label>
-                            <select
-                                name="country"
-                                value={selectedCountry}
-                                onChange={(e) => setSelectedCountry(e.target.value)}
-                                required
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                {/* [UPDATED] 言語判定に応じて国名を切り替え */}
-                                {countries.map((c: any) => (
-                                    <option key={c.code} value={c.code}>
-                                        {isEn ? c.enName : c.name} ({c.code})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">
-                                {isEn ? 'FedEx Account Number' : 'FedEx アカウント番号'} {isUS && <span className="text-red-500">*</span>}
-                            </label>
-                            <input 
-                                name="fedex_account_number" 
-                                defaultValue={getValue('fedex_account_number')} 
-                                required={isUS}
-                                placeholder="123456789"
-                                className={`w-full p-2 border rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono ${
-                                    isUS ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300'
-                                }`} 
-                            />
-                            {isUS && (
-                                <span className="text-[10px] text-amber-700 mt-1 block">
-                                    {isEn ? '*Required for customs clearance when using air freight.' : '※ 航空便利用時の関税支払い手続きに必須となります。'}
-                                </span>
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Zip Code' : '郵便番号 (Zip Code)'} <span className="text-red-500">*</span></label>
-                            <input 
-                                name="zip_code" 
-                                defaultValue={getValue('zip_code')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Tax ID' : '納税番号 (Tax ID)'}</label>
-                            <input 
-                                name="tax_id" 
-                                defaultValue={getValue('tax_id')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'City' : '都市名 (City)'} <span className="text-red-500">*</span></label>
-                            <input 
-                                name="city" 
-                                defaultValue={getValue('city')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'State/Province' : '州または省 (State/Province)'}</label>
-                            <input 
-                                name="state_province" 
-                                defaultValue={getValue('state_province')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="flex flex-col gap-3 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 1' : '住所1 (Address Line 1)'} <span className="text-red-500">*</span></label>
-                            <input 
-                                name="address_line1" 
-                                defaultValue={getValue('address_line1')} 
-                                required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 2' : '住所2 (Address Line 2)'}</label>
-                            <input 
-                                name="address_line2" 
-                                defaultValue={getValue('address_line2')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 3' : '住所3 (Address Line 3)'}</label>
-                            <input 
-                                name="address_line3" 
-                                defaultValue={getValue('address_line3')} 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                            />
-                        </div>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded">
-                        <label className="block text-xs font-bold text-slate-600 mb-2">{isEn ? 'Address Type' : 'お届け先の種類 (Residential or Commercial)'} <span className="text-red-500">*</span></label>
-                        <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input type="radio" name="is_residential" value="true" defaultChecked={getBoolValue('is_residential', true) === true} className="cursor-pointer" />
-                                {isEn ? 'Residential' : '個人宅 (Residential)'}
-                            </label>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                <input type="radio" name="is_residential" value="false" defaultChecked={getBoolValue('is_residential', true) === false} className="cursor-pointer" />
-                                {isEn ? 'Commercial' : '事業所・会社 (Commercial)'}
-                            </label>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-2">{isEn ? '*Courier deliveries to residential addresses may incur additional charges. Please select correctly.' : '※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。'}</p>
-                    </div>
-                </section>
-
-                <section>
-                    <div className="flex items-center gap-3 border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">{isEn ? 'Payment Account Information' : 'お支払いアカウント情報'}</h2>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'PayPal Account Link' : 'PayPal アカウント連携'}</label>
-                                {getValue('paypal_email') ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">
-                                            ✅ {isEn ? 'Linked' : '連携済み'}
-                                        </span>
-                                        <span className="text-sm font-medium text-slate-800">
-                                            {getValue('paypal_email')}
-                                        </span>
-                                    </div>
-                                ) : null}
-                            </div>
-
-                            <div className="pt-2">
-                                <a
-                                    href="/api/auth/paypal"
-                                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#0070BA] hover:bg-[#003087] text-white text-xs font-bold rounded transition-colors shadow-sm"
-                                >
-                                    {getValue('paypal_email') ? (isEn ? 'Relink PayPal Account' : 'PayPalアカウントを再連携') : (isEn ? 'Link with PayPal' : 'PayPalと連携する')}
-                                </a>
-                            </div>
-                        </div>
-
-                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-xs font-bold text-slate-600">{isEn ? 'Wise Email' : 'Wise用 メールアドレス'}</label>
-                                    <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={Boolean(useSameForWise)} 
-                                            onChange={handleSameForWiseChange}
-                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        />
-                                        {isEn ? 'Same as login' : 'ログイン用と同じ'}
-                                    </label>
-                                </div>
-                                <input 
-                                    name="wise_email" 
-                                    type="email" 
-                                    value={wiseEmail} 
-                                    onChange={(e) => {
-                                        setWiseEmail(e.target.value)
-                                        if (e.target.value !== safeUserEmail) setUseSameForWise(false)
-                                    }}
-                                    className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-mono" 
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section>
-                    <div className="flex items-baseline justify-between border-b pb-2 mb-4">
-                        <h2 className="font-bold text-slate-800">{isEn ? 'Default Order Settings' : 'デフォルトの注文設定'}</h2>
-                        <span className="text-[11px] text-slate-500">{isEn ? 'These will be initially selected when submitting a request from the cart.' : 'カートで依頼を送信する際の初期選択になります。'}</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Shipping Method' : '配送方法'}</label>
-                            <select 
-                                name="default_shipping_method"
-                                value={defaultShipping}
-                                onChange={(e) => setDefaultShipping(e.target.value)}
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                <option value="航空便 (最安プラン)">{isEn ? 'Cheapest Auto (Air)' : '航空便 (最安プラン自動選択)'}</option>
-                                <option value="船便">{isEn ? 'Japan Post (Sea)' : '日本郵便 (船便)'}</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Payment Method' : '決済方法'}</label>
-                            <select 
-                                name="default_payment_method"
-                                value={defaultPayment}
-                                onChange={(e) => setDefaultPayment(e.target.value)}
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
-                            >
-                                <option value="Wise">{isEn ? 'Wise (Bank Transfer)' : 'Wise（銀行振込）'}</option>
-                                <option value="CreditCard">{isEn ? 'Credit Card' : 'クレジットカード'}</option>
-                                <option value="PayPal">PayPal</option>
-                            </select>
-                        </div>
-                    </div>
-                </section>
-
-                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4">
-                    <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
-                        {isEn ? 'Cancel' : 'キャンセル'}
-                    </Link>
-                    <SubmitButton pendingText={isEn ? 'Saving...' : '保存中...'}>{isEn ? 'Save' : '保存'}</SubmitButton>
-                </div>
-            </form>
-        </div>
-    )
-}
-</file>
-
 <file path="app/api/calculate/route.ts">
 // [UPDATED]
 import { NextResponse } from 'next/server'
@@ -6236,15 +5759,565 @@ export async function POST(request: Request) {
 }
 </file>
 
+<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
+// app/[lang]/dashboard/settings/ProfileForm.tsx
+// [UPDATED] URLパスから確実に言語を判定し、国名セレクトボックスも enName と name を切り替えるよう修正
+'use client'
+
+import React, { useActionState, useEffect, useState } from 'react'
+import { updateProfile } from '@/app/actions/profile'
+import { changePassword, changeEmail } from '@/app/actions/auth'
+import { SubmitButton } from '@/components/SubmitButtons'
+import { countries } from '@/components/countries'
+// [UPDATED] インポートパスを修正
+import CountryCombobox from '@/components/CountryCombobox' 
+import Link from 'next/link'
+
+export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
+    const isEn = typeof window !== 'undefined' 
+        ? window.location.pathname.startsWith('/en') 
+        : (dict?.settings?.save === 'Save');
+
+    // プロフィール更新用 State
+    const [state, action] = useActionState(updateProfile, null)
+    const [showToast, setShowToast] = useState(false)
+
+    // パスワード変更用 State
+    const [pwState, pwAction] = useActionState(changePassword, null)
+    const [showPwToast, setShowPwToast] = useState(false)
+
+    // メール変更用 State 
+    const [emailState, emailAction] = useActionState(changeEmail, null)
+    const [emailInput, setEmailInput] = useState(userEmail || '')
+
+    // パスワード変更フォームの開閉状態
+    const [isOpenPwForm, setIsOpenPwForm] = useState(false)
+
+    // パスワード表示/非表示の切り替え状態
+    const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+    // 連絡用メールアドレス・Wise用メールアドレスの State 管理
+    const [contactEmail, setContactEmail] = useState<string>(profile?.contact_email || '')
+    const [wiseEmail, setWiseEmail] = useState<string>(profile?.wise_email || '')
+
+    // 選択された国 (Country) の State 管理
+    const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
+
+    // 同一アドレス適用チェックボックスの State 管理
+    const safeUserEmail = userEmail || ''
+    const [useSameForContact, setUseSameForContact] = useState<boolean>(
+        Boolean(profile?.contact_email && profile.contact_email === safeUserEmail && safeUserEmail !== '')
+    )
+    const [useSameForWise, setUseSameForWise] = useState<boolean>(
+        Boolean(profile?.wise_email && profile.wise_email === safeUserEmail && safeUserEmail !== '')
+    )
+
+    const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
+    const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
+
+    useEffect(() => {
+        if (state?.data?.contact_email !== undefined) {
+            setContactEmail(state.data.contact_email || '')
+        }
+        if (state?.data?.wise_email !== undefined) {
+            setWiseEmail(state.data.wise_email || '')
+        }
+        if (state?.data?.country !== undefined) {
+            setSelectedCountry(state.data.country || 'US')
+        }
+        if (state?.data?.default_shipping_method !== undefined) {
+            setDefaultShipping(state.data.default_shipping_method || '航空便 (最安プラン)')
+        }
+        if (state?.data?.default_payment_method !== undefined) {
+            setDefaultPayment(state.data.default_payment_method || 'Wise')
+        }
+    }, [state])
+
+    useEffect(() => {
+        if (state?.error || state?.success) {
+            setShowToast(true)
+            const timer = setTimeout(() => setShowToast(false), 3000) 
+            return () => clearTimeout(timer)
+        }
+    }, [state])
+
+    useEffect(() => {
+        if (pwState?.error || pwState?.success) {
+            setShowPwToast(true)
+            if (pwState.success) {
+                setIsOpenPwForm(false)
+            }
+            const timer = setTimeout(() => setShowPwToast(false), 3000) 
+            return () => clearTimeout(timer)
+        }
+    }, [pwState])
+
+    const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked
+        setUseSameForContact(checked)
+        if (checked) {
+            setContactEmail(safeUserEmail)
+        } else {
+            setContactEmail('') 
+        }
+    }
+
+    const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked
+        setUseSameForWise(checked)
+        if (checked) {
+            setWiseEmail(safeUserEmail)
+        } else {
+            setWiseEmail('') 
+        }
+    }
+
+    const getValue = (key: string) => {
+        if (state?.data && state.data[key] !== undefined) {
+            return state.data[key] || ''
+        }
+        return profile?.[key] || ''
+    }
+
+    const getBoolValue = (key: string, defaultVal: boolean) => {
+        if (state?.data && state.data[key] !== undefined) {
+            return Boolean(state.data[key])
+        }
+        return profile?.[key] ?? defaultVal
+    }
+
+    const isUS = selectedCountry === 'US'
+
+    return (
+        <div className="flex flex-col gap-8">
+            {showToast && (state?.error || state?.success) && (
+                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
+                    {state?.error && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ⚠️ {state.error}
+                        </div>
+                    )}
+                    {state?.success && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ✅ {isEn ? 'Saved successfully' : '設定を保存しました'}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {showPwToast && (pwState?.error || pwState?.success) && (
+                <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
+                    {pwState?.error && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ⚠️ {pwState.error}
+                        </div>
+                    )}
+                    {pwState?.success && (
+                        <div 
+                            className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
+                            style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
+                        >
+                            ✅ {isEn ? 'Password Changed' : 'パスワードを変更しました'}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-4">
+                <h2 className="font-bold text-slate-800 border-b pb-2">{isEn ? 'Login Information & Security' : 'ログイン情報・セキュリティ'}</h2>
+                
+                <div className="mb-2">
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Login Email' : 'ログイン用メールアドレス'}</label>
+                    <form action={emailAction} className="flex gap-2 items-start">
+                        <div className="w-full flex flex-col gap-1">
+                            <input 
+                                name="email" 
+                                type="email" 
+                                value={emailInput}
+                                onChange={(e) => setEmailInput(e.target.value)}
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
+                            {emailState?.error && <span className="text-[10px] text-red-600 font-bold">⚠️ {emailState.error}</span>}
+                            {emailState?.success && <span className="text-[10px] text-emerald-600 font-bold">✅ {emailState.message}</span>}
+                            <span className="text-[10px] text-slate-500">{isEn ? '*A confirmation email will be sent when you click change.' : '※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。'}</span>
+                        </div>
+                        <SubmitButton pendingText={isEn ? "Changing..." : "送信中..."}>{isEn ? 'Change' : '変更'}</SubmitButton>
+                    </form>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">{isEn ? 'Password Settings' : 'パスワード設定'}</span>
+                        <button
+                            type="button"
+                            onClick={() => setIsOpenPwForm(!isOpenPwForm)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-bold underline"
+                        >
+                            {isOpenPwForm ? (isEn ? 'Cancel' : 'キャンセル') : (isEn ? 'Change Password' : 'パスワードの変更')}
+                        </button>
+                    </div>
+
+                    {isOpenPwForm && (
+                        <form action={pwAction} className="mt-2 p-4 bg-slate-50 rounded border border-slate-200 flex flex-col gap-4 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'New Password (min 6 chars)' : '新しいパスワード (6文字以上)'}</label>
+                                    <div className="relative">
+                                        <input
+                                            name="password"
+                                            type={showPassword ? 'text' : 'password'}
+                                            required
+                                            minLength={6}
+                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
+                                        >
+                                            {showPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Confirm New Password' : '新しいパスワード (確認用)'}</label>
+                                    <div className="relative">
+                                        <input
+                                            name="confirm_password"
+                                            type={showConfirmPassword ? 'text' : 'password'}
+                                            required
+                                            minLength={6}
+                                            className="w-full p-2 pr-10 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-slate-500 hover:text-slate-700 p-1"
+                                        >
+                                            {showConfirmPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <SubmitButton pendingText={isEn ? "Changing..." : "変更中..."}>{isEn ? 'Change' : '変更'}</SubmitButton>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+
+            <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
+                
+                <section>
+                    <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">{isEn ? 'Basic Information' : '基本情報'}</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Full Name' : '担当者名 (Full Name)'} <span className="text-red-500">*</span></label>
+                            <input 
+                                name="full_name" 
+                                defaultValue={getValue('full_name')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Company Name' : '会社名 (Company Name)'}</label>
+                            <input 
+                                name="company_name" 
+                                defaultValue={getValue('company_name')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Phone' : '電話番号 (Phone)'} <span className="text-red-500">*</span></label>
+                            <input 
+                                name="phone" 
+                                defaultValue={getValue('phone')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-xs font-bold text-slate-600">
+                                    {isEn ? 'Contact Email' : '連絡用メールアドレス (Contact Email)'} <span className="text-red-500">*</span>
+                                </label>
+                                <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={Boolean(useSameForContact)} 
+                                        onChange={handleSameForContactChange}
+                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    {isEn ? 'Same as login' : 'ログイン用と同じ'}
+                                </label>
+                            </div>
+                            <input 
+                                type="email"
+                                name="contact_email" 
+                                value={contactEmail} 
+                                onChange={(e) => {
+                                    setContactEmail(e.target.value)
+                                    if (e.target.value !== safeUserEmail) setUseSameForContact(false)
+                                }}
+                                placeholder="contact@example.com"
+                                required
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
+                        </div>
+
+                        <div className="relative z-40">
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Country' : '国 (Country)'} <span className="text-red-500">*</span></label>
+                            <input type="hidden" name="country" value={selectedCountry} />
+                            <CountryCombobox 
+                                value={selectedCountry} 
+                                onChange={setSelectedCountry} 
+                                isEn={isEn} 
+                            />
+                        </div>
+
+                        <div className="relative z-30">
+                            <label className="block text-xs font-bold text-slate-600 mb-1">
+                                {isEn ? 'FedEx Account Number' : 'FedEx アカウント番号'} {isUS && <span className="text-red-500">*</span>}
+                            </label>
+                            <input 
+                                name="fedex_account_number" 
+                                defaultValue={getValue('fedex_account_number')} 
+                                required={isUS}
+                                placeholder="123456789"
+                                className={`w-full p-2 border rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono ${
+                                    isUS ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300'
+                                }`} 
+                            />
+                            {isUS && (
+                                <span className="text-[10px] text-amber-700 mt-1 block">
+                                    {isEn ? '*Required for customs clearance when using air freight.' : '※ 航空便利用時の関税支払い手続きに必須となります。'}
+                                </span>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Zip Code' : '郵便番号 (Zip Code)'} <span className="text-red-500">*</span></label>
+                            <input 
+                                name="zip_code" 
+                                defaultValue={getValue('zip_code')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Tax ID' : '納税番号 (Tax ID)'}</label>
+                            <input 
+                                name="tax_id" 
+                                defaultValue={getValue('tax_id')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'City' : '都市名 (City)'} <span className="text-red-500">*</span></label>
+                            <input 
+                                name="city" 
+                                defaultValue={getValue('city')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'State/Province' : '州または省 (State/Province)'}</label>
+                            <input 
+                                name="state_province" 
+                                defaultValue={getValue('state_province')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-3 mb-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 1' : '住所1 (Address Line 1)'} <span className="text-red-500">*</span></label>
+                            <input 
+                                name="address_line1" 
+                                defaultValue={getValue('address_line1')} 
+                                required 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 2' : '住所2 (Address Line 2)'}</label>
+                            <input 
+                                name="address_line2" 
+                                defaultValue={getValue('address_line2')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Address Line 3' : '住所3 (Address Line 3)'}</label>
+                            <input 
+                                name="address_line3" 
+                                defaultValue={getValue('address_line3')} 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded relative z-0">
+                        <label className="block text-xs font-bold text-slate-600 mb-2">{isEn ? 'Address Type' : 'お届け先の種類 (Residential or Commercial)'} <span className="text-red-500">*</span></label>
+                        <div className="flex items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="is_residential" value="true" defaultChecked={getBoolValue('is_residential', true) === true} className="cursor-pointer" />
+                                {isEn ? 'Residential' : '個人宅 (Residential)'}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="is_residential" value="false" defaultChecked={getBoolValue('is_residential', true) === false} className="cursor-pointer" />
+                                {isEn ? 'Commercial' : '事業所・会社 (Commercial)'}
+                            </label>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-2">{isEn ? '*Courier deliveries to residential addresses may incur additional charges. Please select correctly.' : '※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。'}</p>
+                    </div>
+                </section>
+
+                <section className="relative z-0">
+                    <div className="flex items-center gap-3 border-b pb-2 mb-4">
+                        <h2 className="font-bold text-slate-800">{isEn ? 'Payment Account Information' : 'お支払いアカウント情報'}</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'PayPal Account Link' : 'PayPal アカウント連携'}</label>
+                                {getValue('paypal_email') ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">
+                                            ✅ {isEn ? 'Linked' : '連携済み'}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-800">
+                                            {getValue('paypal_email')}
+                                        </span>
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="pt-2">
+                                <a
+                                    href="/api/auth/paypal"
+                                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#0070BA] hover:bg-[#003087] text-white text-xs font-bold rounded transition-colors shadow-sm"
+                                >
+                                    {getValue('paypal_email') ? (isEn ? 'Relink PayPal Account' : 'PayPalアカウントを再連携') : (isEn ? 'Link with PayPal' : 'PayPalと連携する')}
+                                </a>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-xs font-bold text-slate-600">{isEn ? 'Wise Email' : 'Wise用 メールアドレス'}</label>
+                                    <label className="flex items-center gap-1 text-[11px] text-blue-600 font-bold cursor-pointer hover:underline">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={Boolean(useSameForWise)} 
+                                            onChange={handleSameForWiseChange}
+                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        {isEn ? 'Same as login' : 'ログイン用と同じ'}
+                                    </label>
+                                </div>
+                                <input 
+                                    name="wise_email" 
+                                    type="email" 
+                                    value={wiseEmail} 
+                                    onChange={(e) => {
+                                        setWiseEmail(e.target.value)
+                                        if (e.target.value !== safeUserEmail) setUseSameForWise(false)
+                                    }}
+                                    className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-mono" 
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="relative z-0">
+                    <div className="flex items-baseline justify-between border-b pb-2 mb-4">
+                        <h2 className="font-bold text-slate-800">{isEn ? 'Default Order Settings' : 'デフォルトの注文設定'}</h2>
+                        <span className="text-[11px] text-slate-500">{isEn ? 'These will be initially selected when submitting a request from the cart.' : 'カートで依頼を送信する際の初期選択になります。'}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Shipping Method' : '配送方法'}</label>
+                            <select 
+                                name="default_shipping_method"
+                                value={defaultShipping}
+                                onChange={(e) => setDefaultShipping(e.target.value)}
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
+                            >
+                                <option value="航空便 (最安プラン)">{isEn ? 'Cheapest Auto (Air)' : '航空便 (最安プラン自動選択)'}</option>
+                                <option value="船便">{isEn ? 'Japan Post (Sea)' : '日本郵便 (船便)'}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Payment Method' : '決済方法'}</label>
+                            <select 
+                                name="default_payment_method"
+                                value={defaultPayment}
+                                onChange={(e) => setDefaultPayment(e.target.value)}
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-white font-medium"
+                            >
+                                <option value="Wise">{isEn ? 'Wise (Bank Transfer)' : 'Wise（銀行振込）'}</option>
+                                <option value="CreditCard">{isEn ? 'Credit Card' : 'クレジットカード'}</option>
+                                <option value="PayPal">PayPal</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-slate-100 gap-4 relative z-0">
+                    <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
+                        {isEn ? 'Cancel' : 'キャンセル'}
+                    </Link>
+                    <SubmitButton pendingText={isEn ? 'Saving...' : '保存中...'}>{isEn ? 'Save' : '保存'}</SubmitButton>
+                </div>
+            </form>
+        </div>
+    )
+}
+</file>
+
 <file path="components/BookmarkletGenerator.tsx">
 // components/BookmarkletGenerator.tsx
+// [UPDATED] ブックマークレットのJSコード内部テキストを多言語対応化
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export default function BookmarkletGenerator({ dict }: { dict?: any }) {
     const linkRef = useRef<HTMLAnchorElement>(null)
     const [baseUrl, setBaseUrl] = useState('')
+    
+    // [NEW] 確実な言語判定
+    const pathname = usePathname();
+    const isEn = pathname.startsWith('/en') || dict?.dashboard?.bookmarklet?.title === 'Bookmarklet';
 
     useEffect(() => {
         setBaseUrl(window.location.origin)
@@ -6252,12 +6325,20 @@ export default function BookmarkletGenerator({ dict }: { dict?: any }) {
 
     useEffect(() => {
         if (linkRef.current && baseUrl) {
-            const code = `javascript:(function(){if(document.getElementById('__bm_modal'))return;var d=document.createElement('div');d.id='__bm_modal';d.style.cssText='position:fixed;top:20px;right:20px;background:#fff;border:1px solid #ccc;padding:15px;z-index:999999;box-shadow:0 4px 6px rgba(0,0,0,0.1);border-radius:8px;font-family:sans-serif;color:#333;width:300px;text-align:left;';d.innerHTML='<h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;color:#111;">カートに追加</h3><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">希望価格 (任意)</label><input type="number" id="__bm_price" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">数量</label><input type="number" id="__bm_qty" value="1" min="1" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">備考 (サイズ・カラー等)</label><input type="text" id="__bm_remarks" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><div style="display:flex;justify-content:flex-end;gap:8px;"><button id="__bm_cancel" style="padding:6px 12px;cursor:pointer;border:none;background:#e5e7eb;border-radius:4px;color:#374151;font-size:12px;font-weight:bold;">キャンセル</button><button id="__bm_submit" style="padding:6px 12px;cursor:pointer;border:none;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:bold;">追加する</button></div>';document.body.appendChild(d);document.getElementById('__bm_cancel').onclick=function(){d.remove();};document.getElementById('__bm_submit').onclick=function(){var p=document.getElementById('__bm_price').value;var q=document.getElementById('__bm_qty').value;var r=document.getElementById('__bm_remarks').value;var url="${baseUrl}/api/bookmarklet/add?url="+encodeURIComponent(window.location.href)+"&title="+encodeURIComponent(document.title)+"&desiredPrice="+encodeURIComponent(p)+"&quantity="+encodeURIComponent(q)+"&remarks="+encodeURIComponent(r);window.open(url,"_bm_add","width=400,height=300,left=200,top=200");d.remove();};})();`;
+            // [NEW] 言語に応じたJS内部のテキスト定義
+            const tTitle = isEn ? 'Add to Cart' : 'カートに追加';
+            const tPrice = isEn ? 'Desired Price (optional)' : '希望価格 (任意)';
+            const tQty = isEn ? 'Quantity' : '数量';
+            const tRemarks = isEn ? 'Remarks (Size, Color, etc.)' : '備考 (サイズ・カラー等)';
+            const tCancel = isEn ? 'Cancel' : 'キャンセル';
+            const tSubmit = isEn ? 'Add' : '追加する';
+
+            // [UPDATED] テンプレートリテラルで翻訳変数を埋め込み
+            const code = `javascript:(function(){if(document.getElementById('__bm_modal'))return;var d=document.createElement('div');d.id='__bm_modal';d.style.cssText='position:fixed;top:20px;right:20px;background:#fff;border:1px solid #ccc;padding:15px;z-index:999999;box-shadow:0 4px 6px rgba(0,0,0,0.1);border-radius:8px;font-family:sans-serif;color:#333;width:300px;text-align:left;';d.innerHTML='<h3 style="margin:0 0 10px;font-size:14px;font-weight:bold;color:#111;">${tTitle}</h3><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">${tPrice}</label><input type="number" id="__bm_price" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">${tQty}</label><input type="number" id="__bm_qty" value="1" min="1" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><label style="display:block;font-size:11px;margin-bottom:2px;font-weight:bold;">${tRemarks}</label><input type="text" id="__bm_remarks" style="width:100%;box-sizing:border-box;margin-bottom:12px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#000;" /><div style="display:flex;justify-content:flex-end;gap:8px;"><button id="__bm_cancel" style="padding:6px 12px;cursor:pointer;border:none;background:#e5e7eb;border-radius:4px;color:#374151;font-size:12px;font-weight:bold;">${tCancel}</button><button id="__bm_submit" style="padding:6px 12px;cursor:pointer;border:none;background:#2563eb;color:#fff;border-radius:4px;font-size:12px;font-weight:bold;">${tSubmit}</button></div>';document.body.appendChild(d);document.getElementById('__bm_cancel').onclick=function(){d.remove();};document.getElementById('__bm_submit').onclick=function(){var p=document.getElementById('__bm_price').value;var q=document.getElementById('__bm_qty').value;var r=document.getElementById('__bm_remarks').value;var url="${baseUrl}/api/bookmarklet/add?url="+encodeURIComponent(window.location.href)+"&title="+encodeURIComponent(document.title)+"&desiredPrice="+encodeURIComponent(p)+"&quantity="+encodeURIComponent(q)+"&remarks="+encodeURIComponent(r);window.open(url,"_bm_add","width=400,height=300,left=200,top=200");d.remove();};})();`;
             linkRef.current.href = code;
         }
-    }, [baseUrl])
+    }, [baseUrl, isEn])
 
-    // フォールバック用の定義
     const title = dict?.dashboard?.bookmarklet?.title || 'ブックマークレット'
     const description = dict?.dashboard?.bookmarklet?.description || '以下のボタンをブラウザのお気に入りバー（ブックマークバー）にドラッグ＆ドロップしてください。'
     const addButton = dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'
@@ -6270,7 +6351,8 @@ export default function BookmarkletGenerator({ dict }: { dict?: any }) {
                 ref={linkRef}
                 onClick={(e) => {
                     e.preventDefault(); 
-                    alert('このボタンはクリックせず、ブックマークバーへドラッグ＆ドロップしてください。');
+                    // [UPDATED] アラートも多言語化
+                    alert(isEn ? 'Please drag and drop this button to your bookmarks bar instead of clicking it.' : 'このボタンはクリックせず、ブックマークバーへドラッグ＆ドロップしてください。');
                 }}
                 className="inline-block bg-yellow-500 text-white px-4 py-2 rounded font-bold cursor-pointer hover:bg-yellow-600 transition-colors"
             >
@@ -6975,7 +7057,7 @@ export default async function DashboardPage(props: {
 }) {
     const { lang } = await props.params;
     const dict = await getDictionary(lang);
-    const isEn = lang === 'en'; // [NEW] サーバー側で確実な言語判定
+    const isEn = lang === 'en';
     const searchParams = await props.searchParams;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -7033,7 +7115,6 @@ export default async function DashboardPage(props: {
         .eq('status', 'draft')
         .order('created_at', { ascending: false });
 
-    // [UPDATED] 配送方法の翻訳ヘルパー
     const getTranslatedShippingMethod = (method: string) => {
         if (!method) return isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)';
         if (method.includes('最安プラン') || method.includes('航空便')) {
@@ -7042,18 +7123,16 @@ export default async function DashboardPage(props: {
         if (method === '船便' || method.includes('日本郵便')) {
             return isEn ? 'Japan Post (Sea)' : '日本郵便 (船便)';
         }
-        return method; // FedEx等の場合はそのまま
+        return method; 
     };
 
     return (
         <div className="container mx-auto p-4 max-w-5xl">
-            {/* ヘッダー最上部領域 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">{dict?.dashboard?.title || 'ダッシュボード'}</h1>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                         <p className="text-xs text-slate-500">
-                            {/* [UPDATED] 言語判定を確実に適用 */}
                             {isEn ? 'Login Account:' : 'ログインアカウント:'} <span className="font-mono font-medium text-slate-700">{user.email}</span>
                         </p>
                     </div>
@@ -7083,12 +7162,12 @@ export default async function DashboardPage(props: {
                 </div>
             </div>
 
-            {/* 商品追加フォーム */}
+            {/* [UPDATED] 入力欄が見切れないよう、各inputの横幅(w-full md:w-〇〇)を調整 */}
             <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
-                    <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:w-1/3 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
-                    <input name="title" defaultValue={searchParams?.title || ''} placeholder={dict?.dashboard?.form?.titlePlaceholder || '商品名'} className="w-full md:w-1/4 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
-                    <input name="desiredPrice" type="number" defaultValue={searchParams?.desiredPrice || ''} placeholder={dict?.dashboard?.form?.pricePlaceholder || '希望価格'} className="w-full md:w-28 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:flex-1 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
+                    <input name="title" defaultValue={searchParams?.title || ''} placeholder={dict?.dashboard?.form?.titlePlaceholder || '商品名'} className="w-full md:w-48 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs placeholder:text-slate-400" />
+                    <input name="desiredPrice" type="number" defaultValue={searchParams?.desiredPrice || ''} placeholder={dict?.dashboard?.form?.pricePlaceholder || '希望価格'} className="w-full md:w-40 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <input name="quantity" type="number" defaultValue={searchParams?.quantity || 1} min={1} className="w-full md:w-20 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
                     <SubmitButton pendingText={dict?.dashboard?.form?.addingButton || '追加中...'}>{dict?.dashboard?.form?.addButton || '追加'}</SubmitButton>
                 </div>
@@ -7121,7 +7200,6 @@ export default async function DashboardPage(props: {
                         const invoiceDetails = calculateUserInvoiceDetails(order);
                         const paymentServiceName = order.payment_method || 'Wise';
                         
-                        // [UPDATED] 配送方法名を変換
                         const resolvedShippingDisp = getTranslatedShippingMethod(invoiceDetails.resolvedShippingName);
 
                         return (
@@ -7650,6 +7728,8 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 import { useState, use } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; 
+// [UPDATED] インポートパスを修正
+import CountryCombobox from "@/components/CountryCombobox"; 
 import { countries } from "@/components/countries";
 
 export default function CalculatorPage(props: { params: Promise<{ lang: string }> }) {
@@ -7712,24 +7792,19 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       </h1>
 
       <div className="space-y-4">
-        <div>
+        <div className="relative z-50">
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             {isEn ? 'Destination Country' : '配送先の国 (Destination Country)'}
           </label>
-          <select
-            value={countryCode}
-            onChange={(e) => handleCountryChange(e.target.value)}
+          <CountryCombobox 
+            value={countryCode} 
+            onChange={setCountryCode} 
+            isEn={isEn} 
             className="w-full border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            {countries.map((c) => (
-              <option key={c.code} value={c.code}>
-                {isEn ? c.enName : c.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        <div>
+        <div className="relative z-0">
           <label className="block text-sm font-semibold text-gray-700 mb-1">
             {isEn ? 'Weight' : '商品重量 (Weight)'}
           </label>
@@ -7749,7 +7824,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
         <button
           onClick={handleCalculate}
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 disabled:opacity-50 relative z-0"
         >
           {loading ? (isEn ? "Calculating..." : "計算中...") : (isEn ? "🚀 Calculate Shipping" : "🚀 送料を試算する")}
         </button>
@@ -7762,7 +7837,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       )}
 
       {result && result.success && (
-        <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2">
+        <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-2 relative z-0">
           <h2 className="text-lg font-bold text-gray-800 border-b pb-1">
             {isEn ? 'Calculation Result (Estimate)' : '計算結果 (概算)'}
           </h2>
