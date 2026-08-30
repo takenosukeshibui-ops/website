@@ -31,19 +31,11 @@ export default function InventoryPage() {
 
     return (
         <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-5xl mx-auto">
-            {/* ナビゲーションバー [NEW] */}
+            {/* ナビゲーションバー [UPDATED] マスタ管理・利益試算ボタンを削除 */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                 <Link href="/" className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
                     ← ホームへ戻る
                 </Link>
-                <div className="flex items-center gap-2">
-                    <Link href="/admin/data" className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-3 py-1.5 rounded transition-colors">
-                        ⚙️ マスタ管理
-                    </Link>
-                    <Link href="/admin/profit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded transition-colors">
-                        📊 利益試算
-                    </Link>
-                </div>
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
