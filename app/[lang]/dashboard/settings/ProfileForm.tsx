@@ -1,5 +1,5 @@
 // app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] 国選択時に電話番号入力欄へ自動で国際電話番号(国番号プレフィックス)を反映・補完する機能を追加
+// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
 'use client'
 
 import React, { useActionState, useEffect, useState } from 'react'
@@ -34,6 +34,43 @@ const COUNTRY_DIAL_CODES: Record<string, string> = {
     MX: '+52',
 }
 
+// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
+function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string {
+    if (!dialCode) return currentPhone
+
+    // 既存入力から旧国番号プレフィックス（+数字）を取り除く
+    let cleanNumber = currentPhone.replace(/^\+\d+\s*/, '').trim()
+
+    return cleanNumber ? `${dialCode} ${cleanNumber}` : `${dialCode} `
+}
+
+// 国際電話番号（E.164規格準拠）のバリデーション関数
+function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null {
+    const raw = phoneStr.trim()
+    if (!raw) {
+        return isEn ? 'Phone number is required.' : '電話番号を入力してください。'
+    }
+
+    // 数字のみを抽出 (+は除く)
+    const digitsOnly = raw.replace(/\D/g, '')
+
+    // E.164規格: 国番号含めて7桁〜15桁
+    if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+        return isEn 
+            ? 'Invalid phone number length. Must be between 7 and 15 digits including country code.' 
+            : '電話番号の桁数が不正です。国番号を含めて7桁〜15桁で入力してください。'
+    }
+
+    // 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
+    if (/^\+\d+\s*0/.test(raw)) {
+        return isEn 
+            ? 'Please remove the leading "0" after the country code (e.g. use +81 80... instead of +81 080...).' 
+            : '国番号の直後の「0」を取り除いて入力してください（例: +81 080... ではなく +81 80...）。'
+    }
+
+    return null
+}
+
 export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
     const isEn = typeof window !== 'undefined' 
         ? window.location.pathname.startsWith('/en') 
@@ -65,8 +102,11 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
     // 選択された国 (Country) の State 管理
     const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
 
-    // [NEW] 電話番号の State 管理
-    const [phone, setPhone] = useState<string>(profile?.phone || COUNTRY_DIAL_CODES[profile?.country || 'US'] || '+1')
+    // 電話番号の State 管理
+    const initialCountry = profile?.country || 'US'
+    const initialPhone = profile?.phone ? formatPhoneNumberWithDialCode(COUNTRY_DIAL_CODES[initialCountry] || '+1', profile.phone) : (COUNTRY_DIAL_CODES[initialCountry] || '+1') + ' '
+    const [phone, setPhone] = useState<string>(initialPhone)
+    const [phoneError, setPhoneError] = useState<string | null>(null)
 
     // 同一アドレス適用チェックボックスの State 管理
     const safeUserEmail = userEmail || ''
@@ -80,21 +120,35 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
     const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
     const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
 
-    // [NEW] 国選択が変更された際に電話番号の国番号を自動セット・置換
+    // [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
     const handleCountryChange = (newCountry: string) => {
         setSelectedCountry(newCountry)
         const dialCode = COUNTRY_DIAL_CODES[newCountry] || ''
+        const updatedPhone = formatPhoneNumberWithDialCode(dialCode, phone)
+        setPhone(updatedPhone)
         
-        if (!dialCode) return
+        // 変更後のリアルタイム検証
+        const err = validateInternationalPhone(updatedPhone, isEn)
+        setPhoneError(err)
+    }
 
-        if (!phone || phone.trim() === '') {
-            setPhone(`${dialCode} `)
+    // [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setPhone(val)
+        const err = validateInternationalPhone(val, isEn)
+        setPhoneError(err)
+    }
+
+    // フォーム送信前の最終バリデーションチェック
+    const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        const err = validateInternationalPhone(phone, isEn)
+        if (err) {
+            e.preventDefault() // 送信拒否
+            setPhoneError(err)
+            setShowToast(true)
             return
         }
-
-        // 既存番号の国番号（+数字）部分を新しい国番号に置き換える
-        const cleanNumber = phone.replace(/^\+\d+\s*/, '')
-        setPhone(`${dialCode} ${cleanNumber}`)
     }
 
     useEffect(() => {
@@ -119,12 +173,12 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
     }, [state])
 
     useEffect(() => {
-        if (state?.error || state?.success) {
+        if (state?.error || state?.success || phoneError) {
             setShowToast(true)
-            const timer = setTimeout(() => setShowToast(false), 3000) 
+            const timer = setTimeout(() => setShowToast(false), 4000) 
             return () => clearTimeout(timer)
         }
-    }, [state])
+    }, [state, phoneError])
 
     useEffect(() => {
         if (pwState?.error || pwState?.success) {
@@ -175,17 +229,18 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
 
     return (
         <div className="flex flex-col gap-8">
-            {showToast && (state?.error || state?.success) && (
+            {/* トースト表示 */}
+            {showToast && (phoneError || state?.error || state?.success) && (
                 <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-opacity duration-300">
-                    {state?.error && (
+                    {(phoneError || state?.error) && (
                         <div 
                             className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
-                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+                            style={{ backgroundColor: 'rgba(220, 38, 38, 0.9)', backdropFilter: 'blur(8px)' }}
                         >
-                            ⚠️ {state.error}
+                            ⚠️ {phoneError || state?.error}
                         </div>
                     )}
-                    {state?.success && (
+                    {!phoneError && state?.success && (
                         <div 
                             className="px-6 py-3 text-white text-sm font-bold rounded-full shadow-lg flex items-center gap-2"
                             style={{ backgroundColor: 'rgba(5, 150, 105, 0.85)', backdropFilter: 'blur(8px)' }}
@@ -304,8 +359,11 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                 </div>
             </div>
 
-            <form action={action} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative">
-                
+            <form 
+                action={action} 
+                onSubmit={handleFormSubmit}
+                className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-6 relative"
+            >
                 <section>
                     <h2 className="font-bold text-slate-800 border-b pb-2 mb-4">{isEn ? 'Basic Information' : '基本情報'}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -328,16 +386,26 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                             />
                         </div>
 
-                        {/* [UPDATED] value & onChange 制御にし、国選択変更で自動補完されるよう修正 */}
+                        {/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Phone' : '電話番号 (Phone)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="phone" 
                                 value={phone} 
-                                onChange={(e) => setPhone(e.target.value)}
+                                onChange={handlePhoneChange}
                                 required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
+                                placeholder="+81 8012345678"
+                                className={`w-full p-2 border rounded text-slate-900 text-sm focus:ring-1 outline-none font-mono ${
+                                    phoneError ? 'border-red-500 bg-red-50/50 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'
+                                }`} 
                             />
+                            {phoneError ? (
+                                <span className="text-[11px] text-red-600 font-bold mt-1 block">⚠️ {phoneError}</span>
+                            ) : (
+                                <span className="text-[10px] text-slate-500 mt-1 block">
+                                    {isEn ? '*Remove leading "0" when entering with country code (e.g., +81 80...)' : '※ 国番号(+81等)に続く電話番号の先頭の「0」は省いて入力してください。'}
+                                </span>
+                            )}
                         </div>
 
                         <div>
@@ -369,7 +437,6 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                             />
                         </div>
 
-                        {/* [UPDATED] onChange を handleCountryChange に接続 */}
                         <div className="relative z-40">
                             <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Country' : '国 (Country)'} <span className="text-red-500">*</span></label>
                             <input type="hidden" name="country" value={selectedCountry} />
