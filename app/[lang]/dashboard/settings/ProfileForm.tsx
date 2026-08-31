@@ -1,5 +1,5 @@
 // app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] URLパスから確実に言語を判定し、国名セレクトボックスも enName と name を切り替えるよう修正
+// [UPDATED] 国選択時に電話番号入力欄へ自動で国際電話番号(国番号プレフィックス)を反映・補完する機能を追加
 'use client'
 
 import React, { useActionState, useEffect, useState } from 'react'
@@ -7,9 +7,32 @@ import { updateProfile } from '@/app/actions/profile'
 import { changePassword, changeEmail } from '@/app/actions/auth'
 import { SubmitButton } from '@/components/SubmitButtons'
 import { countries } from '@/components/countries'
-// [UPDATED] インポートパスを修正
 import CountryCombobox from '@/components/CountryCombobox' 
 import Link from 'next/link'
+
+// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+    US: '+1',
+    JP: '+81',
+    CA: '+1',
+    GB: '+44',
+    AU: '+61',
+    DE: '+49',
+    FR: '+33',
+    CN: '+86',
+    KR: '+82',
+    TW: '+886',
+    HK: '+852',
+    SG: '+65',
+    TH: '+66',
+    PH: '+63',
+    VN: '+84',
+    MY: '+60',
+    ID: '+62',
+    IN: '+91',
+    NZ: '+64',
+    MX: '+52',
+}
 
 export default function ProfileForm({ profile, userEmail, dict }: { profile: any, userEmail: string, dict?: any }) {
     const isEn = typeof window !== 'undefined' 
@@ -42,6 +65,9 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
     // 選択された国 (Country) の State 管理
     const [selectedCountry, setSelectedCountry] = useState<string>(profile?.country || 'US')
 
+    // [NEW] 電話番号の State 管理
+    const [phone, setPhone] = useState<string>(profile?.phone || COUNTRY_DIAL_CODES[profile?.country || 'US'] || '+1')
+
     // 同一アドレス適用チェックボックスの State 管理
     const safeUserEmail = userEmail || ''
     const [useSameForContact, setUseSameForContact] = useState<boolean>(
@@ -54,6 +80,23 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
     const [defaultShipping, setDefaultShipping] = useState(profile?.default_shipping_method || '航空便 (最安プラン)')
     const [defaultPayment, setDefaultPayment] = useState(profile?.default_payment_method || 'Wise')
 
+    // [NEW] 国選択が変更された際に電話番号の国番号を自動セット・置換
+    const handleCountryChange = (newCountry: string) => {
+        setSelectedCountry(newCountry)
+        const dialCode = COUNTRY_DIAL_CODES[newCountry] || ''
+        
+        if (!dialCode) return
+
+        if (!phone || phone.trim() === '') {
+            setPhone(`${dialCode} `)
+            return
+        }
+
+        // 既存番号の国番号（+数字）部分を新しい国番号に置き換える
+        const cleanNumber = phone.replace(/^\+\d+\s*/, '')
+        setPhone(`${dialCode} ${cleanNumber}`)
+    }
+
     useEffect(() => {
         if (state?.data?.contact_email !== undefined) {
             setContactEmail(state.data.contact_email || '')
@@ -63,6 +106,9 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
         }
         if (state?.data?.country !== undefined) {
             setSelectedCountry(state.data.country || 'US')
+        }
+        if (state?.data?.phone !== undefined) {
+            setPhone(state.data.phone || '')
         }
         if (state?.data?.default_shipping_method !== undefined) {
             setDefaultShipping(state.data.default_shipping_method || '航空便 (最安プラン)')
@@ -282,13 +328,15 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                             />
                         </div>
 
+                        {/* [UPDATED] value & onChange 制御にし、国選択変更で自動補完されるよう修正 */}
                         <div>
                             <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Phone' : '電話番号 (Phone)'} <span className="text-red-500">*</span></label>
                             <input 
                                 name="phone" 
-                                defaultValue={getValue('phone')} 
+                                value={phone} 
+                                onChange={(e) => setPhone(e.target.value)}
                                 required 
-                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                                className="w-full p-2 border border-slate-300 rounded text-slate-900 text-sm focus:ring-1 focus:ring-blue-500 outline-none font-mono" 
                             />
                         </div>
 
@@ -321,12 +369,13 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
                             />
                         </div>
 
+                        {/* [UPDATED] onChange を handleCountryChange に接続 */}
                         <div className="relative z-40">
                             <label className="block text-xs font-bold text-slate-600 mb-1">{isEn ? 'Country' : '国 (Country)'} <span className="text-red-500">*</span></label>
                             <input type="hidden" name="country" value={selectedCountry} />
                             <CountryCombobox 
                                 value={selectedCountry} 
-                                onChange={setSelectedCountry} 
+                                onChange={handleCountryChange} 
                                 isEn={isEn} 
                             />
                         </div>
