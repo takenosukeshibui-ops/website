@@ -1,5 +1,5 @@
 // components/BookmarkletGenerator.tsx
-// [UPDATED] window直接参照によるハイドレーションエラー(#418)を防止し、postMessage受信時の自動更新(router.refresh)を正常化
+// [UPDATED] BroadcastChannel 経由で追加完了通知を検知し、マイページを自動更新(router.refresh)するように変更
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -8,33 +8,40 @@ import { usePathname, useRouter } from 'next/navigation'
 export default function BookmarkletGenerator({ dict }: { dict?: any }) {
     const linkRef = useRef<HTMLAnchorElement>(null)
     const [baseUrl, setBaseUrl] = useState('')
-    const [mounted, setMounted] = useState(false) // [NEW] マウント状態管理を追加してハイドレーションエラーを回避
+    const [mounted, setMounted] = useState(false)
     const router = useRouter()
     const pathname = usePathname()
 
-    // [NEW] マウント後に言語判定を行う（windowの初期SSR直接参照を回避）
     const isEn = mounted 
         ? pathname.startsWith('/en') || dict?.dashboard?.bookmarklet?.title === 'Bookmarklet'
         : dict?.dashboard?.bookmarklet?.title === 'Bookmarklet'
 
-    // [NEW] クライアント側でのマウント完了通知とBaseURL取得
     useEffect(() => {
         setMounted(true)
         setBaseUrl(window.location.origin)
     }, [])
 
-    // [NEW] ブックマークレットからの追加完了メッセージを受信して画面を自動更新するイベントリスナー
+    // [UPDATED] BroadcastChannel で別タブ・別ウィンドウからの追加通知を受信し、自動ロードを実行
     useEffect(() => {
         if (!mounted) return
 
-        const handleMessage = (event: MessageEvent) => {
-            if (event.data && event.data.type === 'BOOKMARKLET_ITEM_ADDED') {
-                router.refresh() // [NEW] キャッシュ・状態の自動再取得
+        let channel: BroadcastChannel | null = null
+        try {
+            channel = new BroadcastChannel('bookmarklet_channel')
+            channel.onmessage = (event) => {
+                if (event.data && event.data.type === 'BOOKMARKLET_ITEM_ADDED') {
+                    router.refresh() // [NEW] 自動更新実行
+                }
             }
+        } catch (e) {
+            console.error('BroadcastChannel initialization error:', e)
         }
 
-        window.addEventListener('message', handleMessage)
-        return () => window.removeEventListener('message', handleMessage)
+        return () => {
+            if (channel) {
+                channel.close()
+            }
+        }
     }, [mounted, router])
 
     useEffect(() => {

@@ -1,5 +1,5 @@
 // app/api/bookmarklet/add/route.ts
-// [UPDATED] 親ウィンドウへのpostMessage送信スクリプトを強化して信頼性を向上
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { NextResponse } from 'next/server'
@@ -53,13 +53,13 @@ export async function GET(request: Request) {
     revalidatePath('/dashboard')
     revalidatePath('/admin')
 
-    // [UPDATED] 親画面へ安全に通知を送信して即時クローズ
+    // [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
     return new NextResponse(
         `<script>
             try {
-                if (window.opener && !window.opener.closed) {
-                    window.opener.postMessage({ type: 'BOOKMARKLET_ITEM_ADDED' }, '*');
-                }
+                const channel = new BroadcastChannel('bookmarklet_channel');
+                channel.postMessage({ type: 'BOOKMARKLET_ITEM_ADDED' });
+                channel.close();
             } catch (e) {
                 console.error(e);
             }
