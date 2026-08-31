@@ -1,5 +1,5 @@
 // app/api/bookmarklet/add/route.ts
-// [UPDATED] ブックマークレットからのデータ追加成功時、親画面(window.opener)へ postMessage を送信してから閉じるよう修正
+// [UPDATED] ブックマークレット追加成功時に親画面(window.opener)へ postMessage を送って自動更新させる処理を追加
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { NextResponse } from 'next/server'
@@ -25,7 +25,6 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        // 未ログイン時はアラートを出して閉じる
         return new NextResponse(
             '<script>alert("ログインが必要です。先にシステムにログインしてください。"); window.close();</script>',
             { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
@@ -50,12 +49,11 @@ export async function GET(request: Request) {
         )
     }
 
-    // 次回ダッシュボードを開いたときに最新状態にするためキャッシュを破棄
     revalidatePath('/', 'layout')
     revalidatePath('/dashboard')
     revalidatePath('/admin')
 
-    // [UPDATED] 親画面へpostMessageで追加完了を通知し、即座にウィンドウを閉じる
+    // [UPDATED] 親画面へ通知メッセージを送信してから閉じる
     return new NextResponse(
         `<script>
             if (window.opener) {

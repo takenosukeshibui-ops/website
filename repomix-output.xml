@@ -288,24 +288,6 @@ export async function GET()
 // PayPalに初期登録されているReturn URLを指定
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [NEW] ブックマークレットからのリクエストを受け取り、処理後に自動で閉じる専用ルート
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
-⋮----
-export async function GET(request: Request)
-⋮----
-// 未ログイン時はアラートを出して閉じる
-⋮----
-status: 'draft' // カート内商品として追加
-⋮----
-// 次回ダッシュボードを開いたときに最新状態にするためキャッシュを破棄
-⋮----
-// 成功時はアラート等を出さず、即座にウィンドウを閉じる
-</file>
-
 <file path="app/api/wise/quote/route.ts">
 // app/api/wise/quote/route.ts
 import { NextResponse } from 'next/server' // [UPDATED] 'next' から 'next/server' に修正
@@ -1005,27 +987,6 @@ export async function deleteAdminItem(itemId: string)
 revalidatePath('/dashboard') // [UPDATED]
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// カート内商品の削除処理
-export async function deleteCartItem(itemId: string)
-⋮----
-// 1. ユーザー認証チェック
-⋮----
-// 2. 中間テーブル (order_items) の紐付けを解除 (制約エラー回避)
-⋮----
-// 3. items テーブルから該当商品を物理削除
-⋮----
-// 4. マイページ・カート関連のキャッシュを即時再検証
-⋮----
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
-</file>
-
 <file path="app/api/admin/fedex/shipment/route.ts">
 // app/api/admin/fedex/shipment/route.ts
 // [UPDATED] デフォルトのAPI URLを本番環境 (apis.fedex.com) に変更
@@ -1062,6 +1023,24 @@ export async function POST(req: Request)
 // 8. レスポンスから追跡番号とラベルPDF情報を取得
 ⋮----
 // 9. 追跡番号を DB に自動更新
+</file>
+
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] ブックマークレットからのデータ追加成功時、親画面(window.opener)へ postMessage を送信してから閉じるよう修正
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
+⋮----
+export async function GET(request: Request)
+⋮----
+// 未ログイン時はアラートを出して閉じる
+⋮----
+status: 'draft' // カート内商品として追加
+⋮----
+// 次回ダッシュボードを開いたときに最新状態にするためキャッシュを破棄
+⋮----
+// [UPDATED] 親画面へpostMessageで追加完了を通知し、即座にウィンドウを閉じる
 </file>
 
 <file path="components/ItemStatusSelect.tsx">
@@ -1179,6 +1158,44 @@ import ClientAdminPage from './ClientAdminPage'
 export default async function AdminPage()
 ⋮----
 {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+</file>
+
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
+// [UPDATED] 注文作成時に商品のステータス更新を確実に実行し、ロールバック処理を追加してカート残りを防止
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+// カート内商品の削除処理
+export async function deleteCartItem(itemId: string)
+⋮----
+// 1. ユーザー認証チェック
+⋮----
+// 2. 中間テーブル (order_items) の紐付けを解除 (制約エラー回避)
+⋮----
+// 3. items テーブルから該当商品を物理削除
+⋮----
+// 4. マイページ・カート関連のキャッシュを即時再検証
+⋮----
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+⋮----
+// 1. ユーザーの配送先プロフを取得
+⋮----
+// 2. 新規注文レコードの作成
+⋮----
+// [UPDATED] 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // [NEW] カート内商品(draft)のみ確実に更新
+⋮----
+// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+⋮----
+// [UPDATED] 4. 中間テーブル (order_items) に紐付け登録
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+⋮----
+// 5. 画面キャッシュの再検証
 </file>
 
 <file path="components/countries.ts">
@@ -1729,20 +1746,26 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 
 <file path="components/BookmarkletGenerator.tsx">
 // components/BookmarkletGenerator.tsx
-// [UPDATED] ブックマークレットのJSコード内部テキストを多言語対応化
+// [UPDATED] ブックマークレットからの postMessage (BOOKMARKLET_ITEM_ADDED) を受信して自動更新(router.refresh)するイベントリスナーを追加
 ⋮----
 import { useEffect, useRef, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation' // [UPDATED] useRouter を追加
 ⋮----
 export default function BookmarkletGenerator(
 ⋮----
-// [NEW] 確実な言語判定
+const router = useRouter() // [NEW] Next.jsルーターを取得
 ⋮----
-// [NEW] 言語に応じたJS内部のテキスト定義
+// 確実な言語判定
 ⋮----
-// [UPDATED] テンプレートリテラルで翻訳変数を埋め込み
+// [NEW] ブックマークレットから追加完了メッセージを受け取ったら、手動リロードなしで画面（カート）を自動更新する
 ⋮----
-// [UPDATED] アラートも多言語化
+const handleMessage = (event: MessageEvent) =>
+⋮----
+router.refresh() // [NEW] 画面上のカート一覧・注文データを即座に再取得
+⋮----
+// 言語に応じたJS内部のテキスト定義
+⋮----
+// ブックマークレットコードの生成
 </file>
 
 <file path="app/[lang]/admin/data/rarity/page.tsx">
