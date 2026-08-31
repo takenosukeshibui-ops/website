@@ -1,5 +1,5 @@
 // app/api/bookmarklet/add/route.ts
-// [UPDATED] ブックマークレット追加成功時に親画面(window.opener)へ postMessage を送って自動更新させる処理を追加
+// [UPDATED] 親ウィンドウへのpostMessage送信スクリプトを強化して信頼性を向上
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { NextResponse } from 'next/server'
@@ -53,11 +53,15 @@ export async function GET(request: Request) {
     revalidatePath('/dashboard')
     revalidatePath('/admin')
 
-    // [UPDATED] 親画面へ通知メッセージを送信してから閉じる
+    // [UPDATED] 親画面へ安全に通知を送信して即時クローズ
     return new NextResponse(
         `<script>
-            if (window.opener) {
-                window.opener.postMessage({ type: 'BOOKMARKLET_ITEM_ADDED' }, '*');
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({ type: 'BOOKMARKLET_ITEM_ADDED' }, '*');
+                }
+            } catch (e) {
+                console.error(e);
             }
             window.close();
         </script>`,
