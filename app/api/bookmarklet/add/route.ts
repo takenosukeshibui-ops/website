@@ -1,5 +1,5 @@
 // app/api/bookmarklet/add/route.ts
-// [NEW] ブックマークレットからのリクエストを受け取り、処理後に自動で閉じる専用ルート
+// [UPDATED] ブックマークレットからのデータ追加成功時、親画面(window.opener)へ postMessage を送信してから閉じるよう修正
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { NextResponse } from 'next/server'
@@ -55,9 +55,14 @@ export async function GET(request: Request) {
     revalidatePath('/dashboard')
     revalidatePath('/admin')
 
-    // 成功時はアラート等を出さず、即座にウィンドウを閉じる
+    // [UPDATED] 親画面へpostMessageで追加完了を通知し、即座にウィンドウを閉じる
     return new NextResponse(
-        '<script>window.close();</script>',
+        `<script>
+            if (window.opener) {
+                window.opener.postMessage({ type: 'BOOKMARKLET_ITEM_ADDED' }, '*');
+            }
+            window.close();
+        </script>`,
         { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     )
 }
