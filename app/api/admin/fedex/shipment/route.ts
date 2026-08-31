@@ -1,10 +1,12 @@
 // app/api/admin/fedex/shipment/route.ts
+// [UPDATED] デフォルトのAPI URLを本番環境 (apis.fedex.com) に変更
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 // FedEx OAuth2 Token 取得ヘルパー
 async function getFedExAccessToken() {
-    const baseUrl = process.env.FEDEX_API_URL || 'https://apis-sandbox.fedex.com'
+    // [UPDATED] デフォルトAPI URLを本番環境に設定
+    const baseUrl = process.env.FEDEX_API_URL || 'https://apis.fedex.com'
     const apiKey = process.env.FEDEX_API_KEY
     const secretKey = process.env.FEDEX_SECRET_KEY
 
@@ -89,7 +91,8 @@ export async function POST(req: Request) {
 
         // 4. FedEx OAuth トークン取得
         const accessToken = await getFedExAccessToken()
-        const baseUrl = process.env.FEDEX_API_URL || 'https://apis-sandbox.fedex.com'
+        // [UPDATED] デフォルトAPI URLを本番環境に設定
+        const baseUrl = process.env.FEDEX_API_URL || 'https://apis.fedex.com'
 
         // 5. 請求種別の判定
         const paymentType = (isUS && userFedExAccount) ? 'RECIPIENT' : 'SENDER'
@@ -98,15 +101,13 @@ export async function POST(req: Request) {
         // 重量（デフォルト 1.0kg）
         const totalWeight = order.shipping_fee ? 1.0 : 1.0
 
-        // [UPDATED] FedEx API で受容される標準通貨コード (USD) を定義
         const currencyCode = 'USD'
 
         // 注文商品からの Commercial Invoice 用 Commodities リスト作成
         const commodities = (order.order_items || []).map((oi: any, index: number) => {
             const item = Array.isArray(oi.items) ? oi.items[0] : oi.items
-            // JPYからUSD換算（単価が円ベースの場合の簡易換算値：デフォルト10 USD）
             const priceInJpy = item?.price || item?.desired_price || 1000
-            const priceInUsd = Math.max(1, Math.round(priceInJpy / 150)) // [UPDATED] USD通貨換算
+            const priceInUsd = Math.max(1, Math.round(priceInJpy / 150))
             const quantity = item?.admin_quantity || item?.quantity || 1
 
             return {
@@ -120,11 +121,11 @@ export async function POST(req: Request) {
                 quantity: quantity,
                 quantityUnits: 'PCS',
                 unitPrice: {
-                    currency: currencyCode, // [UPDATED] USD に設定
+                    currency: currencyCode,
                     amount: priceInUsd,
                 },
                 customsValue: {
-                    currency: currencyCode, // [UPDATED] USD に設定
+                    currency: currencyCode,
                     amount: priceInUsd * quantity,
                 },
             }
@@ -138,8 +139,8 @@ export async function POST(req: Request) {
                 weight: { units: 'KG', value: totalWeight },
                 quantity: 1,
                 quantityUnits: 'PCS',
-                unitPrice: { currency: currencyCode, amount: 10 }, // [UPDATED] USD
-                customsValue: { currency: currencyCode, amount: 10 }, // [UPDATED] USD
+                unitPrice: { currency: currencyCode, amount: 10 },
+                customsValue: { currency: currencyCode, amount: 10 },
             })
         }
 
@@ -212,7 +213,7 @@ export async function POST(req: Request) {
                     },
                     commodities: commodities,
                     totalCustomsValue: {
-                        currency: currencyCode, // [UPDATED] USD に設定
+                        currency: currencyCode,
                         amount: totalCustomsValue,
                     },
                 },
