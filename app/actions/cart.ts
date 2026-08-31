@@ -1,5 +1,5 @@
 // app/actions/cart.ts
-// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
+// [UPDATED] 注文作成時に商品のステータス更新を確実に実行し、ロールバック処理を追加してカート残りを防止
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
@@ -48,6 +48,7 @@ export async function deleteCartItem(itemId: string) {
     return { success: true }
 }
 
+// カートからの注文作成処理
 export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string) {
     const supabase = await createClient()
 
@@ -60,15 +61,17 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         throw new Error('カート内に商品が存在しません。 / No items in cart.')
     }
 
+    // 1. ユーザーの配送先プロフを取得
     const { data: profile } = await supabase
         .from('profiles')
         .select('country, zip_code, state_province, city, address_line1, address_line2, address_line3, is_residential')
         .eq('id', user.id)
         .single()
 
-    const selectedShipping = shippingMethod || '最安プラン自動選択 (航空便)';
-    const selectedPayment = paymentMethod || 'Wise';
+    const selectedShipping = shippingMethod || '最安プラン自動選択 (航空便)'
+    const selectedPayment = paymentMethod || 'Wise'
 
+    // 2. 新規注文レコードの作成
     const { data: newOrder, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -94,6 +97,22 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         throw new Error('注文の作成に失敗しました / Failed to create order: ' + (orderError?.message || ''))
     }
 
+    // [UPDATED] 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+    const { error: itemUpdateError } = await supabase
+        .from('items')
+        .update({ status: 'pending' })
+        .in('id', itemIds)
+        .eq('user_id', user.id)
+        .eq('status', 'draft') // [NEW] カート内商品(draft)のみ確実に更新
+
+    if (itemUpdateError) {
+        console.error('Item status update error:', itemUpdateError.message)
+        // 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+        await supabase.from('orders').delete().eq('id', newOrder.id)
+        throw new Error(`商品の注文状態への更新に失敗しました / Failed to update item status: ${itemUpdateError.message}`)
+    }
+
+    // [UPDATED] 4. 中間テーブル (order_items) に紐付け登録
     const orderItemsPayload = itemIds.map(itemId => ({
         order_id: newOrder.id,
         item_id: itemId
@@ -105,20 +124,13 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 
     if (linkError) {
         console.error('Order item link error detail:', linkError.message, linkError.details, linkError.hint)
+        // 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+        await supabase.from('items').update({ status: 'draft' }).in('id', itemIds).eq('user_id', user.id)
         await supabase.from('orders').delete().eq('id', newOrder.id)
         throw new Error(`注文商品の紐付けに失敗しました / Failed to link order items: ${linkError.message}`)
     }
 
-    const { error: itemUpdateError } = await supabase
-        .from('items')
-        .update({ status: 'pending' })
-        .in('id', itemIds)
-        .eq('user_id', user.id)
-
-    if (itemUpdateError) {
-        console.error('Item status update error:', itemUpdateError.message)
-    }
-
+    // 5. 画面キャッシュの再検証
     revalidatePath('/dashboard')
     revalidatePath('/admin')
 

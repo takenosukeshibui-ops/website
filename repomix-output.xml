@@ -238,54 +238,6 @@ export async function executeWisePayout(targetUserId: string, amount: number)
 const transactionId = crypto.randomUUID() // 標準の globalThis.crypto を使用
 </file>
 
-<file path="app/api/admin/fedex/shipment/route.ts">
-// app/api/admin/fedex/shipment/route.ts
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// FedEx OAuth2 Token 取得ヘルパー
-async function getFedExAccessToken()
-⋮----
-export async function POST(req: Request)
-⋮----
-// 1. 管理者権限チェック
-⋮----
-// 2. リクエスト解析
-⋮----
-// 3. 注文情報とユーザープロフィールの取得
-⋮----
-// 4. FedEx OAuth トークン取得
-⋮----
-// 5. 請求種別の判定
-⋮----
-// 重量（デフォルト 1.0kg）
-⋮----
-// [UPDATED] FedEx API で受容される標準通貨コード (USD) を定義
-⋮----
-// 注文商品からの Commercial Invoice 用 Commodities リスト作成
-⋮----
-// JPYからUSD換算（単価が円ベースの場合の簡易換算値：デフォルト10 USD）
-⋮----
-const priceInUsd = Math.max(1, Math.round(priceInJpy / 150)) // [UPDATED] USD通貨換算
-⋮----
-currency: currencyCode, // [UPDATED] USD に設定
-⋮----
-currency: currencyCode, // [UPDATED] USD に設定
-⋮----
-unitPrice: { currency: currencyCode, amount: 10 }, // [UPDATED] USD
-customsValue: { currency: currencyCode, amount: 10 }, // [UPDATED] USD
-⋮----
-// 6. FedEx Ship API (Shipment) リクエスト構築
-⋮----
-currency: currencyCode, // [UPDATED] USD に設定
-⋮----
-// 7. FedEx Ship API 送信
-⋮----
-// 8. レスポンスから追跡番号とラベルPDF情報を取得
-⋮----
-// 9. 追跡番号を DB に自動更新
-</file>
-
 <file path="app/api/admin/paypal/invoice/route.ts">
 // app/api/admin/paypal/invoice/route.ts
 import { createClient } from '@/lib/supabase/server'
@@ -1072,6 +1024,44 @@ export async function deleteCartItem(itemId: string)
 // 4. マイページ・カート関連のキャッシュを即時再検証
 ⋮----
 export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+</file>
+
+<file path="app/api/admin/fedex/shipment/route.ts">
+// app/api/admin/fedex/shipment/route.ts
+// [UPDATED] デフォルトのAPI URLを本番環境 (apis.fedex.com) に変更
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+⋮----
+// FedEx OAuth2 Token 取得ヘルパー
+async function getFedExAccessToken()
+⋮----
+// [UPDATED] デフォルトAPI URLを本番環境に設定
+⋮----
+export async function POST(req: Request)
+⋮----
+// 1. 管理者権限チェック
+⋮----
+// 2. リクエスト解析
+⋮----
+// 3. 注文情報とユーザープロフィールの取得
+⋮----
+// 4. FedEx OAuth トークン取得
+⋮----
+// [UPDATED] デフォルトAPI URLを本番環境に設定
+⋮----
+// 5. 請求種別の判定
+⋮----
+// 重量（デフォルト 1.0kg）
+⋮----
+// 注文商品からの Commercial Invoice 用 Commodities リスト作成
+⋮----
+// 6. FedEx Ship API (Shipment) リクエスト構築
+⋮----
+// 7. FedEx Ship API 送信
+⋮----
+// 8. レスポンスから追跡番号とラベルPDF情報を取得
+⋮----
+// 9. 追跡番号を DB に自動更新
 </file>
 
 <file path="components/ItemStatusSelect.tsx">
