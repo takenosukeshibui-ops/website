@@ -1,11 +1,9 @@
 // app/api/admin/fedex/shipment/route.ts
-// [UPDATED] デフォルトのAPI URLを本番環境 (apis.fedex.com) に変更
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 // FedEx OAuth2 Token 取得ヘルパー
 async function getFedExAccessToken() {
-    // [UPDATED] デフォルトAPI URLを本番環境に設定
     const baseUrl = process.env.FEDEX_API_URL || 'https://apis.fedex.com'
     const apiKey = process.env.FEDEX_API_KEY
     const secretKey = process.env.FEDEX_SECRET_KEY
@@ -63,7 +61,7 @@ export async function POST(req: Request) {
 
         const myFedExAccount = process.env.FEDEX_ACCOUNT_NUMBER ? String(process.env.FEDEX_ACCOUNT_NUMBER).trim() : ''
         if (!myFedExAccount) {
-            return NextResponse.json({ error: '.env.local に FEDEX_ACCOUNT_NUMBER が設定されていません。' }, { status: 400 })
+            return NextResponse.json({ error: 'FEDEX_ACCOUNT_NUMBER が環境変数に設定されていません。' }, { status: 400 })
         }
 
         // 3. 注文情報とユーザープロフィールの取得
@@ -91,7 +89,6 @@ export async function POST(req: Request) {
 
         // 4. FedEx OAuth トークン取得
         const accessToken = await getFedExAccessToken()
-        // [UPDATED] デフォルトAPI URLを本番環境に設定
         const baseUrl = process.env.FEDEX_API_URL || 'https://apis.fedex.com'
 
         // 5. 請求種別の判定
@@ -152,15 +149,15 @@ export async function POST(req: Request) {
             requestedShipment: {
                 shipper: {
                     contact: {
-                        personName: 'Warehouse Admin',
-                        companyName: 'Logistics Service',
-                        phoneNumber: '0312345678',
+                        personName: 'Takenosuke Shibui', // 実際のご担当者名
+                        companyName: 'Worldwide Japan', // 貴社名
+                        phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
                     },
                     address: {
-                        streetLines: ['1-1 Chiyoda'],
-                        city: 'Chiyoda-ku',
-                        stateOrProvinceCode: 'Tokyo',
-                        postalCode: '100-0001',
+                        streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
+                        city: 'Chuo-ku',               // 市区町村
+                        stateOrProvinceCode: 'Tokyo',   // 都道府県
+                        postalCode: '1040061',          // ハイフンなし郵便番号
                         countryCode: 'JP',
                     },
                 },
