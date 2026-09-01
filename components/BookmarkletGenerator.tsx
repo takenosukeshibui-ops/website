@@ -106,7 +106,7 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                         
                         <div className="p-6 pt-10 sm:p-10">
                             <h3 className="text-lg font-bold mb-6 text-center text-gray-800">
-                                ブックマークレットの使い方
+                                How to use the bookmarklet
                             </h3>
                             <Image 
                                 src="/Gemini_Generated_Image_avtulhavtulhavtu.jpg" 
