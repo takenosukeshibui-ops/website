@@ -72,17 +72,16 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                 {dict?.dashboard?.bookmarklet?.description || '以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。'}
             </p>
             
-            {/* ドラッグ＆ドロップ用のブックマークレットボタン */}
+            {/* ドラッグ＆ドロップ用（かつクリックでも起動できる）ブックマークレットボタン */}
             <div className="flex flex-col items-center justify-center">
                 <a
                     href={bookmarkletCode}
-                    onClick={(e) => e.preventDefault()}
+                    // e.preventDefault() を削除し、クリック時も href の javascript が実行されるように修正
                     className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
-                    title="ドラッグ＆ドロップでお気に入りバーに追加してください"
+                    title="ドラッグ＆ドロップでお気に入りバーに追加するか、クリックして実行してください"
                 >
                     {dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'}
                 </a>
-                {/* 注意書きの <p> タグを削除しました */}
             </div>
 
             {/* ▼ 使い方モーダル（ポップアップ） ▼ */}
