@@ -1,7 +1,7 @@
 // components/BookmarkletGenerator.tsx
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { X, HelpCircle } from 'lucide-react'
@@ -12,7 +12,7 @@ interface BookmarkletGeneratorProps {
 
 export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps) {
     const router = useRouter()
-    const linkRef = useRef<HTMLAnchorElement>(null) // ▼ 追加: DOMに直接アクセスするためのRef
+    const buttonContainerRef = useRef<HTMLDivElement>(null)
     const [showModal, setShowModal] = useState<boolean>(false)
 
     useEffect(() => {
@@ -25,10 +25,20 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
         })();`
         
         const cleanCode = code.replace(/\s+/g, ' ').trim()
+        const buttonText = dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'
 
-        // ▼ 修正: Reactのセキュリティブロックを回避するため、直接DOMにhref属性を付与
-        if (linkRef.current) {
-            linkRef.current.setAttribute('href', cleanCode)
+        // ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
+        if (buttonContainerRef.current) {
+            buttonContainerRef.current.innerHTML = `
+                <a
+                    href="${cleanCode}"
+                    class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
+                    title="ドラッグ＆ドロップでお気に入りバーに追加するか、クリックして実行してください"
+                    onclick="event.preventDefault(); const url = encodeURIComponent(window.location.href); const title = encodeURIComponent(document.title); window.open('${origin}/api/bookmarklet/add?url=' + url + '&title=' + title, '_blank', 'width=500,height=600');"
+                >
+                    ${buttonText}
+                </a>
+            `
         }
 
         const channel = new BroadcastChannel('bookmarklet_channel')
@@ -41,7 +51,7 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
         return () => {
             channel.close()
         }
-    }, [router])
+    }, [dict, router])
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -50,16 +60,6 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
         if (showModal) window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [showModal])
-
-    // ページ上でクリックされた時専用のポップアップ処理
-    const handleButtonClick = (e: React.MouseEvent) => {
-        e.preventDefault(); 
-        const url = encodeURIComponent(window.location.href);
-        const title = encodeURIComponent(document.title);
-        const targetUrl = `${window.location.origin}/api/bookmarklet/add?url=${url}&title=${title}`;
-        
-        window.open(targetUrl, '_blank', 'width=500,height=600');
-    }
 
     return (
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
@@ -81,25 +81,19 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                 {dict?.dashboard?.bookmarklet?.description || '以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。'}
             </p>
             
-            <div className="flex flex-col items-center justify-center">
-                <a
-                    ref={linkRef} // ▼ 変更: href="..." を削除し、代わりに ref={linkRef} を指定
-                    onClick={handleButtonClick}
-                    className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
-                    title="ドラッグ＆ドロップでお気に入りバーに追加するか、クリックして実行してください"
-                >
-                    {dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'}
-                </a>
+            {/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
+            <div className="flex flex-col items-center justify-center" ref={buttonContainerRef}>
+                {/* ここに生のHTML要素（aタグ）が挿入されます */}
             </div>
 
             {showModal && (
                 <div 
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => setShowModal(false)} 
                 >
                     <div 
                         className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()} 
                     >
                         <button
                             onClick={() => setShowModal(false)}
