@@ -82,9 +82,6 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                     {dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'}
                 </a>
                 
-                <p className="text-xs text-gray-400 mt-4 text-center">
-                    ※このボタンはクリックせず、ブラウザのブックマークバーに<br className="sm:hidden" />ドラッグ＆ドロップしてください。
-                </p>
             </div>
 
             {/* ▼ 使い方モーダル（ポップアップ） ▼ */}
@@ -112,7 +109,7 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                             </h3>
                             <Image 
                                 src="/Gemini_Generated_Image_avtulhavtulhavtu.jpg" 
-                                alt="ブックマークレットの使い方" 
+                                alt="How to use the bookmarklet" 
                                 width={1200} 
                                 height={675} 
                                 className="w-full h-auto rounded-lg shadow-sm border border-gray-200"
