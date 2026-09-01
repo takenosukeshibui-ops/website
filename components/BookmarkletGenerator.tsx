@@ -1,3 +1,4 @@
+// components/BookmarkletGenerator.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -12,7 +13,7 @@ interface BookmarkletGeneratorProps {
 export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps) {
     const router = useRouter()
     const [bookmarkletCode, setBookmarkletCode] = useState<string>('')
-    const [showModal, setShowModal] = useState<boolean>(false) // モーダルの開閉状態を管理
+    const [showModal, setShowModal] = useState<boolean>(false)
 
     useEffect(() => {
         // 現在のオリジンを取得して、動的にブックマークレットコードを生成
@@ -81,10 +82,7 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                 >
                     {dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'}
                 </a>
-                
-                <p className="text-xs text-gray-400 mt-4 text-center">
-                    ※このボタンはクリックせず、ブラウザのブックマークバーに<br className="sm:hidden" />ドラッグ＆ドロップしてください。
-                </p>
+                {/* 注意書きの <p> タグを削除しました */}
             </div>
 
             {/* ▼ 使い方モーダル（ポップアップ） ▼ */}
