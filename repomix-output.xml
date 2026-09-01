@@ -1025,24 +1025,6 @@ export async function POST(req: Request)
 // 9. 追跡番号を DB に自動更新
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [UPDATED] ブックマークレットからのデータ追加成功時、親画面(window.opener)へ postMessage を送信してから閉じるよう修正
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
-⋮----
-export async function GET(request: Request)
-⋮----
-// 未ログイン時はアラートを出して閉じる
-⋮----
-status: 'draft' // カート内商品として追加
-⋮----
-// 次回ダッシュボードを開いたときに最新状態にするためキャッシュを破棄
-⋮----
-// [UPDATED] 親画面へpostMessageで追加完了を通知し、即座にウィンドウを閉じる
-</file>
-
 <file path="components/ItemStatusSelect.tsx">
 // components/ItemStatusSelect.tsx
 // [UPDATED] dict をオプションで受け取り、プルダウン内のラベルを多言語対応化
@@ -1333,6 +1315,20 @@ export async function changePassword(prevState: any, formData: FormData)
 export async function changeEmail(prevState: any, formData: FormData)
 </file>
 
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
+⋮----
+export async function GET(request: Request)
+⋮----
+status: 'draft' // カート内商品として追加
+⋮----
+// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
+</file>
+
 <file path="app/api/data/route.ts">
 // app/api/data/route.ts
 // [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
@@ -1360,6 +1356,16 @@ export async function PATCH(req: Request)
 export async function DELETE(req: Request)
 </file>
 
+<file path="app/api/calculate/route.ts">
+// [UPDATED]
+import { NextResponse } from 'next/server'
+import { calculateShippingFees } from '@/lib/calculator'
+⋮----
+// Vercelキャッシュを無効化
+⋮----
+export async function POST(request: Request)
+</file>
+
 <file path="components/CartManager.tsx">
 // components/CartManager.tsx
 // [UPDATED] 辞書欠損時でもURLから言語を判定し、項目名やセレクトボックス内を強制的に多言語対応
@@ -1383,16 +1389,6 @@ const handleDelete = async (itemId: string) =>
 <input type="number" min=
 ⋮----
 {/* DBに保存するvalueは日本語のまま、表示テキストのみ言語で切り替え */}
-</file>
-
-<file path="app/api/calculate/route.ts">
-// [UPDATED]
-import { NextResponse } from 'next/server'
-import { calculateShippingFees } from '@/lib/calculator'
-⋮----
-// Vercelキャッシュを無効化
-⋮----
-export async function POST(request: Request)
 </file>
 
 <file path="dictionaries/en.json">
@@ -1537,48 +1533,6 @@ export async function POST(request: Request)
     "backToMyPage": "← Back to My Page"
   }
 }
-</file>
-
-<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
-// app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] URLパスから確実に言語を判定し、国名セレクトボックスも enName と name を切り替えるよう修正
-⋮----
-import React, { useActionState, useEffect, useState } from 'react'
-import { updateProfile } from '@/app/actions/profile'
-import { changePassword, changeEmail } from '@/app/actions/auth'
-import { SubmitButton } from '@/components/SubmitButtons'
-import { countries } from '@/components/countries'
-// [UPDATED] インポートパスを修正
-import CountryCombobox from '@/components/CountryCombobox'
-import Link from 'next/link'
-⋮----
-// プロフィール更新用 State
-⋮----
-// パスワード変更用 State
-⋮----
-// メール変更用 State
-⋮----
-// パスワード変更フォームの開閉状態
-⋮----
-// パスワード表示/非表示の切り替え状態
-⋮----
-// 連絡用メールアドレス・Wise用メールアドレスの State 管理
-⋮----
-// 選択された国 (Country) の State 管理
-⋮----
-// 同一アドレス適用チェックボックスの State 管理
-⋮----
-const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const getValue = (key: string) =>
-⋮----
-const getBoolValue = (key: string, defaultVal: boolean) =>
-⋮----
-setContactEmail(e.target.value)
-⋮----
-setWiseEmail(e.target.value)
 </file>
 
 <file path="app/[lang]/page.tsx">
@@ -1744,28 +1698,80 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 }
 </file>
 
-<file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
-// [UPDATED] ブックマークレットからの postMessage (BOOKMARKLET_ITEM_ADDED) を受信して自動更新(router.refresh)するイベントリスナーを追加
+<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
+// app/[lang]/dashboard/settings/ProfileForm.tsx
+// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
 ⋮----
-import { useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation' // [UPDATED] useRouter を追加
+import React, { useActionState, useEffect, useState } from 'react'
+import { updateProfile } from '@/app/actions/profile'
+import { changePassword, changeEmail } from '@/app/actions/auth'
+import { SubmitButton } from '@/components/SubmitButtons'
+import { countries } from '@/components/countries'
+import CountryCombobox from '@/components/CountryCombobox'
+import Link from 'next/link'
 ⋮----
-export default function BookmarkletGenerator(
+// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
 ⋮----
-const router = useRouter() // [NEW] Next.jsルーターを取得
+// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
+function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string
 ⋮----
-// 確実な言語判定
+// 既存入力から旧国番号プレフィックス（+数字）を取り除く
 ⋮----
-// [NEW] ブックマークレットから追加完了メッセージを受け取ったら、手動リロードなしで画面（カート）を自動更新する
+// 国際電話番号（E.164規格準拠）のバリデーション関数
+function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null
 ⋮----
-const handleMessage = (event: MessageEvent) =>
+// 数字のみを抽出 (+は除く)
 ⋮----
-router.refresh() // [NEW] 画面上のカート一覧・注文データを即座に再取得
+// E.164規格: 国番号含めて7桁〜15桁
 ⋮----
-// 言語に応じたJS内部のテキスト定義
+// 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
 ⋮----
-// ブックマークレットコードの生成
+// プロフィール更新用 State
+⋮----
+// パスワード変更用 State
+⋮----
+// メール変更用 State
+⋮----
+// パスワード変更フォームの開閉状態
+⋮----
+// パスワード表示/非表示の切り替え状態
+⋮----
+// 連絡用メールアドレス・Wise用メールアドレスの State 管理
+⋮----
+// 選択された国 (Country) の State 管理
+⋮----
+// 電話番号の State 管理
+⋮----
+// 同一アドレス適用チェックボックスの State 管理
+⋮----
+// [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
+const handleCountryChange = (newCountry: string) =>
+⋮----
+// 変更後のリアルタイム検証
+⋮----
+// [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
+const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+// フォーム送信前の最終バリデーションチェック
+const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) =>
+⋮----
+e.preventDefault() // 送信拒否
+⋮----
+const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const getValue = (key: string) =>
+⋮----
+const getBoolValue = (key: string, defaultVal: boolean) =>
+⋮----
+{/* トースト表示 */}
+⋮----
+{/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
+⋮----
+setContactEmail(e.target.value)
+⋮----
+setWiseEmail(e.target.value)
 </file>
 
 <file path="app/[lang]/admin/data/rarity/page.tsx">
@@ -1863,6 +1869,20 @@ const handleDeleteFee = async (id: number, feeName: string) =>
 ⋮----
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+</file>
+
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+// [UPDATED] BroadcastChannel 経由で追加完了通知を検知し、マイページを自動更新(router.refresh)するように変更
+⋮----
+import { useEffect, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+⋮----
+export default function BookmarkletGenerator(
+⋮----
+// [UPDATED] BroadcastChannel で別タブ・別ウィンドウからの追加通知を受信し、自動ロードを実行
+⋮----
+router.refresh() // [NEW] 自動更新実行
 </file>
 
 <file path="app/[lang]/dashboard/page.tsx">
