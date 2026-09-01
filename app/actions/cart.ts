@@ -1,5 +1,4 @@
 // app/actions/cart.ts
-// [UPDATED] 注文作成時に商品のステータス更新を確実に実行し、ロールバック処理を追加してカート残りを防止
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
@@ -42,8 +41,7 @@ export async function deleteCartItem(itemId: string) {
     }
 
     // 4. マイページ・カート関連のキャッシュを即時再検証
-    revalidatePath('/dashboard')
-    revalidatePath('/cart')
+    revalidatePath('/', 'layout')
 
     return { success: true }
 }
@@ -97,13 +95,13 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         throw new Error('注文の作成に失敗しました / Failed to create order: ' + (orderError?.message || ''))
     }
 
-    // [UPDATED] 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+    // 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
     const { error: itemUpdateError } = await supabase
         .from('items')
         .update({ status: 'pending' })
         .in('id', itemIds)
         .eq('user_id', user.id)
-        .eq('status', 'draft') // [NEW] カート内商品(draft)のみ確実に更新
+        .eq('status', 'draft') // カート内商品(draft)のみ確実に更新
 
     if (itemUpdateError) {
         console.error('Item status update error:', itemUpdateError.message)
@@ -112,7 +110,7 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         throw new Error(`商品の注文状態への更新に失敗しました / Failed to update item status: ${itemUpdateError.message}`)
     }
 
-    // [UPDATED] 4. 中間テーブル (order_items) に紐付け登録
+    // 4. 中間テーブル (order_items) に紐付け登録
     const orderItemsPayload = itemIds.map(itemId => ({
         order_id: newOrder.id,
         item_id: itemId
@@ -130,9 +128,8 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         throw new Error(`注文商品の紐付けに失敗しました / Failed to link order items: ${linkError.message}`)
     }
 
-    // 5. 画面キャッシュの再検証
-    revalidatePath('/dashboard')
-    revalidatePath('/admin')
+    // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+    revalidatePath('/', 'layout')
 
     return { success: true, orderId: newOrder.id }
 }

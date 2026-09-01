@@ -1,5 +1,4 @@
 // components/CartManager.tsx
-// [UPDATED] 辞書欠損時でもURLから言語を判定し、項目名やセレクトボックス内を強制的に多言語対応
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -17,7 +16,7 @@ export default function CartManager({
     userProfile?: any;
     dict: any;
 }) {
-    // [NEW] URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+    // URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
     const isEn = typeof window !== 'undefined' 
         ? window.location.pathname.startsWith('/en') 
         : (dict?.cart?.title === 'Items in Cart');
@@ -58,7 +57,7 @@ export default function CartManager({
         if (initialItems) {
             setItems(filterCartItems(initialItems))
         }
-    }, [initialItems?.length])
+    }, [initialItems]) // 修正: length だけでなく initialItems 本体を監視
 
     useEffect(() => {
         if (userProfile?.default_shipping_method) {
@@ -74,7 +73,7 @@ export default function CartManager({
     const handleCheckout = async () => {
         if (cartItems.length === 0) return;
 
-        // [UPDATED] 確実な言語判定でダイアログを表示
+        // 確実な言語判定でダイアログを表示
         const confirmMsg = isEn 
             ? 'Are you sure you want to submit the purchase request?' 
             : '購入依頼を送信しますか？';
@@ -85,6 +84,11 @@ export default function CartManager({
         try {
             const itemIds = cartItems.map(item => item?.id).filter(Boolean);
             await createOrderFromCart(itemIds, shippingMethod, paymentMethod);
+            
+            // 成功したらローカルのカート見た目を即座に空にする
+            setItems([]); 
+            alert(isEn ? 'Purchase request submitted successfully!' : '購入依頼を送信しました！');
+
         } catch (e: any) {
             console.error(e);
             alert((isEn ? 'Error: ' : 'エラー: ') + (e.message || 'Unknown error'));
@@ -171,7 +175,6 @@ export default function CartManager({
                             <div className="flex items-center gap-2">
                                 <label className="text-xs font-bold text-slate-700">{isEn ? 'Shipping Method:' : '配送方法:'}</label>
                                 <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
-                                    {/* DBに保存するvalueは日本語のまま、表示テキストのみ言語で切り替え */}
                                     <option value="最安プラン自動選択 (航空便)">{isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)'}</option>
                                     <option value="船便">{isEn ? 'Japan Post (Sea)' : '船便'}</option>
                                 </select>

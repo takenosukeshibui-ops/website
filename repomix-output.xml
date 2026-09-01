@@ -777,6 +777,40 @@ body {
 }
 </file>
 
+<file path="components/StatusSelect.tsx">
+'use client'
+
+// 変更点1：updateOrder ではなく、admin.ts に実在する updateItemStatus を読み込みます
+import { updateItemStatus } from '@/app/actions/admin'
+
+export default function StatusSelect({ item }: { item: { id: string; status: string; admin_note?: string } }) {
+    const handleSubmit = async (formData: FormData) => {
+        try {
+            // 変更点2：読み込んだ updateItemStatus を使って更新します（// も外しました）
+            await updateItemStatus(item.id, formData.get('status') as string)
+            
+            // 画面上でわかりやすいように成功メッセージを出します
+            alert('ステータスの更新に成功しました！')
+        } catch (e: unknown) {
+            console.error(e)
+            alert('更新失敗: ' + (e instanceof Error ? e.message : 'Unknown error'))
+        }
+    }
+
+    return (
+        <form action={handleSubmit}>
+            <select name="status" defaultValue={item.status} className="bg-white text-slate-900 border border-slate-300 p-1 rounded">
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <button type="submit" className="ml-2 bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700">更新</button>
+        </form>
+    )
+}
+</file>
+
 <file path="components/SubmitButtons.tsx">
 'use client';
 
@@ -1245,6 +1279,34 @@ CREATE POLICY "Admins can update all items" ON items FOR UPDATE USING (EXISTS (S
 
 CREATE POLICY "Admins can view all orders" ON orders FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 CREATE POLICY "Admins can update all orders" ON orders FOR UPDATE USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+</file>
+
+<file path="utils/supabase/server.ts">
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+// 変更点：async と await を追加しています
+export async function createClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try { cookieStore.set({ name, value, ...options }) } catch (error) {}
+        },
+        remove(name: string, options: CookieOptions) {
+          try { cookieStore.set({ name, value: '', ...options }) } catch (error) {}
+        },
+      },
+    }
+  )
+}
 </file>
 
 <file path=".gitattributes">
@@ -2342,40 +2404,6 @@ export default function ItemStatusSelect({
 }
 </file>
 
-<file path="components/StatusSelect.tsx">
-'use client'
-
-// 変更点1：updateOrder ではなく、admin.ts に実在する updateItemStatus を読み込みます
-import { updateItemStatus } from '@/app/actions/admin'
-
-export default function StatusSelect({ item }: { item: { id: string; status: string; admin_note?: string } }) {
-    const handleSubmit = async (formData: FormData) => {
-        try {
-            // 変更点2：読み込んだ updateItemStatus を使って更新します（// も外しました）
-            await updateItemStatus(item.id, formData.get('status') as string)
-            
-            // 画面上でわかりやすいように成功メッセージを出します
-            alert('ステータスの更新に成功しました！')
-        } catch (e: unknown) {
-            console.error(e)
-            alert('更新失敗: ' + (e instanceof Error ? e.message : 'Unknown error'))
-        }
-    }
-
-    return (
-        <form action={handleSubmit}>
-            <select name="status" defaultValue={item.status} className="bg-white text-slate-900 border border-slate-300 p-1 rounded">
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-            </select>
-            <button type="submit" className="ml-2 bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700">更新</button>
-        </form>
-    )
-}
-</file>
-
 <file path="lib/dictionaries.ts">
 // lib/dictionaries.ts
 // [NEW] 辞書ファイルを非同期で読み込むユーティリティ
@@ -2393,34 +2421,6 @@ export const getDictionary = async (locale: 'en' | 'ja') => {
 }
 </file>
 
-<file path="utils/supabase/server.ts">
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-// 変更点：async と await を追加しています
-export async function createClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value, ...options }) } catch (error) {}
-        },
-        remove(name: string, options: CookieOptions) {
-          try { cookieStore.set({ name, value: '', ...options }) } catch (error) {}
-        },
-      },
-    }
-  )
-}
-</file>
-
 <file path=".repomixignore">
 # キャッシュ・ビルド・履歴フォルダ
 .expo/
@@ -2432,6 +2432,52 @@ node_modules/
 
 # repomix自身の出力ファイル
 repomix-output.xml
+</file>
+
+<file path="middleware.ts">
+// [NEW]
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+const locales = ['en', 'ja']
+const defaultLocale = 'en'
+
+function getLocale(request: NextRequest): string {
+  const acceptLanguage = request.headers.get('accept-language')
+  if (acceptLanguage && acceptLanguage.includes('ja')) {
+    return 'ja'
+  }
+  return defaultLocale
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // 静的アセット、APIルート、内部パスはスキップ
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
+
+  // URL先頭に en または ja が含まれているか確認
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  )
+
+  if (pathnameHasLocale) return NextResponse.next()
+
+  // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
+  const locale = getLocale(request)
+  request.nextUrl.pathname = `/${locale}${pathname}`
+  return NextResponse.redirect(request.nextUrl)
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
+}
 </file>
 
 <file path="package.json">
@@ -3099,52 +3145,6 @@ export default function LanguageSwitcher() {
       </button>
     </div>
   )
-}
-</file>
-
-<file path="middleware.ts">
-// [NEW]
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-
-const locales = ['en', 'ja']
-const defaultLocale = 'en'
-
-function getLocale(request: NextRequest): string {
-  const acceptLanguage = request.headers.get('accept-language')
-  if (acceptLanguage && acceptLanguage.includes('ja')) {
-    return 'ja'
-  }
-  return defaultLocale
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // 静的アセット、APIルート、内部パスはスキップ
-  if (
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next()
-  }
-
-  // URL先頭に en または ja が含まれているか確認
-  const pathnameHasLocale = locales.some(
-    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
-  )
-
-  if (pathnameHasLocale) return NextResponse.next()
-
-  // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
-  const locale = getLocale(request)
-  request.nextUrl.pathname = `/${locale}${pathname}`
-  return NextResponse.redirect(request.nextUrl)
-}
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.).*)'],
 }
 </file>
 
@@ -5453,6 +5453,45 @@ export default function CartManager({
 }
 </file>
 
+<file path="app/[lang]/page.tsx">
+// app/[lang]/page.tsx
+// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
+import Link from "next/link";
+import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
+
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
+}) {
+  const { lang } = await params;
+  const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
+      <h1 className="text-4xl font-bold mb-4">{dict?.home?.title || 'Welcome'}</h1>
+      <p className="text-xl mb-8">{dict?.home?.description || 'Service Description'}</p>
+      
+      <div className="flex flex-wrap gap-4 justify-center">
+        <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
+          {dict?.home?.login || 'Login'}
+        </Link>
+        <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
+          {dict?.home?.signup || 'Sign Up'}
+        </Link>
+        <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
+          {dict?.home?.calculator || 'Calculator'}
+        </Link>
+        <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
+          {dict?.home?.inventory || 'Inventory'}
+        </Link>
+      </div>
+    </main>
+  );
+}
+</file>
+
 <file path="dictionaries/en.json">
 {
   "home": {
@@ -5500,7 +5539,7 @@ export default function CartManager({
     "bookmarklet": {
       "title": "Bookmarklet",
       "description": "Drag and drop the button below to your bookmarks bar.",
-      "addButton": "Add to Request"
+      "addButton": "Add to Cart"
     },
     "cart": {
       "title": "Items in Cart",
@@ -5593,189 +5632,6 @@ export default function CartManager({
     "save": "Save",
     "saving": "Saving...",
     "backToMyPage": "← Back to My Page"
-  }
-}
-</file>
-
-<file path="app/[lang]/page.tsx">
-// app/[lang]/page.tsx
-// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
-import Link from "next/link";
-import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
-
-export default async function Home({
-  params,
-}: {
-  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
-}) {
-  const { lang } = await params;
-  const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
-      <h1 className="text-4xl font-bold mb-4">{dict?.home?.title || 'Welcome'}</h1>
-      <p className="text-xl mb-8">{dict?.home?.description || 'Service Description'}</p>
-      
-      <div className="flex flex-wrap gap-4 justify-center">
-        <Link href={`/${lang}/login`} className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors">
-          {dict?.home?.login || 'Login'}
-        </Link>
-        <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
-          {dict?.home?.signup || 'Sign Up'}
-        </Link>
-        <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
-          {dict?.home?.calculator || 'Calculator'}
-        </Link>
-        <Link href={`/${lang}/inventory`} className="px-6 py-2 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors">
-          {dict?.home?.inventory || 'Inventory'}
-        </Link>
-      </div>
-    </main>
-  );
-}
-</file>
-
-<file path="dictionaries/ja.json">
-{
-  "home": {
-    "title": "私たちのサービスへようこそ",
-    "description": "効率的な管理ツールを提供します。",
-    "login": "ログイン",
-    "signup": "新規登録",
-    "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品"
-  },
-  "dashboard": {
-    "title": "マイページ",
-    "logout": "ログアウト",
-    "accountSettings": "⚙️ アカウント設定",
-    "shippingCalculator": "✈️ 送料シミュレーター ↗",
-    "orderHistory": "依頼済みの注文一覧",
-    "noOrders": "依頼済みの注文はありません。",
-    "itemCount": "商品数:",
-    "status": {
-      "shipping": "配送:",
-      "payment": "決済:",
-      "tracking": "追跡:",
-      "attention": "要確認（ユーザー対応待ち）"
-    },
-    "invoice": {
-      "title": "■ 請求明細",
-      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
-      "productTotal": "商品価格合計",
-      "proxyFee": "代理手数料 (5%)",
-      "shipping": "送料",
-      "paymentFee": "決済手数料",
-      "grandTotal": "お支払い金額"
-    },
-    "form": {
-      "urlPlaceholder": "商品URL",
-      "titlePlaceholder": "商品名",
-      "pricePlaceholder": "希望価格(任意)",
-      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
-      "addButton": "カートに追加",
-      "addingButton": "追加中...",
-      "replyButton": "回答を送信",
-      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
-      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
-    },
-    "bookmarklet": {
-      "title": "ブックマークレット",
-      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
-      "addButton": "依頼に追加"
-    },
-    "cart": {
-      "title": "カート内の商品",
-      "noItems": "カートに商品はありません。",
-      "name": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "quantity": "数量",
-      "desiredPrice": "希望価格",
-      "action": "操作",
-      "delete": "削除",
-      "shippingMethod": "配送方法:",
-      "paymentMethod": "決済方法:",
-      "submitButton": "購入依頼を送信する",
-      "submittingButton": "送信中..."
-    },
-    "table": {
-      "order": "注文",
-      "item": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "requestedQuantity": "依頼数量",
-      "confirmedQuantity": "確定数量",
-      "desiredPrice": "希望価格",
-      "price": "購入価格(確定)",
-      "subtotal": "小計",
-      "status": "ステータス"
-    },
-    "badge": {
-      "status": {
-        "ordered": "依頼済み",
-        "purchased": "買い付け完了",
-        "shipping_prep": "国際発送準備中",
-        "payment_waiting": "決済待ち",
-        "shipped": "国際発送済み",
-        "cancelled": "キャンセル"
-      },
-      "item": {
-        "cart": "カート",
-        "ordered": "依頼済み",
-        "out_of_stock": "在庫切れ",
-        "purchased": "購入完了",
-        "warehouse_arrival": "倉庫到着",
-        "cancelled": "キャンセル",
-        "info_required": "要確認"
-      }
-    }
-  },
-  "settings": {
-    "loginSecurity": "ログイン情報・セキュリティ",
-    "loginEmail": "ログイン用メールアドレス",
-    "emailNote": "※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。",
-    "passwordSettings": "パスワード設定",
-    "changePassword": "パスワードの変更",
-    "cancel": "キャンセル",
-    "newPassword": "新しいパスワード (6文字以上)",
-    "confirmPassword": "新しいパスワード (確認用)",
-    "changing": "変更中...",
-    "change": "変更",
-    "basicInfo": "基本情報",
-    "fullName": "担当者名 (Full Name)",
-    "companyName": "会社名 (Company Name)",
-    "phone": "電話番号 (Phone)",
-    "contactEmail": "連絡用メールアドレス (Contact Email)",
-    "sameAsLogin": "ログイン用と同じ",
-    "country": "国 (Country)",
-    "fedexAccount": "FedEx アカウント番号",
-    "fedexNote": "※ 航空便利用時の関税支払い手続きに必須となります。",
-    "zipCode": "郵便番号 (Zip Code)",
-    "taxId": "納税番号 (Tax ID)",
-    "city": "都市名 (City)",
-    "stateProvince": "州または省 (State/Province)",
-    "addressLine1": "住所1 (Address Line 1)",
-    "addressLine2": "住所2 (Address Line 2)",
-    "addressLine3": "住所3 (Address Line 3)",
-    "addressType": "お届け先の種類 (Residential or Commercial)",
-    "residential": "個人宅 (Residential)",
-    "commercial": "事業所・会社 (Commercial)",
-    "addressNote": "※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。",
-    "paymentAccount": "お支払いアカウント情報",
-    "paypalLink": "PayPal アカウント連携",
-    "paypalLinked": "連携済み",
-    "paypalRelink": "PayPalアカウントを再連携",
-    "paypalDoLink": "PayPalと連携する",
-    "wiseEmail": "Wise用 メールアドレス",
-    "defaultOrderSettings": "デフォルトの注文設定",
-    "defaultOrderNote": "カートで依頼を送信する際の初期選択になります。",
-    "shippingMethod": "配送方法",
-    "paymentMethod": "決済方法",
-    "save": "保存",
-    "saving": "保存中...",
-    "backToMyPage": "← マイページへ戻る"
   }
 }
 </file>
@@ -6437,6 +6293,150 @@ export default function ProfileForm({ profile, userEmail, dict }: { profile: any
             </form>
         </div>
     )
+}
+</file>
+
+<file path="dictionaries/ja.json">
+{
+  "home": {
+    "title": "私たちのサービスへようこそ",
+    "description": "効率的な管理ツールを提供します。",
+    "login": "ログイン",
+    "signup": "新規登録",
+    "calculator": "送料シミュレーター",
+    "inventory": "📦 取扱商品"
+  },
+  "dashboard": {
+    "title": "マイページ",
+    "logout": "ログアウト",
+    "accountSettings": "⚙️ アカウント設定",
+    "shippingCalculator": "✈️ 送料シミュレーター ↗",
+    "orderHistory": "依頼済みの注文一覧",
+    "noOrders": "依頼済みの注文はありません。",
+    "itemCount": "商品数:",
+    "status": {
+      "shipping": "配送:",
+      "payment": "決済:",
+      "tracking": "追跡:",
+      "attention": "要確認（ユーザー対応待ち）"
+    },
+    "invoice": {
+      "title": "■ 請求明細",
+      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
+      "productTotal": "商品価格合計",
+      "proxyFee": "代理手数料 (5%)",
+      "shipping": "送料",
+      "paymentFee": "決済手数料",
+      "grandTotal": "お支払い金額"
+    },
+    "form": {
+      "urlPlaceholder": "商品URL",
+      "titlePlaceholder": "商品名",
+      "pricePlaceholder": "希望価格(任意)",
+      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
+      "addButton": "カートに追加",
+      "addingButton": "追加中...",
+      "replyButton": "回答を送信",
+      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
+      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
+    },
+    "bookmarklet": {
+      "title": "ブックマークレット",
+      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
+      "addButton": "カートに追加"
+    },
+    "cart": {
+      "title": "カート内の商品",
+      "noItems": "カートに商品はありません。",
+      "name": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "quantity": "数量",
+      "desiredPrice": "希望価格",
+      "action": "操作",
+      "delete": "削除",
+      "shippingMethod": "配送方法:",
+      "paymentMethod": "決済方法:",
+      "submitButton": "購入依頼を送信する",
+      "submittingButton": "送信中..."
+    },
+    "table": {
+      "order": "注文",
+      "item": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "requestedQuantity": "依頼数量",
+      "confirmedQuantity": "確定数量",
+      "desiredPrice": "希望価格",
+      "price": "購入価格(確定)",
+      "subtotal": "小計",
+      "status": "ステータス"
+    },
+    "badge": {
+      "status": {
+        "ordered": "依頼済み",
+        "purchased": "買い付け完了",
+        "shipping_prep": "国際発送準備中",
+        "payment_waiting": "決済待ち",
+        "shipped": "国際発送済み",
+        "cancelled": "キャンセル"
+      },
+      "item": {
+        "cart": "カート",
+        "ordered": "依頼済み",
+        "out_of_stock": "在庫切れ",
+        "purchased": "購入完了",
+        "warehouse_arrival": "倉庫到着",
+        "cancelled": "キャンセル",
+        "info_required": "要確認"
+      }
+    }
+  },
+  "settings": {
+    "loginSecurity": "ログイン情報・セキュリティ",
+    "loginEmail": "ログイン用メールアドレス",
+    "emailNote": "※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。",
+    "passwordSettings": "パスワード設定",
+    "changePassword": "パスワードの変更",
+    "cancel": "キャンセル",
+    "newPassword": "新しいパスワード (6文字以上)",
+    "confirmPassword": "新しいパスワード (確認用)",
+    "changing": "変更中...",
+    "change": "変更",
+    "basicInfo": "基本情報",
+    "fullName": "担当者名 (Full Name)",
+    "companyName": "会社名 (Company Name)",
+    "phone": "電話番号 (Phone)",
+    "contactEmail": "連絡用メールアドレス (Contact Email)",
+    "sameAsLogin": "ログイン用と同じ",
+    "country": "国 (Country)",
+    "fedexAccount": "FedEx アカウント番号",
+    "fedexNote": "※ 航空便利用時の関税支払い手続きに必須となります。",
+    "zipCode": "郵便番号 (Zip Code)",
+    "taxId": "納税番号 (Tax ID)",
+    "city": "都市名 (City)",
+    "stateProvince": "州または省 (State/Province)",
+    "addressLine1": "住所1 (Address Line 1)",
+    "addressLine2": "住所2 (Address Line 2)",
+    "addressLine3": "住所3 (Address Line 3)",
+    "addressType": "お届け先の種類 (Residential or Commercial)",
+    "residential": "個人宅 (Residential)",
+    "commercial": "事業所・会社 (Commercial)",
+    "addressNote": "※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。",
+    "paymentAccount": "お支払いアカウント情報",
+    "paypalLink": "PayPal アカウント連携",
+    "paypalLinked": "連携済み",
+    "paypalRelink": "PayPalアカウントを再連携",
+    "paypalDoLink": "PayPalと連携する",
+    "wiseEmail": "Wise用 メールアドレス",
+    "defaultOrderSettings": "デフォルトの注文設定",
+    "defaultOrderNote": "カートで依頼を送信する際の初期選択になります。",
+    "shippingMethod": "配送方法",
+    "paymentMethod": "決済方法",
+    "save": "保存",
+    "saving": "保存中...",
+    "backToMyPage": "← マイページへ戻る"
+  }
 }
 </file>
 
@@ -7797,133 +7797,6 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 }
 </file>
 
-<file path="components/BookmarkletGenerator.tsx">
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { X, HelpCircle } from 'lucide-react'
-
-interface BookmarkletGeneratorProps {
-    dict: any;
-}
-
-export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps) {
-    const router = useRouter()
-    const [bookmarkletCode, setBookmarkletCode] = useState<string>('')
-    const [showModal, setShowModal] = useState<boolean>(false) // モーダルの開閉状態を管理
-
-    useEffect(() => {
-        // 現在のオリジンを取得して、動的にブックマークレットコードを生成
-        const origin = window.location.origin
-        // ※ 実際のエンドポイントやパラメータに合わせてコードを調整してください
-        const code = `javascript:(function(){
-            const url = encodeURIComponent(window.location.href);
-            const title = encodeURIComponent(document.title);
-            const targetUrl = '${origin}/api/bookmarklet/add?url=' + url + '&title=' + title;
-            window.open(targetUrl, '_blank', 'width=500,height=600');
-        })();`
-        
-        // コード内の余分な空白などを取り除く
-        setBookmarkletCode(code.replace(/\s+/g, ' ').trim());
-
-        // BroadcastChannel で別タブ・別ウィンドウからの追加完了通知を受信し、自動ロードを実行
-        const channel = new BroadcastChannel('bookmarklet_channel')
-        channel.onmessage = (event) => {
-            if (event.data === 'item_added') {
-                router.refresh() // 自動更新実行
-            }
-        }
-        
-        return () => {
-            channel.close()
-        }
-    }, [router])
-
-    // ESCキーでモーダルを閉じる処理
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setShowModal(false)
-        }
-        if (showModal) window.addEventListener('keydown', handleKeyDown)
-        return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [showModal])
-
-    return (
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold">
-                    {dict?.dashboard?.bookmarklet?.title || 'ブックマークレット'}
-                </h2>
-                
-                {/* ▼ 「How to use」ボタン ▼ */}
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100"
-                >
-                    <HelpCircle size={16} />
-                    How to use
-                </button>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-8">
-                {dict?.dashboard?.bookmarklet?.description || '以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。'}
-            </p>
-            
-            {/* ドラッグ＆ドロップ用のブックマークレットボタン */}
-            <div className="flex flex-col items-center justify-center">
-                <a
-                    href={bookmarkletCode}
-                    onClick={(e) => e.preventDefault()}
-                    className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
-                    title="ドラッグ＆ドロップでお気に入りバーに追加してください"
-                >
-                    {dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'}
-                </a>
-                
-            </div>
-
-            {/* ▼ 使い方モーダル（ポップアップ） ▼ */}
-            {showModal && (
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity"
-                    onClick={() => setShowModal(false)} // 背景クリックで閉じる
-                >
-                    <div 
-                        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()} // モーダル内のクリックで閉じないようにする
-                    >
-                        {/* 閉じるボタン */}
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="absolute top-4 right-4 p-2 bg-gray-100/80 text-gray-600 hover:bg-gray-200 hover:text-gray-900 rounded-full transition-colors z-10 backdrop-blur-md"
-                            aria-label="Close modal"
-                        >
-                            <X size={20} />
-                        </button>
-                        
-                        <div className="p-6 pt-10 sm:p-10">
-                            <h3 className="text-lg font-bold mb-6 text-center text-gray-800">
-                                ブックマークレットの使い方
-                            </h3>
-                            <Image 
-                                src="/Gemini_Generated_Image_avtulhavtulhavtu.jpg" 
-                                alt="How to use the bookmarklet" 
-                                width={1200} 
-                                height={675} 
-                                className="w-full h-auto rounded-lg shadow-sm border border-gray-200"
-                                priority
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    )
-}
-</file>
-
 <file path="app/[lang]/calculator/page.tsx">
 // app/[lang]/calculator/page.tsx
 // [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
@@ -8091,6 +7964,134 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
       )}
     </div>
   );
+}
+</file>
+
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { X, HelpCircle } from 'lucide-react'
+
+interface BookmarkletGeneratorProps {
+    dict: any;
+}
+
+export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps) {
+    const router = useRouter()
+    const [bookmarkletCode, setBookmarkletCode] = useState<string>('')
+    const [showModal, setShowModal] = useState<boolean>(false)
+
+    useEffect(() => {
+        // 現在のオリジンを取得して、動的にブックマークレットコードを生成
+        const origin = window.location.origin
+        // ※ 実際のエンドポイントやパラメータに合わせてコードを調整してください
+        const code = `javascript:(function(){
+            const url = encodeURIComponent(window.location.href);
+            const title = encodeURIComponent(document.title);
+            const targetUrl = '${origin}/api/bookmarklet/add?url=' + url + '&title=' + title;
+            window.open(targetUrl, '_blank', 'width=500,height=600');
+        })();`
+        
+        // コード内の余分な空白などを取り除く
+        setBookmarkletCode(code.replace(/\s+/g, ' ').trim());
+
+        // BroadcastChannel で別タブ・別ウィンドウからの追加完了通知を受信し、自動ロードを実行
+        const channel = new BroadcastChannel('bookmarklet_channel')
+        channel.onmessage = (event) => {
+            if (event.data === 'item_added' || event.data?.type === 'BOOKMARKLET_ITEM_ADDED') {
+                router.refresh() // 自動更新実行
+            }
+        }
+        
+        return () => {
+            channel.close()
+        }
+    }, [router])
+
+    // ESCキーでモーダルを閉じる処理
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setShowModal(false)
+        }
+        if (showModal) window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [showModal])
+
+    return (
+        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold">
+                    {dict?.dashboard?.bookmarklet?.title || 'ブックマークレット'}
+                </h2>
+                
+                {/* ▼ 「How to use」ボタン ▼ */}
+                <button
+                    onClick={() => setShowModal(true)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100"
+                >
+                    <HelpCircle size={16} />
+                    How to use
+                </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-8">
+                {dict?.dashboard?.bookmarklet?.description || '以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。'}
+            </p>
+            
+            {/* ドラッグ＆ドロップ用のブックマークレットボタン */}
+            <div className="flex flex-col items-center justify-center">
+                <a
+                    href={bookmarkletCode}
+                    onClick={(e) => e.preventDefault()}
+                    className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
+                    title="ドラッグ＆ドロップでお気に入りバーに追加してください"
+                >
+                    {dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'}
+                </a>
+                {/* 注意書きの <p> タグを削除しました */}
+            </div>
+
+            {/* ▼ 使い方モーダル（ポップアップ） ▼ */}
+            {showModal && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity"
+                    onClick={() => setShowModal(false)} // 背景クリックで閉じる
+                >
+                    <div 
+                        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()} // モーダル内のクリックで閉じないようにする
+                    >
+                        {/* 閉じるボタン */}
+                        <button
+                            onClick={() => setShowModal(false)}
+                            className="absolute top-4 right-4 p-2 bg-gray-100/80 text-gray-600 hover:bg-gray-200 hover:text-gray-900 rounded-full transition-colors z-10 backdrop-blur-md"
+                            aria-label="Close modal"
+                        >
+                            <X size={20} />
+                        </button>
+                        
+                        <div className="p-6 pt-10 sm:p-10">
+                            <h3 className="text-lg font-bold mb-6 text-center text-gray-800">
+                                How to use the bookmarklet
+                            </h3>
+                            <Image 
+                                src="/Gemini_Generated_Image_avtulhavtulhavtu.jpg" 
+                                alt="How to use the bookmarklet" 
+                                width={1200} 
+                                height={675} 
+                                className="w-full h-auto rounded-lg shadow-sm border border-gray-200"
+                                priority
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
 }
 </file>
 
