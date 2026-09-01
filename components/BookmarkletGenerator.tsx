@@ -31,7 +31,7 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
         // BroadcastChannel で別タブ・別ウィンドウからの追加完了通知を受信し、自動ロードを実行
         const channel = new BroadcastChannel('bookmarklet_channel')
         channel.onmessage = (event) => {
-            if (event.data === 'item_added') {
+            if (event.data === 'item_added' || event.data?.type === 'BOOKMARKLET_ITEM_ADDED') {
                 router.refresh() // 自動更新実行
             }
         }
@@ -79,9 +79,12 @@ export default function BookmarkletGenerator({ dict }: BookmarkletGeneratorProps
                     className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-md hover:bg-blue-700 transition cursor-grab active:cursor-grabbing"
                     title="ドラッグ＆ドロップでお気に入りバーに追加してください"
                 >
-                    {dict?.dashboard?.bookmarklet?.addButton || '依頼に追加'}
+                    {dict?.dashboard?.bookmarklet?.addButton || 'カートに追加'}
                 </a>
                 
+                <p className="text-xs text-gray-400 mt-4 text-center">
+                    ※このボタンはクリックせず、ブラウザのブックマークバーに<br className="sm:hidden" />ドラッグ＆ドロップしてください。
+                </p>
             </div>
 
             {/* ▼ 使い方モーダル（ポップアップ） ▼ */}

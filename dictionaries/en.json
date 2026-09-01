@@ -44,7 +44,7 @@
     "bookmarklet": {
       "title": "Bookmarklet",
       "description": "Drag and drop the button below to your bookmarks bar.",
-      "addButton": "Add to Request"
+      "addButton": "Add to Cart"
     },
     "cart": {
       "title": "Items in Cart",

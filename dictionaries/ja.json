@@ -44,7 +44,7 @@
     "bookmarklet": {
       "title": "ブックマークレット",
       "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
-      "addButton": "依頼に追加"
+      "addButton": "カートに追加"
     },
     "cart": {
       "title": "カート内の商品",
