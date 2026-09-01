@@ -57,7 +57,7 @@ export default function CartManager({
         if (initialItems) {
             setItems(filterCartItems(initialItems))
         }
-    }, [initialItems]) // 修正: length だけでなく initialItems 本体を監視
+    }, [initialItems]) 
 
     useEffect(() => {
         if (userProfile?.default_shipping_method) {
@@ -130,9 +130,9 @@ export default function CartManager({
                                 <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
                                     <th className="p-2">{isEn ? 'Product Name' : '商品名'}</th>
                                     <th className="p-2 max-w-[150px]">URL</th>
-                                    <th className="p-2 min-w-[120px]">{isEn ? 'Remarks' : '備考'}</th>
-                                    <th className="p-2 text-center w-16">{isEn ? 'Quantity' : '数量'}</th>
-                                    <th className="p-2 text-right w-24">{isEn ? 'Desired Price' : '希望価格'}</th>
+                                    <th className="p-2 min-w-[150px]">{isEn ? 'Remarks' : '備考'}</th>
+                                    <th className="p-2 text-center w-20">{isEn ? 'Quantity' : '数量'}</th>
+                                    <th className="p-2 text-right min-w-[100px]">{isEn ? 'Desired Price' : '希望価格'}</th>
                                     <th className="p-2 text-center w-16">{isEn ? 'Action' : '操作'}</th>
                                 </tr>
                             </thead>
@@ -146,21 +146,65 @@ export default function CartManager({
                                             <td className="p-2 max-w-[150px] truncate">
                                                 {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{item.url}</a> : '-'}
                                             </td>
-                                            <td className="p-2 text-slate-600 truncate max-w-[150px]">{item.remarks || '-'}</td>
+                                            
+                                            {/* ▼ 変更: 備考 (Remarks) を入力可能に */}
+                                            <td className="p-2">
+                                                <input 
+                                                    type="text" 
+                                                    defaultValue={item.remarks || ''} 
+                                                    placeholder={isEn ? 'Remarks (optional)' : '備考 (任意)'}
+                                                    onBlur={async (e) => {
+                                                        const val = e.target.value.trim()
+                                                        if (val !== (item.remarks || '') && item.id) {
+                                                            setItems(prev => prev.map(i => i.id === item.id ? { ...i, remarks: val } : i))
+                                                            await updateCartItem(item.id, item.quantity || 1, item.desired_price, val)
+                                                        }
+                                                    }} 
+                                                    className="w-full border border-slate-300 p-1.5 rounded text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                                />
+                                            </td>
+                                            
+                                            {/* ▼ 変更: 数量 (Quantity) */}
                                             <td className="p-2 text-center">
-                                                <input type="number" min={1} defaultValue={item.quantity || 1} onBlur={async (e) => {
-                                                    const val = Number(e.target.value)
-                                                    if (val > 0 && val !== item.quantity && item.id) {
-                                                        await updateCartItem(item.id, val, item.desired_price, item.remarks)
-                                                    }
-                                                }} className="border border-slate-300 p-1 rounded text-xs w-12 text-center" />
+                                                <input 
+                                                    type="number" 
+                                                    min={1} 
+                                                    defaultValue={item.quantity || 1} 
+                                                    onBlur={async (e) => {
+                                                        const val = Number(e.target.value)
+                                                        if (val > 0 && val !== item.quantity && item.id) {
+                                                            setItems(prev => prev.map(i => i.id === item.id ? { ...i, quantity: val } : i))
+                                                            await updateCartItem(item.id, val, item.desired_price, item.remarks)
+                                                        }
+                                                    }} 
+                                                    className="border border-slate-300 p-1.5 rounded text-xs w-16 text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                                />
                                             </td>
-                                            <td className="p-2 text-right font-mono">
-                                                {item.desired_price ? `${Number(item.desired_price).toLocaleString()} ${isEn ? 'JPY' : '円'}` : '-'}
+                                            
+                                            {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+                                            <td className="p-2 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <input 
+                                                        type="number" 
+                                                        min={0} 
+                                                        defaultValue={item.desired_price || ''} 
+                                                        placeholder="0"
+                                                        onBlur={async (e) => {
+                                                            const val = e.target.value === '' ? null : Number(e.target.value)
+                                                            if (val !== item.desired_price && item.id) {
+                                                                setItems(prev => prev.map(i => i.id === item.id ? { ...i, desired_price: val } : i))
+                                                                await updateCartItem(item.id, item.quantity || 1, val, item.remarks)
+                                                            }
+                                                        }} 
+                                                        className="border border-slate-300 p-1.5 rounded text-xs w-20 text-right font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
+                                                    />
+                                                    <span className="text-[10px] text-slate-500 font-bold">{isEn ? 'JPY' : '円'}</span>
+                                                </div>
                                             </td>
+                                            
                                             <td className="p-2 text-center">
                                                 {item.id && (
-                                                    <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px]">{isEn ? 'Delete' : '削除'}</button>
+                                                    <button type="button" onClick={() => handleDelete(item.id)} className="text-rose-600 hover:underline text-[11px] font-bold">{isEn ? 'Delete' : '削除'}</button>
                                                 )}
                                             </td>
                                         </tr>
@@ -174,7 +218,7 @@ export default function CartManager({
                         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                             <div className="flex items-center gap-2">
                                 <label className="text-xs font-bold text-slate-700">{isEn ? 'Shipping Method:' : '配送方法:'}</label>
-                                <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
+                                <select value={shippingMethod} onChange={(e) => setShippingMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500">
                                     <option value="最安プラン自動選択 (航空便)">{isEn ? 'Cheapest Auto (Air)' : '最安プラン自動選択 (航空便)'}</option>
                                     <option value="船便">{isEn ? 'Japan Post (Sea)' : '船便'}</option>
                                 </select>
@@ -182,7 +226,7 @@ export default function CartManager({
 
                             <div className="flex items-center gap-2">
                                 <label className="text-xs font-bold text-slate-700">{isEn ? 'Payment Method:' : '決済方法:'}</label>
-                                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white">
+                                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="border border-slate-300 rounded p-1.5 text-xs bg-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500">
                                     <option value="Wise">Wise</option>
                                     <option value="CreditCard">Credit Card</option>
                                     <option value="PayPal">PayPal</option>
@@ -190,7 +234,7 @@ export default function CartManager({
                             </div>
                         </div>
 
-                        <button onClick={handleCheckout} disabled={loading} className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+                        <button onClick={handleCheckout} disabled={loading} className="bg-blue-600 text-white px-5 py-2 rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors">
                             {loading ? (isEn ? 'Submitting...' : '送信中...') : (isEn ? 'Submit Purchase Request' : '購入依頼を送信する')}
                         </button>
                     </div>
