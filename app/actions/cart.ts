@@ -5,29 +5,55 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function deleteCartItem(itemId: string) {
-  // 1. 確実に await をつけてクライアントを作成
-  const supabase = await createClient()
+    const supabase = await createClient()
 
-  // 2. ユーザー情報の取得
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("ログインしていません")
+    // 1. ユーザー情報の取得
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+        throw new Error("ログインしていません")
+    }
 
-  // 3. シンプルに items テーブルから該当商品を削除
-  // （DBの設定で、関連するデータがあれば自動で綺麗に消えます）
-  const { error } = await supabase
-    .from('items')
-    .delete()
-    .eq('id', itemId)
-    .eq('user_id', user.id)
+    // 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+    const { data: existingItem, error: fetchError } = await supabase
+        .from('items')
+        .select('*')
+        .eq('id', itemId)
+        .single()
 
-  // 4. エラーが起きた場合は無視せず「エラー」としてログに出す
-  if (error) {
-    console.error('Supabase Delete Error:', error.message)
-    throw new Error('商品の削除に失敗しました: ' + error.message)
-  }
+    if (fetchError || !existingItem) {
+        console.error('【デバッグエラー1】対象の商品が見つかりません。', '送信されたitemId:', itemId, '詳細:', fetchError)
+        throw new Error(`対象の商品がDBに見つかりません (ID: ${itemId})`)
+    }
 
-  // 5. サイト全体のキャッシュを確実に破棄
-  revalidatePath('/', 'layout')
+    // 🔍 デバッグ2: 自分の所有物かチェック
+    if (existingItem.user_id !== user.id) {
+        console.error('【デバッグエラー2】所有者が違います。商品の持ち主:', existingItem.user_id, '現在のユーザー:', user.id)
+        throw new Error('他のユーザーの商品は削除できません。')
+    }
+
+    // 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+    const { data: deletedData, error: deleteError } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', user.id)
+        .select()
+
+    if (deleteError) {
+        console.error('【デバッグエラー3】削除中にシステムエラー:', deleteError.message)
+        throw new Error('削除中にエラーが発生しました: ' + deleteError.message)
+    }
+
+    // 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+    if (!deletedData || deletedData.length === 0) {
+        console.error('【デバッグエラー4】エラーは出てないが、データが1件も消えなかった（サイレント失敗）')
+        throw new Error('削除が実行されませんでした（データが一致しません）')
+    }
+
+    // 5. サイト全体のキャッシュを確実に破棄
+    revalidatePath('/', 'layout')
+    
+    return { success: true }
 }
 
 // カートからの注文作成処理
