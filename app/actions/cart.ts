@@ -18,29 +18,22 @@ export async function deleteCartItem(itemId: string) {
         throw new Error('削除対象の商品IDが不正です。 / Invalid item ID.')
     }
 
-    // 2. 中間テーブル (order_items) の紐付けを解除 (制約エラー回避)
-    const { error: relError } = await supabase
-        .from('order_items')
-        .delete()
-        .eq('item_id', itemId)
-
-    if (relError) {
-        console.warn('order_items 削除警告:', relError.message)
-    }
-
-    // 3. items テーブルから該当商品を物理削除
+    // 2. items テーブルから該当商品を物理削除
+    // ※ order_items テーブルには ON DELETE CASCADE が設定されているため、
+    // 事前に手動で紐付けを解除する必要はありません。items を消せば自動で消えます。
     const { error: deleteError } = await supabase
         .from('items')
         .delete()
         .eq('id', itemId)
         .eq('user_id', user.id)
 
+    // もしDB側でエラーが起きた場合は、ここで確実にエラーを投げて処理を止める
     if (deleteError) {
         console.error('Cart item delete error:', deleteError)
         throw new Error(`DBからの削除に失敗しました / Failed to delete from DB: ${deleteError.message}`)
     }
 
-    // 4. マイページ・カート関連のキャッシュを即時再検証
+    // 3. マイページ・カート関連の全キャッシュを即時再検証
     revalidatePath('/', 'layout')
 
     return { success: true }
