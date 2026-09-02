@@ -113,6 +113,7 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         .from('order_items')
         .insert(orderItemsPayload)
 
+        
     if (linkError) {
         console.error('Order item link error detail:', linkError.message, linkError.details, linkError.hint)
         // 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
