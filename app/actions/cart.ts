@@ -4,39 +4,30 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// カート内商品の削除処理
 export async function deleteCartItem(itemId: string) {
-    const supabase = await createClient()
+  // 1. 確実に await をつけてクライアントを作成
+  const supabase = await createClient()
 
-    // 1. ユーザー認証チェック
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-        throw new Error('認証エラーが発生しました。再度ログインしてください。 / Authentication error. Please log in again.')
-    }
+  // 2. ユーザー情報の取得
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("ログインしていません")
 
-    if (!itemId) {
-        throw new Error('削除対象の商品IDが不正です。 / Invalid item ID.')
-    }
+  // 3. シンプルに items テーブルから該当商品を削除
+  // （DBの設定で、関連するデータがあれば自動で綺麗に消えます）
+  const { error } = await supabase
+    .from('items')
+    .delete()
+    .eq('id', itemId)
+    .eq('user_id', user.id)
 
-    // 2. items テーブルから該当商品を物理削除
-    // ※ order_items テーブルには ON DELETE CASCADE が設定されているため、
-    // 事前に手動で紐付けを解除する必要はありません。items を消せば自動で消えます。
-    const { error: deleteError } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', itemId)
-        .eq('user_id', user.id)
+  // 4. エラーが起きた場合は無視せず「エラー」としてログに出す
+  if (error) {
+    console.error('Supabase Delete Error:', error.message)
+    throw new Error('商品の削除に失敗しました: ' + error.message)
+  }
 
-    // もしDB側でエラーが起きた場合は、ここで確実にエラーを投げて処理を止める
-    if (deleteError) {
-        console.error('Cart item delete error:', deleteError)
-        throw new Error(`DBからの削除に失敗しました / Failed to delete from DB: ${deleteError.message}`)
-    }
-
-    // 3. マイページ・カート関連の全キャッシュを即時再検証
-    revalidatePath('/', 'layout')
-
-    return { success: true }
+  // 5. サイト全体のキャッシュを確実に破棄
+  revalidatePath('/', 'layout')
 }
 
 // カートからの注文作成処理
@@ -113,7 +104,7 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         .from('order_items')
         .insert(orderItemsPayload)
 
-        
+
     if (linkError) {
         console.error('Order item link error detail:', linkError.message, linkError.details, linkError.hint)
         // 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
