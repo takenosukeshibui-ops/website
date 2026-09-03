@@ -137,5 +137,14 @@
     "save": "Save",
     "saving": "Saving...",
     "backToMyPage": "← Back to My Page"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "description": "Please enter your registered email address. We will send you a link to reset your password.",
+    "sentSuccess": "✅ Email sent successfully.",
+    "sentInstruction": "Please check your inbox and click the link in the email to reset your password.",
+    "backToLogin": "Return to Login",
+    "submitButton": "Send Reset Link",
+    "submittingButton": "Sending..."
   }
 }
