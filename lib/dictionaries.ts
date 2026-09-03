@@ -1,6 +1,5 @@
 // lib/dictionaries.ts
 // [NEW] 辞書ファイルを非同期で読み込むユーティリティ
-import 'server-only'
 
 const dictionaries = {
   en: () => import('@/dictionaries/en.json').then((module) => module.default),
