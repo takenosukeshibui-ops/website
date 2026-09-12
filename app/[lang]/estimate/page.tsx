@@ -22,7 +22,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
 
   // 入力された文字列から数字のみを抽出してStateにセットする共通関数
   const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) => {
-    // 数字以外の文字を除去
     const rawValue = e.target.value.replace(/[^0-9]/g, '')
     setter(rawValue ? Number(rawValue) : 0)
   }
@@ -63,17 +62,18 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
     return () => clearTimeout(timer)
   }, [country, totalWeightKg])
 
-// --- 最終計算ロジック ---
-  // 自社在庫の場合は手数料0、代理購入の場合は5%
+  // --- 最終計算ロジック ---
   const proxyFee = serviceType === 'proxy' ? Math.floor(totalItemPrice * 0.05) : 0
   
-  // 【修正】実際のAPIレスポンスの形に合わせて送料を抽出
-  const jpFee = shippingFees?.japanPost?.total || 0;
-  
-  // FedExは複数のプランが配列で返ってくるため、一番安い金額（最安値）を自動選択して適用する
-  const fedexFee = shippingFees?.fedexRates?.length > 0 
-    ? Math.min(...shippingFees.fedexRates.map((rate: any) => rate.total)) 
-    : 0;
+  // 日本郵便の料金
+  const jpFee = shippingFees?.japanPost?.total || 0
+
+  // FedExの料金：複数プランの中から最安値のオブジェクトを抽出
+  const cheapestFedexPlan = shippingFees?.fedexRates?.length > 0
+    ? shippingFees.fedexRates.reduce((prev: any, curr: any) => (prev.total < curr.total ? prev : curr))
+    : null
+
+  const fedexFee = cheapestFedexPlan ? cheapestFedexPlan.total : 0
   
   const currentShippingFee = shippingMethod === 'japan_post' ? jpFee : fedexFee
   
@@ -176,7 +176,8 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 className="w-full border rounded p-2"
               >
                 <option value="japan_post">{isEn ? 'Japan Post (Surface Mail)' : '日本郵便 (船便)'}</option>
-                <option value="fedex">FedEx</option>
+                {/* プルダウンの選択肢に (最安値 / Lowest Rate) を追加 */}
+                <option value="fedex">{isEn ? 'FedEx (Lowest Rate)' : 'FedEx (最安値を自動選択)'}</option>
               </select>
             </div>
 
@@ -202,7 +203,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
             <div className="space-y-3 text-sm mb-6">
               <div className="flex justify-between">
                 <span className="text-gray-600">{isEn ? 'Total Weight' : '合計重量'}</span>
-                {/* 小数点第2位までに修正 */}
                 <span>{totalWeightKg.toFixed(2)} kg</span>
               </div>
               <div className="flex justify-between">
@@ -210,7 +210,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 <span>¥{totalItemPrice.toLocaleString()}</span>
               </div>
               
-              {/* 手数料の表示（代理購入の場合のみ5%を表示） */}
               <div className="flex justify-between">
                 <span className="text-gray-600">
                   {isEn ? 'Proxy Fee' : '代理手数料'} {serviceType === 'proxy' && '(5%)'}
@@ -218,8 +217,16 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 <span>¥{proxyFee.toLocaleString()}</span>
               </div>
               
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">{isEn ? 'Shipping Fee' : '送料'}</span>
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col">
+                  <span className="text-gray-600">{isEn ? 'Shipping Fee' : '送料'}</span>
+                  {/* FedEx選択時に最安値プランの名称を補足表示 */}
+                  {shippingMethod === 'fedex' && cheapestFedexPlan && (
+                    <span className="text-[11px] text-blue-600 font-medium">
+                      {isEn ? 'Lowest Rate Plan:' : '最安値適用:'} {cheapestFedexPlan.serviceName.replace('FedEx ', '')}
+                    </span>
+                  )}
+                </div>
                 <span className="text-right">
                   {isCalculating ? (
                     <span className="text-gray-400 text-xs">{isEn ? 'Calculating...' : '計算中...'}</span>
