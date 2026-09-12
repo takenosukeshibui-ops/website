@@ -63,13 +63,19 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
     return () => clearTimeout(timer)
   }, [country, totalWeightKg])
 
-  // --- 最終計算ロジック ---
+// --- 最終計算ロジック ---
   // 自社在庫の場合は手数料0、代理購入の場合は5%
   const proxyFee = serviceType === 'proxy' ? Math.floor(totalItemPrice * 0.05) : 0
   
-  const currentShippingFee = shippingFees 
-    ? (shippingMethod === 'japan_post' ? shippingFees.shippingFeeJp : shippingFees.shippingFeeFedex) 
-    : 0
+  // 【修正】実際のAPIレスポンスの形に合わせて送料を抽出
+  const jpFee = shippingFees?.japanPost?.total || 0;
+  
+  // FedExは複数のプランが配列で返ってくるため、一番安い金額（最安値）を自動選択して適用する
+  const fedexFee = shippingFees?.fedexRates?.length > 0 
+    ? Math.min(...shippingFees.fedexRates.map((rate: any) => rate.total)) 
+    : 0;
+  
+  const currentShippingFee = shippingMethod === 'japan_post' ? jpFee : fedexFee
   
   const subTotal = totalItemPrice + proxyFee + currentShippingFee
 
