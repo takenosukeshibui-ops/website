@@ -5,7 +5,8 @@
     "login": "Login",
     "signup": "Sign Up",
     "calculator": "Shipping Simulator",
-    "inventory": "📦 Inventory"
+    "inventory": "📦 Inventory",
+    "estimate": "💰 Total Fee Estimator"
   },
   "dashboard": {
     "title": "My Page",

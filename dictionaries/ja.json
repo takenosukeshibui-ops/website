@@ -5,7 +5,8 @@
     "login": "ログイン",
     "signup": "新規登録",
     "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品"
+    "inventory": "📦 取扱商品",
+    "estimate": "💰 総合料金シミュレーター"
   },
   "dashboard": {
     "title": "マイページ",
