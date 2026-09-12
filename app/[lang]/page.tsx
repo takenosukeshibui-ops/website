@@ -24,6 +24,12 @@ export default async function Home({
         <Link href={`/${lang}/signup`} className="px-6 py-2 bg-gray-200 text-black rounded font-bold hover:bg-gray-300 transition-colors">
           {dict?.home?.signup || 'Sign Up'}
         </Link>
+
+        {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
+        <Link href={`/${lang}/estimate`} className="px-6 py-2 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 transition-colors">
+          {dict?.home?.estimate || 'Estimate'}
+        </Link>
+
         <Link href={`/${lang}/calculator`} className="px-6 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors">
           {dict?.home?.calculator || 'Calculator'}
         </Link>
