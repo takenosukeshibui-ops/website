@@ -7,10 +7,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   const { lang } = use(props.params)
   const isEn = lang === 'en'
 
-  // 1. マスタデータ（取扱商品の価格表）
-  const [itemsData, setItemsData] = useState<any[]>([])
-
-  // 2. ユーザー入力用の State
+  // 1. ユーザー入力用の State
   const [totalItemPrice, setTotalItemPrice] = useState<number>(0) // 商品代金合計
   const [normalCount, setNormalCount] = useState<number>(0)       // ノーマルカード枚数
   const [foilCount, setFoilCount] = useState<number>(0)           // キラカード枚数
@@ -18,25 +15,11 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   const [shippingMethod, setShippingMethod] = useState<'japan_post' | 'fedex'>('japan_post')
   const [paymentMethod, setPaymentMethod] = useState<'paypal' | 'wise'>('paypal')
 
-  // 3. 計算結果の State
+  // 2. 計算結果の State
   const [shippingFees, setShippingFees] = useState<any>(null)
   const [isCalculating, setIsCalculating] = useState<boolean>(false)
 
-  // 取扱商品の価格を取得（参考表示用）
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const res = await fetch('/api/data')
-        const data = await res.json()
-        if (data.rarities) setItemsData(data.rarities)
-      } catch (error) {
-        console.error('Error fetching items data:', error)
-      }
-    }
-    fetchItems()
-  }, [])
-
-  // 重量の自動計算 (ノーマル 1.6g / キラ 1.8g + 梱包材の余裕分として少し足すのもありですが今回は厳密に)
+  // 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
   const totalWeightKg = ((normalCount * 1.6) + (foilCount * 1.8)) / 1000
 
   // 配送先国または重量が変わったときに送料を再計算
@@ -67,7 +50,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
       }
     }
 
-    // 入力中の連続リクエストを防ぐための簡単なデバウンス処理
+    // 入力中の連続リクエストを防ぐためのデバウンス処理
     const timer = setTimeout(fetchShipping, 500)
     return () => clearTimeout(timer)
   }, [country, totalWeightKg])
@@ -80,15 +63,13 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   
   const subTotal = totalItemPrice + proxyFee + currentShippingFee
 
-  // 決済手数料の計算 (PayPal: 8.1% + 40円 / Wise: 概算で代替またはAPI)
+  // 決済手数料の計算 (PayPal: 8.1% + 40円 / Wise: 仮で1%)
   let paymentFee = 0
   if (paymentMethod === 'paypal' && subTotal > 0) {
-    // 逆算式: (小計 + 40) / (1 - 0.081) - 小計
     const grandTotalPaypal = Math.ceil((subTotal + 40) / (1 - 0.081))
     paymentFee = grandTotalPaypal - subTotal
   } else if (paymentMethod === 'wise' && subTotal > 0) {
-    // Wiseの場合は仮の概算(例えば手数料を一旦0にしてWise APIで別途確認させる等)
-    paymentFee = Math.floor(subTotal * 0.01) // 仮として1%で計算
+    paymentFee = Math.floor(subTotal * 0.01) 
   }
 
   const grandTotal = subTotal + paymentFee
@@ -101,23 +82,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
         
         {/* 左カラム：入力エリア */}
         <div className="space-y-6">
-          {/* 取扱商品参考エリア */}
-          <section className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold mb-3">{isEn ? 'Item Prices' : '取扱商品の参考価格'}</h2>
-            <div className="max-h-40 overflow-y-auto text-sm">
-              <table className="w-full text-left">
-                <tbody>
-                  {itemsData.map(item => (
-                    <tr key={item.id} className="border-b last:border-0">
-                      <td className="py-1">{item.name}</td>
-                      <td className="py-1 text-right">¥{item.sell_price.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
+          
           {/* 金額と枚数入力 */}
           <section className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
             <div>
@@ -128,13 +93,17 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 value={totalItemPrice || ''} 
                 onChange={e => setTotalItemPrice(Number(e.target.value))}
                 className="w-full border rounded p-2" 
-                placeholder="例: 15000"
+                placeholder={isEn ? "e.g., 15000" : "例: 15000"}
               />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">{isEn ? 'Normal Cards' : 'ノーマルカード枚数'}<br/><span className="text-xs text-gray-500">(1.6g / 1枚)</span></label>
+                <label className="block text-sm font-medium mb-1">
+                  {isEn ? 'Normal Cards' : 'ノーマルカード枚数'}
+                  <br/>
+                  <span className="text-xs text-gray-500">{isEn ? '(1.6g / card)' : '(1.6g / 1枚)'}</span>
+                </label>
                 <input 
                   type="number" 
                   min="0"
@@ -144,7 +113,11 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">{isEn ? 'Foil Cards' : 'キラカード枚数'}<br/><span className="text-xs text-gray-500">(1.8g / 1枚)</span></label>
+                <label className="block text-sm font-medium mb-1">
+                  {isEn ? 'Foil Cards' : 'キラカード枚数'}
+                  <br/>
+                  <span className="text-xs text-gray-500">{isEn ? '(1.8g / card)' : '(1.8g / 1枚)'}</span>
+                </label>
                 <input 
                   type="number" 
                   min="0"
@@ -170,7 +143,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 onChange={e => setShippingMethod(e.target.value as any)}
                 className="w-full border rounded p-2"
               >
-                <option value="japan_post">Japan Post (EMS / Registered)</option>
+                <option value="japan_post">{isEn ? 'Japan Post (Surface Mail)' : '日本郵便 (船便)'}</option>
                 <option value="fedex">FedEx</option>
               </select>
             </div>
@@ -197,7 +170,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
             <div className="space-y-3 text-sm mb-6">
               <div className="flex justify-between">
                 <span className="text-gray-600">{isEn ? 'Total Weight' : '合計重量'}</span>
-                <span>{(totalWeightKg * 1000).toFixed(1)} g</span>
+                <span>{totalWeightKg.toFixed(3)} kg</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">{isEn ? 'Items Total' : '商品代金'}</span>
@@ -212,11 +185,11 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 <span className="text-gray-600">{isEn ? 'Shipping Fee' : '送料'}</span>
                 <span className="text-right">
                   {isCalculating ? (
-                    <span className="text-gray-400 text-xs">計算中...</span>
+                    <span className="text-gray-400 text-xs">{isEn ? 'Calculating...' : '計算中...'}</span>
                   ) : currentShippingFee > 0 ? (
                     `¥${currentShippingFee.toLocaleString()}`
                   ) : (
-                    <span className="text-gray-400 text-xs">{country ? '取得不可' : '未選択'}</span>
+                    <span className="text-gray-400 text-xs">{country ? (isEn ? 'Unavailable' : '取得不可') : (isEn ? 'Not selected' : '未選択')}</span>
                   )}
                 </span>
               </div>
