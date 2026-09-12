@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
 import CountryCombobox from '@/components/CountryCombobox'
 
 export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja' }> }) {
@@ -92,6 +93,16 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24">
+      {/* 【追加】ホームへ戻るボタン */}
+      <div className="mb-4">
+        <Link 
+          href={`/${lang}`} 
+          className="inline-flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors"
+        >
+          {isEn ? '← Back to Home' : '← ホームへ戻る'}
+        </Link>
+      </div>
+
       <h1 className="text-2xl font-bold mb-6">{isEn ? 'Fee Estimator' : '料金シミュレーター'}</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -176,7 +187,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 className="w-full border rounded p-2"
               >
                 <option value="japan_post">{isEn ? 'Japan Post (Surface Mail)' : '日本郵便 (船便)'}</option>
-                {/* プルダウンの選択肢に (最安値 / Lowest Rate) を追加 */}
                 <option value="fedex">{isEn ? 'FedEx (Lowest Rate)' : 'FedEx (最安値を自動選択)'}</option>
               </select>
             </div>
@@ -220,7 +230,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
               <div className="flex justify-between items-start">
                 <div className="flex flex-col">
                   <span className="text-gray-600">{isEn ? 'Shipping Fee' : '送料'}</span>
-                  {/* FedEx選択時に最安値プランの名称を補足表示 */}
                   {shippingMethod === 'fedex' && cheapestFedexPlan && (
                     <span className="text-[11px] text-blue-600 font-medium">
                       {isEn ? 'Lowest Rate Plan:' : '最安値適用:'} {cheapestFedexPlan.serviceName.replace('FedEx ', '')}
