@@ -70,6 +70,8 @@ app/
       page.tsx
     signup/
       page.tsx
+    update-password/
+      page.tsx
     layout.tsx
     page.tsx
   actions/
@@ -103,8 +105,6 @@ app/
     wise/
       quote/
         route.ts
-  update-password/
-    page.tsx
   favicon.ico
   globals.css
 components/
@@ -162,14 +162,6 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="app/[lang]/forgot-password/page.tsx">
-// app/forgot-password/page.tsx
-⋮----
-import { useActionState } from 'react'
-import { resetPassword } from '@/app/actions/auth'
-import Link from 'next/link'
-</file>
 
 <file path="app/[lang]/layout.tsx">
 // [UPDATED]
@@ -315,13 +307,6 @@ import { getWiseQuoteDetails } from '@/lib/wise'
 export async function POST(req: Request)
 ⋮----
 // Wise Quote 取得の実行
-</file>
-
-<file path="app/update-password/page.tsx">
-// app/update-password/page.tsx
-⋮----
-import { useActionState } from 'react'
-import { updatePassword } from '@/app/actions/auth'
 </file>
 
 <file path="app/globals.css">
@@ -691,6 +676,19 @@ yarn-error.log*
 next-env.d.ts
 </file>
 
+<file path=".repomixignore">
+# キャッシュ・ビルド・履歴フォルダ
+.expo/
+.history/
+.next/
+
+# 依存パッケージ
+node_modules/
+
+# repomix自身の出力ファイル
+repomix-output.xml
+</file>
+
 <file path="AGENTS.md">
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -861,6 +859,23 @@ const dict = await getDictionary(lang) // [NEW] 辞書を取得
 {/* [UPDATED] dict を Props として渡す */}
 </file>
 
+<file path="app/[lang]/forgot-password/page.tsx">
+// app/[lang]/forgot-password/page.tsx
+⋮----
+import { useActionState, use } from 'react'
+import { resetPassword } from '@/app/actions/auth'
+import Link from 'next/link'
+import { getDictionary } from '@/lib/dictionaries'
+⋮----
+// 1. URLから言語(lang)を取得し、対応する辞書を読み込む
+⋮----
+{/* 2. ベタ書きだった日本語を辞書データ {t.XXX} に置き換え */}
+⋮----
+{/* 「メールアドレス」のラベルは辞書にないのでここで直接切り替え */}
+⋮----
+{/* 3. 戻るリンクも、現在の言語(lang)を引き継ぐように修正 */}
+</file>
+
 <file path="app/[lang]/login/page.tsx">
 // app/[lang]/login/page.tsx
 ⋮----
@@ -875,6 +890,13 @@ import Link from 'next/link'
 import { useActionState, use } from 'react'
 import { signup } from '@/app/actions/auth'
 import Link from 'next/link'
+</file>
+
+<file path="app/[lang]/update-password/page.tsx">
+// app/update-password/page.tsx
+⋮----
+import { useActionState } from 'react'
+import { updatePassword } from '@/app/actions/auth'
 </file>
 
 <file path="app/actions/admin.ts">
@@ -1036,28 +1058,6 @@ dict?: any // [NEW] 辞書データをオプションで受け取る
 const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) =>
 </file>
 
-<file path="lib/dictionaries.ts">
-// lib/dictionaries.ts
-// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
-⋮----
-export const getDictionary = async (locale: 'en' | 'ja') =>
-⋮----
-// 指定された言語がない場合は英語をフォールバックとして使用
-</file>
-
-<file path=".repomixignore">
-# キャッシュ・ビルド・履歴フォルダ
-.expo/
-.history/
-.next/
-
-# 依存パッケージ
-node_modules/
-
-# repomix自身の出力ファイル
-repomix-output.xml
-</file>
-
 <file path="package.json">
 {
   "name": "temp-app",
@@ -1090,80 +1090,6 @@ repomix-output.xml
     "typescript": "^5"
   }
 }
-</file>
-
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-⋮----
-export default async function AdminPage()
-⋮----
-{/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
-</file>
-
-<file path="app/api/admin/fedex/shipment/route.ts">
-// app/api/admin/fedex/shipment/route.ts
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// FedEx OAuth2 Token 取得ヘルパー
-async function getFedExAccessToken()
-⋮----
-export async function POST(req: Request)
-⋮----
-// 1. 管理者権限チェック
-⋮----
-// 2. リクエスト解析
-⋮----
-// 3. 注文情報とユーザープロフィールの取得
-⋮----
-// 4. FedEx OAuth トークン取得
-⋮----
-// 5. 請求種別の判定
-⋮----
-// 重量（デフォルト 1.0kg）
-⋮----
-// 注文商品からの Commercial Invoice 用 Commodities リスト作成
-⋮----
-// 6. FedEx Ship API (Shipment) リクエスト構築
-⋮----
-personName: 'Takenosuke Shibui', // 実際のご担当者名
-companyName: 'Worldwide Japan', // 貴社名
-phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
-⋮----
-streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
-city: 'Chuo-ku',               // 市区町村
-stateOrProvinceCode: 'Tokyo',   // 都道府県
-postalCode: '1040061',          // ハイフンなし郵便番号
-⋮----
-// 7. FedEx Ship API 送信
-⋮----
-// 8. レスポンスから追跡番号とラベルPDF情報を取得
-⋮----
-// 9. 追跡番号を DB に自動更新
-</file>
-
-<file path="components/countries.ts">
-// components/countries.ts
-// [UPDATED] 英語名(enName)のアルファベット順にソート
-⋮----
-export interface Country {
-    code: string;
-    name: string;
-    enName: string;
-}
-</file>
-
-<file path="components/ItemStatusBadge.tsx">
-// components/ItemStatusBadge.tsx
-// [UPDATED] dict オブジェクトへの安全なアクセスを徹底
-import React from 'react';
-⋮----
-export function ItemStatusBadge(
 </file>
 
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
@@ -1230,41 +1156,97 @@ setEditingWeight(prev
 決済手数料
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-⋮----
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
 ⋮----
-// カート内商品の削除処理
-export async function deleteCartItem(itemId: string)
+export default async function AdminPage()
 ⋮----
-// 1. ユーザー認証チェック
+{/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+</file>
+
+<file path="app/api/admin/fedex/shipment/route.ts">
+// app/api/admin/fedex/shipment/route.ts
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 ⋮----
-// 2. 中間テーブル (order_items) の紐付けを解除 (制約エラー回避)
+// FedEx OAuth2 Token 取得ヘルパー
+async function getFedExAccessToken()
 ⋮----
-// 3. items テーブルから該当商品を物理削除
+export async function POST(req: Request)
 ⋮----
-// 4. マイページ・カート関連のキャッシュを即時再検証
+// 1. 管理者権限チェック
 ⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+// 2. リクエスト解析
 ⋮----
-// 1. ユーザーの配送先プロフを取得
+// 3. 注文情報とユーザープロフィールの取得
 ⋮----
-// 2. 新規注文レコードの作成
+// 4. FedEx OAuth トークン取得
 ⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+// 5. 請求種別の判定
 ⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+// 重量（デフォルト 1.0kg）
 ⋮----
-// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+// 注文商品からの Commercial Invoice 用 Commodities リスト作成
 ⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
+// 6. FedEx Ship API (Shipment) リクエスト構築
 ⋮----
-// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+personName: 'Takenosuke Shibui', // 実際のご担当者名
+companyName: 'Worldwide Japan', // 貴社名
+phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
 ⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
+city: 'Chuo-ku',               // 市区町村
+stateOrProvinceCode: 'Tokyo',   // 都道府県
+postalCode: '1040061',          // ハイフンなし郵便番号
+⋮----
+// 7. FedEx Ship API 送信
+⋮----
+// 8. レスポンスから追跡番号とラベルPDF情報を取得
+⋮----
+// 9. 追跡番号を DB に自動更新
+</file>
+
+<file path="app/api/calculate/route.ts">
+// [UPDATED]
+import { NextResponse } from 'next/server'
+import { calculateShippingFees } from '@/lib/calculator'
+⋮----
+// Vercelキャッシュを無効化
+⋮----
+export async function POST(request: Request)
+</file>
+
+<file path="components/countries.ts">
+// components/countries.ts
+// [UPDATED] 英語名(enName)のアルファベット順にソート
+⋮----
+export interface Country {
+    code: string;
+    name: string;
+    enName: string;
+}
+</file>
+
+<file path="components/ItemStatusBadge.tsx">
+// components/ItemStatusBadge.tsx
+// [UPDATED] dict オブジェクトへの安全なアクセスを徹底
+import React from 'react';
+⋮----
+export function ItemStatusBadge(
+</file>
+
+<file path="lib/dictionaries.ts">
+// lib/dictionaries.ts
+// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
+⋮----
+export const getDictionary = async (locale: 'en' | 'ja') =>
+⋮----
+// 指定された言語がない場合は英語をフォールバックとして使用
 </file>
 
 <file path="components/StatusBadge.tsx">
@@ -1317,16 +1299,6 @@ export async function changePassword(prevState: any, formData: FormData)
 ⋮----
 // ▼ ログイン中ユーザーのメールアドレス変更処理
 export async function changeEmail(prevState: any, formData: FormData)
-</file>
-
-<file path="app/api/calculate/route.ts">
-// [UPDATED]
-import { NextResponse } from 'next/server'
-import { calculateShippingFees } from '@/lib/calculator'
-⋮----
-// Vercelキャッシュを無効化
-⋮----
-export async function POST(request: Request)
 </file>
 
 <file path="app/api/bookmarklet/add/route.ts">
@@ -1389,6 +1361,46 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
 </file>
 
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export async function deleteCartItem(itemId: string)
+⋮----
+// 1. ユーザー情報の取得
+⋮----
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+⋮----
+// 🔍 デバッグ2: 自分の所有物かチェック
+⋮----
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+⋮----
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+⋮----
+// 5. サイト全体のキャッシュを確実に破棄
+⋮----
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+⋮----
+// 1. ユーザーの配送先プロフを取得
+⋮----
+// 2. 新規注文レコードの作成
+⋮----
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+⋮----
+// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+⋮----
+// 4. 中間テーブル (order_items) に紐付け登録
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+⋮----
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
 <file path="components/CartManager.tsx">
 // components/CartManager.tsx
 ⋮----
@@ -1419,6 +1431,82 @@ const val = e.target.value.trim()
 onBlur=
 ⋮----
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
+// app/[lang]/dashboard/settings/ProfileForm.tsx
+// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
+⋮----
+import React, { useActionState, useEffect, useState } from 'react'
+import { updateProfile } from '@/app/actions/profile'
+import { changePassword, changeEmail } from '@/app/actions/auth'
+import { SubmitButton } from '@/components/SubmitButtons'
+import { countries } from '@/components/countries'
+import CountryCombobox from '@/components/CountryCombobox'
+import Link from 'next/link'
+⋮----
+// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
+⋮----
+// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
+function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string
+⋮----
+// 既存入力から旧国番号プレフィックス（+数字）を取り除く
+⋮----
+// 国際電話番号（E.164規格準拠）のバリデーション関数
+function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null
+⋮----
+// 数字のみを抽出 (+は除く)
+⋮----
+// E.164規格: 国番号含めて7桁〜15桁
+⋮----
+// 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
+⋮----
+// プロフィール更新用 State
+⋮----
+// パスワード変更用 State
+⋮----
+// メール変更用 State
+⋮----
+// パスワード変更フォームの開閉状態
+⋮----
+// パスワード表示/非表示の切り替え状態
+⋮----
+// 連絡用メールアドレス・Wise用メールアドレスの State 管理
+⋮----
+// 選択された国 (Country) の State 管理
+⋮----
+// 電話番号の State 管理
+⋮----
+// 同一アドレス適用チェックボックスの State 管理
+⋮----
+// [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
+const handleCountryChange = (newCountry: string) =>
+⋮----
+// 変更後のリアルタイム検証
+⋮----
+// [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
+const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+// フォーム送信前の最終バリデーションチェック
+const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) =>
+⋮----
+e.preventDefault() // 送信拒否
+⋮----
+const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const getValue = (key: string) =>
+⋮----
+const getBoolValue = (key: string, defaultVal: boolean) =>
+⋮----
+{/* トースト表示 */}
+⋮----
+{/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
+⋮----
+setContactEmail(e.target.value)
+⋮----
+setWiseEmail(e.target.value)
 </file>
 
 <file path="dictionaries/en.json">
@@ -1561,84 +1649,84 @@ onBlur=
     "save": "Save",
     "saving": "Saving...",
     "backToMyPage": "← Back to My Page"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "description": "Please enter your registered email address. We will send you a link to reset your password.",
+    "sentSuccess": "✅ Email sent successfully.",
+    "sentInstruction": "Please check your inbox and click the link in the email to reset your password.",
+    "backToLogin": "Return to Login",
+    "submitButton": "Send Reset Link",
+    "submittingButton": "Sending..."
   }
 }
 </file>
 
-<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
-// app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
+<file path="lib/calculator.ts">
+export interface CalculationResult {
+    shippingFeeJp: number;
+    shippingFeeFedex: number;
+    jpSellPrice: number;
+    jpProfit: number;
+    fedexSellPrice: number;
+    fedexProfit: number;
+}
 ⋮----
-import React, { useActionState, useEffect, useState } from 'react'
-import { updateProfile } from '@/app/actions/profile'
-import { changePassword, changeEmail } from '@/app/actions/auth'
-import { SubmitButton } from '@/components/SubmitButtons'
-import { countries } from '@/components/countries'
-import CountryCombobox from '@/components/CountryCombobox'
-import Link from 'next/link'
+export interface FedexCredentials {
+    apiKey?: string;
+    secretKey?: string;
+    accountNumber?: string;
+}
 ⋮----
-// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
+export interface CalculateShippingFeesParams {
+    destination: string;
+    postalCode?: string;
+    weight: number;
+    targetCurrency?: string;
+    isEstimate?: boolean;
+    fedexCredentials?: FedexCredentials;
+}
 ⋮----
-// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
-function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string
+/**
+ * 配送方法と重量から概算送料を算出する共通関数
+ */
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number
 ⋮----
-// 既存入力から旧国番号プレフィックス（+数字）を取り除く
+/**
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
+ */
+export function calculateJapanPostSeaFee(weightKg: number)
 ⋮----
-// 国際電話番号（E.164規格準拠）のバリデーション関数
-function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null
+/**
+ * FedEx API 認証トークン取得
+ */
+async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
 ⋮----
-// 数字のみを抽出 (+は除く)
+/**
+ * FedEx 運賃試算 API 呼び出し
+ */
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+)
 ⋮----
-// E.164規格: 国番号含めて7桁〜15桁
+// 郵便番号が未指定または空文字の場合の分岐処理
 ⋮----
-// 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
+// シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
 ⋮----
-// プロフィール更新用 State
+// 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
 ⋮----
-// パスワード変更用 State
+// ★ 原因調査用ログ：APIから返ってきた生の運賃データ構造を出力
 ⋮----
-// メール変更用 State
+// ratedShipmentDetails 配列から ACCOUNT（特別契約料金）を優先抽出
 ⋮----
-// パスワード変更フォームの開閉状態
-⋮----
-// パスワード表示/非表示の切り替え状態
-⋮----
-// 連絡用メールアドレス・Wise用メールアドレスの State 管理
-⋮----
-// 選択された国 (Country) の State 管理
-⋮----
-// 電話番号の State 管理
-⋮----
-// 同一アドレス適用チェックボックスの State 管理
-⋮----
-// [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
-const handleCountryChange = (newCountry: string) =>
-⋮----
-// 変更後のリアルタイム検証
-⋮----
-// [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
-const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-// フォーム送信前の最終バリデーションチェック
-const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) =>
-⋮----
-e.preventDefault() // 送信拒否
-⋮----
-const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const getValue = (key: string) =>
-⋮----
-const getBoolValue = (key: string, defaultVal: boolean) =>
-⋮----
-{/* トースト表示 */}
-⋮----
-{/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
-⋮----
-setContactEmail(e.target.value)
-⋮----
-setWiseEmail(e.target.value)
+/**
+ * 画面・APIルートから一括で送料を計算する統合関数
+ */
+export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1781,6 +1869,15 @@ setWiseEmail(e.target.value)
     "save": "保存",
     "saving": "保存中...",
     "backToMyPage": "← マイページへ戻る"
+  },
+  "forgotPassword": {
+    "title": "パスワードの再設定",
+    "description": "ご登録のメールアドレスを入力してください。パスワード再設定用のリンクをお送りします。",
+    "sentSuccess": "✅ メールを送信しました。",
+    "sentInstruction": "受信トレイをご確認いただき、メール内のリンクから再設定を行ってください。",
+    "backToLogin": "ログイン画面へ戻る",
+    "submitButton": "送信する",
+    "submittingButton": "送信中..."
   }
 }
 </file>
@@ -1875,78 +1972,33 @@ const handleDeleteFee = async (id: number, feeName: string) =>
 {/* 手数料管理 */}
 </file>
 
+<file path="app/[lang]/calculator/page.tsx">
+// app/[lang]/calculator/page.tsx
+// [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
+⋮----
+import { useState, use } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+// [UPDATED] インポートパスを修正
+import CountryCombobox from "@/components/CountryCombobox";
+import { countries } from "@/components/countries";
+⋮----
+const handleCountryChange = (newCountry: string) =>
+⋮----
+const handleCalculate = async () =>
+⋮----
+onChange=
+⋮----
+{/* 日本郵便の表示 */}
+⋮----
+{/* FedExの全適用プラン表示 */}
+</file>
+
 <file path="app/[lang]/inventory/page.tsx">
 // app/[lang]/inventory/page.tsx
 ⋮----
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-</file>
-
-<file path="lib/calculator.ts">
-export interface CalculationResult {
-    shippingFeeJp: number;
-    shippingFeeFedex: number;
-    jpSellPrice: number;
-    jpProfit: number;
-    fedexSellPrice: number;
-    fedexProfit: number;
-}
-⋮----
-export interface FedexCredentials {
-    apiKey?: string;
-    secretKey?: string;
-    accountNumber?: string;
-}
-⋮----
-export interface CalculateShippingFeesParams {
-    destination: string;
-    postalCode?: string;
-    weight: number;
-    targetCurrency?: string;
-    isEstimate?: boolean;
-    fedexCredentials?: FedexCredentials;
-}
-⋮----
-/**
- * 配送方法と重量から概算送料を算出する共通関数
- */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number
-⋮----
-/**
- * 日本郵便（船便・APIなしのため固定概算テーブル計算）
- */
-export function calculateJapanPostSeaFee(weightKg: number)
-⋮----
-/**
- * FedEx API 認証トークン取得
- */
-async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
-⋮----
-/**
- * FedEx 運賃試算 API 呼び出し
- */
-export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
-    credentials?: FedexCredentials
-)
-⋮----
-// 郵便番号が未指定または空文字の場合の分岐処理
-⋮----
-// シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
-⋮----
-// 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
-⋮----
-// ★ 原因調査用ログ：APIから返ってきた生の運賃データ構造を出力
-⋮----
-// ratedShipmentDetails 配列から ACCOUNT（特別契約料金）を優先抽出
-⋮----
-/**
- * 画面・APIルートから一括で送料を計算する統合関数
- */
-export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="app/[lang]/dashboard/page.tsx">
@@ -1979,28 +2031,6 @@ const getTranslatedShippingMethod = (method: string) =>
 {/* 注文商品テーブル */}
 ⋮----
 if (replyRemarks)
-</file>
-
-<file path="app/[lang]/calculator/page.tsx">
-// app/[lang]/calculator/page.tsx
-// [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
-⋮----
-import { useState, use } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-// [UPDATED] インポートパスを修正
-import CountryCombobox from "@/components/CountryCombobox";
-import { countries } from "@/components/countries";
-⋮----
-const handleCountryChange = (newCountry: string) =>
-⋮----
-const handleCalculate = async () =>
-⋮----
-onChange=
-⋮----
-{/* 日本郵便の表示 */}
-⋮----
-{/* FedExの全適用プラン表示 */}
 </file>
 
 <file path="components/BookmarkletGenerator.tsx">
