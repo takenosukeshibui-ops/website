@@ -8,6 +8,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   const isEn = lang === 'en'
 
   // 1. ユーザー入力用の State
+  const [serviceType, setServiceType] = useState<'proxy' | 'inventory'>('proxy') // サービスの種類
   const [totalItemPrice, setTotalItemPrice] = useState<number>(0) // 商品代金合計
   const [normalCount, setNormalCount] = useState<number>(0)       // ノーマルカード枚数
   const [foilCount, setFoilCount] = useState<number>(0)           // キラカード枚数
@@ -63,7 +64,9 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   }, [country, totalWeightKg])
 
   // --- 最終計算ロジック ---
-  const proxyFee = Math.floor(totalItemPrice * 0.05) // 代理手数料 (例: 5%)
+  // 自社在庫の場合は手数料0、代理購入の場合は5%
+  const proxyFee = serviceType === 'proxy' ? Math.floor(totalItemPrice * 0.05) : 0
+  
   const currentShippingFee = shippingFees 
     ? (shippingMethod === 'japan_post' ? shippingFees.shippingFeeJp : shippingFees.shippingFeeFedex) 
     : 0
@@ -90,8 +93,20 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
         {/* 左カラム：入力エリア */}
         <div className="space-y-6">
           
-          {/* 金額と枚数入力 */}
+          {/* サービス種類・金額・枚数入力 */}
           <section className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">{isEn ? 'Service Type' : 'サービスの種類'}</label>
+              <select 
+                value={serviceType} 
+                onChange={e => setServiceType(e.target.value as 'proxy' | 'inventory')}
+                className="w-full border rounded p-2 bg-gray-50"
+              >
+                <option value="proxy">{isEn ? 'Proxy Purchase (5% Fee)' : '代理購入サービス (手数料5%)'}</option>
+                <option value="inventory">{isEn ? 'In-house Inventory (No Fee)' : '自社在庫 (手数料無料)'}</option>
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1">{isEn ? 'Total Items Price' : '商品代金合計'}</label>
               <div className="relative">
@@ -181,14 +196,19 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
             <div className="space-y-3 text-sm mb-6">
               <div className="flex justify-between">
                 <span className="text-gray-600">{isEn ? 'Total Weight' : '合計重量'}</span>
-                <span>{totalWeightKg.toFixed(3)} kg</span>
+                {/* 小数点第2位までに修正 */}
+                <span>{totalWeightKg.toFixed(2)} kg</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">{isEn ? 'Items Total' : '商品代金'}</span>
                 <span>¥{totalItemPrice.toLocaleString()}</span>
               </div>
+              
+              {/* 手数料の表示（代理購入の場合のみ5%を表示） */}
               <div className="flex justify-between">
-                <span className="text-gray-600">{isEn ? 'Proxy Fee (5%)' : '代理手数料 (5%)'}</span>
+                <span className="text-gray-600">
+                  {isEn ? 'Proxy Fee' : '代理手数料'} {serviceType === 'proxy' && '(5%)'}
+                </span>
                 <span>¥{proxyFee.toLocaleString()}</span>
               </div>
               
