@@ -19,6 +19,13 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
   const [shippingFees, setShippingFees] = useState<any>(null)
   const [isCalculating, setIsCalculating] = useState<boolean>(false)
 
+  // 入力された文字列から数字のみを抽出してStateにセットする共通関数
+  const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) => {
+    // 数字以外の文字を除去
+    const rawValue = e.target.value.replace(/[^0-9]/g, '')
+    setter(rawValue ? Number(rawValue) : 0)
+  }
+
   // 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
   const totalWeightKg = ((normalCount * 1.6) + (foilCount * 1.8)) / 1000
 
@@ -86,15 +93,19 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
           {/* 金額と枚数入力 */}
           <section className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">{isEn ? 'Total Items Price (JPY)' : '商品代金合計 (円)'}</label>
-              <input 
-                type="number" 
-                min="0"
-                value={totalItemPrice || ''} 
-                onChange={e => setTotalItemPrice(Number(e.target.value))}
-                className="w-full border rounded p-2" 
-                placeholder={isEn ? "e.g., 15000" : "例: 15000"}
-              />
+              <label className="block text-sm font-medium mb-1">{isEn ? 'Total Items Price' : '商品代金合計'}</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  inputMode="numeric"
+                  value={totalItemPrice > 0 ? totalItemPrice.toLocaleString() : ''} 
+                  onChange={e => handleNumberInput(e, setTotalItemPrice)}
+                  className="w-full border rounded p-2 pr-12 text-right" 
+                />
+                <span className="absolute right-3 top-2.5 text-gray-500 pointer-events-none">
+                  {isEn ? 'JPY' : '円'}
+                </span>
+              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -105,11 +116,11 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                   <span className="text-xs text-gray-500">{isEn ? '(1.6g / card)' : '(1.6g / 1枚)'}</span>
                 </label>
                 <input 
-                  type="number" 
-                  min="0"
-                  value={normalCount || ''} 
-                  onChange={e => setNormalCount(Number(e.target.value))}
-                  className="w-full border rounded p-2" 
+                  type="text" 
+                  inputMode="numeric"
+                  value={normalCount > 0 ? normalCount.toLocaleString() : ''} 
+                  onChange={e => handleNumberInput(e, setNormalCount)}
+                  className="w-full border rounded p-2 text-right" 
                 />
               </div>
               <div>
@@ -119,11 +130,11 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                   <span className="text-xs text-gray-500">{isEn ? '(1.8g / card)' : '(1.8g / 1枚)'}</span>
                 </label>
                 <input 
-                  type="number" 
-                  min="0"
-                  value={foilCount || ''} 
-                  onChange={e => setFoilCount(Number(e.target.value))}
-                  className="w-full border rounded p-2" 
+                  type="text" 
+                  inputMode="numeric"
+                  value={foilCount > 0 ? foilCount.toLocaleString() : ''} 
+                  onChange={e => handleNumberInput(e, setFoilCount)}
+                  className="w-full border rounded p-2 text-right" 
                 />
               </div>
             </div>
