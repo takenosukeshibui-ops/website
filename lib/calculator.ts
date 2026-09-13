@@ -40,15 +40,15 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
  */
 export function calculateJapanPostSeaFee(weightKg: number) {
     if (!weightKg || weightKg <= 0) {
-        return { total: null, serviceName: '日本郵便 (船便)', deliveryDaysJa: '約1〜2ヶ月', deliveryDaysEn: 'Approx 1-2 months', error: '重量が無効です' };
+        return { total: null, serviceName: '日本郵便 (船便)', deliveryDaysJa: '約1〜3ヶ月', deliveryDaysEn: 'Approx 1-3 months', error: '重量が無効です' };
     }
 
     const baseFee = Math.ceil(2500 + weightKg * 850);
     return {
         total: baseFee,
         serviceName: '日本郵便 (船便)',
-        deliveryDaysJa: '約1〜2ヶ月',
-        deliveryDaysEn: 'Approx 1-2 months',
+        deliveryDaysJa: '約1〜3ヶ月', // 🌟 1-3ヶ月に変更
+        deliveryDaysEn: 'Approx 1-3 months', // 🌟 1-3ヶ月に変更
         note: weightKg > 30 ? '※30kg超のため分割発送での試算となります' : undefined
     };
 }
@@ -229,7 +229,11 @@ export async function calculateFedexRates(
             let deliveryDaysJa = '2-5 日';
             let deliveryDaysEn = '2-5 Days';
             
-            if (serviceName.includes('Priority')) {
+            // 🌟 First も Priority と同じ 1-3日に設定
+            if (serviceName.includes('First')) {
+                deliveryDaysJa = '1-3 日';
+                deliveryDaysEn = '1-3 Days';
+            } else if (serviceName.includes('Priority')) {
                 deliveryDaysJa = '1-3 日';
                 deliveryDaysEn = '1-3 Days';
             } else if (serviceName.includes('Economy')) {
@@ -244,7 +248,6 @@ export async function calculateFedexRates(
             const netFreight = Number(packageRateDetail.netFreight || 0);
 
             const rateDetails = accountRate.shipmentRateDetail || {};
-            // 🌟 サーチャージの名称を英語・日本語の両方で保持する
             const detailedSurcharges: { nameJa: string; nameEn: string; amount: number }[] = [];
 
             if (Array.isArray(rateDetails.surCharges)) {
