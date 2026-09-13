@@ -268,7 +268,8 @@ export async function calculateFedexRates(
                 baseCharge: Math.ceil(netFreight), // APIから取得した割引後の基本運賃をそのまま渡す
                 discount: 0, 
                 surcharges: detailedSurcharges,
-                deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
+                deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日',
+                rawApiData: ratedDetails
             };
         });
 
