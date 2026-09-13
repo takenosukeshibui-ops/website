@@ -173,12 +173,6 @@ export async function calculateFedexRates(
                         weight: {
                             units: 'KG',
                             value: Number(weightKg.toFixed(2))
-                        },
-                        dimensions: {
-                            length: 20,
-                            width: 20,
-                            height: 20,
-                            units: 'CM'
                         }
                     }
                 ]
