@@ -181,6 +181,13 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                       </div>
                     </div>
                   </details>
+
+                  {/* 🌟【ここを追加】原因調査用の生データ表示パネル */}
+                  <div className="mt-4 p-2 bg-gray-900 text-green-400 text-[11px] overflow-auto max-h-64 rounded">
+                    <p className="font-bold text-white mb-1">▼ 調査用 API生データ</p>
+                    <pre>{JSON.stringify(rate.rawApiData, null, 2)}</pre>
+                  </div>
+
                 </div>
               ))}
             </div>
