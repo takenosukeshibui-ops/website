@@ -62,6 +62,8 @@ app/
         page.tsx
         ProfileForm.tsx
       page.tsx
+    estimate/
+      page.tsx
     forgot-password/
       page.tsx
     inventory/
@@ -297,6 +299,16 @@ import { NextResponse } from 'next/server'
 export async function GET()
 ⋮----
 // PayPalに初期登録されているReturn URLを指定
+</file>
+
+<file path="app/api/calculate/route.ts">
+// [UPDATED]
+import { NextResponse } from 'next/server'
+import { calculateShippingFees } from '@/lib/calculator'
+⋮----
+// Vercelキャッシュを無効化
+⋮----
+export async function POST(request: Request)
 </file>
 
 <file path="app/api/wise/quote/route.ts">
@@ -1211,16 +1223,6 @@ postalCode: '1040061',          // ハイフンなし郵便番号
 // 9. 追跡番号を DB に自動更新
 </file>
 
-<file path="app/api/calculate/route.ts">
-// [UPDATED]
-import { NextResponse } from 'next/server'
-import { calculateShippingFees } from '@/lib/calculator'
-⋮----
-// Vercelキャッシュを無効化
-⋮----
-export async function POST(request: Request)
-</file>
-
 <file path="components/countries.ts">
 // components/countries.ts
 // [UPDATED] 英語名(enName)のアルファベット順にソート
@@ -1266,6 +1268,81 @@ export const StatusBadge: React.FC<StatusBadgeProps> = (
 // マッピングされた辞書キーを取得
 </file>
 
+<file path="lib/calculator.ts">
+export interface CalculationResult {
+    shippingFeeJp: number;
+    shippingFeeFedex: number;
+    jpSellPrice: number;
+    jpProfit: number;
+    fedexSellPrice: number;
+    fedexProfit: number;
+}
+⋮----
+export interface FedexCredentials {
+    apiKey?: string;
+    secretKey?: string;
+    accountNumber?: string;
+}
+⋮----
+export interface CalculateShippingFeesParams {
+    destination: string;
+    postalCode?: string;
+    weight: number;
+    targetCurrency?: string;
+    isEstimate?: boolean;
+    fedexCredentials?: FedexCredentials;
+}
+⋮----
+/**
+ * 配送方法と重量から概算送料を算出する共通関数
+ */
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number
+⋮----
+/**
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
+ */
+export function calculateJapanPostSeaFee(weightKg: number)
+⋮----
+/**
+ * FedEx API 認証トークン取得
+ */
+async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
+⋮----
+/**
+ * FedEx 運賃試算 API 呼び出し
+ */
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+)
+⋮----
+// 郵便番号が未指定または空文字の場合の分岐処理
+⋮----
+// シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
+⋮----
+// 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
+⋮----
+// ratedShipmentDetails 配列から ACCOUNT（特別契約料金）を優先抽出
+⋮----
+// --- 公式サイト風の内訳抽出処理（割引後の生データを使用） ---
+⋮----
+// 割引適用後の運賃を基本料金として使用する
+⋮----
+// サーチャージの詳細を配列として取得・翻訳
+⋮----
+// 公式サイトの表記に合わせて日本語化
+⋮----
+baseCharge: Math.ceil(netFreight), // 割引適用後の運賃を渡す
+⋮----
+/**
+ * 画面・APIルートから一括で送料を計算する統合関数
+ */
+export async function calculateShippingFees(params: CalculateShippingFeesParams)
+</file>
+
 <file path="app/actions/auth.ts">
 // app/actions/auth.ts
 // [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
@@ -1301,20 +1378,6 @@ export async function changePassword(prevState: any, formData: FormData)
 export async function changeEmail(prevState: any, formData: FormData)
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
-⋮----
-export async function GET(request: Request)
-⋮----
-status: 'draft' // カート内商品として追加
-⋮----
-// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
-</file>
-
 <file path="app/api/data/route.ts">
 // app/api/data/route.ts
 // [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
@@ -1342,6 +1405,64 @@ export async function PATCH(req: Request)
 export async function DELETE(req: Request)
 </file>
 
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
+⋮----
+export async function GET(request: Request)
+⋮----
+status: 'draft' // カート内商品として追加
+⋮----
+// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
+</file>
+
+<file path="app/[lang]/estimate/page.tsx">
+import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import CountryCombobox from '@/components/CountryCombobox'
+⋮----
+// 1. ユーザー入力用の State
+const [serviceType, setServiceType] = useState<'proxy' | 'inventory'>('proxy') // サービスの種類
+const [totalItemPrice, setTotalItemPrice] = useState<number>(0) // 商品代金合計
+const [normalCount, setNormalCount] = useState<number>(0)       // ノーマルカード枚数
+const [foilCount, setFoilCount] = useState<number>(0)           // キラカード枚数
+const [country, setCountry] = useState<string>('')              // 配送先国
+⋮----
+// 2. 計算結果の State
+⋮----
+// 入力された文字列から数字のみを抽出してStateにセットする共通関数
+const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
+⋮----
+// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
+⋮----
+// 配送先国または重量が変わったときに送料を再計算
+⋮----
+const fetchShipping = async () =>
+⋮----
+// 入力中の連続リクエストを防ぐためのデバウンス処理
+⋮----
+// --- 最終計算ロジック ---
+⋮----
+// 日本郵便の料金
+⋮----
+// FedExの料金：複数プランの中から最安値のオブジェクトを抽出
+⋮----
+// 決済手数料の計算 (PayPal: 8.1% + 40円 / Wise: 仮で1%)
+⋮----
+{/* 【追加】ホームへ戻るボタン */}
+⋮----
+{/* 左カラム：入力エリア */}
+⋮----
+{/* サービス種類・金額・枚数入力 */}
+⋮----
+{/* 配送・決済選択 */}
+⋮----
+{/* 右カラム：結果表示エリア */}
+</file>
+
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -1359,6 +1480,8 @@ params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳�
 const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
 ⋮----
 {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
+⋮----
+{/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
 </file>
 
 <file path="app/actions/cart.ts">
@@ -1431,6 +1554,30 @@ const val = e.target.value.trim()
 onBlur=
 ⋮----
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/[lang]/calculator/page.tsx">
+import { useState, use } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import CountryCombobox from "@/components/CountryCombobox";
+import { countries } from "@/components/countries";
+⋮----
+const handleCountryChange = (newCountry: string) =>
+⋮----
+const handleCalculate = async () =>
+⋮----
+onChange=
+⋮----
+{/* 日本郵便の表示 */}
+⋮----
+{/* FedExの全適用プラン表示 */}
+⋮----
+{/* 新規追加: 公式そっくりの内訳アコーディオン */}
+⋮----
+{/* 割引適用後の基本料金を表示 */}
+⋮----
+{/* 各種サーチャージを動的に表示 */}
 </file>
 
 <file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
@@ -1509,6 +1656,96 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/[lang]/admin/data/rarity/page.tsx
+// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
+⋮----
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+⋮----
+const [sellPrice, setSellPrice] = useState(''); // 販売価格
+const [price, setPrice] = useState(''); // 仕入れ単価
+const [tax, setTax] = useState('10'); // 消費税率
+const [profitRate, setProfitRate] = useState(''); // 利益率
+const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
+const [weight, setWeight] = useState(''); // 重量
+const [stock, setStock] = useState('0'); // 在庫数
+⋮----
+const fetchRarities = () =>
+⋮----
+// [UPDATED] 保存処理にエラーハンドリングと通知を追加
+const handleAdd = async (e: React.FormEvent) =>
+⋮----
+// 必須チェック
+⋮----
+const handleDelete = async (id: number, rarityName: string) =>
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+<input
+⋮----
+{/* 5-1. 利益率タイプ */}
+⋮----
+{/* 5-2. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 初期在庫数 */}
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 在庫数 */}
+</file>
+
+<file path="app/[lang]/admin/data/page.tsx">
+// app/admin/data/page.tsx
+// [UPDATED] 「利益額」列を削除し、テーブルヘッダー・ボディおよび colSpan を調整
+⋮----
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+⋮----
+const fetchData = () =>
+⋮----
+const handleUpdateStock = async (id: number, newStock: number) =>
+⋮----
+const handleDeleteRarity = async (id: number, rarityName: string) =>
+⋮----
+const handleDeleteFee = async (id: number, feeName: string) =>
+⋮----
+{/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 重量, 在庫数 */}
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 在庫数 */}
+⋮----
+{/* 手数料管理 */}
+</file>
+
 <file path="dictionaries/en.json">
 {
   "home": {
@@ -1517,7 +1754,8 @@ setWiseEmail(e.target.value)
     "login": "Login",
     "signup": "Sign Up",
     "calculator": "Shipping Simulator",
-    "inventory": "📦 Inventory"
+    "inventory": "📦 Inventory",
+    "estimate": "💰 Total Fee Estimator"
   },
   "dashboard": {
     "title": "My Page",
@@ -1662,73 +1900,6 @@ setWiseEmail(e.target.value)
 }
 </file>
 
-<file path="lib/calculator.ts">
-export interface CalculationResult {
-    shippingFeeJp: number;
-    shippingFeeFedex: number;
-    jpSellPrice: number;
-    jpProfit: number;
-    fedexSellPrice: number;
-    fedexProfit: number;
-}
-⋮----
-export interface FedexCredentials {
-    apiKey?: string;
-    secretKey?: string;
-    accountNumber?: string;
-}
-⋮----
-export interface CalculateShippingFeesParams {
-    destination: string;
-    postalCode?: string;
-    weight: number;
-    targetCurrency?: string;
-    isEstimate?: boolean;
-    fedexCredentials?: FedexCredentials;
-}
-⋮----
-/**
- * 配送方法と重量から概算送料を算出する共通関数
- */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number
-⋮----
-/**
- * 日本郵便（船便・APIなしのため固定概算テーブル計算）
- */
-export function calculateJapanPostSeaFee(weightKg: number)
-⋮----
-/**
- * FedEx API 認証トークン取得
- */
-async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
-⋮----
-/**
- * FedEx 運賃試算 API 呼び出し
- */
-export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
-    credentials?: FedexCredentials
-)
-⋮----
-// 郵便番号が未指定または空文字の場合の分岐処理
-⋮----
-// シミュレーターや利益ダッシュボードなどの概算試算時：国コードからダミー郵便番号を自動補完
-⋮----
-// 管理者画面の実際の注文に対する正確な計算時：ダミーは投入せずエラーを返す
-⋮----
-// ★ 原因調査用ログ：APIから返ってきた生の運賃データ構造を出力
-⋮----
-// ratedShipmentDetails 配列から ACCOUNT（特別契約料金）を優先抽出
-⋮----
-/**
- * 画面・APIルートから一括で送料を計算する統合関数
- */
-export async function calculateShippingFees(params: CalculateShippingFeesParams)
-</file>
-
 <file path="dictionaries/ja.json">
 {
   "home": {
@@ -1737,7 +1908,8 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
     "login": "ログイン",
     "signup": "新規登録",
     "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品"
+    "inventory": "📦 取扱商品",
+    "estimate": "💰 総合料金シミュレーター"
   },
   "dashboard": {
     "title": "マイページ",
@@ -1882,118 +2054,6 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 }
 </file>
 
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/[lang]/admin/data/rarity/page.tsx
-// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
-⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-⋮----
-const [sellPrice, setSellPrice] = useState(''); // 販売価格
-const [price, setPrice] = useState(''); // 仕入れ単価
-const [tax, setTax] = useState('10'); // 消費税率
-const [profitRate, setProfitRate] = useState(''); // 利益率
-const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
-const [weight, setWeight] = useState(''); // 重量
-const [stock, setStock] = useState('0'); // 在庫数
-⋮----
-const fetchRarities = () =>
-⋮----
-// [UPDATED] 保存処理にエラーハンドリングと通知を追加
-const handleAdd = async (e: React.FormEvent) =>
-⋮----
-// 必須チェック
-⋮----
-const handleDelete = async (id: number, rarityName: string) =>
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-<input
-⋮----
-{/* 5-1. 利益率タイプ */}
-⋮----
-{/* 5-2. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 初期在庫数 */}
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 在庫数 */}
-</file>
-
-<file path="app/[lang]/admin/data/page.tsx">
-// app/admin/data/page.tsx
-// [UPDATED] 「利益額」列を削除し、テーブルヘッダー・ボディおよび colSpan を調整
-⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-⋮----
-const fetchData = () =>
-⋮----
-const handleUpdateStock = async (id: number, newStock: number) =>
-⋮----
-const handleDeleteRarity = async (id: number, rarityName: string) =>
-⋮----
-const handleDeleteFee = async (id: number, feeName: string) =>
-⋮----
-{/* [UPDATED] 並び順: 商品名, 販売価格, 仕入れ単価, 消費税率, 利益率, 重量, 在庫数 */}
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 在庫数 */}
-⋮----
-{/* 手数料管理 */}
-</file>
-
-<file path="app/[lang]/calculator/page.tsx">
-// app/[lang]/calculator/page.tsx
-// [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
-⋮----
-import { useState, use } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-// [UPDATED] インポートパスを修正
-import CountryCombobox from "@/components/CountryCombobox";
-import { countries } from "@/components/countries";
-⋮----
-const handleCountryChange = (newCountry: string) =>
-⋮----
-const handleCalculate = async () =>
-⋮----
-onChange=
-⋮----
-{/* 日本郵便の表示 */}
-⋮----
-{/* FedExの全適用プラン表示 */}
-</file>
-
 <file path="app/[lang]/inventory/page.tsx">
 // app/[lang]/inventory/page.tsx
 ⋮----
@@ -2033,29 +2093,6 @@ const getTranslatedShippingMethod = (method: string) =>
 if (replyRemarks)
 </file>
 
-<file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
-⋮----
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { X, HelpCircle } from 'lucide-react'
-⋮----
-interface BookmarkletGeneratorProps {
-    dict: any;
-}
-⋮----
-// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
-⋮----
-const handleKeyDown = (e: KeyboardEvent) =>
-⋮----
-{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
-⋮----
-{/* ここに生のHTML要素（aタグ）が挿入されます */}
-⋮----
-onClick=
-</file>
-
 <file path="app/[lang]/admin/profit/page.tsx">
 // app/admin/profit/page.tsx
 // [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
@@ -2084,6 +2121,29 @@ const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) =>
 // 原価が明示的に手動設定されていればそれを優先、無ければ自動計算
 ⋮----
 onChange=
+⋮----
+onClick=
+</file>
+
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+⋮----
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { X, HelpCircle } from 'lucide-react'
+⋮----
+interface BookmarkletGeneratorProps {
+    dict: any;
+}
+⋮----
+// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
+⋮----
+const handleKeyDown = (e: KeyboardEvent) =>
+⋮----
+{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
+⋮----
+{/* ここに生のHTML要素（aタグ）が挿入されます */}
 ⋮----
 onClick=
 </file>

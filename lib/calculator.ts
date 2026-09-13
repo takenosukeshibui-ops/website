@@ -234,14 +234,14 @@ export async function calculateFedexRates(
             const netAmount = accountRate.totalNetCharge || 0;
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
-            // --- 公式サイト風の内訳抽出処理（割引後の生データを使用） ---
+            // 【修正】逆算を撤廃し、APIの正しい階層（accountRate直下）から生データを直接取得する
+            const netFreight = Number(accountRate.totalNetFreight || 0);
+
             const rateDetails = accountRate.shipmentRateDetail || {};
             
-            // 割引適用後の運賃を基本料金として使用する
-            const netFreight = Number(rateDetails.totalNetFreight || 0);
-
             // サーチャージの詳細を配列として取得・翻訳
             const detailedSurcharges: { name: string; amount: number }[] = [];
+
             if (Array.isArray(rateDetails.surCharges)) {
                 rateDetails.surCharges.forEach((sc: any) => {
                     const type = sc.type || sc.surchargeType || '';
@@ -265,7 +265,7 @@ export async function calculateFedexRates(
             return {
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
-                baseCharge: Math.ceil(netFreight), // 割引適用後の運賃を渡す
+                baseCharge: Math.ceil(netFreight), // APIから取得した割引後の基本運賃をそのまま渡す
                 discount: 0, 
                 surcharges: detailedSurcharges,
                 deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
