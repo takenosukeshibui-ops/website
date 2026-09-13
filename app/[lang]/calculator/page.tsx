@@ -154,20 +154,17 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                     <span>¥{rate.total.toLocaleString()}</span>
                   </div>
 
-                  {/* 新規追加: 公式そっくりの内訳アコーディオン */}
+                  {/* 内訳アコーディオン */}
                   <details className="mt-3 text-sm text-gray-700 border-t border-purple-200 pt-3">
                     <summary className="cursor-pointer text-purple-600 hover:underline select-none font-medium text-xs mb-2">
                       {isEn ? 'View Breakdown' : '▼ 料金の内訳を表示'}
                     </summary>
                     <div className="space-y-1.5 bg-white p-4 rounded border border-gray-100 shadow-sm">
-                      
-                      {/* 割引適用後の基本料金を表示 */}
                       <div className="flex justify-between">
-                        <span>{isEn ? 'Base Rate' : '基本料金 )'}</span>
+                        <span>{isEn ? 'Base Rate (Discounted)' : '基本料金 (割引後)'}</span>
                         <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
                       </div>
                       
-                      {/* 各種サーチャージを動的に表示 */}
                       {rate.surcharges?.map((surcharge: any, sIdx: number) => (
                         <div key={sIdx} className="flex justify-between">
                           <span>{surcharge.name}</span>
@@ -181,13 +178,6 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                       </div>
                     </div>
                   </details>
-
-                  {/* 🌟【ここを追加】原因調査用の生データ表示パネル */}
-                  <div className="mt-4 p-2 bg-gray-900 text-green-400 text-[11px] overflow-auto max-h-64 rounded">
-                    <p className="font-bold text-white mb-1">▼ 調査用 API生データ</p>
-                    <pre>{JSON.stringify(rate.rawApiData, null, 2)}</pre>
-                  </div>
-
                 </div>
               ))}
             </div>
