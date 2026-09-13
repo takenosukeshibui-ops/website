@@ -40,14 +40,15 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
  */
 export function calculateJapanPostSeaFee(weightKg: number) {
     if (!weightKg || weightKg <= 0) {
-        return { total: null, serviceName: '日本郵便 (船便)', deliveryDays: '約1〜2ヶ月', error: '重量が無効です' };
+        return { total: null, serviceName: '日本郵便 (船便)', deliveryDaysJa: '約1〜2ヶ月', deliveryDaysEn: 'Approx 1-2 months', error: '重量が無効です' };
     }
 
     const baseFee = Math.ceil(2500 + weightKg * 850);
     return {
         total: baseFee,
         serviceName: '日本郵便 (船便)',
-        deliveryDays: '約1〜2ヶ月',
+        deliveryDaysJa: '約1〜2ヶ月',
+        deliveryDaysEn: 'Approx 1-2 months',
         note: weightKg > 30 ? '※30kg超のため分割発送での試算となります' : undefined
     };
 }
@@ -129,7 +130,8 @@ export async function calculateFedexRates(
                     {
                         serviceName: 'FedEx International Priority (概算)',
                         total: fallbackFee,
-                        deliveryDays: '2-5 日'
+                        deliveryDaysJa: '1-3 日',
+                        deliveryDaysEn: '1-3 Days'
                     }
                 ],
                 error: '郵便番号が未設定のため、FedExの正確な送料を計算できません。（ユーザー情報をご確認ください）'
@@ -202,7 +204,8 @@ export async function calculateFedexRates(
                     {
                         serviceName: 'FedEx International Priority (概算)',
                         total: fallbackFee,
-                        deliveryDays: '2-5 日'
+                        deliveryDaysJa: '1-3 日',
+                        deliveryDaysEn: '1-3 Days'
                     }
                 ],
                 error: `API通信エラー: ${msg}`
@@ -222,30 +225,27 @@ export async function calculateFedexRates(
 
             const netAmount = accountRate.totalNetCharge || 0;
 
-            // 🌟 配達日数の動的取得
-            const commit = detail.commit || {};
-            let deliveryDays = '2-5 日';
-            const expectedDate = commit.dateDetail?.expectedDeliveryDate || commit.commitDetail?.commitTimestamp;
+            // 🌟 プラン毎の標準配達日数を設定
+            let deliveryDaysJa = '2-5 日';
+            let deliveryDaysEn = '2-5 Days';
             
-            if (expectedDate) {
-                const d = new Date(expectedDate);
-                deliveryDays = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} 配達予定`;
-            } else if (commit.transitTime) {
-                const t = commit.transitTime;
-                if (t === 'ONE_DAY') deliveryDays = '1 日';
-                else if (t === 'TWO_DAYS') deliveryDays = '2 日';
-                else if (t === 'THREE_DAYS') deliveryDays = '3 日';
-                else if (t === 'FOUR_DAYS') deliveryDays = '4 日';
-                else if (t === 'FIVE_DAYS') deliveryDays = '5 日';
-                else if (t === 'SIX_DAYS') deliveryDays = '6 日';
-                else if (t === 'SEVEN_DAYS') deliveryDays = '7 日';
+            if (serviceName.includes('Priority')) {
+                deliveryDaysJa = '1-3 日';
+                deliveryDaysEn = '1-3 Days';
+            } else if (serviceName.includes('Economy')) {
+                deliveryDaysJa = '4-6 日';
+                deliveryDaysEn = '4-6 Days';
+            } else if (serviceName.includes('Connect Plus')) {
+                deliveryDaysJa = '2-5 日';
+                deliveryDaysEn = '2-5 Days';
             }
 
             const packageRateDetail = accountRate.ratedPackages?.[0]?.packageRateDetail || {};
             const netFreight = Number(packageRateDetail.netFreight || 0);
 
             const rateDetails = accountRate.shipmentRateDetail || {};
-            const detailedSurcharges: { name: string; amount: number }[] = [];
+            // 🌟 サーチャージの名称を英語・日本語の両方で保持する
+            const detailedSurcharges: { nameJa: string; nameEn: string; amount: number }[] = [];
 
             if (Array.isArray(rateDetails.surCharges)) {
                 rateDetails.surCharges.forEach((sc: any) => {
@@ -254,13 +254,26 @@ export async function calculateFedexRates(
                     
                     if (amount > 0) {
                         let jpName = type;
-                        if (type.includes('FUEL')) jpName = '燃料割増金';
-                        else if (type.includes('PEAK') || type.includes('DEMAND')) jpName = '混雑時割増金';
-                        else if (type.includes('CLEARANCE') || type.includes('BROKERAGE') || type.includes('ANCILLARY')) jpName = '輸入手続き手数料';
-                        else if (type.includes('RESIDENTIAL')) jpName = '個人宅宛て配達手数料';
-                        else if (type.includes('OUT_OF_DELIVERY_AREA')) jpName = '配達地域外割増金';
+                        let enName = type;
+
+                        if (type.includes('FUEL')) {
+                            jpName = '燃料割増金';
+                            enName = 'Fuel Surcharge';
+                        } else if (type.includes('PEAK') || type.includes('DEMAND')) {
+                            jpName = '混雑時割増金';
+                            enName = 'Demand Surcharge';
+                        } else if (type.includes('CLEARANCE') || type.includes('BROKERAGE') || type.includes('ANCILLARY')) {
+                            jpName = '輸入手続き手数料';
+                            enName = 'Inbound Processing Fee';
+                        } else if (type.includes('RESIDENTIAL')) {
+                            jpName = '個人宅宛て配達手数料';
+                            enName = 'Residential Delivery Fee';
+                        } else if (type.includes('OUT_OF_DELIVERY_AREA')) {
+                            jpName = '配達地域外割増金';
+                            enName = 'Out of Delivery Area Surcharge';
+                        }
                         
-                        detailedSurcharges.push({ name: jpName, amount: Math.ceil(amount) });
+                        detailedSurcharges.push({ nameJa: jpName, nameEn: enName, amount: Math.ceil(amount) });
                     }
                 });
             }
@@ -271,9 +284,10 @@ export async function calculateFedexRates(
                 baseCharge: Math.ceil(netFreight),
                 discount: 0, 
                 surcharges: detailedSurcharges,
-                deliveryDays
+                deliveryDaysJa,
+                deliveryDaysEn
             };
-        }).sort((a: any, b: any) => a.total - b.total); // 🌟 安い順にソート
+        }).sort((a: any, b: any) => a.total - b.total);
 
         if (rates.length === 0) {
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
@@ -282,7 +296,8 @@ export async function calculateFedexRates(
                     {
                         serviceName: 'FedEx International Priority (概算)',
                         total: fallbackFee,
-                        deliveryDays: '2-5 日'
+                        deliveryDaysJa: '1-3 日',
+                        deliveryDaysEn: '1-3 Days'
                     }
                 ],
                 error: '利用可能な配送プランが見つかりませんでした。'
@@ -298,7 +313,8 @@ export async function calculateFedexRates(
                 {
                     serviceName: 'FedEx International Priority (概算試算)',
                     total: fallbackFee,
-                    deliveryDays: '2-5 日'
+                    deliveryDaysJa: '1-3 日',
+                    deliveryDaysEn: '1-3 Days'
                 }
             ],
             error: `API通信エラー (${err.message})`

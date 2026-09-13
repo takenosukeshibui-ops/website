@@ -131,7 +131,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
               <div className="flex justify-between items-center text-sm mb-2">
                 <span className="text-gray-600 font-bold">{isEn ? 'Japan Post (Sea)' : result.japanPost.serviceName}</span>
-                <span className="text-gray-600">{isEn ? 'Approx 1-2 months' : result.japanPost.deliveryDays}</span>
+                <span className="text-gray-600">{isEn ? result.japanPost.deliveryDaysEn : result.japanPost.deliveryDaysJa}</span>
               </div>
               <div className="flex justify-between items-center text-lg font-bold text-blue-700 border-t border-blue-200 pt-2">
                 <span>{isEn ? 'Estimated Shipping:' : '概算送料:'}</span>
@@ -147,7 +147,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                 <div key={index} className="p-4 bg-purple-50 border border-purple-200 rounded-md">
                   <div className="flex justify-between items-center text-sm mb-2">
                     <span className="text-gray-600 font-bold">{rate.serviceName}</span>
-                    <span className="text-gray-600">{rate.deliveryDays}</span>
+                    <span className="text-gray-600">{isEn ? rate.deliveryDaysEn : rate.deliveryDaysJa}</span>
                   </div>
                   <div className="flex justify-between items-center text-lg font-bold text-purple-700 border-t border-purple-200 pt-2">
                     <span>{isEn ? 'Estimated Shipping:' : '概算送料:'}</span>
@@ -165,9 +165,10 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                         <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
                       </div>
                       
+                      {/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
                       {rate.surcharges?.map((surcharge: any, sIdx: number) => (
                         <div key={sIdx} className="flex justify-between">
-                          <span>{surcharge.name}</span>
+                          <span>{isEn ? surcharge.nameEn : surcharge.nameJa}</span>
                           <span>¥{surcharge.amount?.toLocaleString()}</span>
                         </div>
                       ))}
