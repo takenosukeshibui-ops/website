@@ -1,4 +1,3 @@
-// app/[lang]/admin/ClientAdminPage.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -723,9 +722,9 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
 
         const wiseEmail = order.profiles?.wise_email || ''
-        const orderNumber = order.order_number ?? ''
+        const orderSeq = order.user_order_seq ?? order.order_number ?? ''
 
-        const copyText = `${wiseEmail}\n${orderNumber}\n${amount}`
+        const copyText = `${wiseEmail}\n${orderSeq}\n${amount}`
         navigator.clipboard.writeText(copyText)
 
         alert(
@@ -932,7 +931,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     </td>
 
                                     <td className="border border-slate-300 p-2 font-mono text-xs font-bold text-center text-slate-700">
-                                        #{order.order_number ?? '-'}
+                                        #{order.user_order_seq ?? order.order_number ?? '-'}
                                         {(shippingServiceName || paymentServiceName) && (
                                             <div className="flex flex-col gap-0.5 mt-1">
                                                 {shippingServiceName && (
@@ -1343,7 +1342,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             <h3 className="font-bold text-sm flex items-center gap-1.5">
                                 <span>🏠 顧客基本情報・お届け先詳細</span>
                                 <span className="font-mono text-xs bg-slate-700 px-1.5 py-0.5 rounded">
-                                    #{activeAddressOrder.order_number}
+                                    #{activeAddressOrder.user_order_seq ?? activeAddressOrder.order_number}
                                 </span>
                             </h3>
                             <button
