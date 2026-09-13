@@ -238,9 +238,36 @@ export async function calculateFedexRates(
             const netAmount = accountRate.totalNetCharge || 0;
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
+            // --- 新規追加: 内訳の抽出処理 ---
+            const rateDetails = accountRate.shipmentRateDetail || {};
+            const baseCharge = Number(rateDetails.totalBaseCharge || 0);
+
+            let fuelSurcharge = 0;
+            let residentialFee = 0;
+            let otherSurcharges = 0;
+
+            if (Array.isArray(rateDetails.surCharges)) {
+                rateDetails.surCharges.forEach((sc: any) => {
+                    const type = sc.type || sc.surchargeType || '';
+                    const amount = Number(sc.amount || 0);
+                    
+                    if (type.includes('FUEL')) {
+                        fuelSurcharge += amount;
+                    } else if (type.includes('RESIDENTIAL')) {
+                        residentialFee += amount;
+                    } else {
+                        otherSurcharges += amount;
+                    }
+                });
+            }
+
             return {
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
+                baseCharge: Math.ceil(baseCharge),
+                fuelSurcharge: Math.ceil(fuelSurcharge),
+                residentialFee: Math.ceil(residentialFee),
+                otherSurcharges: Math.ceil(otherSurcharges),
                 deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
             };
         });

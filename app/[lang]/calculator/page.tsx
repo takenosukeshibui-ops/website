@@ -1,11 +1,8 @@
-// app/[lang]/calculator/page.tsx
-// [UPDATED] タイトルを "Shipping Simulator" に変更し、入力欄内に "kg" を追加
 "use client";
 
 import { useState, use } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; 
-// [UPDATED] インポートパスを修正
 import CountryCombobox from "@/components/CountryCombobox"; 
 import { countries } from "@/components/countries";
 
@@ -156,6 +153,35 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                     <span>{isEn ? 'Estimated Shipping:' : '概算送料:'}</span>
                     <span>¥{rate.total.toLocaleString()}</span>
                   </div>
+
+                  {/* 新規追加: 内訳アコーディオン */}
+                  <details className="mt-3 text-xs text-gray-600 border-t border-purple-200 pt-2">
+                    <summary className="cursor-pointer text-purple-600 hover:underline select-none font-medium">
+                      {isEn ? 'View Breakdown' : '料金の内訳を表示'}
+                    </summary>
+                    <div className="mt-2 space-y-1 bg-white/50 p-3 rounded">
+                      <div className="flex justify-between">
+                        <span>{isEn ? 'Base Rate:' : '基本運賃:'}</span>
+                        <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{isEn ? 'Fuel Surcharge:' : '燃油特別付加金 (Fuel):'}</span>
+                        <span>¥{rate.fuelSurcharge?.toLocaleString() || 0}</span>
+                      </div>
+                      {rate.residentialFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>{isEn ? 'Residential Delivery Fee:' : '個人宅配達手数料:'}</span>
+                          <span>¥{rate.residentialFee?.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {rate.otherSurcharges > 0 && (
+                        <div className="flex justify-between">
+                          <span>{isEn ? 'Other Surcharges:' : 'その他手数料/地域追加金:'}</span>
+                          <span>¥{rate.otherSurcharges?.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>
