@@ -154,32 +154,37 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                     <span>¥{rate.total.toLocaleString()}</span>
                   </div>
 
-                  {/* 新規追加: 内訳アコーディオン */}
-                  <details className="mt-3 text-xs text-gray-600 border-t border-purple-200 pt-2">
-                    <summary className="cursor-pointer text-purple-600 hover:underline select-none font-medium">
-                      {isEn ? 'View Breakdown' : '料金の内訳を表示'}
+                  {/* 新規追加: 公式そっくりの内訳アコーディオン */}
+                  <details className="mt-3 text-sm text-gray-700 border-t border-purple-200 pt-3">
+                    <summary className="cursor-pointer text-purple-600 hover:underline select-none font-medium text-xs mb-2">
+                      {isEn ? 'View Breakdown' : '▼ 料金の内訳を表示'}
                     </summary>
-                    <div className="mt-2 space-y-1 bg-white/50 p-3 rounded">
+                    <div className="space-y-1.5 bg-white p-4 rounded border border-gray-100 shadow-sm">
                       <div className="flex justify-between">
-                        <span>{isEn ? 'Base Rate:' : '基本運賃:'}</span>
+                        <span>{isEn ? 'Base Rate' : '基本料金'}</span>
                         <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>{isEn ? 'Fuel Surcharge:' : '燃油特別付加金 (Fuel):'}</span>
-                        <span>¥{rate.fuelSurcharge?.toLocaleString() || 0}</span>
+                      
+                      {/* 各種サーチャージを動的に表示 */}
+                      {rate.surcharges?.map((surcharge: any, sIdx: number) => (
+                        <div key={sIdx} className="flex justify-between">
+                          <span>{isEn ? surcharge.name : surcharge.name}</span>
+                          <span>¥{surcharge.amount?.toLocaleString()}</span>
+                        </div>
+                      ))}
+
+                      {/* 数量割引（マイナス表示） */}
+                      {rate.discount > 0 && (
+                        <div className="flex justify-between">
+                          <span>{isEn ? 'Volume Discount' : '数量割引'}</span>
+                          <span>- ¥{rate.discount?.toLocaleString()}</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between font-bold border-t border-gray-300 pt-2 mt-2">
+                        <span>{isEn ? 'Estimated Total' : '見積り合計'}</span>
+                        <span>¥{rate.total?.toLocaleString()}</span>
                       </div>
-                      {rate.residentialFee > 0 && (
-                        <div className="flex justify-between">
-                          <span>{isEn ? 'Residential Delivery Fee:' : '個人宅配達手数料:'}</span>
-                          <span>¥{rate.residentialFee?.toLocaleString()}</span>
-                        </div>
-                      )}
-                      {rate.otherSurcharges > 0 && (
-                        <div className="flex justify-between">
-                          <span>{isEn ? 'Other Surcharges:' : 'その他手数料/地域追加金:'}</span>
-                          <span>¥{rate.otherSurcharges?.toLocaleString()}</span>
-                        </div>
-                      )}
                     </div>
                   </details>
                 </div>

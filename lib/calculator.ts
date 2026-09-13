@@ -220,10 +220,6 @@ export async function calculateFedexRates(
 
         const data = await res.json();
 
-        // ★ 原因調査用ログ：APIから返ってきた生の運賃データ構造を出力
-        console.log('--- FedEx Raw Response (ratedShipmentDetails) ---');
-        console.log(JSON.stringify(data?.output?.rateReplyDetails?.[0]?.ratedShipmentDetails, null, 2));
-
         const rateReplyDetails = data?.output?.rateReplyDetails || [];
 
         const rates = rateReplyDetails.map((detail: any) => {
@@ -238,25 +234,30 @@ export async function calculateFedexRates(
             const netAmount = accountRate.totalNetCharge || 0;
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
-            // --- 新規追加: 内訳の抽出処理 ---
+            // --- 新規追加: 公式サイト風の内訳抽出処理 ---
             const rateDetails = accountRate.shipmentRateDetail || {};
+            
+            // 基本料金（定価ベース）と割引額
             const baseCharge = Number(rateDetails.totalBaseCharge || 0);
+            const discount = Number(rateDetails.totalFreightDiscounts || 0);
 
-            let fuelSurcharge = 0;
-            let residentialFee = 0;
-            let otherSurcharges = 0;
-
+            // サーチャージの詳細を配列として取得・翻訳
+            const detailedSurcharges: { name: string; amount: number }[] = [];
             if (Array.isArray(rateDetails.surCharges)) {
                 rateDetails.surCharges.forEach((sc: any) => {
                     const type = sc.type || sc.surchargeType || '';
                     const amount = Number(sc.amount || 0);
                     
-                    if (type.includes('FUEL')) {
-                        fuelSurcharge += amount;
-                    } else if (type.includes('RESIDENTIAL')) {
-                        residentialFee += amount;
-                    } else {
-                        otherSurcharges += amount;
+                    if (amount > 0) {
+                        let jpName = type;
+                        // 公式サイトの表記に合わせて日本語化
+                        if (type.includes('FUEL')) jpName = '燃料割増金';
+                        else if (type.includes('PEAK') || type.includes('DEMAND')) jpName = '混雑時割増金';
+                        else if (type.includes('CLEARANCE') || type.includes('BROKERAGE')) jpName = '輸入手続き手数料';
+                        else if (type.includes('RESIDENTIAL')) jpName = '個人宅宛て配達手数料';
+                        else if (type.includes('OUT_OF_DELIVERY_AREA')) jpName = '配達地域外割増金';
+                        
+                        detailedSurcharges.push({ name: jpName, amount: Math.ceil(amount) });
                     }
                 });
             }
@@ -265,9 +266,8 @@ export async function calculateFedexRates(
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
                 baseCharge: Math.ceil(baseCharge),
-                fuelSurcharge: Math.ceil(fuelSurcharge),
-                residentialFee: Math.ceil(residentialFee),
-                otherSurcharges: Math.ceil(otherSurcharges),
+                discount: Math.ceil(discount),
+                surcharges: detailedSurcharges,
                 deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
             };
         });
