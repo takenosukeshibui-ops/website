@@ -161,7 +161,7 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                     </summary>
                     <div className="space-y-1.5 bg-white p-4 rounded border border-gray-100 shadow-sm">
                       <div className="flex justify-between">
-                        <span>{isEn ? 'Base Rate (Discounted)' : '基本料金 (割引後)'}</span>
+                        <span>{isEn ? 'Base Rate' : '基本料金'}</span>
                         <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
                       </div>
                       
