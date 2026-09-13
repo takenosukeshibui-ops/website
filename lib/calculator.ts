@@ -234,12 +234,11 @@ export async function calculateFedexRates(
             const netAmount = accountRate.totalNetCharge || 0;
             const transitTime = detail.commit?.customTransitTime || detail.commit?.derivedTransitTime || '2-5 日';
 
-            // --- 新規追加: 公式サイト風の内訳抽出処理 ---
+            // --- 公式サイト風の内訳抽出処理（割引後の生データを使用） ---
             const rateDetails = accountRate.shipmentRateDetail || {};
             
-            // 基本料金（定価ベース）と割引額
-            const baseCharge = Number(rateDetails.totalBaseCharge || 0);
-            const discount = Number(rateDetails.totalFreightDiscounts || 0);
+            // 割引適用後の運賃を基本料金として使用する
+            const netFreight = Number(rateDetails.totalNetFreight || 0);
 
             // サーチャージの詳細を配列として取得・翻訳
             const detailedSurcharges: { name: string; amount: number }[] = [];
@@ -250,10 +249,11 @@ export async function calculateFedexRates(
                     
                     if (amount > 0) {
                         let jpName = type;
+                        
                         // 公式サイトの表記に合わせて日本語化
                         if (type.includes('FUEL')) jpName = '燃料割増金';
                         else if (type.includes('PEAK') || type.includes('DEMAND')) jpName = '混雑時割増金';
-                        else if (type.includes('CLEARANCE') || type.includes('BROKERAGE')) jpName = '輸入手続き手数料';
+                        else if (type.includes('CLEARANCE') || type.includes('BROKERAGE') || type.includes('ANCILLARY')) jpName = '輸入手続き手数料';
                         else if (type.includes('RESIDENTIAL')) jpName = '個人宅宛て配達手数料';
                         else if (type.includes('OUT_OF_DELIVERY_AREA')) jpName = '配達地域外割増金';
                         
@@ -265,8 +265,8 @@ export async function calculateFedexRates(
             return {
                 serviceName: `FedEx ${serviceName}`,
                 total: Math.ceil(netAmount),
-                baseCharge: Math.ceil(baseCharge),
-                discount: Math.ceil(discount),
+                baseCharge: Math.ceil(netFreight), // 割引適用後の運賃を渡す
+                discount: 0, 
                 surcharges: detailedSurcharges,
                 deliveryDays: typeof transitTime === 'string' ? transitTime : '2-5 日'
             };

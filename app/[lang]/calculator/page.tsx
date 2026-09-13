@@ -160,26 +160,20 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                       {isEn ? 'View Breakdown' : '▼ 料金の内訳を表示'}
                     </summary>
                     <div className="space-y-1.5 bg-white p-4 rounded border border-gray-100 shadow-sm">
+                      
+                      {/* 割引適用後の基本料金を表示 */}
                       <div className="flex justify-between">
-                        <span>{isEn ? 'Base Rate' : '基本料金'}</span>
+                        <span>{isEn ? 'Base Rate (Discounted)' : '基本料金 (割引後)'}</span>
                         <span>¥{rate.baseCharge?.toLocaleString() || 0}</span>
                       </div>
                       
                       {/* 各種サーチャージを動的に表示 */}
                       {rate.surcharges?.map((surcharge: any, sIdx: number) => (
                         <div key={sIdx} className="flex justify-between">
-                          <span>{isEn ? surcharge.name : surcharge.name}</span>
+                          <span>{surcharge.name}</span>
                           <span>¥{surcharge.amount?.toLocaleString()}</span>
                         </div>
                       ))}
-
-                      {/* 数量割引（マイナス表示） */}
-                      {rate.discount > 0 && (
-                        <div className="flex justify-between">
-                          <span>{isEn ? 'Volume Discount' : '数量割引'}</span>
-                          <span>- ¥{rate.discount?.toLocaleString()}</span>
-                        </div>
-                      )}
 
                       <div className="flex justify-between font-bold border-t border-gray-300 pt-2 mt-2">
                         <span>{isEn ? 'Estimated Total' : '見積り合計'}</span>
