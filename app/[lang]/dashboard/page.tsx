@@ -1,4 +1,3 @@
-// app/[lang]/dashboard/page.tsx
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
@@ -111,11 +110,12 @@ export default async function DashboardPage(props: {
         .eq('id', user.id)
         .single();
 
+    // 🌟 修正：order_number を user_order_seq に変更
     const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select(`
             id,
-            order_number,
+            user_order_seq,
             status,
             created_at,
             shipping_fee,
@@ -141,7 +141,7 @@ export default async function DashboardPage(props: {
             )
         `)
         .eq('user_id', user.id)
-        .order('order_number', { ascending: false });
+        .order('user_order_seq', { ascending: false });
 
     if (ordersError) {
         console.error('注文取得エラー:', ordersError.message);
@@ -201,7 +201,6 @@ export default async function DashboardPage(props: {
                 </div>
             </div>
 
-            {/* [UPDATED] 入力欄が見切れないよう、各inputの横幅(w-full md:w-〇〇)を調整 */}
             <form action={addToCart} className="my-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3 items-center w-full">
                     <input name="url" defaultValue={searchParams?.url || ''} placeholder={dict?.dashboard?.form?.urlPlaceholder || 'URL'} required className="w-full md:flex-1 p-2 rounded border border-slate-300 bg-white text-slate-900 text-xs" />
@@ -246,7 +245,8 @@ export default async function DashboardPage(props: {
                                 <summary className="font-semibold cursor-pointer text-slate-900 flex flex-wrap justify-between items-center gap-2">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <span className="bg-slate-800 text-white font-mono text-xs font-bold px-2.5 py-1 rounded">
-                                            #{order.order_number ?? '-'}
+                                            {/* 🌟 修正：ユーザー毎の連番を表示 */}
+                                            #{order.user_order_seq ?? '-'}
                                         </span>
                                         <span className="text-sm text-slate-600">
                                             {new Date(order.created_at).toLocaleDateString(isEn ? 'en-US' : 'ja-JP')} {dict?.dashboard?.table?.order}
