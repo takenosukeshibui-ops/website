@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Worldwide Japan - Package Forwarding & Proxy Shopping",
-    template: "%s | Worldwide Japan",
+    default: "Worldwide JaPan - Package Forwarding & Proxy Shopping",
+    template: "%s | Worldwide JaPan",
   },
-  description: "Official Portal for Worldwide Japan Package Forwarding and Proxy Shopping Services.",
+  description: "Official Portal for Worldwide JaPan Package Forwarding and Proxy Shopping Services.",
   icons: {
     icon: "/icon.png", // 🌟 app/icon.png を指定
   },
