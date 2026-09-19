@@ -93,7 +93,7 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24">
-      {/* 【追加】ホームへ戻るボタン */}
+      {/* ホームへ戻るボタン */}
       <div className="mb-4">
         <Link 
           href={`/${lang}`} 
@@ -110,6 +110,36 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
         {/* 左カラム：入力エリア */}
         <div className="space-y-6">
           
+          {/* ▼ 追加：重量の自動計算と注意事項の案内 */}
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg shadow-sm">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <span className="text-xl">💡</span>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-bold text-blue-800">
+                  {isEn ? 'No need to weigh! Automatic calculation' : '重量を測る必要はありません（自動計算）'}
+                </h3>
+                <div className="mt-2 text-xs text-blue-700 space-y-1">
+                  <p>
+                    {isEn 
+                      ? 'Just enter the number of cards. The system calculates the estimated weight automatically:' 
+                      : '枚数を入力するだけで、システムが自動的に重量を計算します。'}
+                  </p>
+                  <ul className="list-disc list-inside ml-2 font-medium">
+                    <li>{isEn ? 'Normal Cards: approx. 1.6g / card' : 'ノーマルカード：約1.6g / 枚'}</li>
+                    <li>{isEn ? 'Foil Cards (RR, AR, etc.): approx. 1.8g / card' : 'キラカード（RR、ARなど）：約1.8g / 枚'}</li>
+                  </ul>
+                  <p className="mt-2 text-blue-600/80">
+                    {isEn 
+                      ? '* Note: This is an estimate. Packing materials (cardboard boxes) are relatively light, so please do not worry about the exact weight of the boxes when estimating.' 
+                      : '※あくまで概算見積もりです。段ボール等の梱包材の重量は軽いため、箱の重さは気にせず枚数だけを入力してください。'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* サービス種類・金額・枚数入力 */}
           <section className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
             <div>
@@ -264,6 +294,47 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
           </div>
         </div>
 
+      </div>
+
+      {/* ▼ 追加：よくある質問 (FAQ) セクション */}
+      <div className="mt-12 pt-8 border-t border-gray-200">
+        <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span className="text-xl">❓</span>
+          {isEn ? 'Frequently Asked Questions (FAQ)' : 'よくある質問 (FAQ)'}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* FAQ 1: バルクの重さ */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="font-bold text-gray-700 text-sm mb-3 flex gap-2 items-start">
+              <span className="text-blue-600 shrink-0">Q.</span>
+              <span>{isEn 
+                ? 'How much does 100,000 bulk cards weigh?' 
+                : '10万枚（バルク）の重さはどれくらいですか？'}</span>
+            </h3>
+            <p className="text-gray-600 text-sm flex gap-2 leading-relaxed items-start bg-gray-50 p-3 rounded-lg">
+              <span className="text-red-500 font-bold shrink-0">A.</span>
+              <span>{isEn 
+                ? 'Approximately 160kg. You don\'t need to calculate this yourself—just enter "100000" in the Normal Cards field above, and the shipping options will be calculated automatically.' 
+                : '約160kgです。ご自身で計算する必要はありません。上のノーマルカード入力欄に「100000」と入力するだけで、すぐに送料が自動計算されます。'}</span>
+            </p>
+          </div>
+
+          {/* FAQ 2: 特殊な梱包指定 */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="font-bold text-gray-700 text-sm mb-3 flex gap-2 items-start">
+              <span className="text-blue-600 shrink-0">Q.</span>
+              <span>{isEn 
+                ? 'Can I request special packaging (e.g., splitting into boxes of 7,500 cards)?' 
+                : '梱包箱を小分けにするなど、特殊な梱包は指定できますか？'}</span>
+            </h3>
+            <p className="text-gray-600 text-sm flex gap-2 leading-relaxed items-start bg-gray-50 p-3 rounded-lg">
+              <span className="text-red-500 font-bold shrink-0">A.</span>
+              <span>{isEn 
+                ? 'Currently, due to limited staff, we cannot accommodate custom packaging requests. Orders are typically packed in standard boxes containing around 10,000 cards each.' 
+                : '現在スタッフが不足しているため、特殊な梱包指定はお受けしておりません。通常、1箱あたり約10,000枚基準での発送となります。'}</span>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
