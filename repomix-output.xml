@@ -1677,6 +1677,13 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
+<file path="app/[lang]/inventory/page.tsx">
+// app/[lang]/inventory/page.tsx
+⋮----
+import { useState, useEffect, use } from 'react';
+import Link from 'next/link';
+</file>
+
 <file path="dictionaries/en.json">
 {
   "home": {
@@ -1829,13 +1836,6 @@ setWiseEmail(e.target.value)
     "submittingButton": "Sending..."
   }
 }
-</file>
-
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-⋮----
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
 </file>
 
 <file path="lib/calculator.ts">
