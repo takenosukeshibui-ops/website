@@ -318,22 +318,6 @@ export default function EstimatePage(props: { params: Promise<{ lang: 'en' | 'ja
                 : '約160kgです。ご自身で計算する必要はありません。上のノーマルカード入力欄に「100000」と入力するだけで、すぐに送料が自動計算されます。'}</span>
             </p>
           </div>
-
-          {/* FAQ 2: 特殊な梱包指定 */}
-          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="font-bold text-gray-700 text-sm mb-3 flex gap-2 items-start">
-              <span className="text-blue-600 shrink-0">Q.</span>
-              <span>{isEn 
-                ? 'Can I request special packaging (e.g., splitting into boxes of 7,500 cards)?' 
-                : '梱包箱を小分けにするなど、特殊な梱包は指定できますか？'}</span>
-            </h3>
-            <p className="text-gray-600 text-sm flex gap-2 leading-relaxed items-start bg-gray-50 p-3 rounded-lg">
-              <span className="text-red-500 font-bold shrink-0">A.</span>
-              <span>{isEn 
-                ? 'Currently, due to limited staff, we cannot accommodate custom packaging requests. Orders are typically packed in standard boxes containing around 10,000 cards each.' 
-                : '現在スタッフが不足しているため、特殊な梱包指定はお受けしておりません。通常、1箱あたり約10,000枚基準での発送となります。'}</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>
