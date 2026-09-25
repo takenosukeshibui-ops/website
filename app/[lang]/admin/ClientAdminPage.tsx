@@ -115,7 +115,7 @@ function calculateInvoiceDetails(
     wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
 ) {
     let productTotal = 0;
-    let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+    let proxyFeeTargetTotal = 0; // ★ 変数を追加
 
     (order.order_items || []).forEach((oi: any) => {
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
@@ -125,15 +125,15 @@ function calculateInvoiceDetails(
             const subtotal = qty * price;
             productTotal += subtotal;
 
-            // 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-            if (!item.url?.startsWith('inhouse://')) {
+            // 自社取扱商品（URLが inhouse-item- で始まらない商品）のみ手数料計算の対象に加算
+            if (!item.url?.startsWith('inhouse-item-')) {
                 proxyFeeTargetTotal += subtotal;
             }
         }
     });
 
     const proxyFeeRate = 0.05;
-    const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate);
+    const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
 
     let shippingFee = 0;
     if (calculatedFee !== null && calculatedFee !== undefined) {

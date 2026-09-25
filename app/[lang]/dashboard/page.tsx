@@ -34,7 +34,7 @@ function calculateUserInvoiceDetails(order: any) {
             productTotal += subtotal;
 
             // 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-            if (!item.url?.startsWith('inhouse://')) {
+            if (!item.url?.startsWith('inhouse-item-')) {
                 proxyFeeTargetTotal += subtotal;
             }
         }
@@ -191,7 +191,7 @@ export default async function DashboardPage(props: {
                       href={`/${lang}/inventory`}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                   >
-                       {dict?.home?.inventory || '取扱商品'}
+                      📦 {dict?.home?.inventory || '取扱商品'}
                   </Link>
 
                   <Link

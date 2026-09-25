@@ -99,7 +99,7 @@ export default function InventoryPage(props: { params: Promise<{ lang: string }>
                                             </td>
                                             <td className="p-3 text-center">
                                                <form action={addToCart}>
-                                                   <input type="hidden" name="url" value={`inhouse://${r.id}`} />
+                                                   <input type="hidden" name="url" value={`inhouse-item-${r.id}`} />
                                                    <input type="hidden" name="title" value={r.name} />
                                                    <input type="hidden" name="desiredPrice" value={sellPriceVal} />
                                                    <input type="hidden" name="quantity" value="1" />
