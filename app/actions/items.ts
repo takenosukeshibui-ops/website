@@ -14,7 +14,14 @@ function revalidateAll() {
 export async function addToCart(formData: FormData) {
     const supabase = await createClient()
     
-    const url = (formData.get('url') as string) || ''
+    let url = (formData.get('url') as string) || ''
+    const isInhouse = formData.get('isInhouse') === 'true'
+
+    // 自社取扱商品の場合はURLに識別用スキームを自動付与
+    if (isInhouse && url && !url.startsWith('inhouse://')) {
+        url = `inhouse://${url}`
+    }
+
     const title = (formData.get('title') as string) || '名称未設定'
     const quantityRaw = formData.get('quantity')
     const quantity = quantityRaw ? parseInt(quantityRaw as string) : 1

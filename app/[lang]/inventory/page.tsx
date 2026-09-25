@@ -3,6 +3,21 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { addToCart } from '@/app/actions/items';
+import { useFormStatus } from 'react-dom';
+
+function AddToCartButton({ isEn }: { isEn: boolean }) {
+    const { pending } = useFormStatus();
+    return (
+        <button
+            type="submit"
+            disabled={pending}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap"
+        >
+            {pending ? (isEn ? 'Adding...' : '追加中...') : (isEn ? 'Add to Cart' : 'カートに追加')}
+        </button>
+    );
+}
 
 export default function InventoryPage(props: { params: Promise<{ lang: string }> }) {
     const { lang } = use(props.params);
@@ -58,16 +73,17 @@ export default function InventoryPage(props: { params: Promise<{ lang: string }>
                             <tr className="bg-slate-100 border-b border-slate-200 text-slate-600">
                                 <th className="p-3 font-semibold">{isEn ? 'Product Name' : '商品名'}</th>
                                 <th className="p-3 font-semibold text-right">{isEn ? 'Price' : '販売価格'}</th>
+                                <th className="p-3 font-semibold text-center w-32">{isEn ? 'Action' : '操作'}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={2} className="p-8 text-center text-slate-400">{isEn ? 'Loading...' : '読み込み中...'}</td>
+                                    <td colSpan={3} className="p-8 text-center text-slate-400">{isEn ? 'Loading...' : '読み込み中...'}</td>
                                 </tr>
                             ) : filteredRarities.length === 0 ? (
                                 <tr>
-                                    <td colSpan={2} className="p-8 text-center text-slate-400">
+                                    <td colSpan={3} className="p-8 text-center text-slate-400">
                                         {searchQuery ? (isEn ? 'No items match your search.' : '検索条件に一致する商品はありません') : (isEn ? 'No inventory data found.' : '登録された商品データはありません')}
                                     </td>
                                 </tr>
@@ -81,6 +97,16 @@ export default function InventoryPage(props: { params: Promise<{ lang: string }>
                                             <td className="p-3 text-right font-mono font-bold text-blue-700">
                                                 ¥{sellPriceVal.toLocaleString()}
                                             </td>
+                                            <td className="p-3 text-center">
+                                               <form action={addToCart}>
+                                                   <input type="hidden" name="url" value={`inhouse://${r.id}`} />
+                                                   <input type="hidden" name="title" value={r.name} />
+                                                   <input type="hidden" name="desiredPrice" value={sellPriceVal} />
+                                                   <input type="hidden" name="quantity" value="1" />
+                                                   <input type="hidden" name="isInhouse" value="true" />
+                                                   <AddToCartButton isEn={isEn} />
+                                               </form>
+                                           </td>
                                         </tr>
                                     );
                                 })
