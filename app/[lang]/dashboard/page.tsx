@@ -186,17 +186,25 @@ export default async function DashboardPage(props: {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    <Link
-                        href={`/${lang}/calculator`}
-                        target="_blank"
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
-                    >
-                        {dict?.dashboard?.shippingCalculator || '送料シミュレーター'}
-                    </Link>
+                  {/* ▼ 追加: 取扱商品へのリンクボタン */}
+                  <Link
+                      href={`/${lang}/inventory`}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                  >
+                      📦 {dict?.home?.inventory || '取扱商品'}
+                  </Link>
 
-                    <Link href={`/${lang}/dashboard/settings`} className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
-                        {dict?.dashboard?.accountSettings || 'アカウント設定'}
-                    </Link>
+                  <Link
+                      href={`/${lang}/calculator`}
+                      target="_blank"
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
+                  >
+                      {dict?.dashboard?.shippingCalculator || '送料シミュレーター'}
+                  </Link>
+
+                  <Link href={`/${lang}/dashboard/settings`} className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                      {dict?.dashboard?.accountSettings || 'アカウント設定'}
+                  </Link>
 
                     <form action={async () => {
                         'use server';
