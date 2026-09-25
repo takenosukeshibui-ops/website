@@ -132,6 +132,7 @@ function calculateInvoiceDetails(
         }
     });
 
+    
     const proxyFeeRate = 0.05;
     const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
 
