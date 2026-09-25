@@ -45,8 +45,8 @@ export default function InventoryPage(props: { params: Promise<{ lang: string }>
     return (
         <main className="min-h-screen bg-slate-50 p-4 md:p-8 text-xs space-y-4 max-w-4xl mx-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <Link href={`/${lang}`} className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
-                    {isEn ? '← Back to Home' : '← ホームへ戻る'}
+                <Link href={`/${lang}/dashboard`} className="text-blue-600 hover:underline font-bold text-xs flex items-center gap-1">
+                    {isEn ? '← Back to My Page' : '← マイページへ戻る'}
                 </Link>
             </div>
 
