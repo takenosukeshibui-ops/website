@@ -957,9 +957,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <span className="font-bold text-slate-800 text-xs">
                                                     {fullName || companyName || '担当者未設定'}
                                                 </span>
-                                                <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={email}>
-                                                    {email}
-                                                </span>
                                             </div>
 
                                             {/* ▼ 住所や詳細を確認するためのボタン */}
