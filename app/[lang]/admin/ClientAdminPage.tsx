@@ -907,7 +907,9 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         const isCalculating = calculatingOrders.has(order.id);
                         const calcErrorMsg = calcErrors[order.id];
 
-                        const userNameDisp = order.profiles?.full_name || 'ユーザー詳細';
+                        const fullName = order.profiles?.full_name;
+                        const companyName = order.profiles?.company_name;
+                        const email = order.profiles?.email || order.profiles?.contact_email || 'アドレス未設定';
 
                         const canMarkAsShipped = isPaymentRequired && hasTracking
 
@@ -950,12 +952,23 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                                     <td className="border border-slate-300 p-2 text-center">
                                         <div className="flex flex-col items-center gap-1">
+                                            {/* ▼ クリックせずに見える担当者情報 */}
+                                            <div className="flex flex-col items-center leading-tight">
+                                                <span className="font-bold text-slate-800 text-xs">
+                                                    {fullName || companyName || '担当者未設定'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 truncate max-w-[120px]" title={email}>
+                                                    {email}
+                                                </span>
+                                            </div>
+
+                                            {/* ▼ 住所や詳細を確認するためのボタン */}
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveAddressOrder(order)}
-                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-2.5 py-1 rounded transition-colors whitespace-nowrap flex items-center gap-1 shadow-sm"
+                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 mt-1 rounded transition-colors whitespace-nowrap flex items-center gap-1 shadow-sm"
                                             >
-                                                👤 {userNameDisp}
+                                                詳細
                                             </button>
                                         </div>
                                     </td>
