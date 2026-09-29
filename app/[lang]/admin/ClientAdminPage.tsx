@@ -121,12 +121,15 @@ function calculateInvoiceDetails(
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
         if (item) {
             const qty = item.admin_quantity ?? item.quantity ?? 1;
-            const price = item.price ?? 0;
+            
+            // ▼ 変更: 自社商品の判定を追加し、価格のデフォルト値を設定
+            const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
+            const price = item.price ?? (isInhouse ? item.price_estimated : 0);
+            
             const subtotal = qty * price;
             productTotal += subtotal;
 
-            // 自社取扱商品（URLが inhouse-item- で始まらない商品）のみ手数料計算の対象に加算
-            if (!item.url?.startsWith('inhouse-item-')) {
+            if (!isInhouse) {
                 proxyFeeTargetTotal += subtotal;
             }
         }
@@ -1255,6 +1258,10 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                             const cartQty = item.quantity ?? 1
                                                             const adminQty = item.admin_quantity
 
+                                                            // ▼ 追加: 自社商品の判定と表示価格の決定
+                                                            const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
+                                                            const displayPrice = item.price ?? (isInhouse ? item.price_estimated : null);
+
                                                             return (
                                                                 <tr key={item.id || idx} className="hover:bg-slate-50 transition-colors">
                                                                     <td className="border border-slate-200 p-2">
@@ -1275,8 +1282,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                             className="w-full border border-slate-300 p-1 rounded text-xs font-medium text-slate-800 outline-blue-400 focus:border-blue-400"
                                                                         />
                                                                     </td>
+            
+                                                                    {/* ▼ 変更: URLの表示 (自社商品は青いバッジにする) */}
                                                                     <td className="border border-slate-200 p-2 max-w-[150px] truncate">
-                                                                        {item.url ? (
+                                                                        {isInhouse ? (
+                                                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold border border-blue-300">
+                                                                                自社商品
+                                                                            </span>
+                                                                        ) : item.url ? (
                                                                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block">
                                                                                 {item.url}
                                                                             </a>
@@ -1284,13 +1297,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                             <span className="text-slate-400">-</span>
                                                                         )}
                                                                     </td>
+
                                                                     <td className="border border-slate-200 p-2 text-xs text-slate-600 max-w-[120px] truncate" title={item.remarks}>
                                                                         {item.remarks || '-'}
                                                                     </td>
                                                                     <td className="border border-slate-200 p-2 text-center font-mono text-slate-500">
-                                                                        {cartQty}
+                                                                       {cartQty}
                                                                     </td>
-                                                                    <td className="border border-slate-200 p-2 text-center">
+                                                                   <td className="border border-slate-200 p-2 text-center">
                                                                         <input
                                                                             type="number"
                                                                             min={1}
@@ -1311,9 +1325,11 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                     <td className="border border-slate-200 p-2 text-right font-mono text-slate-500">
                                                                         {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
                                                                     </td>
+            
+                                                                    {/* ▼ 変更: defaultValue を displayPrice に変更 */}
                                                                     <td className="border border-slate-200 p-2 text-right">
                                                                         <CurrencyInput
-                                                                            defaultValue={item.price}
+                                                                            defaultValue={displayPrice}
                                                                             placeholder="落札/購入額"
                                                                             onValueChange={(val) => {
                                                                                 if (val !== item.price) {

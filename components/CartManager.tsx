@@ -182,24 +182,27 @@ export default function CartManager({
                                             </td>
                                             
                                             {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
-                                            <td className="p-2 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <input 
-                                                        type="number" 
-                                                        min={0} 
-                                                        defaultValue={item.desired_price || ''} 
-                                                        placeholder="0"
-                                                        onBlur={async (e) => {
-                                                            const val = e.target.value === '' ? null : Number(e.target.value)
-                                                            if (val !== item.desired_price && item.id) {
-                                                                setItems(prev => prev.map(i => i.id === item.id ? { ...i, desired_price: val } : i))
-                                                                await updateCartItem(item.id, item.quantity || 1, val, item.remarks)
-                                                            }
-                                                        }} 
-                                                        className="border border-slate-300 p-1.5 rounded text-xs w-20 text-right font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white" 
-                                                    />
-                                                    <span className="text-[10px] text-slate-500 font-bold">{isEn ? 'JPY' : '円'}</span>
+                                            <td className="p-2 md:p-4 text-center">
+                                              {item.url?.startsWith('inhouse://') ? (
+                                                <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold py-1.5 px-2 rounded whitespace-nowrap">
+                                                  自社商品<br/>(希望価格不要)
                                                 </div>
+                                              ) : (
+                                               <input
+                                                  type="number"
+                                                  min="0"
+                                                  defaultValue={item.desired_price || ''}
+                                                  placeholder={isEn ? "Optional" : "任意"}
+                                                  onBlur={(e) => {
+                                                    const val = e.target.value.trim()
+                                                    const numVal = val === '' ? null : Number(val)
+                                                    if (numVal !== (item.desired_price || null)) {
+                                                      handleUpdateItem(item.id, item.quantity, numVal, item.remarks)
+                                                    }
+                                                  }}
+                                                  className="border rounded p-1.5 w-20 text-right text-sm"
+                                                />
+                                              )}
                                             </td>
                                             
                                             <td className="p-2 text-center">
