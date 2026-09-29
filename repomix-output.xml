@@ -183,6 +183,61 @@ const handleDelete = async (id: number, feeName: string) =>
 onChange=
 </file>
 
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/[lang]/admin/data/rarity/page.tsx
+// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
+⋮----
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+⋮----
+const [sellPrice, setSellPrice] = useState(''); // 販売価格
+const [price, setPrice] = useState(''); // 仕入れ単価
+const [tax, setTax] = useState('10'); // 消費税率
+const [profitRate, setProfitRate] = useState(''); // 利益率
+const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
+const [weight, setWeight] = useState(''); // 重量
+const [stock, setStock] = useState('0'); // 在庫数
+⋮----
+const fetchRarities = () =>
+⋮----
+// [UPDATED] 保存処理にエラーハンドリングと通知を追加
+const handleAdd = async (e: React.FormEvent) =>
+⋮----
+// 必須チェック
+⋮----
+const handleDelete = async (id: number, rarityName: string) =>
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5-1. 利益率タイプ */}
+⋮----
+{/* 5-2. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 初期在庫数 */}
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 在庫数 */}
+</file>
+
 <file path="app/[lang]/admin/profit/page.tsx">
 // app/admin/profit/page.tsx
 // [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
@@ -226,6 +281,128 @@ import ClientAdminPage from './ClientAdminPage'
 export default async function AdminPage()
 ⋮----
 {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+</file>
+
+<file path="app/actions/admin.ts">
+// app/actions/admin.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { cookies, headers } from 'next/headers'
+⋮----
+/**
+ * 1. 商品名の更新
+ */
+export async function updateItemTitle(itemId: string, title: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 2. 商品ステータスの更新
+ */
+export async function updateItemStatus(itemId: string, status: string, orderId?: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 3. 確定数量の更新
+ */
+export async function updateItemQuantity(itemId: string, adminQuantity: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 4. 購入価格の更新
+ */
+export async function updateItemPrice(itemId: string, price: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
+ */
+export async function updateAdminNote(itemId: string, note: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
+ */
+export async function cancelAdminNote(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
+ */
+export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
+⋮----
+// [UPDATED] 確定した配送方法もDBに保存するよう追加
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 8. 請求金額データの削除（クリア） [UPDATED]
+ */
+export async function deleteInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
+ */
+export async function updateOrderStatusToPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 10. 「決済待ち」の取り消し [UPDATED]
+ */
+export async function cancelPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
+ */
+export async function sendPayPalInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 12. 追跡番号の更新・保存 [UPDATED]
+ */
+export async function updateTrackingNumber(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 13. 発送完了処理 [UPDATED]
+ */
+export async function shipOrder(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 14. 追跡番号のクリア（削除） [UPDATED]
+ */
+export async function deleteShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 15. 発送済みの取り消し [UPDATED]
+ */
+export async function cancelShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 16. 注文内商品の削除 [UPDATED]
+ */
+export async function deleteAdminItem(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
 </file>
 
 <file path="app/actions/profile.ts">
@@ -876,61 +1053,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/[lang]/admin/data/rarity/page.tsx
-// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
-⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-⋮----
-const [sellPrice, setSellPrice] = useState(''); // 販売価格
-const [price, setPrice] = useState(''); // 仕入れ単価
-const [tax, setTax] = useState('10'); // 消費税率
-const [profitRate, setProfitRate] = useState(''); // 利益率
-const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
-const [weight, setWeight] = useState(''); // 重量
-const [stock, setStock] = useState('0'); // 在庫数
-⋮----
-const fetchRarities = () =>
-⋮----
-// [UPDATED] 保存処理にエラーハンドリングと通知を追加
-const handleAdd = async (e: React.FormEvent) =>
-⋮----
-// 必須チェック
-⋮----
-const handleDelete = async (id: number, rarityName: string) =>
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5-1. 利益率タイプ */}
-⋮----
-{/* 5-2. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 初期在庫数 */}
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 在庫数 */}
-</file>
-
 <file path="app/[lang]/admin/data/page.tsx">
 // app/[lang]/inventory/page.tsx
 ⋮----
@@ -998,128 +1120,6 @@ import Link from 'next/link'
 ⋮----
 import { useActionState } from 'react'
 import { updatePassword } from '@/app/actions/auth'
-</file>
-
-<file path="app/actions/admin.ts">
-// app/actions/admin.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { cookies, headers } from 'next/headers'
-⋮----
-/**
- * 1. 商品名の更新
- */
-export async function updateItemTitle(itemId: string, title: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 2. 商品ステータスの更新
- */
-export async function updateItemStatus(itemId: string, status: string, orderId?: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 3. 確定数量の更新
- */
-export async function updateItemQuantity(itemId: string, adminQuantity: number)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 4. 購入価格の更新
- */
-export async function updateItemPrice(itemId: string, price: number)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
- */
-export async function updateAdminNote(itemId: string, note: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
- */
-export async function cancelAdminNote(itemId: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
- */
-export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
-⋮----
-// [UPDATED] 確定した配送方法もDBに保存するよう追加
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 8. 請求金額データの削除（クリア） [UPDATED]
- */
-export async function deleteInvoice(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
- */
-export async function updateOrderStatusToPaymentRequired(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 10. 「決済待ち」の取り消し [UPDATED]
- */
-export async function cancelPaymentRequired(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
- */
-export async function sendPayPalInvoice(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 12. 追跡番号の更新・保存 [UPDATED]
- */
-export async function updateTrackingNumber(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 13. 発送完了処理 [UPDATED]
- */
-export async function shipOrder(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 14. 追跡番号のクリア（削除） [UPDATED]
- */
-export async function deleteShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 15. 発送済みの取り消し [UPDATED]
- */
-export async function cancelShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 16. 注文内商品の削除 [UPDATED]
- */
-export async function deleteAdminItem(itemId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
 </file>
 
 <file path="components/CountryCombobox.tsx">
@@ -1406,78 +1406,6 @@ status: 'draft' // カート内商品として追加
 // [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-export async function deleteCartItem(itemId: string)
-⋮----
-// 1. ユーザー情報の取得
-⋮----
-// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
-⋮----
-// 🔍 デバッグ2: 自分の所有物かチェック
-⋮----
-// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
-⋮----
-// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
-⋮----
-// 5. サイト全体のキャッシュを確実に破棄
-⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
-⋮----
-// 1. ユーザーの配送先プロフを取得
-⋮----
-// 2. 新規注文レコードの作成
-⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
-⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
-⋮----
-// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
-⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
-⋮----
-// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
-⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
-</file>
-
-<file path="components/CartManager.tsx">
-// components/CartManager.tsx
-⋮----
-import { useState, useEffect } from 'react'
-import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
-import { updateCartItem } from '@/app/actions/items'
-⋮----
-// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
-⋮----
-const filterCartItems = (items: any[]) =>
-⋮----
-const sanitizeShipping = (val?: string) =>
-⋮----
-const handleCheckout = async () =>
-⋮----
-// 確実な言語判定でダイアログを表示
-⋮----
-// 成功したらローカルのカート見た目を即座に空にする
-⋮----
-const handleDelete = async (itemId: string) =>
-⋮----
-{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
-⋮----
-const val = e.target.value.trim()
-⋮----
-{/* ▼ 変更: 数量 (Quantity) */}
-⋮----
-onBlur=
-⋮----
-{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
-</file>
-
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
 import React, { useState, useEffect } from 'react'
 import { useFormStatus } from 'react-dom'
@@ -1624,6 +1552,78 @@ const getBoolValue = (key: string, defaultVal: boolean) =>
 setContactEmail(e.target.value)
 ⋮----
 setWiseEmail(e.target.value)
+</file>
+
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export async function deleteCartItem(itemId: string)
+⋮----
+// 1. ユーザー情報の取得
+⋮----
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+⋮----
+// 🔍 デバッグ2: 自分の所有物かチェック
+⋮----
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+⋮----
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+⋮----
+// 5. サイト全体のキャッシュを確実に破棄
+⋮----
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+⋮----
+// 1. ユーザーの配送先プロフを取得
+⋮----
+// 2. 新規注文レコードの作成
+⋮----
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+⋮----
+// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+⋮----
+// 4. 中間テーブル (order_items) に紐付け登録
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+⋮----
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="components/CartManager.tsx">
+// components/CartManager.tsx
+⋮----
+import { useState, useEffect } from 'react'
+import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
+import { updateCartItem } from '@/app/actions/items'
+⋮----
+// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+⋮----
+const filterCartItems = (items: any[]) =>
+⋮----
+const sanitizeShipping = (val?: string) =>
+⋮----
+const handleCheckout = async () =>
+⋮----
+// 確実な言語判定でダイアログを表示
+⋮----
+// 成功したらローカルのカート見た目を即座に空にする
+⋮----
+const handleDelete = async (itemId: string) =>
+⋮----
+{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
+⋮----
+const val = e.target.value.trim()
+⋮----
+{/* ▼ 変更: 数量 (Quantity) */}
+⋮----
+onBlur=
+⋮----
+{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
 </file>
 
 <file path="dictionaries/en.json">
@@ -1826,67 +1826,6 @@ const formatConverted = (jpyAmount: number) =>
 {/* よくある質問 (FAQ) セクション */}
 </file>
 
-<file path="lib/calculator.ts">
-export interface CalculationResult {
-    shippingFeeJp: number;
-    shippingFeeFedex: number;
-    jpSellPrice: number;
-    jpProfit: number;
-    fedexSellPrice: number;
-    fedexProfit: number;
-}
-⋮----
-export interface FedexCredentials {
-    apiKey?: string;
-    secretKey?: string;
-    accountNumber?: string;
-}
-⋮----
-export interface CalculateShippingFeesParams {
-    destination: string;
-    postalCode?: string;
-    weight: number;
-    targetCurrency?: string;
-    isEstimate?: boolean;
-    fedexCredentials?: FedexCredentials;
-}
-⋮----
-/**
- * 配送方法と重量から概算送料を算出する共通関数
- */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number
-⋮----
-/**
- * 日本郵便（船便・APIなしのため固定概算テーブル計算）
- */
-export function calculateJapanPostSeaFee(weightKg: number)
-⋮----
-deliveryDaysJa: '約1〜3ヶ月', // 🌟 1-3ヶ月に変更
-deliveryDaysEn: 'Approx 1-3 months', // 🌟 1-3ヶ月に変更
-⋮----
-/**
- * FedEx API 認証トークン取得
- */
-async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
-⋮----
-/**
- * FedEx 運賃試算 API 呼び出し
- */
-export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
-    credentials?: FedexCredentials
-)
-⋮----
-// 🌟 プラン毎の標準配達日数を設定
-⋮----
-// 🌟 First も Priority と同じ 1-3日に設定
-⋮----
-export async function calculateShippingFees(params: CalculateShippingFeesParams)
-</file>
-
 <file path="dictionaries/ja.json">
 {
   "home": {
@@ -2039,6 +1978,91 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
     "submittingButton": "送信中..."
   }
 }
+</file>
+
+<file path="lib/calculator.ts">
+export interface CalculationResult {
+    shippingFeeJp: number;
+    shippingFeeFedex: number;
+    jpSellPrice: number;
+    jpProfit: number;
+    fedexSellPrice: number;
+    fedexProfit: number;
+}
+⋮----
+export interface FedexCredentials {
+    apiKey?: string;
+    secretKey?: string;
+    accountNumber?: string;
+}
+⋮----
+export interface CalculateShippingFeesParams {
+    destination: string;
+    postalCode?: string;
+    weight: number;
+    targetCurrency?: string;
+    isEstimate?: boolean;
+    fedexCredentials?: FedexCredentials;
+}
+⋮----
+// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
+export function getJapanPostZone(countryCode?: string): number
+⋮----
+if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
+⋮----
+// 第1地帯（中国・韓国・台湾）
+⋮----
+// 第4地帯（米国・米領）
+⋮----
+// 第2地帯（アジア全般）
+⋮----
+// 第5地帯（中南米・アフリカ）
+⋮----
+// 第3地帯（オセアニア・カナダ・中近東・欧州など）
+⋮----
+/**
+ * 配送方法と重量から概算送料を算出する共通関数
+ */
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number
+⋮----
+case 1: // 第1地帯
+⋮----
+case 2: // 第2地帯
+⋮----
+case 3: // 第3地帯
+⋮----
+case 4: // 第4地帯
+⋮----
+case 5: // 第5地帯
+⋮----
+// 基本料金＋追加重量分＋書留料金(460円)
+⋮----
+/**
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
+ */
+export function calculateJapanPostSeaFee(weightKg: number, destination?: string)
+⋮----
+/**
+ * FedEx API 認証トークン取得
+ */
+async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
+⋮----
+/**
+ * FedEx 運賃試算 API 呼び出し
+ */
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+)
+⋮----
+// 🌟 プラン毎の標準配達日数を設定
+⋮----
+// 🌟 First も Priority と同じ 1-3日に設定
+⋮----
+export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="app/[lang]/calculator/page.tsx">
