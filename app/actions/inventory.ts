@@ -50,3 +50,24 @@ export async function updateProduct(id: string, updates: Partial<ProductInput>) 
   revalidatePath('/[lang]/admin/inventory', 'page')
   revalidatePath('/[lang]/inventory', 'page')
 }
+
+export async function uploadProductImage(formData: FormData) {
+  const file = formData.get('file') as File
+  if (!file) throw new Error('画像が選択されていません')
+
+  const supabase = await createClient()
+  const ext = file.name.split('.').pop()
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+
+  const { error } = await supabase.storage
+    .from('product-images')
+    .upload(fileName, file)
+
+  if (error) throw new Error(error.message)
+
+  const { data } = supabase.storage
+    .from('product-images')
+    .getPublicUrl(fileName)
+
+  return data.publicUrl
+}
