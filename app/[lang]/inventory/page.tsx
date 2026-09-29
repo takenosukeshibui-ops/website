@@ -1,7 +1,7 @@
 import React from 'react'
 import { getProducts } from '@/app/actions/inventory'
 import { addToCart } from '@/app/actions/items'
-import { AddToCartButton } from './AddToCartButton.tsx'
+import { AddToCartButton } from './AddToCartButton'
 
 export default async function InventoryPage() {
   // 管理者ではないため、公開中の商品のみを取得
