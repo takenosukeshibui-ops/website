@@ -80,21 +80,21 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">販売価格 (¥)</label>
-              <input type="number" required min="0" step="any" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full border rounded p-2 bg-blue-50" />
+              <input type="number" required min="" step="any" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full border rounded p-2 bg-blue-50" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">仕入価格 (¥)</label>
-              <input type="number" required min="0" step="any" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} className="w-full border rounded p-2 bg-red-50" />
+              <input type="number" required min="" step="any" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} className="w-full border rounded p-2 bg-red-50" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">重量 (g)</label>
-              <input type="number" required min="0" step="any" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })} className="w-full border rounded p-2" />
+              <input type="number" required min="" step="any" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })} className="w-full border rounded p-2" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">在庫数</label>
-              <input type="number" required min="0" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })} className="w-full border rounded p-2" />
+              <input type="number" required min="" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })} className="w-full border rounded p-2" />
             </div>
           </div>
           <div>
