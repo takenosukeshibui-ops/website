@@ -1,15 +1,20 @@
 import React from 'react'
 import { getProducts } from '@/app/actions/inventory'
-import { addToCart } from '@/app/actions/items'
-import { AddToCartButton } from './AddToCartButton'
+import { createClient } from '@/lib/supabase/server'
+import { AddToCartForm } from './AddToCartForm'
+import Link from 'next/link'
 
-export default async function InventoryPage() {
-  // 管理者ではないため、公開中の商品のみを取得
+export default async function InventoryPage(props: { params: Promise<{ lang: string }> }) {
+  const { lang } = await props.params
   const products = await getProducts(false)
+  
+  // ログイン状態の確認
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = !!user
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      {/* 共通の注意事項・Q&Aセクション */}
       <div className="mb-10 bg-blue-50 border border-blue-100 p-6 rounded-lg">
         <h2 className="text-xl font-bold mb-4 text-blue-900">Trading Cards - Q&A & Notes</h2>
         <ul className="list-disc list-inside space-y-2 text-blue-800 text-sm">
@@ -22,11 +27,9 @@ export default async function InventoryPage() {
 
       <h2 className="text-2xl font-bold mb-6">In-house Trading Cards</h2>
 
-      {/* 商品グリッド表示 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {products.map((product) => (
-          <div key={product.id} className="border rounded-lg overflow-hidden shadow-sm bg-white flex flex-col hover:shadow-md transition-shadow">
-            {/* サンプル画像 */}
+          <div key={product.id} className="border rounded-lg overflow-hidden shadow-sm bg-white flex flex-col hover:shadow-md transition-shadow relative">
             <div className="aspect-square bg-gray-100 relative">
               {product.image_url ? (
                 <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
@@ -35,42 +38,34 @@ export default async function InventoryPage() {
               )}
             </div>
             
-            {/* 商品情報 */}
             <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-lg mb-1 leading-tight">{product.name}</h3>
-              {/* ▼ 小数点以下を最大2桁まで表示 */}
               <p className="text-gray-800 font-semibold mb-2">
-                {product.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {product.price.toLocaleString(undefined, { maximumFractionDigits: 2 })} JPY
               </p>
               
               <div className="text-xs text-gray-500 mb-4 space-y-1">
-                {/* ▼ kg を g に変更 */}
                 <p>Weight: {product.weight} g</p>
-                <p>Stock: {product.stock > 0 ? `${product.stock} available` : <span className="text-red-500">Out of stock</span>}</p>
+                <p>Stock: {product.stock > 0 ? `${product.stock} available` : <span className="text-red-500 font-bold">Out of stock</span>}</p>
               </div>
               
-              {/* カート追加フォーム */}
               <div className="mt-auto">
-                {product.stock > 0 ? (
-                  <form action={addToCart}>
-                    {/* 既存の addToCart アクションに必要なデータを hidden で送信 */}
-                    <input type="hidden" name="url" value={`inhouse://${product.id}`} />
-                    <input type="hidden" name="title" value={product.name} />
-                    <input type="hidden" name="price_estimated" value={product.price} />
-                    
-                    <AddToCartButton />
-                  </form>
-                ) : (
+                {product.stock <= 0 ? (
                   <button disabled className="w-full bg-gray-200 text-gray-500 py-2.5 rounded font-medium cursor-not-allowed">
                     Sold Out
                   </button>
+                ) : !isLoggedIn ? (
+                  <Link href={`/${lang}/signup`} className="w-full bg-indigo-600 text-white py-2.5 rounded font-medium hover:bg-indigo-700 transition-colors flex justify-center text-sm">
+                    Register to Purchase
+                  </Link>
+                ) : (
+                  <AddToCartForm product={product} />
                 )}
               </div>
             </div>
           </div>
         ))}
 
-        {/* 商品が1つもない場合 */}
         {products.length === 0 && (
           <div className="col-span-full text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
             現在、販売中の商品はありません。<br/>(No items available at the moment.)
