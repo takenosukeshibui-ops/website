@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 export type ProductInput = {
   name: string
   price: number
+  cost_price: number
   weight: number
   stock: number
   image_url?: string
