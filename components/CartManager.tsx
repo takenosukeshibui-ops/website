@@ -190,6 +190,7 @@ export default function CartManager({
                                               ) : (
                                                <input
                                                   type="number"
+                                                  
                                                   min="0"
                                                   defaultValue={item.desired_price || ''}
                                                   placeholder={isEn ? "Optional" : "任意"}
