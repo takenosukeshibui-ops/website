@@ -185,7 +185,7 @@ export default function CartManager({
                                             <td className="p-2 md:p-4 text-center">
                                               {item.url?.startsWith('inhouse://') ? (
                                                 <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold py-1.5 px-2 rounded whitespace-nowrap">
-                                                  自社商品<br/>
+                                                  In-House Inventory<br/>
                                                 </div>
                                               ) : (
                                                <input

@@ -1287,7 +1287,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                     <td className="border border-slate-200 p-2 max-w-[150px] truncate">
                                                                         {isInhouse ? (
                                                                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold border border-blue-300">
-                                                                                自社商品
+                                                                                In-House Inventory
                                                                             </span>
                                                                         ) : item.url ? (
                                                                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block">
