@@ -38,10 +38,14 @@ export default async function InventoryPage() {
             {/* 商品情報 */}
             <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-lg mb-1 leading-tight">{product.name}</h3>
-              <p className="text-gray-800 font-semibold mb-2">¥{product.price.toLocaleString()}</p>
+              {/* ▼ 小数点以下を最大2桁まで表示 */}
+              <p className="text-gray-800 font-semibold mb-2">
+                {product.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </p>
               
               <div className="text-xs text-gray-500 mb-4 space-y-1">
-                <p>Weight: {product.weight} kg</p>
+                {/* ▼ kg を g に変更 */}
+                <p>Weight: {product.weight} g</p>
                 <p>Stock: {product.stock > 0 ? `${product.stock} available` : <span className="text-red-500">Out of stock</span>}</p>
               </div>
               
