@@ -75,30 +75,40 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
       <div className="md:col-span-1 bg-white p-6 rounded shadow">
         <h2 className="text-xl font-bold mb-4">{editingId ? '商品を編集' : '新規商品を追加'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 価格と重量の入力部分を以下のように変更 */}
+          <div>
+            <label className="block text-sm font-medium mb-1">商品名 (英語推奨)</label>
+            <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full border rounded p-2" />
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">販売価格</label>
-            <input 
-              type="number" 
-              required 
-              min="0" 
-              step="any"  
-              value={form.price} 
-              onChange={e => setForm({ ...form, price: Number(e.target.value) })} 
-              className="w-full border rounded p-2" 
-            />
+            <input type="number" required min="0" step="any" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full border rounded p-2" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">重量 (g)</label>
-            <input 
-              type="number" 
-              required 
-              min="0" 
-              step="any"  
-              value={form.weight} 
-              onChange={e => setForm({ ...form, weight: Number(e.target.value) })} 
-              className="w-full border rounded p-2" 
-            />
+            <input type="number" required min="0" step="any" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">在庫数</label>
+            <input type="number" required min="0" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })} className="w-full border rounded p-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">商品画像</label>
+            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full text-sm" />
+            {form.image_url && !file && <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover" />}
+          </div>
+          <div className="flex items-center">
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} className="mr-2" id="isActive" />
+            <label htmlFor="isActive" className="text-sm font-medium">公開する</label>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded flex-1 hover:bg-blue-700 disabled:opacity-50">
+              {loading ? '処理中...' : (editingId ? '更新' : '追加')}
+            </button>
+            {editingId && (
+              <button type="button" onClick={handleCancel} className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">
+                キャンセル
+              </button>
+            )}
           </div>
         </form>
       </div>
