@@ -1,17 +1,19 @@
 // app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import ClientAdminPage from './ClientAdminPage'
 
-export default async function AdminPage() {
+export default async function AdminPage(props: { params: Promise<{ lang: string }> }) {
+    // URLから言語(lang)を取得
+    const { lang } = await props.params
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        redirect('/login')
+        redirect(`/${lang}/login`)
     }
 
     const { data: profile } = await supabase
@@ -21,7 +23,7 @@ export default async function AdminPage() {
         .single()
 
     if (profile?.role !== 'admin') {
-        redirect('/dashboard')
+        redirect(`/${lang}/dashboard`)
     }
 
     const { data: orders, error } = await supabase
@@ -79,23 +81,24 @@ export default async function AdminPage() {
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+                        {/* [UPDATED] 当社在庫管理へのリンク先を /${lang}/admin/inventory に変更 */}
                         <Link 
-                            href="/admin/data" 
+                            href={`/${lang}/admin/inventory`} 
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
                             📦 当社在庫・マスタ管理
                         </Link>
 
+                        {/* 他のリンクも言語対応 */}
                         <Link 
-                            href="/admin/profit" 
+                            href={`/${lang}/admin/profit`} 
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
                             📊 利益・送料試算
                         </Link>
 
                         <Link 
-                            href="/calculator" 
+                            href={`/${lang}/calculator`} 
                             target="_blank"
                             className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
