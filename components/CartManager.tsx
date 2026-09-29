@@ -197,7 +197,7 @@ export default function CartManager({
                                                     const val = e.target.value.trim()
                                                     const numVal = val === '' ? null : Number(val)
                                                     if (numVal !== (item.desired_price || null)) {
-                                                      handleUpdateItem(item.id, item.quantity, numVal, item.remarks)
+                                                      updateCartItem(item.id, item.quantity, numVal, item.remarks)
                                                     }
                                                   }}
                                                   className="border rounded p-1.5 w-20 text-right text-sm"
