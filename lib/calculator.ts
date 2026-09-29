@@ -22,14 +22,67 @@ export interface CalculateShippingFeesParams {
     fedexCredentials?: FedexCredentials;
 }
 
+// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
+export function getJapanPostZone(countryCode?: string): number {
+    if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
+    const code = countryCode.toUpperCase();
+    
+    // 第1地帯（中国・韓国・台湾）
+    if (['CN', 'KR', 'TW'].includes(code)) return 1;
+    // 第4地帯（米国・米領）
+    if (['US', 'GU', 'MP', 'PR', 'VI', 'AS'].includes(code)) return 4;
+    // 第2地帯（アジア全般）
+    if (['IN', 'ID', 'KH', 'SG', 'LK', 'TH', 'NP', 'PK', 'BD', 'PH', 'BT', 'BN', 'VN', 'HK', 'MO', 'MY', 'MM', 'MV', 'MN', 'LA', 'TL'].includes(code)) return 2;
+    // 第5地帯（中南米・アフリカ）
+    if (['AR', 'UY', 'EC', 'SV', 'GP', 'CU', 'CR', 'CO', 'JM', 'CL', 'TT', 'PA', 'PY', 'BB', 'GF', 'BR', 'VE', 'PE', 'HN', 'MQ', 'DZ', 'UG', 'EG', 'ET', 'GH', 'GA', 'KE', 'CI', 'SL', 'DJ', 'ZW', 'SD', 'SN', 'TZ', 'TN', 'TG', 'NG', 'BW', 'MG', 'ZA', 'MU', 'MA', 'RW', 'RE'].includes(code)) return 5;
+    
+    // 第3地帯（オセアニア・カナダ・中近東・欧州など）
+    return 3;
+}
+
 /**
  * 配送方法と重量から概算送料を算出する共通関数
  */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number): number {
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number {
     if (!weightKg || weightKg <= 0) return 0;
 
     if (shippingMethod === '船便') {
-        return Math.ceil(2500 + weightKg * 850);
+        const billedWeight = Math.ceil(weightKg);
+        let fee = 0;
+
+        switch (zone) {
+            case 1: // 第1地帯
+                fee = 1800 + (billedWeight - 1) * 400;
+                break;
+            case 2: // 第2地帯
+                fee = billedWeight <= 10 
+                    ? 2100 + (billedWeight - 1) * 500 
+                    : 2100 + (9 * 500) + (billedWeight - 10) * 400;
+                break;
+            case 3: // 第3地帯
+                fee = billedWeight <= 10 
+                    ? 2500 + (billedWeight - 1) * 600 
+                    : 2500 + (9 * 600) + (billedWeight - 10) * 400;
+                break;
+            case 4: // 第4地帯
+                fee = billedWeight <= 10 
+                    ? 2600 + (billedWeight - 1) * 700 
+                    : 2600 + (9 * 700) + (billedWeight - 10) * 600;
+                break;
+            case 5: // 第5地帯
+                fee = billedWeight <= 10 
+                    ? 2700 + (billedWeight - 1) * 700 
+                    : 2700 + (9 * 700) + (billedWeight - 10) * 600;
+                break;
+            default:
+                fee = billedWeight <= 10 
+                    ? 2600 + (billedWeight - 1) * 700 
+                    : 2600 + (9 * 700) + (billedWeight - 10) * 600;
+                break;
+        }
+
+        // 基本料金＋追加重量分＋書留料金(460円)
+        return fee + 460;
     } else {
         return Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
     }
@@ -38,17 +91,19 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
 /**
  * 日本郵便（船便・APIなしのため固定概算テーブル計算）
  */
-export function calculateJapanPostSeaFee(weightKg: number) {
+export function calculateJapanPostSeaFee(weightKg: number, destination?: string) {
     if (!weightKg || weightKg <= 0) {
         return { total: null, serviceName: '日本郵便 (船便)', deliveryDaysJa: '約1〜3ヶ月', deliveryDaysEn: 'Approx 1-3 months', error: '重量が無効です' };
     }
 
-    const baseFee = Math.ceil(2500 + weightKg * 850);
+    const zone = getJapanPostZone(destination);
+    const baseFee = calculateShippingFeeByMethod('船便', weightKg, zone);
+
     return {
         total: baseFee,
         serviceName: '日本郵便 (船便)',
-        deliveryDaysJa: '約1〜3ヶ月', // 🌟 1-3ヶ月に変更
-        deliveryDaysEn: 'Approx 1-3 months', // 🌟 1-3ヶ月に変更
+        deliveryDaysJa: '約1〜3ヶ月',
+        deliveryDaysEn: 'Approx 1-3 months',
         note: weightKg > 30 ? '※30kg超のため分割発送での試算となります' : undefined
     };
 }
@@ -328,7 +383,7 @@ export async function calculateFedexRates(
 export async function calculateShippingFees(params: CalculateShippingFeesParams) {
     const { destination, postalCode, weight, isEstimate = false, fedexCredentials } = params;
 
-    const japanPost = calculateJapanPostSeaFee(weight);
+    const japanPost = calculateJapanPostSeaFee(weight, destination);
     const fedexResult = await calculateFedexRates(destination, postalCode, weight, isEstimate, fedexCredentials);
 
     return {

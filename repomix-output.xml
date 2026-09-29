@@ -165,6 +165,56 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
+<file path="app/[lang]/admin/data/rarity/fee/page.tsx">
+// app/[lang]/admin/data/rarity/fee/page.tsx
+// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
+⋮----
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+⋮----
+const fetchFees = () =>
+⋮----
+const handleAdd = async (e: React.FormEvent) =>
+⋮----
+const handleDelete = async (id: number, feeName: string) =>
+⋮----
+{/* [UPDATED] 利益計算ダッシュボードボタンを削除 */}
+⋮----
+onChange=
+</file>
+
+<file path="app/[lang]/admin/profit/page.tsx">
+// app/admin/profit/page.tsx
+// [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
+⋮----
+import { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
+import { countries } from '@/components/countries';
+⋮----
+const handleClickOutside = (event: MouseEvent) =>
+⋮----
+onChange(country.code);
+setIsOpen(false);
+setQuery("");
+⋮----
+const [costPrice, setCostPrice] = useState(''); // [NEW] 手動原価
+⋮----
+// 為替レート取得用 State
+⋮----
+// 内訳の開閉状態管理 State
+⋮----
+const toggleDetail = (key: string) =>
+⋮----
+// [UPDATED] マスタ商品選択時に原価・利益率・利益率タイプも連動セット
+const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) =>
+⋮----
+// 原価が明示的に手動設定されていればそれを優先、無ければ自動計算
+⋮----
+onChange=
+⋮----
+onClick=
+</file>
+
 <file path="app/[lang]/admin/page.tsx">
 // app/[lang]/admin/page.tsx
 // [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
@@ -176,35 +226,6 @@ import ClientAdminPage from './ClientAdminPage'
 export default async function AdminPage()
 ⋮----
 {/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
-</file>
-
-<file path="app/actions/items.ts">
-// app/actions/items.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// [NEW] 共通キャッシュ破棄関数
-function revalidateAll()
-⋮----
-export async function addToCart(formData: FormData)
-⋮----
-status: 'draft' // カート内商品は draft として追加
-⋮----
-revalidateAll() // [UPDATED] 全ページへ反映
-⋮----
-export async function deleteItem(itemId: string)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
-export async function replyToAdminNote(itemId: string, remarks: string)
-⋮----
-revalidateAll() // [UPDATED]
 </file>
 
 <file path="app/actions/profile.ts">
@@ -304,6 +325,33 @@ import { calculateShippingFees } from '@/lib/calculator'
 // Vercelキャッシュを無効化
 ⋮----
 export async function POST(request: Request)
+</file>
+
+<file path="app/api/data/route.ts">
+// app/api/data/route.ts
+// [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+⋮----
+// GET: レアリティおよび手数料一覧の取得
+export async function GET()
+⋮----
+// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price 削除)
+export async function POST(req: Request)
+⋮----
+price: parsedPrice, // 仕入れ単価
+sell_price: Number(sell_price) || 0, // 販売価格
+profit_rate: Number(profit_rate) || 0, // 利益率
+profit_type: profit_type || 'cost', // 利益率タイプ ('cost' | 'sales')
+tax: parsedTax, // 消費税率
+weight: Number(weight) || 0, // 重量
+stock: Number(stock) || 0 // 在庫数
+⋮----
+// PATCH: 在庫数の即時更新用API
+export async function PATCH(req: Request)
+⋮----
+// DELETE: レアリティまたは手数料の削除
+export async function DELETE(req: Request)
 </file>
 
 <file path="app/api/wise/quote/route.ts">
@@ -828,22 +876,68 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/data/rarity/fee/page.tsx">
-// app/[lang]/admin/data/rarity/fee/page.tsx
-// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
+<file path="app/[lang]/admin/data/rarity/page.tsx">
+// app/[lang]/admin/data/rarity/page.tsx
+// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
 ⋮----
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 ⋮----
-const fetchFees = () =>
+const [sellPrice, setSellPrice] = useState(''); // 販売価格
+const [price, setPrice] = useState(''); // 仕入れ単価
+const [tax, setTax] = useState('10'); // 消費税率
+const [profitRate, setProfitRate] = useState(''); // 利益率
+const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
+const [weight, setWeight] = useState(''); // 重量
+const [stock, setStock] = useState('0'); // 在庫数
 ⋮----
+const fetchRarities = () =>
+⋮----
+// [UPDATED] 保存処理にエラーハンドリングと通知を追加
 const handleAdd = async (e: React.FormEvent) =>
 ⋮----
-const handleDelete = async (id: number, feeName: string) =>
+// 必須チェック
 ⋮----
-{/* [UPDATED] 利益計算ダッシュボードボタンを削除 */}
+const handleDelete = async (id: number, rarityName: string) =>
 ⋮----
-onChange=
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5-1. 利益率タイプ */}
+⋮----
+{/* 5-2. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 初期在庫数 */}
+⋮----
+{/* 1. 商品名 */}
+⋮----
+{/* 2. 販売価格 */}
+⋮----
+{/* 3. 仕入れ単価 */}
+⋮----
+{/* 4. 消費税率 */}
+⋮----
+{/* 5. 利益率 */}
+⋮----
+{/* 6. 重量 */}
+⋮----
+{/* 7. 在庫数 */}
+</file>
+
+<file path="app/[lang]/admin/data/page.tsx">
+// app/[lang]/inventory/page.tsx
+⋮----
+import { useState, useEffect, use } from 'react';
+import Link from 'next/link';
+⋮----
+// ▼ 変更：キャッシュを無効化し、常に最新のデータを取得する
 </file>
 
 <file path="app/[lang]/dashboard/settings/page.tsx">
@@ -1117,6 +1211,35 @@ export default async function RootLayout({
 })
 </file>
 
+<file path="app/actions/items.ts">
+// app/actions/items.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+// [NEW] 共通キャッシュ破棄関数
+function revalidateAll()
+⋮----
+export async function addToCart(formData: FormData)
+⋮----
+status: 'draft' // カート内商品は draft として追加
+⋮----
+revalidateAll() // [UPDATED] 全ページへ反映
+⋮----
+export async function deleteItem(itemId: string)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
+export async function replyToAdminNote(itemId: string, remarks: string)
+⋮----
+revalidateAll() // [UPDATED]
+</file>
+
 <file path="app/api/admin/fedex/shipment/route.ts">
 // app/api/admin/fedex/shipment/route.ts
 import { createClient } from '@/lib/supabase/server'
@@ -1187,127 +1310,6 @@ export const getDictionary = async (locale: 'en' | 'ja') =>
 // 指定された言語がない場合は英語をフォールバックとして使用
 </file>
 
-<file path="app/[lang]/admin/profit/page.tsx">
-// app/admin/profit/page.tsx
-// [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
-⋮----
-import { useState, useEffect, useRef, useMemo } from 'react';
-import Link from 'next/link';
-import { countries } from '@/components/countries';
-⋮----
-const handleClickOutside = (event: MouseEvent) =>
-⋮----
-onChange(country.code);
-setIsOpen(false);
-setQuery("");
-⋮----
-const [costPrice, setCostPrice] = useState(''); // [NEW] 手動原価
-⋮----
-// 為替レート取得用 State
-⋮----
-// 内訳の開閉状態管理 State
-⋮----
-const toggleDetail = (key: string) =>
-⋮----
-// [UPDATED] マスタ商品選択時に原価・利益率・利益率タイプも連動セット
-const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) =>
-⋮----
-// 原価が明示的に手動設定されていればそれを優先、無ければ自動計算
-⋮----
-onChange=
-⋮----
-onClick=
-</file>
-
-<file path="app/[lang]/admin/ClientAdminPage.tsx">
-import React, { useState, useEffect } from 'react'
-import { useFormStatus } from 'react-dom'
-import { StatusBadge } from '@/components/StatusBadge'
-import ItemStatusSelect from '@/components/ItemStatusSelect'
-import {
-    sendInvoice,
-    deleteInvoice,
-    shipOrder,
-    deleteShip,
-    cancelShip,
-    updateItemQuantity,
-    updateItemPrice,
-    updateItemTitle,
-    updateTrackingNumber,
-    updateAdminNote,
-    cancelAdminNote,
-    updateOrderStatusToPaymentRequired,
-    cancelPaymentRequired,
-    updateItemStatus,
-    sendPayPalInvoice
-} from '@/app/actions/admin'
-⋮----
-function ActionStateButton(
-⋮----
-const formattedDisplay = () =>
-⋮----
-setIsFocused(true)
-⋮----
-setTimeout(()
-⋮----
-onChange=
-⋮----
-setIsFocused(false)
-const val = Number(e.target.value)
-⋮----
-<form action=
-⋮----
-const fetchWiseQuote = async (orderId: string, amount: number) =>
-⋮----
-const calculateFeesForOrders = async () =>
-⋮----
-if (!amount || amount <= 0)
-⋮----
-{/* 1. 総重量 */}
-⋮----
-setOrderInputs(prev => (
-setEditingWeight(prev
-⋮----
-{/* 2. 配送ラベル */}
-⋮----
-{/* 3. 追跡番号 */}
-⋮----
-{/* 5. お支払い金額 */}
-⋮----
-{/* 6. 請求書送信 (PayPal / Wise 対応) */}
-⋮----
-{/* 7. 発送状態 */}
-⋮----
-決済手数料
-</file>
-
-<file path="app/api/data/route.ts">
-// app/api/data/route.ts
-// [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// GET: レアリティおよび手数料一覧の取得
-export async function GET()
-⋮----
-// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price 削除)
-export async function POST(req: Request)
-⋮----
-price: parsedPrice, // 仕入れ単価
-sell_price: Number(sell_price) || 0, // 販売価格
-profit_rate: Number(profit_rate) || 0, // 利益率
-profit_type: profit_type || 'cost', // 利益率タイプ ('cost' | 'sales')
-tax: parsedTax, // 消費税率
-weight: Number(weight) || 0, // 重量
-stock: Number(stock) || 0 // 在庫数
-⋮----
-// PATCH: 在庫数の即時更新用API
-export async function PATCH(req: Request)
-⋮----
-// DELETE: レアリティまたは手数料の削除
-export async function DELETE(req: Request)
-</file>
-
 <file path="components/StatusBadge.tsx">
 // components/StatusBadge.tsx
 // [UPDATED] DBのステータス値と、辞書(en.json/ja.json)のキーを紐づけるマッピングを追加
@@ -1323,6 +1325,15 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = (
 ⋮----
 // マッピングされた辞書キーを取得
+</file>
+
+<file path="app/[lang]/inventory/page.tsx">
+// app/[lang]/inventory/page.tsx
+⋮----
+import { useState, useEffect, use } from 'react';
+import Link from 'next/link';
+import { addToCart } from '@/app/actions/items';
+import { useFormStatus } from 'react-dom';
 </file>
 
 <file path="app/actions/auth.ts">
@@ -1360,29 +1371,6 @@ export async function changePassword(prevState: any, formData: FormData)
 export async function changeEmail(prevState: any, formData: FormData)
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
-⋮----
-export async function GET(request: Request)
-⋮----
-status: 'draft' // カート内商品として追加
-⋮----
-// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
-</file>
-
-<file path="app/[lang]/admin/data/page.tsx">
-// app/[lang]/inventory/page.tsx
-⋮----
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
-⋮----
-// ▼ 変更：キャッシュを無効化し、常に最新のデータを取得する
-</file>
-
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -1404,66 +1392,18 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
 </file>
 
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/[lang]/admin/data/rarity/page.tsx
-// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
 ⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+export async function GET(request: Request)
 ⋮----
-const [sellPrice, setSellPrice] = useState(''); // 販売価格
-const [price, setPrice] = useState(''); // 仕入れ単価
-const [tax, setTax] = useState('10'); // 消費税率
-const [profitRate, setProfitRate] = useState(''); // 利益率
-const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
-const [weight, setWeight] = useState(''); // 重量
-const [stock, setStock] = useState('0'); // 在庫数
+status: 'draft' // カート内商品として追加
 ⋮----
-const fetchRarities = () =>
-⋮----
-// [UPDATED] 保存処理にエラーハンドリングと通知を追加
-const handleAdd = async (e: React.FormEvent) =>
-⋮----
-// 必須チェック
-⋮----
-const handleDelete = async (id: number, rarityName: string) =>
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5-1. 利益率タイプ */}
-⋮----
-{/* 5-2. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 初期在庫数 */}
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 在庫数 */}
-</file>
-
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-⋮----
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
+// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
 </file>
 
 <file path="app/actions/cart.ts">
@@ -1536,6 +1476,78 @@ const val = e.target.value.trim()
 onBlur=
 ⋮----
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/[lang]/admin/ClientAdminPage.tsx">
+import React, { useState, useEffect } from 'react'
+import { useFormStatus } from 'react-dom'
+import { StatusBadge } from '@/components/StatusBadge'
+import ItemStatusSelect from '@/components/ItemStatusSelect'
+import {
+    sendInvoice,
+    deleteInvoice,
+    shipOrder,
+    deleteShip,
+    cancelShip,
+    updateItemQuantity,
+    updateItemPrice,
+    updateItemTitle,
+    updateTrackingNumber,
+    updateAdminNote,
+    cancelAdminNote,
+    updateOrderStatusToPaymentRequired,
+    cancelPaymentRequired,
+    updateItemStatus,
+    sendPayPalInvoice
+} from '@/app/actions/admin'
+⋮----
+function ActionStateButton(
+⋮----
+const formattedDisplay = () =>
+⋮----
+setIsFocused(true)
+⋮----
+setTimeout(()
+⋮----
+onChange=
+⋮----
+setIsFocused(false)
+const val = Number(e.target.value)
+⋮----
+let proxyFeeTargetTotal = 0; // ★ 変数を追加
+⋮----
+// 自社取扱商品（URLが inhouse-item- で始まらない商品）のみ手数料計算の対象に加算
+⋮----
+const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
+⋮----
+<form action=
+⋮----
+const fetchWiseQuote = async (orderId: string, amount: number) =>
+⋮----
+const calculateFeesForOrders = async () =>
+⋮----
+if (!amount || amount <= 0)
+⋮----
+{/* ▼ クリックせずに見える担当者情報 */}
+⋮----
+{/* ▼ 住所や詳細を確認するためのボタン */}
+⋮----
+{/* 1. 総重量 */}
+⋮----
+setOrderInputs(prev => (
+setEditingWeight(prev
+⋮----
+{/* 2. 配送ラベル */}
+⋮----
+{/* 3. 追跡番号 */}
+⋮----
+{/* 5. お支払い金額 */}
+⋮----
+{/* 6. 請求書送信 (PayPal / Wise 対応) */}
+⋮----
+{/* 7. 発送状態 */}
+⋮----
+決済手数料
 </file>
 
 <file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
@@ -2069,9 +2081,15 @@ function getTrackingUrl(trackingNumber: string): string
 ⋮----
 function calculateUserInvoiceDetails(order: any)
 ⋮----
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+⋮----
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+⋮----
 // 🌟 修正：order_number を user_order_seq に変更
 ⋮----
 const getTranslatedShippingMethod = (method: string) =>
+⋮----
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
 ⋮----
 <form action=
 ⋮----
