@@ -45,11 +45,8 @@ The content is organized as follows:
 app/
   [lang]/
     admin/
-      data/
-        rarity/
-          fee/
-            page.tsx
-          page.tsx
+      inventory/
+        AdminInventoryClient.tsx
         page.tsx
       profit/
         page.tsx
@@ -67,6 +64,7 @@ app/
     forgot-password/
       page.tsx
     inventory/
+      AddToCartForm.tsx
       page.tsx
     login/
       page.tsx
@@ -80,6 +78,7 @@ app/
     admin.ts
     auth.ts
     cart.ts
+    inventory.ts
     items.ts
     profile.ts
     wise.ts
@@ -101,8 +100,6 @@ app/
       add/
         route.ts
     calculate/
-      route.ts
-    data/
       route.ts
     wise/
       quote/
@@ -165,79 +162,6 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/[lang]/admin/data/rarity/fee/page.tsx">
-// app/[lang]/admin/data/rarity/fee/page.tsx
-// [UPDATED] 「📊 利益計算ダッシュボードへ」ボタンを削除
-⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-⋮----
-const fetchFees = () =>
-⋮----
-const handleAdd = async (e: React.FormEvent) =>
-⋮----
-const handleDelete = async (id: number, feeName: string) =>
-⋮----
-{/* [UPDATED] 利益計算ダッシュボードボタンを削除 */}
-⋮----
-onChange=
-</file>
-
-<file path="app/[lang]/admin/data/rarity/page.tsx">
-// app/[lang]/admin/data/rarity/page.tsx
-// [UPDATED] 保存時のエラーハンドリングとアラート通知を追加
-⋮----
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-⋮----
-const [sellPrice, setSellPrice] = useState(''); // 販売価格
-const [price, setPrice] = useState(''); // 仕入れ単価
-const [tax, setTax] = useState('10'); // 消費税率
-const [profitRate, setProfitRate] = useState(''); // 利益率
-const [profitType, setProfitType] = useState<'cost' | 'sales'>('cost'); // 利益率タイプ
-const [weight, setWeight] = useState(''); // 重量
-const [stock, setStock] = useState('0'); // 在庫数
-⋮----
-const fetchRarities = () =>
-⋮----
-// [UPDATED] 保存処理にエラーハンドリングと通知を追加
-const handleAdd = async (e: React.FormEvent) =>
-⋮----
-// 必須チェック
-⋮----
-const handleDelete = async (id: number, rarityName: string) =>
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5-1. 利益率タイプ */}
-⋮----
-{/* 5-2. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 初期在庫数 */}
-⋮----
-{/* 1. 商品名 */}
-⋮----
-{/* 2. 販売価格 */}
-⋮----
-{/* 3. 仕入れ単価 */}
-⋮----
-{/* 4. 消費税率 */}
-⋮----
-{/* 5. 利益率 */}
-⋮----
-{/* 6. 重量 */}
-⋮----
-{/* 7. 在庫数 */}
-</file>
-
 <file path="app/[lang]/admin/profit/page.tsx">
 // app/admin/profit/page.tsx
 // [UPDATED] マスタ選択時に「原価」「利益率」「利益率タイプ(仕入れ比/売上比)」も自動セットするよう拡張
@@ -270,17 +194,24 @@ onChange=
 onClick=
 </file>
 
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/data へ統一
+<file path="app/[lang]/dashboard/settings/page.tsx">
+// app/[lang]/dashboard/settings/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
+import ProfileForm from './ProfileForm'
+import { getDictionary } from '@/lib/dictionaries' // [NEW] 辞書取得関数をインポート
 ⋮----
-export default async function AdminPage()
+export default async function SettingsPage(props: {
+    params: Promise<{ lang: 'en' | 'ja' }>
+})
 ⋮----
-{/* [UPDATED] 当社在庫管理へのリンク先を /admin/data に一本化 */}
+const { lang } = await props.params // [NEW] 言語パラメータを取得
+const dict = await getDictionary(lang) // [NEW] 辞書を取得
+⋮----
+{/* [UPDATED] 辞書を使って多言語化し、遷移先にも lang を付与 */}
+⋮----
+{/* [UPDATED] dict を Props として渡す */}
 </file>
 
 <file path="app/actions/admin.ts">
@@ -504,33 +435,6 @@ import { calculateShippingFees } from '@/lib/calculator'
 export async function POST(request: Request)
 </file>
 
-<file path="app/api/data/route.ts">
-// app/api/data/route.ts
-// [UPDATED] 原価 (cost_price) フィールドを削除し、指定の並び順とデータ項目に対応
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// GET: レアリティおよび手数料一覧の取得
-export async function GET()
-⋮----
-// [UPDATED] POST: レアリティまたは手数料の新規登録 (cost_price 削除)
-export async function POST(req: Request)
-⋮----
-price: parsedPrice, // 仕入れ単価
-sell_price: Number(sell_price) || 0, // 販売価格
-profit_rate: Number(profit_rate) || 0, // 利益率
-profit_type: profit_type || 'cost', // 利益率タイプ ('cost' | 'sales')
-tax: parsedTax, // 消費税率
-weight: Number(weight) || 0, // 重量
-stock: Number(stock) || 0 // 在庫数
-⋮----
-// PATCH: 在庫数の即時更新用API
-export async function PATCH(req: Request)
-⋮----
-// DELETE: レアリティまたは手数料の削除
-export async function DELETE(req: Request)
-</file>
-
 <file path="app/api/wise/quote/route.ts">
 // app/api/wise/quote/route.ts
 import { NextResponse } from 'next/server' // [UPDATED] 'next' から 'next/server' に修正
@@ -553,6 +457,29 @@ input,
 body {
 </file>
 
+<file path="components/ItemStatusBadge.tsx">
+// components/ItemStatusBadge.tsx
+// [UPDATED] dict オブジェクトへの安全なアクセスを徹底
+import React from 'react';
+⋮----
+export function ItemStatusBadge(
+</file>
+
+<file path="components/ItemStatusSelect.tsx">
+// components/ItemStatusSelect.tsx
+// [UPDATED] dict をオプションで受け取り、プルダウン内のラベルを多言語対応化
+⋮----
+import React, { useState } from 'react'
+⋮----
+dict?: any // [NEW] 辞書データをオプションで受け取る
+⋮----
+// [NEW] 辞書データから言語を判定（dictがない場合は日本語フォールバック）
+⋮----
+// ステータスごとのラベルと色設定（言語に応じてラベルを切り替え）
+⋮----
+const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) =>
+</file>
+
 <file path="components/LanguageSwitcher.tsx">
 // [UPDATED]
 ⋮----
@@ -565,6 +492,23 @@ export default function LanguageSwitcher()
 const handleLanguageChange = (newLang: string) =>
 ⋮----
 // サポート言語がパス先頭に含まれている場合は置き換え、含まれていない場合は先頭に挿入
+</file>
+
+<file path="components/StatusBadge.tsx">
+// components/StatusBadge.tsx
+// [UPDATED] DBのステータス値と、辞書(en.json/ja.json)のキーを紐づけるマッピングを追加
+import React from 'react';
+⋮----
+interface StatusBadgeProps {
+    status?: string;
+    dict?: any; 
+}
+⋮----
+// [NEW] DBに保存されるステータスと、辞書のキーをマッピング
+⋮----
+export const StatusBadge: React.FC<StatusBadgeProps> = (
+⋮----
+// マッピングされた辞書キーを取得
 </file>
 
 <file path="components/StatusSelect.tsx">
@@ -965,6 +909,40 @@ import type { NextConfig } from "next";
 /* config options here */
 </file>
 
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
 <file path="postcss.config.mjs">
 
 </file>
@@ -1053,33 +1031,30 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/data/page.tsx">
-// app/[lang]/inventory/page.tsx
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
 ⋮----
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
+export default async function AdminInventoryPage()
 ⋮----
-// ▼ 変更：キャッシュを無効化し、常に最新のデータを取得する
+// 管理者権限として全ての商品(非公開含む)を取得
 </file>
 
-<file path="app/[lang]/dashboard/settings/page.tsx">
-// app/[lang]/dashboard/settings/page.tsx
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import ProfileForm from './ProfileForm'
-import { getDictionary } from '@/lib/dictionaries' // [NEW] 辞書取得関数をインポート
+import ClientAdminPage from './ClientAdminPage'
 ⋮----
-export default async function SettingsPage(props: {
-    params: Promise<{ lang: 'en' | 'ja' }>
-})
+export default async function AdminPage(props:
 ⋮----
-const { lang } = await props.params // [NEW] 言語パラメータを取得
-const dict = await getDictionary(lang) // [NEW] 辞書を取得
+// URLから言語(lang)を取得
 ⋮----
-{/* [UPDATED] 辞書を使って多言語化し、遷移先にも lang を付与 */}
+{/* [UPDATED] 当社在庫管理へのリンク先を /${lang}/admin/inventory に変更 */}
 ⋮----
-{/* [UPDATED] dict を Props として渡す */}
+{/* 他のリンクも言語対応 */}
 </file>
 
 <file path="app/[lang]/forgot-password/page.tsx">
@@ -1122,6 +1097,41 @@ import { useActionState } from 'react'
 import { updatePassword } from '@/app/actions/auth'
 </file>
 
+<file path="app/actions/auth.ts">
+// app/actions/auth.ts
+// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+⋮----
+// ▼ ログイン処理
+export async function login(prevState: any, formData: FormData)
+⋮----
+// ▼ 新規登録（サインアップ）処理
+export async function signup(prevState: any, formData: FormData)
+⋮----
+// ▼ パスワードリセットメール送信処理
+export async function resetPassword(prevState: any, formData: FormData)
+⋮----
+// 現在のサイトのURL（ドメイン）を取得
+⋮----
+// リセット用リンク付きのメールを送信
+⋮----
+redirectTo: `${origin}/update-password`, // メール内のリンク先
+⋮----
+// ▼ 新しいパスワードの保存処理
+export async function updatePassword(prevState: any, formData: FormData)
+⋮----
+// パスワードを更新
+⋮----
+// ▼ ログイン中ユーザーのパスワード変更処理
+export async function changePassword(prevState: any, formData: FormData)
+⋮----
+// ▼ ログイン中ユーザーのメールアドレス変更処理
+export async function changeEmail(prevState: any, formData: FormData)
+</file>
+
 <file path="components/CountryCombobox.tsx">
 // components/CountryCombobox.tsx
 // [NEW] 検索可能な国選択コンポーネント
@@ -1144,53 +1154,26 @@ onChange(country.code)
 setIsOpen(false)
 </file>
 
-<file path="components/ItemStatusSelect.tsx">
-// components/ItemStatusSelect.tsx
-// [UPDATED] dict をオプションで受け取り、プルダウン内のラベルを多言語対応化
+<file path="lib/dictionaries.ts">
+// lib/dictionaries.ts
+// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
 ⋮----
-import React, { useState } from 'react'
+export const getDictionary = async (locale: 'en' | 'ja') =>
 ⋮----
-dict?: any // [NEW] 辞書データをオプションで受け取る
-⋮----
-// [NEW] 辞書データから言語を判定（dictがない場合は日本語フォールバック）
-⋮----
-// ステータスごとのラベルと色設定（言語に応じてラベルを切り替え）
-⋮----
-const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) =>
+// 指定された言語がない場合は英語をフォールバックとして使用
 </file>
 
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
+import React, { useState } from 'react'
+import { addToCart } from '@/app/actions/items'
+⋮----
+const handleAction = async (formData: FormData) =>
+⋮----
+// 成功時にトーストを表示し、3秒後に消す
+⋮----
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+⋮----
+{/* トースト通知 (画面右下に固定表示) */}
 </file>
 
 <file path="app/[lang]/layout.tsx">
@@ -1293,84 +1276,6 @@ export interface Country {
 }
 </file>
 
-<file path="components/ItemStatusBadge.tsx">
-// components/ItemStatusBadge.tsx
-// [UPDATED] dict オブジェクトへの安全なアクセスを徹底
-import React from 'react';
-⋮----
-export function ItemStatusBadge(
-</file>
-
-<file path="lib/dictionaries.ts">
-// lib/dictionaries.ts
-// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
-⋮----
-export const getDictionary = async (locale: 'en' | 'ja') =>
-⋮----
-// 指定された言語がない場合は英語をフォールバックとして使用
-</file>
-
-<file path="components/StatusBadge.tsx">
-// components/StatusBadge.tsx
-// [UPDATED] DBのステータス値と、辞書(en.json/ja.json)のキーを紐づけるマッピングを追加
-import React from 'react';
-⋮----
-interface StatusBadgeProps {
-    status?: string;
-    dict?: any; 
-}
-⋮----
-// [NEW] DBに保存されるステータスと、辞書のキーをマッピング
-⋮----
-export const StatusBadge: React.FC<StatusBadgeProps> = (
-⋮----
-// マッピングされた辞書キーを取得
-</file>
-
-<file path="app/[lang]/inventory/page.tsx">
-// app/[lang]/inventory/page.tsx
-⋮----
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
-import { addToCart } from '@/app/actions/items';
-import { useFormStatus } from 'react-dom';
-</file>
-
-<file path="app/actions/auth.ts">
-// app/actions/auth.ts
-// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-⋮----
-// ▼ ログイン処理
-export async function login(prevState: any, formData: FormData)
-⋮----
-// ▼ 新規登録（サインアップ）処理
-export async function signup(prevState: any, formData: FormData)
-⋮----
-// ▼ パスワードリセットメール送信処理
-export async function resetPassword(prevState: any, formData: FormData)
-⋮----
-// 現在のサイトのURL（ドメイン）を取得
-⋮----
-// リセット用リンク付きのメールを送信
-⋮----
-redirectTo: `${origin}/update-password`, // メール内のリンク先
-⋮----
-// ▼ 新しいパスワードの保存処理
-export async function updatePassword(prevState: any, formData: FormData)
-⋮----
-// パスワードを更新
-⋮----
-// ▼ ログイン中ユーザーのパスワード変更処理
-export async function changePassword(prevState: any, formData: FormData)
-⋮----
-// ▼ ログイン中ユーザーのメールアドレス変更処理
-export async function changeEmail(prevState: any, formData: FormData)
-</file>
-
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -1392,90 +1297,33 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
+<file path="app/actions/inventory.ts">
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
 ⋮----
-export async function GET(request: Request)
+// 商品情報の型定義
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
 ⋮----
-status: 'draft' // カート内商品として追加
+// 1. 全商品取得 (顧客・管理者共通)
+export async function getProducts(isAdmin = false)
 ⋮----
-// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
-</file>
-
-<file path="app/[lang]/admin/ClientAdminPage.tsx">
-import React, { useState, useEffect } from 'react'
-import { useFormStatus } from 'react-dom'
-import { StatusBadge } from '@/components/StatusBadge'
-import ItemStatusSelect from '@/components/ItemStatusSelect'
-import {
-    sendInvoice,
-    deleteInvoice,
-    shipOrder,
-    deleteShip,
-    cancelShip,
-    updateItemQuantity,
-    updateItemPrice,
-    updateItemTitle,
-    updateTrackingNumber,
-    updateAdminNote,
-    cancelAdminNote,
-    updateOrderStatusToPaymentRequired,
-    cancelPaymentRequired,
-    updateItemStatus,
-    sendPayPalInvoice
-} from '@/app/actions/admin'
+// 管理者でなければ公開中のものだけを取得
 ⋮----
-function ActionStateButton(
+// 2. 商品の新規追加 (管理者のみ)
+export async function addProduct(product: ProductInput)
 ⋮----
-const formattedDisplay = () =>
+// 3. 商品の更新 (管理者のみ)
+export async function updateProduct(id: string, updates: Partial<ProductInput>)
 ⋮----
-setIsFocused(true)
-⋮----
-setTimeout(()
-⋮----
-onChange=
-⋮----
-setIsFocused(false)
-const val = Number(e.target.value)
-⋮----
-let proxyFeeTargetTotal = 0; // ★ 変数を追加
-⋮----
-// 自社取扱商品（URLが inhouse-item- で始まらない商品）のみ手数料計算の対象に加算
-⋮----
-const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
-⋮----
-<form action=
-⋮----
-const fetchWiseQuote = async (orderId: string, amount: number) =>
-⋮----
-const calculateFeesForOrders = async () =>
-⋮----
-if (!amount || amount <= 0)
-⋮----
-{/* ▼ クリックせずに見える担当者情報 */}
-⋮----
-{/* ▼ 住所や詳細を確認するためのボタン */}
-⋮----
-{/* 1. 総重量 */}
-⋮----
-setOrderInputs(prev => (
-setEditingWeight(prev
-⋮----
-{/* 2. 配送ラベル */}
-⋮----
-{/* 3. 追跡番号 */}
-⋮----
-{/* 5. お支払い金額 */}
-⋮----
-{/* 6. 請求書送信 (PayPal / Wise 対応) */}
-⋮----
-{/* 7. 発送状態 */}
-⋮----
-決済手数料
+export async function uploadProductImage(formData: FormData)
 </file>
 
 <file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
@@ -1554,76 +1402,41 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-⋮----
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
 ⋮----
-export async function deleteCartItem(itemId: string)
+export async function GET(request: Request)
 ⋮----
-// 1. ユーザー情報の取得
+status: 'draft' // カート内商品として追加
 ⋮----
-// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
-⋮----
-// 🔍 デバッグ2: 自分の所有物かチェック
-⋮----
-// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
-⋮----
-// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
-⋮----
-// 5. サイト全体のキャッシュを確実に破棄
-⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
-⋮----
-// 1. ユーザーの配送先プロフを取得
-⋮----
-// 2. 新規注文レコードの作成
-⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
-⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
-⋮----
-// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
-⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
-⋮----
-// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
-⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
 </file>
 
-<file path="components/CartManager.tsx">
-// components/CartManager.tsx
+<file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
+import React, { useState } from 'react'
+import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
 ⋮----
-import { useState, useEffect } from 'react'
-import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
-import { updateCartItem } from '@/app/actions/items'
+cost_price: 0, // 追加
 ⋮----
-// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+const handleEdit = (product: any) =>
 ⋮----
-const filterCartItems = (items: any[]) =>
+cost_price: product.cost_price || 0, // 追加
 ⋮----
-const sanitizeShipping = (val?: string) =>
+const handleCancel = () =>
 ⋮----
-const handleCheckout = async () =>
+const handleSubmit = async (e: React.FormEvent) =>
 ⋮----
-// 確実な言語判定でダイアログを表示
+{/* フォームセクション */}
 ⋮----
-// 成功したらローカルのカート見た目を即座に空にする
+<input type="checkbox" checked=
 ⋮----
-const handleDelete = async (itemId: string) =>
+{/* 一覧セクション */}
 ⋮----
-{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
-⋮----
-const val = e.target.value.trim()
-⋮----
-{/* ▼ 変更: 数量 (Quantity) */}
-⋮----
-onBlur=
-⋮----
-{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+<button onClick=
 </file>
 
 <file path="dictionaries/en.json">
@@ -1780,50 +1593,44 @@ onBlur=
 }
 </file>
 
-<file path="app/[lang]/estimate/page.tsx">
-import React, { useState, useEffect, use } from 'react'
-import Link from 'next/link'
-import CountryCombobox from '@/components/CountryCombobox'
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
 ⋮----
-// 対応する通貨のリスト
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 ⋮----
-// 1. ユーザー入力用の State
+export async function deleteCartItem(itemId: string)
 ⋮----
-// ▼ 追加：為替レートと表示通貨用のState
+// 1. ユーザー情報の取得
 ⋮----
-// 2. 計算結果の State
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
 ⋮----
-// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
+// 🔍 デバッグ2: 自分の所有物かチェック
 ⋮----
-// 入力された文字列から数字のみを抽出してStateにセットする共通関数
-const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
 ⋮----
-// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
 ⋮----
-// 配送先国または重量が変わったときに送料を再計算
+// 5. サイト全体のキャッシュを確実に破棄
 ⋮----
-const fetchShipping = async () =>
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
 ⋮----
-// --- 最終計算ロジック ---
+// 1. ユーザーの配送先プロフを取得
 ⋮----
-// ▼ 追加：日本円から指定通貨へのフォーマット関数
-const formatConverted = (jpyAmount: number) =>
+// 2. 新規注文レコードの作成
 ⋮----
-{/* 左カラム：入力エリア */}
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
 ⋮----
-{/* 重量の自動計算と注意事項の案内 */}
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
 ⋮----
-{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
+// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
 ⋮----
-/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
+// 4. 中間テーブル (order_items) に紐付け登録
 ⋮----
-{/* 右カラム：結果表示エリア */}
+// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
 ⋮----
-{/* ▼ 追加：表示通貨の切り替えプルダウン */}
-⋮----
-{/* ▼ 追加：お支払い総額の換算表示 */}
-⋮----
-{/* よくある質問 (FAQ) セクション */}
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1980,6 +1787,211 @@ const formatConverted = (jpyAmount: number) =>
 }
 </file>
 
+<file path="app/[lang]/dashboard/page.tsx">
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
+⋮----
+function getTrackingUrl(trackingNumber: string): string
+⋮----
+function calculateUserInvoiceDetails(order: any)
+⋮----
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+⋮----
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+⋮----
+// 🌟 修正：order_number を user_order_seq に変更
+⋮----
+const getTranslatedShippingMethod = (method: string) =>
+⋮----
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
+⋮----
+<form action=
+⋮----
+{/* 🌟 修正：ユーザー毎の連番を表示 */}
+⋮----
+{/* 請求明細パネル */}
+⋮----
+{/* 注文商品テーブル */}
+⋮----
+if (replyRemarks)
+</file>
+
+<file path="app/[lang]/inventory/page.tsx">
+import React from 'react'
+import { getProducts } from '@/app/actions/inventory'
+import { createClient } from '@/lib/supabase/server'
+import { AddToCartForm } from './AddToCartForm'
+import Link from 'next/link'
+⋮----
+// ログイン状態の確認
+</file>
+
+<file path="components/CartManager.tsx">
+// components/CartManager.tsx
+⋮----
+import { useState, useEffect } from 'react'
+import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
+import { updateCartItem } from '@/app/actions/items'
+⋮----
+// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+⋮----
+const filterCartItems = (items: any[]) =>
+⋮----
+const sanitizeShipping = (val?: string) =>
+⋮----
+const handleCheckout = async () =>
+⋮----
+// 確実な言語判定でダイアログを表示
+⋮----
+// 成功したらローカルのカート見た目を即座に空にする
+⋮----
+const handleDelete = async (itemId: string) =>
+⋮----
+{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
+⋮----
+const val = e.target.value.trim()
+⋮----
+{/* ▼ 変更: 数量 (Quantity) */}
+⋮----
+onBlur=
+⋮----
+{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/[lang]/admin/ClientAdminPage.tsx">
+import React, { useState, useEffect } from 'react'
+import { useFormStatus } from 'react-dom'
+import { StatusBadge } from '@/components/StatusBadge'
+import ItemStatusSelect from '@/components/ItemStatusSelect'
+import {
+    sendInvoice,
+    deleteInvoice,
+    shipOrder,
+    deleteShip,
+    cancelShip,
+    updateItemQuantity,
+    updateItemPrice,
+    updateItemTitle,
+    updateTrackingNumber,
+    updateAdminNote,
+    cancelAdminNote,
+    updateOrderStatusToPaymentRequired,
+    cancelPaymentRequired,
+    updateItemStatus,
+    sendPayPalInvoice
+} from '@/app/actions/admin'
+⋮----
+function ActionStateButton(
+⋮----
+const formattedDisplay = () =>
+⋮----
+setIsFocused(true)
+⋮----
+setTimeout(()
+⋮----
+onChange=
+⋮----
+setIsFocused(false)
+const val = Number(e.target.value)
+⋮----
+let proxyFeeTargetTotal = 0; // ★ 変数を追加
+⋮----
+// ▼ 変更: 自社商品の判定を追加し、価格のデフォルト値を設定
+⋮----
+const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
+⋮----
+<form action=
+⋮----
+const fetchWiseQuote = async (orderId: string, amount: number) =>
+⋮----
+const calculateFeesForOrders = async () =>
+⋮----
+if (!amount || amount <= 0)
+⋮----
+{/* ▼ クリックせずに見える担当者情報 */}
+⋮----
+{/* ▼ 住所や詳細を確認するためのボタン */}
+⋮----
+{/* 1. 総重量 */}
+⋮----
+setOrderInputs(prev => (
+setEditingWeight(prev
+⋮----
+{/* 2. 配送ラベル */}
+⋮----
+{/* 3. 追跡番号 */}
+⋮----
+{/* 5. お支払い金額 */}
+⋮----
+{/* 6. 請求書送信 (PayPal / Wise 対応) */}
+⋮----
+{/* 7. 発送状態 */}
+⋮----
+決済手数料
+⋮----
+// ▼ 追加: 自社商品の判定と表示価格の決定
+⋮----
+{/* ▼ 変更: URLの表示 (自社商品は青いバッジにする) */}
+⋮----
+{/* ▼ 変更: defaultValue を displayPrice に変更 */}
+</file>
+
+<file path="app/[lang]/estimate/page.tsx">
+import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import CountryCombobox from '@/components/CountryCombobox'
+⋮----
+// 対応する通貨のリスト
+⋮----
+// 1. ユーザー入力用の State
+⋮----
+// ▼ 追加：為替レートと表示通貨用のState
+⋮----
+// 2. 計算結果の State
+⋮----
+// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
+⋮----
+// 入力された文字列から数字のみを抽出してStateにセットする共通関数
+const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
+⋮----
+// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
+⋮----
+// 配送先国または重量が変わったときに送料を再計算
+⋮----
+const fetchShipping = async () =>
+⋮----
+// --- 最終計算ロジック ---
+⋮----
+// ▼ 追加：日本円から指定通貨へのフォーマット関数
+const formatConverted = (jpyAmount: number) =>
+⋮----
+{/* 左カラム：入力エリア */}
+⋮----
+{/* 重量の自動計算と注意事項の案内 */}
+⋮----
+{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
+⋮----
+/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
+⋮----
+{/* 右カラム：結果表示エリア */}
+⋮----
+{/* ▼ 追加：表示通貨の切り替えプルダウン */}
+⋮----
+{/* ▼ 追加：お支払い総額の換算表示 */}
+⋮----
+{/* よくある質問 (FAQ) セクション */}
+</file>
+
 <file path="lib/calculator.ts">
 export interface CalculationResult {
     shippingFeeJp: number;
@@ -2085,45 +2097,6 @@ onChange=
 {/* 内訳アコーディオン */}
 ⋮----
 {/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
-</file>
-
-<file path="app/[lang]/dashboard/page.tsx">
-import { getDictionary } from "@/lib/dictionaries";
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
-⋮----
-function getTrackingUrl(trackingNumber: string): string
-⋮----
-function calculateUserInvoiceDetails(order: any)
-⋮----
-let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
-⋮----
-// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-⋮----
-// 🌟 修正：order_number を user_order_seq に変更
-⋮----
-const getTranslatedShippingMethod = (method: string) =>
-⋮----
-{/* ▼ 追加: 取扱商品へのリンクボタン */}
-⋮----
-<form action=
-⋮----
-{/* 🌟 修正：ユーザー毎の連番を表示 */}
-⋮----
-{/* 請求明細パネル */}
-⋮----
-{/* 注文商品テーブル */}
-⋮----
-if (replyRemarks)
 </file>
 
 <file path="components/BookmarkletGenerator.tsx">
