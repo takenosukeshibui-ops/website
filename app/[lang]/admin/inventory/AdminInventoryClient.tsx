@@ -38,7 +38,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     setMarginInput('')
   }
 
-  // 仕入価格（原価）の変更
+  // 仕入価格（原価）の変更（小数点以下にも対応）
   const handleCostPriceChange = (val: number) => {
     setForm(prev => {
       const nextForm = { ...prev, cost_price: val }
@@ -59,7 +59,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     if (val !== '' && !isNaN(Number(val))) {
       const margin = Number(val)
       if (margin < 100 && form.cost_price > 0) {
-        // 販売価格 = 原価 / (1 - 利益率)
+        // 販売価格 = 原価 / (1 - 利益率) （端数は円単位に切り上げ）
         const autoPrice = Math.ceil(form.cost_price / (1 - margin / 100))
         setForm(prev => ({ ...prev, price: autoPrice }))
       }
@@ -71,7 +71,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     setForm({
       name: product.name,
       price: product.price,
-      cost_price: product.cost_price || 0,
+      cost_price: product.cost_price ?? 0,
       weight: product.weight,
       stock: product.stock,
       is_active: product.is_active,
@@ -136,8 +136,9 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                 required
                 min="0"
                 step="any"
-                value={form.cost_price}
-                onChange={e => handleCostPriceChange(Number(e.target.value))}
+                value={form.cost_price === 0 && editingId === null ? '' : form.cost_price}
+                onChange={e => handleCostPriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                placeholder="0"
                 className="w-full border rounded p-2 bg-red-50 text-sm"
               />
             </div>
@@ -145,7 +146,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
               <label className="block text-xs font-medium mb-1">想定利益率 (%)</label>
               <input
                 type="number"
-                step="0.1"
+                step="any"
                 placeholder={marginInput === '' ? calculatedMargin : ''}
                 value={marginInput}
                 onChange={e => handleMarginChange(e.target.value)}
@@ -159,8 +160,9 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                 required
                 min="0"
                 step="any"
-                value={form.price}
-                onChange={e => handlePriceChange(Number(e.target.value))}
+                value={form.price === 0 && editingId === null ? '' : form.price}
+                onChange={e => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                placeholder="0"
                 className="w-full border rounded p-2 bg-blue-50 text-sm"
               />
             </div>
@@ -220,8 +222,10 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
             </thead>
             <tbody>
               {products.map((product) => {
-                const profit = product.price - (product.cost_price || 0)
-                const profitRate = product.price > 0 ? (profit / product.price) * 100 : 0
+                const costPrice = Number(product.cost_price || 0)
+                const price = Number(product.price || 0)
+                const profit = price - costPrice
+                const profitRate = price > 0 ? (profit / price) * 100 : 0
                 
                 return (
                   <tr key={product.id} className="border-b hover:bg-gray-50">
@@ -233,8 +237,8 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                       )}
                     </td>
                     <td className="p-2 font-medium break-words">{product.name}</td>
-                    <td className="p-2 text-right font-semibold text-blue-700">¥{product.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="p-2 text-right text-red-600">¥{(product.cost_price || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-right font-semibold text-blue-700">¥{price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-right text-red-600">¥{costPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                     <td className="p-2 text-right">
                       <div className="flex flex-col items-end">
                         <span className="font-bold text-emerald-600">¥{profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
