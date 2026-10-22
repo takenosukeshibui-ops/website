@@ -17,8 +17,10 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     image_url: ''
   })
   
-  // 利益率入力用の State（手動入力なしの空白状態を判定できるよう string で管理）
+  // 利益率入力用の State
   const [marginInput, setMarginInput] = useState<string>('')
+  // 在庫数入力用の State（3桁カンマ表記対応）
+  const [stockInput, setStockInput] = useState<string>('0')
   const [file, setFile] = useState<File | null>(null)
 
   // 利益率が空白の場合に表示する自動計算利益率 (%)
@@ -34,15 +36,13 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
   // 販売価格の手動変更
   const handlePriceChange = (val: number) => {
     setForm(prev => ({ ...prev, price: val }))
-    // 販売価格を直接書き換えた場合は利益率の固定入力をクリア
     setMarginInput('')
   }
 
-  // 仕入価格（原価）の変更（小数点以下にも対応）
+  // 仕入価格（原価）の変更（小数点以下対応）
   const handleCostPriceChange = (val: number) => {
     setForm(prev => {
       const nextForm = { ...prev, cost_price: val }
-      // 利益率が入力されていれば、新しい原価に基づいて販売価格を自動更新
       if (marginInput !== '' && !isNaN(Number(marginInput))) {
         const margin = Number(marginInput)
         if (margin < 100 && val > 0) {
@@ -59,11 +59,24 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     if (val !== '' && !isNaN(Number(val))) {
       const margin = Number(val)
       if (margin < 100 && form.cost_price > 0) {
-        // 販売価格 = 原価 / (1 - 利益率) （端数は円単位に切り上げ）
         const autoPrice = Math.ceil(form.cost_price / (1 - margin / 100))
         setForm(prev => ({ ...prev, price: autoPrice }))
       }
     }
+  }
+
+  // 在庫数の入力変更 (3桁カンマフォーマット)
+  const handleStockChange = (valStr: string) => {
+    // 数字以外の文字を除去
+    const rawValue = valStr.replace(/[^0-9]/g, '')
+    if (rawValue === '') {
+      setStockInput('')
+      setForm(prev => ({ ...prev, stock: 0 }))
+      return
+    }
+    const num = parseInt(rawValue, 10)
+    setStockInput(num.toLocaleString())
+    setForm(prev => ({ ...prev, stock: num }))
   }
 
   const handleEdit = (product: any) => {
@@ -77,7 +90,8 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
       is_active: product.is_active,
       image_url: product.image_url || ''
     })
-    setMarginInput('') // 編集開始時は入力利益率をリセットし、現在価格での計算結果を表示
+    setMarginInput('')
+    setStockInput((product.stock || 0).toLocaleString())
     setFile(null)
   }
 
@@ -85,6 +99,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     setEditingId(null)
     setForm({ name: '', price: 0, cost_price: 0, weight: 0, stock: 0, is_active: true, image_url: '' })
     setMarginInput('')
+    setStockInput('0')
     setFile(null)
   }
 
@@ -130,52 +145,81 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
           
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-xs font-medium mb-1">仕入価格 (¥)</label>
-              <input
-                type="number"
-                required
-                min="0"
-                step="any"
-                value={form.cost_price === 0 && editingId === null ? '' : form.cost_price}
-                onChange={e => handleCostPriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
-                placeholder="0"
-                className="w-full border rounded p-2 bg-red-50 text-sm"
-              />
+              <label className="block text-xs font-medium mb-1">仕入価格</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="any"
+                  value={form.cost_price === 0 && editingId === null ? '' : form.cost_price}
+                  onChange={e => handleCostPriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
+                  className="w-full border rounded p-2 pr-6 bg-red-50 text-sm text-right"
+                />
+                <span className="absolute right-2 text-xs text-gray-500 pointer-events-none">円</span>
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">想定利益率 (%)</label>
-              <input
-                type="number"
-                step="any"
-                placeholder={marginInput === '' ? calculatedMargin : ''}
-                value={marginInput}
-                onChange={e => handleMarginChange(e.target.value)}
-                className="w-full border rounded p-2 bg-emerald-50 text-sm placeholder-gray-400"
-              />
+              <label className="block text-xs font-medium mb-1">想定利益率</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  step="any"
+                  placeholder={marginInput === '' ? calculatedMargin : ''}
+                  value={marginInput}
+                  onChange={e => handleMarginChange(e.target.value)}
+                  className="w-full border rounded p-2 pr-6 bg-emerald-50 text-sm text-right placeholder-gray-400"
+                />
+                <span className="absolute right-2 text-xs text-gray-500 pointer-events-none">%</span>
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1">販売価格 (¥)</label>
-              <input
-                type="number"
-                required
-                min="0"
-                step="any"
-                value={form.price === 0 && editingId === null ? '' : form.price}
-                onChange={e => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
-                placeholder="0"
-                className="w-full border rounded p-2 bg-blue-50 text-sm"
-              />
+              <label className="block text-xs font-medium mb-1">販売価格</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="any"
+                  value={form.price === 0 && editingId === null ? '' : form.price}
+                  onChange={e => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
+                  className="w-full border rounded p-2 pr-6 bg-blue-50 text-sm text-right"
+                />
+                <span className="absolute right-2 text-xs text-gray-500 pointer-events-none">円</span>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">重量 (g)</label>
-              <input type="number" required min="0" step="any" value={form.weight} onChange={e => setForm({ ...form, weight: Number(e.target.value) })} className="w-full border rounded p-2" />
+              <label className="block text-sm font-medium mb-1">重量</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="any"
+                  value={form.weight}
+                  onChange={e => setForm({ ...form, weight: Number(e.target.value) })}
+                  className="w-full border rounded p-2 pr-6 text-right"
+                />
+                <span className="absolute right-2 text-sm text-gray-500 pointer-events-none">g</span>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">在庫数</label>
-              <input type="number" required min="0" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })} className="w-full border rounded p-2" />
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  required
+                  value={stockInput}
+                  onChange={e => handleStockChange(e.target.value)}
+                  className="w-full border rounded p-2 text-right"
+                  placeholder="0"
+                />
+              </div>
             </div>
           </div>
 
@@ -245,7 +289,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                         <span className="text-[10px] text-gray-500">({profitRate.toFixed(1)}%)</span>
                       </div>
                     </td>
-                    <td className="p-2 text-center">{product.stock}</td>
+                    <td className="p-2 text-center">{Number(product.stock || 0).toLocaleString()}</td>
                     <td className="p-2 text-center">
                       <span className={`px-2 py-1 text-[10px] rounded ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
                         {product.is_active ? '公開中' : '非公開'}
