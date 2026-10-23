@@ -127,11 +127,14 @@ export default function AdminInventoryClient({
     try {
       let finalImageUrl = form.image_url
 
-      // ファイルが選択されている場合はSupabase Storage等へアップロード
+      // 画像が選択されている場合はアップロードを実行
       if (file) {
-        const uploadFormData = new FormData()
-        uploadFormData.append('file', file)
-        finalImageUrl = await uploadProductImage(uploadFormData)
+        const formData = new FormData()
+        formData.append('file', file)
+        const uploadedUrl = await uploadProductImage(formData)
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl
+        }
       }
 
       const productData = { ...form, image_url: finalImageUrl }
@@ -139,14 +142,15 @@ export default function AdminInventoryClient({
       if (editingId) {
         await updateProduct(editingId, productData)
         setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
+        handleCancel()
       } else {
         await addProduct(productData)
+        handleCancel()
         window.location.reload()
       }
-      handleCancel()
     } catch (error: any) {
-      console.error('画像アップロード・更新エラー:', error)
-      alert('エラーが発生しました: ' + (error?.message || '画像のアップロードに失敗しました。'))
+      console.error('Submit Error:', error)
+      alert('エラーが発生しました: ' + (error?.message || '処理に失敗しました'))
     } finally {
       setLoading(false)
     }
@@ -246,15 +250,8 @@ export default function AdminInventoryClient({
 
           <div>
             <label className="block text-sm font-medium mb-1">商品画像</label>
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={e => setFile(e.target.files?.[0] || null)} 
-              className="w-full text-sm" 
-            />
-            {form.image_url && !file && (
-              <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover rounded border" />
-            )}
+            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full text-sm" />
+            {form.image_url && !file && <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover" />}
           </div>
 
           <div className="flex items-center">

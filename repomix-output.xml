@@ -214,6 +214,22 @@ const dict = await getDictionary(lang) // [NEW] 辞書を取得
 {/* [UPDATED] dict を Props として渡す */}
 </file>
 
+<file path="app/[lang]/login/page.tsx">
+// app/[lang]/login/page.tsx
+⋮----
+import { useActionState, use } from 'react'
+import { login } from '@/app/actions/auth'
+import Link from 'next/link'
+</file>
+
+<file path="app/[lang]/signup/page.tsx">
+// app/[lang]/signup/page.tsx
+⋮----
+import { useActionState, use } from 'react'
+import { signup } from '@/app/actions/auth'
+import Link from 'next/link'
+</file>
+
 <file path="app/actions/admin.ts">
 // app/actions/admin.ts
 ⋮----
@@ -336,6 +352,41 @@ export async function deleteAdminItem(itemId: string)
 revalidatePath('/dashboard') // [UPDATED]
 </file>
 
+<file path="app/actions/auth.ts">
+// app/actions/auth.ts
+// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+⋮----
+// ▼ ログイン処理
+export async function login(prevState: any, formData: FormData)
+⋮----
+// ▼ 新規登録（サインアップ）処理
+export async function signup(prevState: any, formData: FormData)
+⋮----
+// ▼ パスワードリセットメール送信処理
+export async function resetPassword(prevState: any, formData: FormData)
+⋮----
+// 現在のサイトのURL（ドメイン）を取得
+⋮----
+// リセット用リンク付きのメールを送信
+⋮----
+redirectTo: `${origin}/update-password`, // メール内のリンク先
+⋮----
+// ▼ 新しいパスワードの保存処理
+export async function updatePassword(prevState: any, formData: FormData)
+⋮----
+// パスワードを更新
+⋮----
+// ▼ ログイン中ユーザーのパスワード変更処理
+export async function changePassword(prevState: any, formData: FormData)
+⋮----
+// ▼ ログイン中ユーザーのメールアドレス変更処理
+export async function changeEmail(prevState: any, formData: FormData)
+</file>
+
 <file path="app/actions/profile.ts">
 // app/actions/profile.ts
 ⋮----
@@ -455,6 +506,39 @@ export async function POST(req: Request)
 input,
 ⋮----
 body {
+</file>
+
+<file path="components/countries.ts">
+// components/countries.ts
+// [UPDATED] 英語名(enName)のアルファベット順にソート
+⋮----
+export interface Country {
+    code: string;
+    name: string;
+    enName: string;
+}
+</file>
+
+<file path="components/CountryCombobox.tsx">
+// components/CountryCombobox.tsx
+// [NEW] 検索可能な国選択コンポーネント
+⋮----
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { countries } from './countries'
+⋮----
+interface Props {
+    value: string
+    onChange: (code: string) => void
+    isEn: boolean
+    className?: string
+}
+⋮----
+const handleClickOutside = (event: MouseEvent) =>
+⋮----
+onFocus=
+⋮----
+onChange(country.code)
+setIsOpen(false)
 </file>
 
 <file path="components/ItemStatusBadge.tsx">
@@ -1031,15 +1115,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/inventory/page.tsx">
-import { getProducts } from '@/app/actions/inventory'
-import AdminInventoryClient from './AdminInventoryClient'
-⋮----
-export default async function AdminInventoryPage()
-⋮----
-// 管理者権限として全ての商品(非公開含む)を取得
-</file>
-
 <file path="app/[lang]/admin/page.tsx">
 // app/[lang]/admin/page.tsx
 // [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
@@ -1074,84 +1149,11 @@ import { getDictionary } from '@/lib/dictionaries'
 {/* 3. 戻るリンクも、現在の言語(lang)を引き継ぐように修正 */}
 </file>
 
-<file path="app/[lang]/login/page.tsx">
-// app/[lang]/login/page.tsx
-⋮----
-import { useActionState, use } from 'react'
-import { login } from '@/app/actions/auth'
-import Link from 'next/link'
-</file>
-
-<file path="app/[lang]/signup/page.tsx">
-// app/[lang]/signup/page.tsx
-⋮----
-import { useActionState, use } from 'react'
-import { signup } from '@/app/actions/auth'
-import Link from 'next/link'
-</file>
-
 <file path="app/[lang]/update-password/page.tsx">
 // app/update-password/page.tsx
 ⋮----
 import { useActionState } from 'react'
 import { updatePassword } from '@/app/actions/auth'
-</file>
-
-<file path="app/actions/auth.ts">
-// app/actions/auth.ts
-// [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-⋮----
-// ▼ ログイン処理
-export async function login(prevState: any, formData: FormData)
-⋮----
-// ▼ 新規登録（サインアップ）処理
-export async function signup(prevState: any, formData: FormData)
-⋮----
-// ▼ パスワードリセットメール送信処理
-export async function resetPassword(prevState: any, formData: FormData)
-⋮----
-// 現在のサイトのURL（ドメイン）を取得
-⋮----
-// リセット用リンク付きのメールを送信
-⋮----
-redirectTo: `${origin}/update-password`, // メール内のリンク先
-⋮----
-// ▼ 新しいパスワードの保存処理
-export async function updatePassword(prevState: any, formData: FormData)
-⋮----
-// パスワードを更新
-⋮----
-// ▼ ログイン中ユーザーのパスワード変更処理
-export async function changePassword(prevState: any, formData: FormData)
-⋮----
-// ▼ ログイン中ユーザーのメールアドレス変更処理
-export async function changeEmail(prevState: any, formData: FormData)
-</file>
-
-<file path="components/CountryCombobox.tsx">
-// components/CountryCombobox.tsx
-// [NEW] 検索可能な国選択コンポーネント
-⋮----
-import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { countries } from './countries'
-⋮----
-interface Props {
-    value: string
-    onChange: (code: string) => void
-    isEn: boolean
-    className?: string
-}
-⋮----
-const handleClickOutside = (event: MouseEvent) =>
-⋮----
-onFocus=
-⋮----
-onChange(country.code)
-setIsOpen(false)
 </file>
 
 <file path="lib/dictionaries.ts">
@@ -1161,169 +1163,6 @@ setIsOpen(false)
 export const getDictionary = async (locale: 'en' | 'ja') =>
 ⋮----
 // 指定された言語がない場合は英語をフォールバックとして使用
-</file>
-
-<file path="app/[lang]/inventory/AddToCartForm.tsx">
-import React, { useState } from 'react'
-import { addToCart } from '@/app/actions/items'
-⋮----
-const handleAction = async (formData: FormData) =>
-⋮----
-// 成功時にトーストを表示し、3秒後に消す
-⋮----
-<input type="hidden" name="url" value={`inhouse://${product.id}`} />
-⋮----
-{/* トースト通知 (画面右下に固定表示) */}
-</file>
-
-<file path="app/[lang]/layout.tsx">
-// app/[lang]/layout.tsx
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-⋮----
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-⋮----
-icon: "/icon.png", // 🌟 app/icon.png を指定
-⋮----
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ lang: string }>;
-})
-</file>
-
-<file path="app/actions/items.ts">
-// app/actions/items.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// [NEW] 共通キャッシュ破棄関数
-function revalidateAll()
-⋮----
-export async function addToCart(formData: FormData)
-⋮----
-status: 'draft' // カート内商品は draft として追加
-⋮----
-revalidateAll() // [UPDATED] 全ページへ反映
-⋮----
-export async function deleteItem(itemId: string)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
-export async function replyToAdminNote(itemId: string, remarks: string)
-⋮----
-revalidateAll() // [UPDATED]
-</file>
-
-<file path="app/api/admin/fedex/shipment/route.ts">
-// app/api/admin/fedex/shipment/route.ts
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// FedEx OAuth2 Token 取得ヘルパー
-async function getFedExAccessToken()
-⋮----
-export async function POST(req: Request)
-⋮----
-// 1. 管理者権限チェック
-⋮----
-// 2. リクエスト解析
-⋮----
-// 3. 注文情報とユーザープロフィールの取得
-⋮----
-// 4. FedEx OAuth トークン取得
-⋮----
-// 5. 請求種別の判定
-⋮----
-// 重量（デフォルト 1.0kg）
-⋮----
-// 注文商品からの Commercial Invoice 用 Commodities リスト作成
-⋮----
-// 6. FedEx Ship API (Shipment) リクエスト構築
-⋮----
-personName: 'Takenosuke Shibui', // 実際のご担当者名
-companyName: 'Worldwide Japan', // 貴社名
-phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
-⋮----
-streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
-city: 'Chuo-ku',               // 市区町村
-stateOrProvinceCode: 'Tokyo',   // 都道府県
-postalCode: '1040061',          // ハイフンなし郵便番号
-⋮----
-// 7. FedEx Ship API 送信
-⋮----
-// 8. レスポンスから追跡番号とラベルPDF情報を取得
-⋮----
-// 9. 追跡番号を DB に自動更新
-</file>
-
-<file path="components/countries.ts">
-// components/countries.ts
-// [UPDATED] 英語名(enName)のアルファベット順にソート
-⋮----
-export interface Country {
-    code: string;
-    name: string;
-    enName: string;
-}
-</file>
-
-<file path="app/[lang]/page.tsx">
-// app/[lang]/page.tsx
-// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
-import Link from "next/link";
-import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
-⋮----
-export default async function Home({
-  params,
-}: {
-  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
-})
-⋮----
-params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
-⋮----
-const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
-⋮----
-{/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
-⋮----
-{/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
-</file>
-
-<file path="app/actions/inventory.ts">
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// 商品情報の型定義
-export type ProductInput = {
-  name: string
-  price: number
-  cost_price: number
-  weight: number
-  stock: number
-  image_url?: string
-  is_active?: boolean
-}
-⋮----
-// 1. 全商品取得 (顧客・管理者共通)
-export async function getProducts(isAdmin = false)
-⋮----
-// 管理者でなければ公開中のものだけを取得
-⋮----
-// 2. 商品の新規追加 (管理者のみ)
-export async function addProduct(product: ProductInput)
-⋮----
-// 3. 商品の更新 (管理者のみ)
-export async function updateProduct(id: string, updates: Partial<ProductInput>)
-⋮----
-export async function uploadProductImage(formData: FormData)
 </file>
 
 <file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
@@ -1402,41 +1241,167 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
-<file path="app/api/bookmarklet/add/route.ts">
-// app/api/bookmarklet/add/route.ts
-// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { NextResponse } from 'next/server'
+<file path="app/[lang]/layout.tsx">
+// app/[lang]/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 ⋮----
-export async function GET(request: Request)
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 ⋮----
-status: 'draft' // カート内商品として追加
+icon: "/icon.png", // 🌟 app/icon.png を指定
 ⋮----
-// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+})
 </file>
 
-<file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
+<file path="app/[lang]/page.tsx">
+// app/[lang]/page.tsx
+// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
+import Link from "next/link";
+import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
+⋮----
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
+})
+⋮----
+params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
+⋮----
+const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
+⋮----
+{/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
+⋮----
+{/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
+</file>
+
+<file path="app/actions/items.ts">
+// app/actions/items.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+// [NEW] 共通キャッシュ破棄関数
+function revalidateAll()
+⋮----
+export async function addToCart(formData: FormData)
+⋮----
+status: 'draft' // カート内商品は draft として追加
+⋮----
+revalidateAll() // [UPDATED] 全ページへ反映
+⋮----
+export async function deleteItem(itemId: string)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
+export async function replyToAdminNote(itemId: string, remarks: string)
+⋮----
+revalidateAll() // [UPDATED]
+</file>
+
+<file path="app/api/admin/fedex/shipment/route.ts">
+// app/api/admin/fedex/shipment/route.ts
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+⋮----
+// FedEx OAuth2 Token 取得ヘルパー
+async function getFedExAccessToken()
+⋮----
+export async function POST(req: Request)
+⋮----
+// 1. 管理者権限チェック
+⋮----
+// 2. リクエスト解析
+⋮----
+// 3. 注文情報とユーザープロフィールの取得
+⋮----
+// 4. FedEx OAuth トークン取得
+⋮----
+// 5. 請求種別の判定
+⋮----
+// 重量（デフォルト 1.0kg）
+⋮----
+// 注文商品からの Commercial Invoice 用 Commodities リスト作成
+⋮----
+// 6. FedEx Ship API (Shipment) リクエスト構築
+⋮----
+personName: 'Takenosuke Shibui', // 実際のご担当者名
+companyName: 'Worldwide Japan', // 貴社名
+phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
+⋮----
+streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
+city: 'Chuo-ku',               // 市区町村
+stateOrProvinceCode: 'Tokyo',   // 都道府県
+postalCode: '1040061',          // ハイフンなし郵便番号
+⋮----
+// 7. FedEx Ship API 送信
+⋮----
+// 8. レスポンスから追跡番号とラベルPDF情報を取得
+⋮----
+// 9. 追跡番号を DB に自動更新
+</file>
+
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
+⋮----
+export default async function AdminInventoryPage()
+⋮----
+// 管理者権限として全ての商品(非公開含む)を取得
+</file>
+
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
 import React, { useState } from 'react'
-import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
+import { addToCart } from '@/app/actions/items'
 ⋮----
-cost_price: 0, // 追加
+const handleAction = async (formData: FormData) =>
 ⋮----
-const handleEdit = (product: any) =>
+// 成功時にトーストを表示し、3秒後に消す
 ⋮----
-cost_price: product.cost_price || 0, // 追加
+// 未ログイン時のボタン非活性化表示
 ⋮----
-const handleCancel = () =>
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
 ⋮----
-const handleSubmit = async (e: React.FormEvent) =>
+{/* トースト通知 (画面右下に固定表示) */}
+</file>
+
+<file path="app/actions/inventory.ts">
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 ⋮----
-{/* フォームセクション */}
+// 商品情報の型定義
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
 ⋮----
-<input type="checkbox" checked=
+// 1. 全商品取得 (顧客・管理者共通)
+export async function getProducts(isAdmin = false)
 ⋮----
-{/* 一覧セクション */}
+// 管理者でなければ公開中のものだけを取得
 ⋮----
-<button onClick=
+// 2. 商品の新規追加 (管理者のみ)
+export async function addProduct(product: ProductInput)
+⋮----
+// 3. 商品の更新 (管理者のみ)
+export async function updateProduct(id: string, updates: Partial<ProductInput>)
+⋮----
+export async function uploadProductImage(formData: FormData)
 </file>
 
 <file path="dictionaries/en.json">
@@ -1593,44 +1558,18 @@ const handleSubmit = async (e: React.FormEvent) =>
 }
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-⋮----
+<file path="app/api/bookmarklet/add/route.ts">
+// app/api/bookmarklet/add/route.ts
+// [UPDATED] window.opener の制限を回避するため BroadcastChannel で自動更新通知を発信するように変更
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { NextResponse } from 'next/server'
 ⋮----
-export async function deleteCartItem(itemId: string)
+export async function GET(request: Request)
 ⋮----
-// 1. ユーザー情報の取得
+status: 'draft' // カート内商品として追加
 ⋮----
-// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
-⋮----
-// 🔍 デバッグ2: 自分の所有物かチェック
-⋮----
-// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
-⋮----
-// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
-⋮----
-// 5. サイト全体のキャッシュを確実に破棄
-⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
-⋮----
-// 1. ユーザーの配送先プロフを取得
-⋮----
-// 2. 新規注文レコードの作成
-⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
-⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
-⋮----
-// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
-⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
-⋮----
-// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
-⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+// [UPDATED] BroadcastChannel を使用して親画面へ非同期で通知し即座にウィンドウを閉じる
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1826,14 +1765,66 @@ const getTranslatedShippingMethod = (method: string) =>
 if (replyRemarks)
 </file>
 
-<file path="app/[lang]/inventory/page.tsx">
-import React from 'react'
-import { getProducts } from '@/app/actions/inventory'
-import { createClient } from '@/lib/supabase/server'
-import { AddToCartForm } from './AddToCartForm'
-import Link from 'next/link'
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
 ⋮----
-// ログイン状態の確認
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export async function deleteCartItem(itemId: string)
+⋮----
+// 1. ユーザー情報の取得
+⋮----
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+⋮----
+// 🔍 デバッグ2: 自分の所有物かチェック
+⋮----
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+⋮----
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+⋮----
+// 5. サイト全体のキャッシュを確実に破棄
+⋮----
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+⋮----
+// 1. ユーザーの配送先プロフを取得
+⋮----
+// 2. 新規注文レコードの作成
+⋮----
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+⋮----
+// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
+⋮----
+// 4. 中間テーブル (order_items) に紐付け登録
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+⋮----
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="app/[lang]/calculator/page.tsx">
+import { useState, use } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import CountryCombobox from "@/components/CountryCombobox";
+import { countries } from "@/components/countries";
+⋮----
+const handleCountryChange = (newCountry: string) =>
+⋮----
+const handleCalculate = async () =>
+⋮----
+onChange=
+⋮----
+{/* 日本郵便の表示 */}
+⋮----
+{/* FedExの全適用プラン表示 */}
+⋮----
+{/* 内訳アコーディオン */}
+⋮----
+{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
 </file>
 
 <file path="components/CartManager.tsx">
@@ -1866,6 +1857,16 @@ const val = e.target.value.trim()
 onBlur=
 ⋮----
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/[lang]/inventory/page.tsx">
+import React from 'react'
+import { getProducts } from '@/app/actions/inventory'
+import { createClient } from '@/lib/supabase/server'
+import { AddToCartForm } from './AddToCartForm'
+import Link from 'next/link'
+⋮----
+// ログイン状態の確認
 </file>
 
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
@@ -1992,6 +1993,50 @@ const formatConverted = (jpyAmount: number) =>
 {/* よくある質問 (FAQ) セクション */}
 </file>
 
+<file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
+import React, { useState, useMemo } from 'react'
+import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
+⋮----
+// 利益率入力用の State
+⋮----
+// 在庫数入力用の State（初期値を空白に設定）
+⋮----
+// 利益率が空白の場合に表示する自動計算利益率 (%)
+⋮----
+// 販売価格の手動変更
+const handlePriceChange = (val: number) =>
+⋮----
+// 自動価格算出用のヘルパー関数（1未満: 小数点第3位切り上げ / 1以上: 小数点第2位切り上げ）
+const calculateAutoPrice = (cost: number, marginPercent: number): number =>
+⋮----
+// 仕入価格（原価）の変更（小数点以下対応）
+const handleCostPriceChange = (val: number) =>
+⋮----
+// 利益率の入力変更
+const handleMarginChange = (val: string) =>
+⋮----
+// 在庫数の入力変更 (3桁カンマフォーマット)
+const handleStockChange = (valStr: string) =>
+⋮----
+const handleEdit = (product: any) =>
+⋮----
+const handleCancel = () =>
+⋮----
+const handleSubmit = async (e: React.FormEvent) =>
+⋮----
+// ファイルが選択されている場合はSupabase Storage等へアップロード
+⋮----
+{/* フォームセクション */}
+⋮----
+onChange=
+⋮----
+<input type="checkbox" checked=
+⋮----
+{/* 一覧セクション */}
+⋮----
+onClick=
+</file>
+
 <file path="lib/calculator.ts">
 export interface CalculationResult {
     shippingFeeJp: number;
@@ -2075,28 +2120,6 @@ export async function calculateFedexRates(
 // 🌟 First も Priority と同じ 1-3日に設定
 ⋮----
 export async function calculateShippingFees(params: CalculateShippingFeesParams)
-</file>
-
-<file path="app/[lang]/calculator/page.tsx">
-import { useState, use } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import CountryCombobox from "@/components/CountryCombobox";
-import { countries } from "@/components/countries";
-⋮----
-const handleCountryChange = (newCountry: string) =>
-⋮----
-const handleCalculate = async () =>
-⋮----
-onChange=
-⋮----
-{/* 日本郵便の表示 */}
-⋮----
-{/* FedExの全適用プラン表示 */}
-⋮----
-{/* 内訳アコーディオン */}
-⋮----
-{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
 </file>
 
 <file path="components/BookmarkletGenerator.tsx">
