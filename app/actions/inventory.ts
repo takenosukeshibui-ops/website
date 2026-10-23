@@ -3,7 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// 商品情報の型定義
 export type ProductInput = {
   name: string
   price: number
@@ -14,7 +13,7 @@ export type ProductInput = {
   is_active?: boolean
 }
 
-// 1. 全商品取得 (顧客・管理者共通)
+// 1. 全商品取得
 export async function getProducts(isAdmin = false) {
   const supabase = await createClient()
   let query = supabase.from('inhouse_products').select('*').order('created_at', { ascending: false })
@@ -28,7 +27,7 @@ export async function getProducts(isAdmin = false) {
   return data
 }
 
-// 2. 商品の新規追加 (管理者のみ) - 作成されたデータを返すように変更
+// 2. 新規追加
 export async function addProduct(product: ProductInput) {
   try {
     const supabase = await createClient()
@@ -38,32 +37,59 @@ export async function addProduct(product: ProductInput) {
       .select()
       .single()
     
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      console.error('SERVER addProduct ERROR:', error)
+      return { success: false, error: `[DB Insert Error] ${error.message}` }
+    }
     
     revalidatePath('/[lang]/admin/inventory', 'page')
     revalidatePath('/[lang]/inventory', 'page')
     return { success: true, data }
   } catch (err: any) {
-    return { success: false, error: err.message || '追加に失敗しました' }
+    console.error('SERVER addProduct FATAL:', err)
+    return { success: false, error: `[Server Fatal] ${err?.message || String(err)}` }
   }
 }
 
-// 3. 商品の更新 (管理者のみ)
+// 3. 商品更新（エラーハンドリングと引数構造を強化）
 export async function updateProduct(id: string, updates: Partial<ProductInput>) {
   try {
     const supabase = await createClient()
-    const { error } = await supabase
+
+    // updated_at の型エラー等を防ぐため、シンプルなオブジェクトで渡す
+    const payload = {
+      name: updates.name,
+      price: updates.price,
+      cost_price: updates.cost_price,
+      weight: updates.weight,
+      stock: updates.stock,
+      is_active: updates.is_active,
+      image_url: updates.image_url,
+      updated_at: new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
       .from('inhouse_products')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', id)
-    
-    if (error) return { success: false, error: error.message }
+      .select()
+
+    if (error) {
+      console.error('SERVER updateProduct ERROR:', error)
+      return { success: false, error: `[DB Update Error] ${error.message}` }
+    }
+
+    // 更新対象のレコードが存在しなかった場合（ID不一致等）
+    if (!data || data.length === 0) {
+      return { success: false, error: '更新対象の商品が見つかりませんでした (ID不一致)' }
+    }
 
     revalidatePath('/[lang]/admin/inventory', 'page')
     revalidatePath('/[lang]/inventory', 'page')
-    return { success: true }
+    return { success: true, data: data[0] }
   } catch (err: any) {
-    return { success: false, error: err.message || '更新に失敗しました' }
+    console.error('SERVER updateProduct FATAL:', err)
+    return { success: false, error: `[Server Fatal] ${err?.message || String(err)}` }
   }
 }
 
@@ -71,7 +97,9 @@ export async function updateProduct(id: string, updates: Partial<ProductInput>) 
 export async function uploadProductImage(formData: FormData) {
   try {
     const file = formData.get('file') as File
-    if (!file || file.size === 0) return { success: false, error: '画像が選択されていません' }
+    if (!file || file.size === 0) {
+      return { success: false, error: 'ファイルが選択されていません' }
+    }
 
     const supabase = await createClient()
     const ext = file.name.split('.').pop()
@@ -79,9 +107,12 @@ export async function uploadProductImage(formData: FormData) {
 
     const { error: uploadError } = await supabase.storage
       .from('product-images')
-      .upload(fileName, file)
+      .upload(fileName, file, { upsert: true })
 
-    if (uploadError) return { success: false, error: uploadError.message }
+    if (uploadError) {
+      console.error('SERVER Storage Upload ERROR:', uploadError)
+      return { success: false, error: `[Storage Upload Error] ${uploadError.message}` }
+    }
 
     const { data } = supabase.storage
       .from('product-images')
@@ -89,6 +120,7 @@ export async function uploadProductImage(formData: FormData) {
 
     return { success: true, url: data.publicUrl }
   } catch (err: any) {
-    return { success: false, error: err.message || '画像のアップロードに失敗しました' }
+    console.error('SERVER uploadProductImage FATAL:', err)
+    return { success: false, error: `[Server Storage Exception] ${err?.message || String(err)}` }
   }
 }
