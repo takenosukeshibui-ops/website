@@ -20,7 +20,8 @@ import {
     cancelPaymentRequired,
     updateItemStatus,
     sendPayPalInvoice,
-    addAdminAdjustmentItem
+    addAdminAdjustmentItem,
+    updateAllOrderItemsStatus
 } from '@/app/actions/admin'
 
 function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', pendingText: string }) {
@@ -116,14 +117,13 @@ function calculateInvoiceDetails(
     wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
 ) {
     let productTotal = 0;
-    let proxyFeeTargetTotal = 0; // ★ 変数を追加
+    let proxyFeeTargetTotal = 0;
 
     (order.order_items || []).forEach((oi: any) => {
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
         if (item) {
             const qty = item.admin_quantity ?? item.quantity ?? 1;
             
-            // ▼ 変更: 自社商品の判定を追加し、価格のデフォルト値を設定
             const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
             const price = item.price ?? (isInhouse ? item.price_estimated : 0);
             
@@ -138,7 +138,7 @@ function calculateInvoiceDetails(
 
     
     const proxyFeeRate = 0.05;
-    const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
+    const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate);
 
     let shippingFee = 0;
     if (calculatedFee !== null && calculatedFee !== undefined) {
@@ -392,6 +392,48 @@ function AddAdjustmentForm({ orderId, userId }: { orderId: string; userId: strin
     )
 }
 
+function BulkStatusSelectForm({ 
+    orderId, 
+    onBulkUpdate 
+}: { 
+    orderId: string
+    onBulkUpdate: (orderId: string, newStatus: string) => Promise<void> 
+}) {
+    const [status, setStatus] = useState('purchased')
+    const [isPending, startTransition] = useTransition()
+
+    const handleApply = () => {
+        if (!window.confirm('全商品のステータスを一括で変更しますか？')) return
+        startTransition(async () => {
+            await onBulkUpdate(orderId, status)
+        })
+    }
+
+    return (
+        <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+            <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">⚡️ 一括変更:</span>
+            <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="text-xs border border-slate-300 rounded px-1.5 py-0.5 bg-white font-medium text-slate-700 outline-none"
+            >
+                <option value="pending">依頼済み (pending)</option>
+                <option value="purchased">購入完了 (purchased)</option>
+                <option value="in_warehouse">倉庫到着 (in_warehouse)</option>
+                <option value="cancelled">キャンセル (cancelled)</option>
+            </select>
+            <button
+                type="button"
+                onClick={handleApply}
+                disabled={isPending}
+                className="bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-sm disabled:opacity-50 whitespace-nowrap transition-colors"
+            >
+                {isPending ? '更新中...' : '全商品に適用'}
+            </button>
+        </div>
+    )
+}
+
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
     const [orders, setOrders] = useState(() =>
         initialOrders.map(order => ({
@@ -642,6 +684,34 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         } catch (error) {
             console.error('DBへのステータス保存に失敗しました:', error)
             alert('ステータスの保存に失敗しました')
+        }
+    }
+
+    const handleBulkStatusUpdate = async (orderId: string, newStatus: string) => {
+        setOrders((prevOrders) =>
+            prevOrders.map((order) => {
+                if (order.id !== orderId) return order
+                const updatedOrderItems = order.order_items.map((oi: any) => {
+                    const isArr = Array.isArray(oi.items)
+                    const itemObj = isArr ? oi.items[0] : oi.items
+                    if (itemObj) {
+                        const newObj = { ...itemObj, status: newStatus }
+                        return { ...oi, items: isArr ? [newObj] : newObj }
+                    }
+                    return oi
+                })
+                const tempOrder = { ...order, order_items: updatedOrderItems }
+                return {
+                    ...tempOrder,
+                    status: calculateOrderStatus(tempOrder),
+                }
+            })
+        )
+        try {
+            await updateAllOrderItemsStatus(orderId, newStatus)
+        } catch (error: any) {
+            console.error('一括更新エラー:', error)
+            alert(error?.message || 'ステータスの一括更新に失敗しました')
         }
     }
 
@@ -968,7 +1038,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                         const fullName = order.profiles?.full_name;
                         const companyName = order.profiles?.company_name;
-                        const email = order.profiles?.email || order.profiles?.contact_email || 'アドレス未設定';
 
                         const canMarkAsShipped = isPaymentRequired && hasTracking
 
@@ -1011,14 +1080,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                                     <td className="border border-slate-300 p-2 text-center">
                                         <div className="flex flex-col items-center gap-1">
-                                            {/* ▼ クリックせずに見える担当者情報 */}
                                             <div className="flex flex-col items-center leading-tight">
                                                 <span className="font-bold text-slate-800 text-xs">
                                                     {fullName || companyName || '担当者未設定'}
                                                 </span>
                                             </div>
 
-                                            {/* ▼ 住所や詳細を確認するためのボタン */}
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveAddressOrder(order)}
@@ -1280,9 +1347,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             </div>
 
                                             <div className="bg-white border border-slate-200 rounded shadow-inner p-3">
-                                                <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                                                    注文商品一覧 ({itemCount}件)
-                                                </h4>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                        注文商品一覧 ({itemCount}件)
+                                                    </h4>
+                                                    <BulkStatusSelectForm orderId={order.id} onBulkUpdate={handleBulkStatusUpdate} />
+                                                </div>
                                                 <table className="min-w-full border-collapse border border-slate-200 text-xs text-left">
                                                     <thead>
                                                         <tr className="bg-slate-100 text-slate-700">
@@ -1305,7 +1375,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                             const cartQty = item.quantity ?? 1
                                                             const adminQty = item.admin_quantity
 
-                                                            // ▼ 追加: 自社商品の判定と表示価格の決定
                                                             const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
                                                             const displayPrice = item.price ?? (isInhouse ? item.price_estimated : null);
 
@@ -1330,7 +1399,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                         />
                                                                     </td>
             
-                                                                    {/* ▼ 変更: URLの表示 (自社商品は青いバッジにする) */}
                                                                     <td className="border border-slate-200 p-2 max-w-[150px] truncate">
                                                                         {isInhouse ? (
                                                                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold border border-blue-300">
@@ -1373,7 +1441,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                         {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
                                                                     </td>
             
-                                                                    {/* ▼ 変更: defaultValue を displayPrice に変更 */}
                                                                     <td className="border border-slate-200 p-2 text-right">
                                                                         <CurrencyInput
                                                                             defaultValue={displayPrice}
@@ -1407,7 +1474,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         })}
                                                     </tbody>
                                                 </table>
-                                                {/* ▼ 調整項目の手動追加フォームを呼び出し */}
                                                 <AddAdjustmentForm orderId={order.id} userId={order.user_id} />
                                             </div>
                                         </td>

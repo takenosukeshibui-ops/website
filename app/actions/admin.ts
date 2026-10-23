@@ -450,3 +450,43 @@ export async function addAdminAdjustmentItem(orderId: string, userId: string, ti
   revalidatePath('/dashboard')
   revalidatePath('/admin')
 }
+
+/**
+ * 18. 注文内すべての商品のステータスを一括更新
+ */
+export async function updateAllOrderItemsStatus(orderId: string, status: string) {
+  const supabase = await createClient()
+
+  // 管理者権限チェック
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // 1. 対象 order に紐づく item_id 一覧を取得
+  const { data: orderItems, error: fetchError } = await supabase
+    .from('order_items')
+    .select('item_id')
+    .eq('order_id', orderId)
+
+  if (fetchError || !orderItems || orderItems.length === 0) {
+    throw new Error('対象の注文商品が見つかりませんでした')
+  }
+
+  const itemIds = orderItems.map(oi => oi.item_id)
+
+  // 2. 該当アイテムのステータスを一括更新
+  const { error: updateError } = await supabase
+    .from('items')
+    .update({ 
+      status: status,
+      updated_at: new Date().toISOString()
+    })
+    .in('id', itemIds)
+
+  if (updateError) {
+    console.error('Failed to bulk update item status:', updateError)
+    throw new Error('ステータスの一括更新に失敗しました')
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/admin')
+}
