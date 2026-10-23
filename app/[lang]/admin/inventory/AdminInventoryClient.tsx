@@ -19,8 +19,8 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
   
   // 利益率入力用の State
   const [marginInput, setMarginInput] = useState<string>('')
-  // 在庫数入力用の State（3桁カンマ表記対応）
-  const [stockInput, setStockInput] = useState<string>('0')
+  // 在庫数入力用の State（初期値を空白に設定）
+  const [stockInput, setStockInput] = useState<string>('')
   const [file, setFile] = useState<File | null>(null)
 
   // 利益率が空白の場合に表示する自動計算利益率 (%)
@@ -45,10 +45,8 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     const rawPrice = cost / (1 - marginPercent / 100)
     
     if (rawPrice < 1) {
-      // 1未満: 小数点第3位を切り上げ（例: 0.375 ➔ 0.38）
       return Math.ceil(rawPrice * 100) / 100
     }
-    // 1以上: 小数点第2位を切り上げ（例: 10.23 ➔ 10.3）
     return Math.ceil(rawPrice * 10) / 10
   }
 
@@ -103,7 +101,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
       image_url: product.image_url || ''
     })
     setMarginInput('')
-    setStockInput((product.stock || 0).toLocaleString())
+    setStockInput(product.stock !== undefined && product.stock !== null ? product.stock.toLocaleString() : '')
     setFile(null)
   }
 
@@ -111,7 +109,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     setEditingId(null)
     setForm({ name: '', price: 0, cost_price: 0, weight: 0, stock: 0, is_active: true, image_url: '' })
     setMarginInput('')
-    setStockInput('0')
+    setStockInput('')
     setFile(null)
   }
 
@@ -164,7 +162,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                   required
                   min="0"
                   step="any"
-                  value={form.cost_price === 0 && editingId === null ? '' : form.cost_price}
+                  value={form.cost_price === 0 ? '' : form.cost_price}
                   onChange={e => handleCostPriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
                   placeholder="0"
                   className="w-full border rounded p-2 pr-6 bg-red-50 text-sm text-right"
@@ -194,7 +192,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                   required
                   min="0"
                   step="any"
-                  value={form.price === 0 && editingId === null ? '' : form.price}
+                  value={form.price === 0 ? '' : form.price}
                   onChange={e => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
                   placeholder="0"
                   className="w-full border rounded p-2 pr-6 bg-blue-50 text-sm text-right"
@@ -213,8 +211,9 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                   required
                   min="0"
                   step="any"
-                  value={form.weight}
-                  onChange={e => setForm({ ...form, weight: Number(e.target.value) })}
+                  value={form.weight === 0 ? '' : form.weight}
+                  onChange={e => setForm({ ...form, weight: e.target.value === '' ? 0 : Number(e.target.value) })}
+                  placeholder="0"
                   className="w-full border rounded p-2 pr-6 text-right"
                 />
                 <span className="absolute right-2 text-sm text-gray-500 pointer-events-none">g</span>
