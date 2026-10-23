@@ -422,7 +422,7 @@ export async function addAdminAdjustmentItem(orderId: string, userId: string, ti
       user_id: userId,
       url: 'inhouse://adjustment',
       title: title || '金額調整',
-      price_estimated: price,
+      price: price,
       quantity: 1,
       status: 'purchased' // 確定済みとして作成
     })
