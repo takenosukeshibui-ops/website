@@ -3,11 +3,12 @@
 import React, { useState } from 'react'
 import { addToCart } from '@/app/actions/items'
 
-export function AddToCartForm({ product }: { product: any }) {
+export function AddToCartForm({ product, isLoggedIn }: { product: any; isLoggedIn: boolean }) {
   const [isPending, setIsPending] = useState(false)
   const [showToast, setShowToast] = useState(false)
 
   const handleAction = async (formData: FormData) => {
+    if (!isLoggedIn) return
     setIsPending(true)
     try {
       await addToCart(formData)
@@ -19,6 +20,24 @@ export function AddToCartForm({ product }: { product: any }) {
     } finally {
       setIsPending(false)
     }
+  }
+
+  // 未ログイン時のボタン非活性化表示
+  if (!isLoggedIn) {
+    return (
+      <div className="space-y-1">
+        <button 
+          type="button" 
+          disabled 
+          className="w-full bg-gray-300 text-gray-500 py-2.5 rounded font-medium cursor-not-allowed text-center text-sm"
+        >
+          Add to Cart
+        </button>
+        <p className="text-xs text-red-500 text-center font-medium">
+          ※ログイン・アカウント登録が必要です
+        </p>
+      </div>
+    )
   }
 
   return (
