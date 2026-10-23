@@ -39,6 +39,19 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     setMarginInput('')
   }
 
+  // 自動価格算出用のヘルパー関数（1未満: 小数点第3位切り上げ / 1以上: 小数点第2位切り上げ）
+  const calculateAutoPrice = (cost: number, marginPercent: number): number => {
+    if (marginPercent >= 100 || cost <= 0) return 0
+    const rawPrice = cost / (1 - marginPercent / 100)
+    
+    if (rawPrice < 1) {
+      // 1未満: 小数点第3位を切り上げ（例: 0.375 ➔ 0.38）
+      return Math.ceil(rawPrice * 100) / 100
+    }
+    // 1以上: 小数点第2位を切り上げ（例: 10.23 ➔ 10.3）
+    return Math.ceil(rawPrice * 10) / 10
+  }
+
   // 仕入価格（原価）の変更（小数点以下対応）
   const handleCostPriceChange = (val: number) => {
     setForm(prev => {
@@ -46,7 +59,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
       if (marginInput !== '' && !isNaN(Number(marginInput))) {
         const margin = Number(marginInput)
         if (margin < 100 && val > 0) {
-          nextForm.price = Math.ceil(val / (1 - margin / 100))
+          nextForm.price = calculateAutoPrice(val, margin)
         }
       }
       return nextForm
@@ -59,7 +72,7 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
     if (val !== '' && !isNaN(Number(val))) {
       const margin = Number(val)
       if (margin < 100 && form.cost_price > 0) {
-        const autoPrice = Math.ceil(form.cost_price / (1 - margin / 100))
+        const autoPrice = calculateAutoPrice(form.cost_price, margin)
         setForm(prev => ({ ...prev, price: autoPrice }))
       }
     }
@@ -67,7 +80,6 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
 
   // 在庫数の入力変更 (3桁カンマフォーマット)
   const handleStockChange = (valStr: string) => {
-    // 数字以外の文字を除去
     const rawValue = valStr.replace(/[^0-9]/g, '')
     if (rawValue === '') {
       setStockInput('')
