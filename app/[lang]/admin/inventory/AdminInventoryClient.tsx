@@ -3,7 +3,13 @@
 import React, { useState, useMemo } from 'react'
 import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
 
-export default function AdminInventoryClient({ initialProducts }: { initialProducts: any[] }) {
+export default function AdminInventoryClient({ 
+  initialProducts, 
+  isLoggedIn = true 
+}: { 
+  initialProducts: any[]
+  isLoggedIn?: boolean 
+}) {
   const [products, setProducts] = useState(initialProducts)
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -115,28 +121,32 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isLoggedIn) return
     setLoading(true)
+
     try {
       let finalImageUrl = form.image_url
 
+      // ファイルが選択されている場合はSupabase Storage等へアップロード
       if (file) {
-        const formData = new FormData()
-        formData.append('file', file)
-        finalImageUrl = await uploadProductImage(formData)
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', file)
+        finalImageUrl = await uploadProductImage(uploadFormData)
       }
 
       const productData = { ...form, image_url: finalImageUrl }
 
       if (editingId) {
         await updateProduct(editingId, productData)
-        setProducts(products.map(p => p.id === editingId ? { ...p, ...productData } : p))
+        setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
       } else {
         await addProduct(productData)
         window.location.reload()
       }
       handleCancel()
     } catch (error: any) {
-      alert('エラーが発生しました: ' + error.message)
+      console.error('画像アップロード・更新エラー:', error)
+      alert('エラーが発生しました: ' + (error?.message || '画像のアップロードに失敗しました。'))
     } finally {
       setLoading(false)
     }
@@ -236,8 +246,15 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
 
           <div>
             <label className="block text-sm font-medium mb-1">商品画像</label>
-            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full text-sm" />
-            {form.image_url && !file && <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover" />}
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={e => setFile(e.target.files?.[0] || null)} 
+              className="w-full text-sm" 
+            />
+            {form.image_url && !file && (
+              <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover rounded border" />
+            )}
           </div>
 
           <div className="flex items-center">
@@ -245,14 +262,29 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
             <label htmlFor="isActive" className="text-sm font-medium">公開する</label>
           </div>
 
-          <div className="flex gap-2 mt-4">
-            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded flex-1 hover:bg-blue-700 disabled:opacity-50">
-              {loading ? '処理中...' : (editingId ? '更新' : '追加')}
-            </button>
-            {editingId && (
-              <button type="button" onClick={handleCancel} className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">
-                キャンセル
+          <div className="flex flex-col gap-2 mt-4">
+            <div className="flex gap-2">
+              <button 
+                type="submit" 
+                disabled={loading || !isLoggedIn} 
+                className={`px-4 py-2 rounded flex-1 text-white ${
+                  !isLoggedIn 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
+                }`}
+              >
+                {loading ? '処理中...' : (editingId ? '更新' : '追加')}
               </button>
+              {editingId && (
+                <button type="button" onClick={handleCancel} className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">
+                  キャンセル
+                </button>
+              )}
+            </div>
+            {!isLoggedIn && (
+              <p className="text-xs text-red-500 text-center font-medium mt-1">
+                ※ログイン、アカウント登録が必要です
+              </p>
             )}
           </div>
         </form>
@@ -307,7 +339,13 @@ export default function AdminInventoryClient({ initialProducts }: { initialProdu
                       </span>
                     </td>
                     <td className="p-2 text-center">
-                      <button onClick={() => handleEdit(product)} className="text-blue-600 hover:underline text-xs">編集</button>
+                      <button 
+                        onClick={() => handleEdit(product)} 
+                        disabled={!isLoggedIn} 
+                        className={`text-xs ${!isLoggedIn ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:underline'}`}
+                      >
+                        編集
+                      </button>
                     </td>
                   </tr>
                 )
