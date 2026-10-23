@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useTransition } from 'react'
 import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
 
 export default function AdminInventoryClient({ 
@@ -13,6 +13,9 @@ export default function AdminInventoryClient({
   const [products, setProducts] = useState(initialProducts)
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  
+  const [isPending, startTransition] = useTransition()
+
   const [form, setForm] = useState<ProductInput>({
     name: '',
     price: 0,
@@ -96,7 +99,7 @@ export default function AdminInventoryClient({
       weight: product.weight,
       stock: product.stock,
       is_active: product.is_active,
-      image_url: product.image_url || ''
+      image_url: product.image_url || '' // 既存の画像URLをフォーム状態に保持
     })
     setMarginInput('')
     setStockInput(product.stock !== undefined && product.stock !== null ? product.stock.toLocaleString() : '')
@@ -111,60 +114,76 @@ export default function AdminInventoryClient({
     setFile(null)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!isLoggedIn) return
     setLoading(true)
 
-    try {
-      let finalImageUrl = form.image_url
+    startTransition(async () => {
+      try {
+        let finalImageUrl = form.image_url || ''
 
-      // 画像選択時のアップロード処理
-      if (file) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const uploadRes = await uploadProductImage(formData)
+        // 1. 新しい画像ファイルが選択された場合のみアップロード実行
+        if (file) {
+          const formData = new FormData()
+          formData.append('file', file)
+          const uploadRes = await uploadProductImage(formData)
+          
+          if (!uploadRes.success) {
+            alert('画像のアップロードエラー: ' + uploadRes.error)
+            setLoading(false)
+            return
+          }
+          if (uploadRes.url) {
+            finalImageUrl = uploadRes.url
+          }
+        }
+
+        // 2. DB更新用のオブジェクトを作成 (image_url を確実にセット)
+        const productData: ProductInput = { 
+          name: form.name,
+          price: Number(form.price),
+          cost_price: Number(form.cost_price),
+          weight: Number(form.weight),
+          stock: Number(form.stock),
+          is_active: form.is_active,
+          image_url: finalImageUrl 
+        }
+
+        if (editingId) {
+          // 3-A. 編集更新
+          const updateRes = await updateProduct(editingId, productData)
+          if (!updateRes.success) {
+            alert('更新エラー: ' + updateRes.error)
+            setLoading(false)
+            return
+          }
+          // DB書き込み成功後にローカルStateを更新
+          setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
+        } else {
+          // 3-B. 新規追加
+          const addRes = await addProduct(productData)
+          if (!addRes.success) {
+            alert('追加エラー: ' + addRes.error)
+            setLoading(false)
+            return
+          }
+          if (addRes.data) {
+            setProducts(prev => [addRes.data, ...prev])
+          }
+        }
         
-        if (!uploadRes.success) {
-          alert('画像のアップロードエラー: ' + uploadRes.error)
-          setLoading(false)
-          return
-        }
-        finalImageUrl = uploadRes.url || ''
+        handleCancel()
+      } catch (error: any) {
+        console.error('Submit Error:', error)
+        alert('エラーが発生しました: ' + (error?.message || '処理に失敗しました'))
+      } finally {
+        setLoading(false)
       }
-
-      const productData = { ...form, image_url: finalImageUrl }
-
-      if (editingId) {
-        // 更新処理
-        const updateRes = await updateProduct(editingId, productData)
-        if (!updateRes.success) {
-          alert('更新エラー: ' + updateRes.error)
-          setLoading(false)
-          return
-        }
-        setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
-      } else {
-        // 新規追加処理
-        const addRes = await addProduct(productData)
-        if (!addRes.success) {
-          alert('追加エラー: ' + addRes.error)
-          setLoading(false)
-          return
-        }
-        if (addRes.data) {
-          setProducts(prev => [addRes.data, ...prev])
-        }
-      }
-      
-      handleCancel()
-    } catch (error: any) {
-      console.error('Submit Error:', error)
-      alert('エラーが発生しました: ' + (error?.message || '処理に失敗しました'))
-    } finally {
-      setLoading(false)
-    }
+    })
   }
+
+  const isProcessing = loading || isPending
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -261,7 +280,7 @@ export default function AdminInventoryClient({
           <div>
             <label className="block text-sm font-medium mb-1">商品画像</label>
             <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full text-sm" />
-            {form.image_url && !file && <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover" />}
+            {form.image_url && !file && <img src={form.image_url} alt="Current" className="mt-2 h-20 object-cover rounded border" />}
           </div>
 
           <div className="flex items-center">
@@ -273,14 +292,14 @@ export default function AdminInventoryClient({
             <div className="flex gap-2">
               <button 
                 type="submit" 
-                disabled={loading || !isLoggedIn} 
+                disabled={isProcessing || !isLoggedIn} 
                 className={`px-4 py-2 rounded flex-1 text-white ${
                   !isLoggedIn 
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
                 }`}
               >
-                {loading ? '処理中...' : (editingId ? '更新' : '追加')}
+                {isProcessing ? '処理中...' : (editingId ? '更新' : '追加')}
               </button>
               {editingId && (
                 <button type="button" onClick={handleCancel} className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">
