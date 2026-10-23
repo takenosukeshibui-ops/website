@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { AddToCartForm } from './AddToCartForm'
 import Link from 'next/link'
 
+// 🌟 データのキャッシュを無効化し、常に最新のDBデータを反映させる設定
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
+
 export default async function InventoryPage(props: { params: Promise<{ lang: string }> }) {
   const { lang } = await props.params
   const products = await getProducts(false)
