@@ -45,12 +45,21 @@ export default async function InventoryPage(props: { params: Promise<{ lang: str
             <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-lg mb-1 leading-tight">{product.name}</h3>
               <p className="text-gray-800 font-semibold mb-2">
-                {product.price.toLocaleString(undefined, { maximumFractionDigits: 2 })} JPY
+                {Number(product.price || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} JPY
               </p>
               
               <div className="text-xs text-gray-500 mb-4 space-y-1">
-                <p>Weight: {product.weight} g</p>
-                <p>Stock: {product.stock > 0 ? `${product.stock} available` : <span className="text-red-500 font-bold">Out of stock</span>}</p>
+                {/* 重量にカンマ適用 */}
+                <p>Weight: {Number(product.weight || 0).toLocaleString()} g</p>
+                {/* 在庫数にカンマ適用 */}
+                <p>
+                  Stock:{' '}
+                  {product.stock > 0 ? (
+                    `${Number(product.stock).toLocaleString()} available`
+                  ) : (
+                    <span className="text-red-500 font-bold">Out of stock</span>
+                  )}
+                </p>
               </div>
               
               <div className="mt-auto">
