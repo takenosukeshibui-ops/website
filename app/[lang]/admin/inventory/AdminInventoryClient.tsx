@@ -12,7 +12,7 @@ export default function AdminInventoryClient({
 }) {
   const [products, setProducts] = useState(initialProducts)
   const [loading, setLoading] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | number | null>(null)
   
   const [isPending, startTransition] = useTransition()
 
@@ -99,7 +99,7 @@ export default function AdminInventoryClient({
       weight: product.weight,
       stock: product.stock,
       is_active: product.is_active,
-      image_url: product.image_url || '' // 既存の画像URLをフォーム状態に保持
+      image_url: product.image_url || ''
     })
     setMarginInput('')
     setStockInput(product.stock !== undefined && product.stock !== null ? product.stock.toLocaleString() : '')
@@ -123,7 +123,6 @@ export default function AdminInventoryClient({
       try {
         let finalImageUrl = form.image_url || ''
 
-        // 1. 新しい画像ファイルが選択された場合のみアップロード実行
         if (file) {
           const formData = new FormData()
           formData.append('file', file)
@@ -139,7 +138,6 @@ export default function AdminInventoryClient({
           }
         }
 
-        // 2. DB更新用のオブジェクトを作成 (image_url を確実にセット)
         const productData: ProductInput = { 
           name: form.name,
           price: Number(form.price),
@@ -151,17 +149,15 @@ export default function AdminInventoryClient({
         }
 
         if (editingId) {
-          // 3-A. 編集更新
           const updateRes = await updateProduct(editingId, productData)
           if (!updateRes.success) {
             alert('更新エラー: ' + updateRes.error)
             setLoading(false)
             return
           }
-          // DB書き込み成功後にローカルStateを更新
-          setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
+          const updatedItem = updateRes.data || { ...productData, id: editingId }
+          setProducts(prev => prev.map(p => String(p.id) === String(editingId) ? updatedItem : p))
         } else {
-          // 3-B. 新規追加
           const addRes = await addProduct(productData)
           if (!addRes.success) {
             alert('追加エラー: ' + addRes.error)

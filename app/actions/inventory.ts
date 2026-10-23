@@ -51,12 +51,11 @@ export async function addProduct(product: ProductInput) {
   }
 }
 
-// 3. 商品更新（エラーハンドリングと引数構造を強化）
-export async function updateProduct(id: string, updates: Partial<ProductInput>) {
+// 3. 商品更新
+export async function updateProduct(id: string | number, updates: Partial<ProductInput>) {
   try {
     const supabase = await createClient()
 
-    // updated_at の型エラー等を防ぐため、シンプルなオブジェクトで渡す
     const payload = {
       name: updates.name,
       price: updates.price,
@@ -68,10 +67,12 @@ export async function updateProduct(id: string, updates: Partial<ProductInput>) 
       updated_at: new Date().toISOString()
     }
 
+    const targetId = String(id).trim()
+
     const { data, error } = await supabase
       .from('inhouse_products')
       .update(payload)
-      .eq('id', id)
+      .eq('id', targetId)
       .select()
 
     if (error) {
@@ -79,9 +80,9 @@ export async function updateProduct(id: string, updates: Partial<ProductInput>) 
       return { success: false, error: `[DB Update Error] ${error.message}` }
     }
 
-    // 更新対象のレコードが存在しなかった場合（ID不一致等）
     if (!data || data.length === 0) {
-      return { success: false, error: '更新対象の商品が見つかりませんでした (ID不一致)' }
+      console.error(`ID mismatch - Sent ID: ${targetId}`)
+      return { success: false, error: `更新対象の商品が見つかりませんでした (ID: ${targetId})` }
     }
 
     revalidatePath('/[lang]/admin/inventory', 'page')
