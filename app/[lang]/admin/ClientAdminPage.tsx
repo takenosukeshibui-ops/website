@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 import { StatusBadge } from '@/components/StatusBadge'
 import ItemStatusSelect from '@/components/ItemStatusSelect'
@@ -19,7 +19,8 @@ import {
     updateOrderStatusToPaymentRequired,
     cancelPaymentRequired,
     updateItemStatus,
-    sendPayPalInvoice
+    sendPayPalInvoice,
+    addAdminAdjustmentItem
 } from '@/app/actions/admin'
 
 function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', pendingText: string }) {
@@ -343,6 +344,52 @@ function calculateOrderStatus(order: any) {
     }
 
     return order.status || 'pending'
+}
+
+function AddAdjustmentForm({ orderId, userId }: { orderId: string; userId: string }) {
+    const [title, setTitle] = useState('')
+    const [price, setPrice] = useState<string>('')
+    const [isPending, startTransition] = useTransition()
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!title || price === '') return
+
+        startTransition(async () => {
+            await addAdminAdjustmentItem(orderId, userId, title, Number(price))
+            setTitle('')
+            setPrice('')
+        })
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-3 p-2 bg-slate-50 border border-slate-200 rounded">
+            <span className="text-xs font-bold text-slate-600 whitespace-nowrap">➕ 調整項目追加:</span>
+            <input
+                type="text"
+                placeholder="項目名 (例: 値引き, 梱包補強費)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="border border-slate-300 px-2 py-1 text-xs rounded w-48 bg-white outline-blue-400"
+                required
+            />
+            <input
+                type="number"
+                placeholder="金額 (例: -1000)"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="border border-slate-300 px-2 py-1 text-xs rounded w-28 bg-white font-mono outline-blue-400"
+                required
+            />
+            <button
+                type="submit"
+                disabled={isPending}
+                className="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1 rounded shadow-sm disabled:opacity-50 whitespace-nowrap transition-colors"
+            >
+                {isPending ? '追加中...' : '追加'}
+            </button>
+        </form>
+    )
 }
 
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
@@ -1360,6 +1407,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         })}
                                                     </tbody>
                                                 </table>
+                                                {/* ▼ 調整項目の手動追加フォームを呼び出し */}
+                                                <AddAdjustmentForm orderId={order.id} userId={order.user_id} />
                                             </div>
                                         </td>
                                     </tr>

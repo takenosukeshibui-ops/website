@@ -404,3 +404,49 @@ export async function deleteAdminItem(itemId: string) {
     revalidatePath('/admin')
     revalidatePath('/dashboard') // [UPDATED]
 }
+
+/**
+ * 17. 注文への調整項目（値引き・追加料金等）の追加
+ */
+export async function addAdminAdjustmentItem(orderId: string, userId: string, title: string, price: number) {
+  const supabase = await createClient()
+
+  // 管理者権限のチェック
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // 1. 調整用アイテムの作成 (url に inhouse:// プレフィックスを付けて代理手数料対象外にする)
+  const { data: newItem, error: itemError } = await supabase
+    .from('items')
+    .insert({
+      user_id: userId,
+      url: 'inhouse://adjustment',
+      title: title || '金額調整',
+      price_estimated: price,
+      quantity: 1,
+      status: 'purchased' // 確定済みとして作成
+    })
+    .select()
+    .single()
+
+  if (itemError) {
+    console.error('Failed to create adjustment item:', itemError)
+    throw new Error('調整項目の作成に失敗しました')
+  }
+
+  // 2. 注文 (order_items) への紐付け
+  const { error: orderItemError } = await supabase
+    .from('order_items')
+    .insert({
+      order_id: orderId,
+      item_id: newItem.id
+    })
+
+  if (orderItemError) {
+    console.error('Failed to link adjustment item to order:', orderItemError)
+    throw new Error('注文への紐付けに失敗しました')
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/admin')
+}
