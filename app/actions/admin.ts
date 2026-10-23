@@ -487,6 +487,5 @@ export async function updateAllOrderItemsStatus(orderId: string, status: string)
     throw new Error('ステータスの一括更新に失敗しました')
   }
 
-  revalidatePath('/dashboard')
-  revalidatePath('/admin')
+  revalidatePath('/', 'layout')
 }
