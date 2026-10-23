@@ -54,12 +54,8 @@ export default async function InventoryPage(props: { params: Promise<{ lang: str
                   <button disabled className="w-full bg-gray-200 text-gray-500 py-2.5 rounded font-medium cursor-not-allowed">
                     Sold Out
                   </button>
-                ) : !isLoggedIn ? (
-                  <Link href={`/${lang}/signup`} className="w-full bg-indigo-600 text-white py-2.5 rounded font-medium hover:bg-indigo-700 transition-colors flex justify-center text-sm">
-                    Register to Purchase
-                  </Link>
                 ) : (
-                  <AddToCartForm product={product} />
+                  <AddToCartForm product={product} isLoggedIn={isLoggedIn} />
                 )}
               </div>
             </div>
