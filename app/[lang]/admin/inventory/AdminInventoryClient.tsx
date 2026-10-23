@@ -23,13 +23,10 @@ export default function AdminInventoryClient({
     image_url: ''
   })
   
-  // 利益率入力用の State
   const [marginInput, setMarginInput] = useState<string>('')
-  // 在庫数入力用の State（初期値を空白に設定）
   const [stockInput, setStockInput] = useState<string>('')
   const [file, setFile] = useState<File | null>(null)
 
-  // 利益率が空白の場合に表示する自動計算利益率 (%)
   const calculatedMargin = useMemo(() => {
     if (marginInput !== '') return marginInput
     if (form.price > 0 && form.cost_price >= 0) {
@@ -39,13 +36,11 @@ export default function AdminInventoryClient({
     return ''
   }, [marginInput, form.price, form.cost_price])
 
-  // 販売価格の手動変更
   const handlePriceChange = (val: number) => {
     setForm(prev => ({ ...prev, price: val }))
     setMarginInput('')
   }
 
-  // 自動価格算出用のヘルパー関数（1未満: 小数点第3位切り上げ / 1以上: 小数点第2位切り上げ）
   const calculateAutoPrice = (cost: number, marginPercent: number): number => {
     if (marginPercent >= 100 || cost <= 0) return 0
     const rawPrice = cost / (1 - marginPercent / 100)
@@ -56,7 +51,6 @@ export default function AdminInventoryClient({
     return Math.ceil(rawPrice * 10) / 10
   }
 
-  // 仕入価格（原価）の変更（小数点以下対応）
   const handleCostPriceChange = (val: number) => {
     setForm(prev => {
       const nextForm = { ...prev, cost_price: val }
@@ -70,7 +64,6 @@ export default function AdminInventoryClient({
     })
   }
 
-  // 利益率の入力変更
   const handleMarginChange = (val: string) => {
     setMarginInput(val)
     if (val !== '' && !isNaN(Number(val))) {
@@ -82,7 +75,6 @@ export default function AdminInventoryClient({
     }
   }
 
-  // 在庫数の入力変更 (3桁カンマフォーマット)
   const handleStockChange = (valStr: string) => {
     const rawValue = valStr.replace(/[^0-9]/g, '')
     if (rawValue === '') {
@@ -127,27 +119,45 @@ export default function AdminInventoryClient({
     try {
       let finalImageUrl = form.image_url
 
-      // 画像が選択されている場合はアップロードを実行
+      // 画像選択時のアップロード処理
       if (file) {
         const formData = new FormData()
         formData.append('file', file)
-        const uploadedUrl = await uploadProductImage(formData)
-        if (uploadedUrl) {
-          finalImageUrl = uploadedUrl
+        const uploadRes = await uploadProductImage(formData)
+        
+        if (!uploadRes.success) {
+          alert('画像のアップロードエラー: ' + uploadRes.error)
+          setLoading(false)
+          return
         }
+        finalImageUrl = uploadRes.url || ''
       }
 
       const productData = { ...form, image_url: finalImageUrl }
 
       if (editingId) {
-        await updateProduct(editingId, productData)
+        // 更新処理
+        const updateRes = await updateProduct(editingId, productData)
+        if (!updateRes.success) {
+          alert('更新エラー: ' + updateRes.error)
+          setLoading(false)
+          return
+        }
         setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData } : p))
-        handleCancel()
       } else {
-        await addProduct(productData)
-        handleCancel()
-        window.location.reload()
+        // 新規追加処理
+        const addRes = await addProduct(productData)
+        if (!addRes.success) {
+          alert('追加エラー: ' + addRes.error)
+          setLoading(false)
+          return
+        }
+        if (addRes.data) {
+          setProducts(prev => [addRes.data, ...prev])
+        }
       }
+      
+      handleCancel()
     } catch (error: any) {
       console.error('Submit Error:', error)
       alert('エラーが発生しました: ' + (error?.message || '処理に失敗しました'))
