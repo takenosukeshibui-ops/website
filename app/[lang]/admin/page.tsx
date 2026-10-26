@@ -86,7 +86,7 @@ export default async function AdminPage(props: { params: Promise<{ lang: string 
                             href={`/${lang}/admin/inventory`} 
                             className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded transition-colors shadow-sm flex items-center gap-1"
                         >
-                            📦 当社在庫・マスタ管理
+                            📦 自社在庫管理
                         </Link>
 
                         {/* 他のリンクも言語対応 */}
