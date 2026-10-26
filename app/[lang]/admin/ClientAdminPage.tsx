@@ -1359,8 +1359,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                             <th className="border border-slate-200 p-2 font-semibold min-w-[180px]">商品名</th>
                                                             <th className="border border-slate-200 p-2 font-semibold">URL</th>
                                                             <th className="border border-slate-200 p-2 font-semibold w-24">備考(サイズ等)</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-16 text-center">依頼数量</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-16 text-center">確定数量</th>
+                                                            <th className="border border-slate-200 p-2 font-semibold w-20 text-center whitespace-nowrap">依頼数量</th>
+                                                            <th className="border border-slate-200 p-2 font-semibold w-24 text-center whitespace-nowrap">確定数量</th>
                                                             <th className="border border-slate-200 p-2 font-semibold w-24 text-right">希望価格</th>
                                                             <th className="border border-slate-200 p-2 font-semibold w-28 text-right">購入価格(確定)</th>
                                                             <th className="border border-slate-200 p-2 font-semibold w-32">ステータス</th>
@@ -1434,7 +1434,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                                     handleQuantityChange(item.id, val)
                                                                                 }
                                                                             }}
-                                                                            className="border border-slate-300 p-1 rounded text-xs w-12 text-center font-mono font-bold"
+                                                                            className="border border-slate-300 p-1 rounded text-xs w-20 text-center font-mono font-bold"
                                                                         />
                                                                     </td>
                                                                     <td className="border border-slate-200 p-2 text-right font-mono text-slate-500">
