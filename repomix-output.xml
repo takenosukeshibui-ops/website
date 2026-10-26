@@ -214,6 +214,82 @@ const dict = await getDictionary(lang) // [NEW] 辞書を取得
 {/* [UPDATED] dict を Props として渡す */}
 </file>
 
+<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
+// app/[lang]/dashboard/settings/ProfileForm.tsx
+// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
+⋮----
+import React, { useActionState, useEffect, useState } from 'react'
+import { updateProfile } from '@/app/actions/profile'
+import { changePassword, changeEmail } from '@/app/actions/auth'
+import { SubmitButton } from '@/components/SubmitButtons'
+import { countries } from '@/components/countries'
+import CountryCombobox from '@/components/CountryCombobox'
+import Link from 'next/link'
+⋮----
+// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
+⋮----
+// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
+function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string
+⋮----
+// 既存入力から旧国番号プレフィックス（+数字）を取り除く
+⋮----
+// 国際電話番号（E.164規格準拠）のバリデーション関数
+function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null
+⋮----
+// 数字のみを抽出 (+は除く)
+⋮----
+// E.164規格: 国番号含めて7桁〜15桁
+⋮----
+// 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
+⋮----
+// プロフィール更新用 State
+⋮----
+// パスワード変更用 State
+⋮----
+// メール変更用 State
+⋮----
+// パスワード変更フォームの開閉状態
+⋮----
+// パスワード表示/非表示の切り替え状態
+⋮----
+// 連絡用メールアドレス・Wise用メールアドレスの State 管理
+⋮----
+// 選択された国 (Country) の State 管理
+⋮----
+// 電話番号の State 管理
+⋮----
+// 同一アドレス適用チェックボックスの State 管理
+⋮----
+// [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
+const handleCountryChange = (newCountry: string) =>
+⋮----
+// 変更後のリアルタイム検証
+⋮----
+// [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
+const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+// フォーム送信前の最終バリデーションチェック
+const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) =>
+⋮----
+e.preventDefault() // 送信拒否
+⋮----
+const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+⋮----
+const getValue = (key: string) =>
+⋮----
+const getBoolValue = (key: string, defaultVal: boolean) =>
+⋮----
+{/* トースト表示 */}
+⋮----
+{/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
+⋮----
+setContactEmail(e.target.value)
+⋮----
+setWiseEmail(e.target.value)
+</file>
+
 <file path="app/[lang]/login/page.tsx">
 // app/[lang]/login/page.tsx
 ⋮----
@@ -228,128 +304,6 @@ import Link from 'next/link'
 import { useActionState, use } from 'react'
 import { signup } from '@/app/actions/auth'
 import Link from 'next/link'
-</file>
-
-<file path="app/actions/admin.ts">
-// app/actions/admin.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { cookies, headers } from 'next/headers'
-⋮----
-/**
- * 1. 商品名の更新
- */
-export async function updateItemTitle(itemId: string, title: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 2. 商品ステータスの更新
- */
-export async function updateItemStatus(itemId: string, status: string, orderId?: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 3. 確定数量の更新
- */
-export async function updateItemQuantity(itemId: string, adminQuantity: number)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 4. 購入価格の更新
- */
-export async function updateItemPrice(itemId: string, price: number)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
- */
-export async function updateAdminNote(itemId: string, note: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
- */
-export async function cancelAdminNote(itemId: string)
-⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
-⋮----
-/**
- * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
- */
-export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
-⋮----
-// [UPDATED] 確定した配送方法もDBに保存するよう追加
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 8. 請求金額データの削除（クリア） [UPDATED]
- */
-export async function deleteInvoice(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
- */
-export async function updateOrderStatusToPaymentRequired(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 10. 「決済待ち」の取り消し [UPDATED]
- */
-export async function cancelPaymentRequired(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
- */
-export async function sendPayPalInvoice(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 12. 追跡番号の更新・保存 [UPDATED]
- */
-export async function updateTrackingNumber(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 13. 発送完了処理 [UPDATED]
- */
-export async function shipOrder(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 14. 追跡番号のクリア（削除） [UPDATED]
- */
-export async function deleteShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 15. 発送済みの取り消し [UPDATED]
- */
-export async function cancelShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 16. 注文内商品の削除 [UPDATED]
- */
-export async function deleteAdminItem(itemId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
 </file>
 
 <file path="app/actions/auth.ts">
@@ -1123,99 +1077,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-⋮----
-export default async function AdminPage(props:
-⋮----
-// URLから言語(lang)を取得
-⋮----
-{/* [UPDATED] 当社在庫管理へのリンク先を /${lang}/admin/inventory に変更 */}
-⋮----
-{/* 他のリンクも言語対応 */}
-</file>
-
-<file path="app/[lang]/dashboard/settings/ProfileForm.tsx">
-// app/[lang]/dashboard/settings/ProfileForm.tsx
-// [UPDATED] 電話番号の先頭ゼロ自動削除機能を削除し、そのまま保持・入力できるように修正
-⋮----
-import React, { useActionState, useEffect, useState } from 'react'
-import { updateProfile } from '@/app/actions/profile'
-import { changePassword, changeEmail } from '@/app/actions/auth'
-import { SubmitButton } from '@/components/SubmitButtons'
-import { countries } from '@/components/countries'
-import CountryCombobox from '@/components/CountryCombobox'
-import Link from 'next/link'
-⋮----
-// [NEW] 国コードと国番号（プレフィックス）のマッピング定義
-⋮----
-// [UPDATED] 電話番号の整形ヘルパー関数（先頭ゼロ削除ロジックを除外）
-function formatPhoneNumberWithDialCode(dialCode: string, currentPhone: string): string
-⋮----
-// 既存入力から旧国番号プレフィックス（+数字）を取り除く
-⋮----
-// 国際電話番号（E.164規格準拠）のバリデーション関数
-function validateInternationalPhone(phoneStr: string, isEn: boolean): string | null
-⋮----
-// 数字のみを抽出 (+は除く)
-⋮----
-// E.164規格: 国番号含めて7桁〜15桁
-⋮----
-// 国番号の直後に 0 が入っていないか確認 (例: +81 080... はエラー)
-⋮----
-// プロフィール更新用 State
-⋮----
-// パスワード変更用 State
-⋮----
-// メール変更用 State
-⋮----
-// パスワード変更フォームの開閉状態
-⋮----
-// パスワード表示/非表示の切り替え状態
-⋮----
-// 連絡用メールアドレス・Wise用メールアドレスの State 管理
-⋮----
-// 選択された国 (Country) の State 管理
-⋮----
-// 電話番号の State 管理
-⋮----
-// 同一アドレス適用チェックボックスの State 管理
-⋮----
-// [UPDATED] 国選択変更時に国番号プレフィックスを更新（先頭ゼロ削除処理は行わない）
-const handleCountryChange = (newCountry: string) =>
-⋮----
-// 変更後のリアルタイム検証
-⋮----
-// [UPDATED] 電話番号の手入力変更処理（自動削除は行わず、そのまま入力させる）
-const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-// フォーム送信前の最終バリデーションチェック
-const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) =>
-⋮----
-e.preventDefault() // 送信拒否
-⋮----
-const handleSameForContactChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const handleSameForWiseChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-⋮----
-const getValue = (key: string) =>
-⋮----
-const getBoolValue = (key: string, defaultVal: boolean) =>
-⋮----
-{/* トースト表示 */}
-⋮----
-{/* [UPDATED] 入力番号をそのまま受け付ける電話番号入力欄 */}
-⋮----
-setContactEmail(e.target.value)
-⋮----
-setWiseEmail(e.target.value)
-</file>
-
 <file path="app/[lang]/forgot-password/page.tsx">
 // app/[lang]/forgot-password/page.tsx
 ⋮----
@@ -1320,6 +1181,23 @@ import type { NextConfig } from "next";
 // Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
 </file>
 
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+⋮----
+export default async function AdminPage(props:
+⋮----
+// URLから言語(lang)を取得
+⋮----
+{/* [UPDATED] 当社在庫管理へのリンク先を /${lang}/admin/inventory に変更 */}
+⋮----
+{/* 他のリンクも言語対応 */}
+</file>
+
 <file path="app/[lang]/layout.tsx">
 // app/[lang]/layout.tsx
 import type { Metadata } from "next";
@@ -1365,30 +1243,6 @@ revalidateAll() // [UPDATED]
 export async function replyToAdminNote(itemId: string, remarks: string)
 ⋮----
 revalidateAll() // [UPDATED]
-</file>
-
-<file path="app/[lang]/admin/inventory/page.tsx">
-import { getProducts } from '@/app/actions/inventory'
-import AdminInventoryClient from './AdminInventoryClient'
-⋮----
-export default async function AdminInventoryPage()
-⋮----
-// 管理者権限として全ての商品(非公開含む)を取得
-</file>
-
-<file path="app/[lang]/inventory/AddToCartForm.tsx">
-import React, { useState } from 'react'
-import { addToCart } from '@/app/actions/items'
-⋮----
-const handleAction = async (formData: FormData) =>
-⋮----
-// 成功時にトーストを表示し、3秒後に消す
-⋮----
-// 未ログイン時のボタン非活性化表示
-⋮----
-<input type="hidden" name="url" value={`inhouse://${product.id}`} />
-⋮----
-{/* トースト通知 (画面右下に固定表示) */}
 </file>
 
 <file path="dictionaries/en.json">
@@ -1699,6 +1553,176 @@ const handleAction = async (formData: FormData) =>
 }
 </file>
 
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
+⋮----
+export default async function AdminInventoryPage()
+⋮----
+// 管理者権限として全ての商品(非公開含む)を取得
+</file>
+
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
+import React, { useState } from 'react'
+import { addToCart } from '@/app/actions/items'
+⋮----
+const handleAction = async (formData: FormData) =>
+⋮----
+// 成功時にトーストを表示し、3秒後に消す
+⋮----
+// 未ログイン時のボタン非活性化表示
+⋮----
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+⋮----
+{/* トースト通知 (画面右下に固定表示) */}
+</file>
+
+<file path="app/actions/admin.ts">
+// app/actions/admin.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { cookies, headers } from 'next/headers'
+⋮----
+/**
+ * 1. 商品名の更新
+ */
+export async function updateItemTitle(itemId: string, title: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 2. 商品ステータスの更新
+ */
+export async function updateItemStatus(itemId: string, status: string, orderId?: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 3. 確定数量の更新
+ */
+export async function updateItemQuantity(itemId: string, adminQuantity: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 4. 購入価格の更新
+ */
+export async function updateItemPrice(itemId: string, price: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
+ */
+export async function updateAdminNote(itemId: string, note: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
+ */
+export async function cancelAdminNote(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
+ */
+export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
+⋮----
+// [UPDATED] 確定した配送方法もDBに保存するよう追加
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 8. 請求金額データの削除（クリア） [UPDATED]
+ */
+export async function deleteInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
+ */
+export async function updateOrderStatusToPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 10. 「決済待ち」の取り消し [UPDATED]
+ */
+export async function cancelPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
+ */
+export async function sendPayPalInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 12. 追跡番号の更新・保存 [UPDATED]
+ */
+export async function updateTrackingNumber(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 13. 発送完了処理 [UPDATED]
+ */
+export async function shipOrder(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 14. 追跡番号のクリア（削除） [UPDATED]
+ */
+export async function deleteShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 15. 発送済みの取り消し [UPDATED]
+ */
+export async function cancelShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 16. 注文内商品の削除 [UPDATED]
+ */
+export async function deleteAdminItem(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 17. 注文への調整項目（値引き・追加料金等）の追加
+ */
+export async function addAdminAdjustmentItem(orderId: string, userId: string, title: string, price: number)
+⋮----
+// 管理者権限のチェック
+⋮----
+// 1. 調整用アイテムの作成 (url に inhouse:// プレフィックスを付けて代理手数料対象外にする)
+⋮----
+status: 'purchased' // 確定済みとして作成
+⋮----
+// 2. 注文 (order_items) への紐付け
+⋮----
+/**
+ * 18. 注文内すべての商品のステータスを一括更新
+ */
+export async function updateAllOrderItemsStatus(orderId: string, status: string)
+⋮----
+// 管理者権限チェック
+⋮----
+// 1. 対象 order に紐づく item_id 一覧を取得
+⋮----
+// 2. 該当アイテムのステータスを一括更新
+</file>
+
 <file path="app/actions/cart.ts">
 // app/actions/cart.ts
 ⋮----
@@ -1737,6 +1761,56 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 // 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
 ⋮----
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+⋮----
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { X, HelpCircle } from 'lucide-react'
+⋮----
+interface BookmarkletGeneratorProps {
+    dict: any;
+}
+⋮----
+// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
+⋮----
+const handleKeyDown = (e: KeyboardEvent) =>
+⋮----
+{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
+⋮----
+{/* ここに生のHTML要素（aタグ）が挿入されます */}
+⋮----
+onClick=
+</file>
+
+<file path="app/actions/inventory.ts">
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
+⋮----
+// 1. 全商品取得
+export async function getProducts(isAdmin = false)
+⋮----
+// 2. 新規追加
+export async function addProduct(product: ProductInput)
+⋮----
+// 3. 商品更新
+export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+⋮----
+// 4. 画像アップロード
+export async function uploadProductImage(formData: FormData)
 </file>
 
 <file path="app/[lang]/dashboard/page.tsx">
@@ -1778,55 +1852,6 @@ const getTranslatedShippingMethod = (method: string) =>
 if (replyRemarks)
 </file>
 
-<file path="app/actions/inventory.ts">
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-export type ProductInput = {
-  name: string
-  price: number
-  cost_price: number
-  weight: number
-  stock: number
-  image_url?: string
-  is_active?: boolean
-}
-⋮----
-// 1. 全商品取得
-export async function getProducts(isAdmin = false)
-⋮----
-// 2. 新規追加
-export async function addProduct(product: ProductInput)
-⋮----
-// 3. 商品更新
-export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
-⋮----
-// 4. 画像アップロード
-export async function uploadProductImage(formData: FormData)
-</file>
-
-<file path="app/[lang]/calculator/page.tsx">
-import { useState, use } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import CountryCombobox from "@/components/CountryCombobox";
-import { countries } from "@/components/countries";
-⋮----
-const handleCountryChange = (newCountry: string) =>
-⋮----
-const handleCalculate = async () =>
-⋮----
-onChange=
-⋮----
-{/* 日本郵便の表示 */}
-⋮----
-{/* FedExの全適用プラン表示 */}
-⋮----
-{/* 内訳アコーディオン */}
-⋮----
-{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
-</file>
-
 <file path="components/CartManager.tsx">
 // components/CartManager.tsx
 ⋮----
@@ -1859,105 +1884,26 @@ onBlur=
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
 </file>
 
-<file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
+<file path="app/[lang]/calculator/page.tsx">
+import { useState, use } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import CountryCombobox from "@/components/CountryCombobox";
+import { countries } from "@/components/countries";
 ⋮----
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { X, HelpCircle } from 'lucide-react'
+const handleCountryChange = (newCountry: string) =>
 ⋮----
-interface BookmarkletGeneratorProps {
-    dict: any;
-}
-⋮----
-// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
-⋮----
-const handleKeyDown = (e: KeyboardEvent) =>
-⋮----
-{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
-⋮----
-{/* ここに生のHTML要素（aタグ）が挿入されます */}
-⋮----
-onClick=
-</file>
-
-<file path="app/[lang]/admin/ClientAdminPage.tsx">
-import React, { useState, useEffect } from 'react'
-import { useFormStatus } from 'react-dom'
-import { StatusBadge } from '@/components/StatusBadge'
-import ItemStatusSelect from '@/components/ItemStatusSelect'
-import {
-    sendInvoice,
-    deleteInvoice,
-    shipOrder,
-    deleteShip,
-    cancelShip,
-    updateItemQuantity,
-    updateItemPrice,
-    updateItemTitle,
-    updateTrackingNumber,
-    updateAdminNote,
-    cancelAdminNote,
-    updateOrderStatusToPaymentRequired,
-    cancelPaymentRequired,
-    updateItemStatus,
-    sendPayPalInvoice
-} from '@/app/actions/admin'
-⋮----
-function ActionStateButton(
-⋮----
-const formattedDisplay = () =>
-⋮----
-setIsFocused(true)
-⋮----
-setTimeout(()
+const handleCalculate = async () =>
 ⋮----
 onChange=
 ⋮----
-setIsFocused(false)
-const val = Number(e.target.value)
+{/* 日本郵便の表示 */}
 ⋮----
-let proxyFeeTargetTotal = 0; // ★ 変数を追加
+{/* FedExの全適用プラン表示 */}
 ⋮----
-// ▼ 変更: 自社商品の判定を追加し、価格のデフォルト値を設定
+{/* 内訳アコーディオン */}
 ⋮----
-const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate); // ★ productTotal から proxyFeeTargetTotal に変更
-⋮----
-<form action=
-⋮----
-const fetchWiseQuote = async (orderId: string, amount: number) =>
-⋮----
-const calculateFeesForOrders = async () =>
-⋮----
-if (!amount || amount <= 0)
-⋮----
-{/* ▼ クリックせずに見える担当者情報 */}
-⋮----
-{/* ▼ 住所や詳細を確認するためのボタン */}
-⋮----
-{/* 1. 総重量 */}
-⋮----
-setOrderInputs(prev => (
-setEditingWeight(prev
-⋮----
-{/* 2. 配送ラベル */}
-⋮----
-{/* 3. 追跡番号 */}
-⋮----
-{/* 5. お支払い金額 */}
-⋮----
-{/* 6. 請求書送信 (PayPal / Wise 対応) */}
-⋮----
-{/* 7. 発送状態 */}
-⋮----
-決済手数料
-⋮----
-// ▼ 追加: 自社商品の判定と表示価格の決定
-⋮----
-{/* ▼ 変更: URLの表示 (自社商品は青いバッジにする) */}
-⋮----
-{/* ▼ 変更: defaultValue を displayPrice に変更 */}
+{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
 </file>
 
 <file path="app/[lang]/estimate/page.tsx">
@@ -2105,6 +2051,100 @@ export async function calculateFedexRates(
 // 🌟 First も Priority と同じ 1-3日に設定
 ⋮----
 export async function calculateShippingFees(params: CalculateShippingFeesParams)
+</file>
+
+<file path="app/[lang]/admin/ClientAdminPage.tsx">
+import React, { useState, useEffect, useTransition } from 'react'
+import { useFormStatus } from 'react-dom'
+import { StatusBadge } from '@/components/StatusBadge'
+import ItemStatusSelect from '@/components/ItemStatusSelect'
+import {
+    sendInvoice,
+    deleteInvoice,
+    shipOrder,
+    deleteShip,
+    cancelShip,
+    updateItemQuantity,
+    updateItemPrice,
+    updateItemTitle,
+    updateTrackingNumber,
+    updateAdminNote,
+    cancelAdminNote,
+    updateOrderStatusToPaymentRequired,
+    cancelPaymentRequired,
+    updateItemStatus,
+    sendPayPalInvoice,
+    addAdminAdjustmentItem,
+    updateAllOrderItemsStatus
+} from '@/app/actions/admin'
+⋮----
+function ActionStateButton(
+⋮----
+const formattedDisplay = () =>
+⋮----
+setIsFocused(true)
+⋮----
+setTimeout(()
+⋮----
+onChange=
+⋮----
+setIsFocused(false)
+const val = Number(e.target.value)
+⋮----
+<form action=
+⋮----
+const fetchWiseQuote = async (orderId: string, amount: number) =>
+⋮----
+const calculateFeesForOrders = async () =>
+⋮----
+const toggleOrder = (orderId: string) =>
+⋮----
+const handleWeightChange = (orderId: string, value: string) =>
+⋮----
+const handleItemStatusUpdated = async (orderId: string, itemId: string, newStatus: string) =>
+⋮----
+const handleBulkStatusUpdate = async (orderId: string, newStatus: string) =>
+⋮----
+const handleNoteSubmit = async (orderId: string, itemId: string, note: string) =>
+⋮----
+const handleCancelNote = async (orderId: string, itemId: string) =>
+⋮----
+const handleGenerateFedExLabel = async (orderId: string) =>
+⋮----
+const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) =>
+⋮----
+const handleMarkAsPaymentRequiredWithWise = async (order: any, amount: number) =>
+⋮----
+const handleSendInvoiceByPaymentMethod = async (order: any, amount: number) =>
+⋮----
+const handleCancelPaymentRequired = async (order: any) =>
+⋮----
+const handleMarkAsShipped = async (order: any) =>
+⋮----
+const handleCancelShip = async (orderId: string) =>
+⋮----
+const handlePriceChange = async (itemId: string, newPrice: number) =>
+⋮----
+const handleQuantityChange = async (itemId: string, newQuantity: number) =>
+⋮----
+const handleTitleChange = async (itemId: string, newTitle: string) =>
+⋮----
+{/* 1. 総重量 */}
+⋮----
+setOrderInputs(prev => (
+setEditingWeight(prev
+⋮----
+{/* 2. 配送ラベル */}
+⋮----
+{/* 3. 追跡番号 */}
+⋮----
+{/* 5. お支払い金額 */}
+⋮----
+{/* 6. 請求書送信 (PayPal / Wise 対応) */}
+⋮----
+{/* 7. 発送状態 */}
+⋮----
+決済手数料
 </file>
 
 <file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
