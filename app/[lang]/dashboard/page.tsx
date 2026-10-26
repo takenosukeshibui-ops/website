@@ -238,7 +238,7 @@ export default async function DashboardPage(props: {
                 {(!orders || orders.length === 0) ? (
                     <p className="text-slate-500 text-sm">{dict?.dashboard?.noOrders || '注文はありません'}</p>
                 ) : (
-                    orders.map((order: any) => {
+                    orders.map((order: any, index: number) => {
                         const needsAttention = order.order_items?.some((oi: any) => {
                             const targetItem = Array.isArray(oi.items) ? oi.items[0] : oi.items;
                             return targetItem && ['info_required', 'price_changed'].includes(targetItem.status);
@@ -261,8 +261,8 @@ export default async function DashboardPage(props: {
                                 <summary className="font-semibold cursor-pointer text-slate-900 flex flex-wrap justify-between items-center gap-2">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <span className="bg-slate-800 text-white font-mono text-xs font-bold px-2.5 py-1 rounded">
-                                            {/* 🌟 修正：ユーザー毎の連番を表示 */}
-                                            #{order.user_order_seq ?? '-'}
+                                            {/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
+                                            #{orders.length - index}
                                         </span>
                                         <span className="text-sm text-slate-600">
                                             {new Date(order.created_at).toLocaleDateString(isEn ? 'en-US' : 'ja-JP')} {dict?.dashboard?.table?.order}
