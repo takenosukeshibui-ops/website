@@ -1417,9 +1417,9 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                         {item.remarks || '-'}
                                                                     </td>
                                                                     <td className="border border-slate-200 p-2 text-center font-mono text-slate-500">
-                                                                       {cartQty}
+                                                                       {Number(cartQty).toLocaleString()}
                                                                     </td>
-                                                                   <td className="border border-slate-200 p-2 text-center">
+                                                                    <td className="border border-slate-200 p-2 text-center">
                                                                         <input
                                                                             type="number"
                                                                             min={1}

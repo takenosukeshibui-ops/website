@@ -404,15 +404,15 @@ export default async function DashboardPage(props: {
                                                                         {item?.remarks || '-'}
                                                                     </td>
                                                                     <td className="p-2.5 text-center font-mono text-slate-500">
-                                                                        {cartQty}
+                                                                        {Number(cartQty).toLocaleString()}
                                                                     </td>
                                                                     <td className="p-2.5 text-center font-mono font-bold">
                                                                         {adminQty !== null && adminQty !== undefined ? (
                                                                             <span className={adminQty !== cartQty ? 'text-amber-600 font-extrabold' : 'text-slate-800'}>
-                                                                                {adminQty}
+                                                                                {Number(adminQty).toLocaleString()}
                                                                             </span>
                                                                         ) : (
-                                                                            <span className="text-slate-800">{cartQty}</span>
+                                                                            <span className="text-slate-800">{Number(cartQty).toLocaleString()}</span>
                                                                         )}
                                                                     </td>
                                                                     <td className="p-2.5 text-right font-mono text-slate-500 whitespace-nowrap">
