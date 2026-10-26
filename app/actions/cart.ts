@@ -79,31 +79,52 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
     const selectedShipping = shippingMethod || '最安プラン自動選択 (航空便)'
     const selectedPayment = paymentMethod || 'Wise'
 
-    // 2. 新規注文レコードの作成
-    const { data: newOrder, error: orderError } = await supabase
+    // --- 💡 ここから差分：既存の pending 注文を探す分岐 ---
+    const { data: existingOrder } = await supabase
         .from('orders')
-        .insert({
-            user_id: user.id,
-            status: 'pending',
-            shipping_method: selectedShipping,
-            payment_method: selectedPayment,
-            shipping_country: profile?.country || 'US',
-            shipping_zip_code: profile?.zip_code || null,
-            shipping_state_province: profile?.state_province || null,
-            shipping_city: profile?.city || null,
-            shipping_address_line1: profile?.address_line1 || null,
-            shipping_address_line2: profile?.address_line2 || null,
-            shipping_address_line3: profile?.address_line3 || null,
-            shipping_is_residential: profile?.is_residential ?? true,
-            created_at: new Date().toISOString()
-        })
-        .select()
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single()
 
-    if (orderError || !newOrder) {
-        console.error('Order creation error:', orderError?.message)
-        throw new Error('注文の作成に失敗しました / Failed to create order: ' + (orderError?.message || ''))
+    let orderId: string
+    let isNewOrder = false // ロールバック制御用のフラグ
+
+    if (existingOrder) {
+        // 未処理の注文があれば合流（マージ）
+        orderId = existingOrder.id
+    } else {
+        // 2. 新規注文レコードの作成（既存コードのロジック）
+        const { data: newOrder, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+                user_id: user.id,
+                status: 'pending',
+                shipping_method: selectedShipping,
+                payment_method: selectedPayment,
+                shipping_country: profile?.country || 'US',
+                shipping_zip_code: profile?.zip_code || null,
+                shipping_state_province: profile?.state_province || null,
+                shipping_city: profile?.city || null,
+                shipping_address_line1: profile?.address_line1 || null,
+                shipping_address_line2: profile?.address_line2 || null,
+                shipping_address_line3: profile?.address_line3 || null,
+                shipping_is_residential: profile?.is_residential ?? true,
+                created_at: new Date().toISOString()
+            })
+            .select()
+            .single()
+
+        if (orderError || !newOrder) {
+            console.error('Order creation error:', orderError?.message)
+            throw new Error('注文の作成に失敗しました / Failed to create order: ' + (orderError?.message || ''))
+        }
+        orderId = newOrder.id
+        isNewOrder = true
     }
+    // --- 💡 差分ここまで ---
 
     // 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
     const { error: itemUpdateError } = await supabase
@@ -115,14 +136,17 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
 
     if (itemUpdateError) {
         console.error('Item status update error:', itemUpdateError.message)
-        // 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
-        await supabase.from('orders').delete().eq('id', newOrder.id)
+        // 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+        if (isNewOrder) {
+            await supabase.from('orders').delete().eq('id', orderId)
+        }
         throw new Error(`商品の注文状態への更新に失敗しました / Failed to update item status: ${itemUpdateError.message}`)
     }
 
     // 4. 中間テーブル (order_items) に紐付け登録
+    // 💡 変更: newOrder.id から orderId に変更
     const orderItemsPayload = itemIds.map(itemId => ({
-        order_id: newOrder.id,
+        order_id: orderId,
         item_id: itemId
     }))
 
@@ -130,17 +154,19 @@ export async function createOrderFromCart(itemIds: string[], shippingMethod: str
         .from('order_items')
         .insert(orderItemsPayload)
 
-
     if (linkError) {
         console.error('Order item link error detail:', linkError.message, linkError.details, linkError.hint)
-        // 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
+        // 紐付け失敗時は商品ステータスを draft に戻す
         await supabase.from('items').update({ status: 'draft' }).in('id', itemIds).eq('user_id', user.id)
-        await supabase.from('orders').delete().eq('id', newOrder.id)
+        // 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+        if (isNewOrder) {
+            await supabase.from('orders').delete().eq('id', orderId)
+        }
         throw new Error(`注文商品の紐付けに失敗しました / Failed to link order items: ${linkError.message}`)
     }
 
     // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
     revalidatePath('/', 'layout')
 
-    return { success: true, orderId: newOrder.id }
+    return { success: true, orderId: orderId }
 }
