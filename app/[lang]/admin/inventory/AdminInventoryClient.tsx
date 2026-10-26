@@ -28,9 +28,9 @@ export default function AdminInventoryClient({
 
   // 商品とは独立した仕入先・希望価格データリスト
   const [supplierList, setSupplierList] = useState<SupplierItem[]>([
-    { id: '1', supplierName: 'A商事', productName: '商品サンプルA', desiredPrice: 2500, note: 'ロット50個〜' },
-    { id: '2', supplierName: 'A商事', productName: '商品サンプルB', desiredPrice: 4200, note: '' },
-    { id: '3', supplierName: 'Bトレーディング', productName: '商品サンプルC', desiredPrice: 1800, note: '即納可' }
+    { id: '1', supplierName: 'A商事', productName: '商品サンプルA', desiredPrice: 2500.50, note: 'ロット50個〜' },
+    { id: '2', supplierName: 'A商事', productName: '商品サンプルB', desiredPrice: 4200.00, note: '' },
+    { id: '3', supplierName: 'Bトレーディング', productName: '商品サンプルC', desiredPrice: 1800.75, note: '即納可' }
   ])
 
   // 仕入先追加用の簡易フォームState
@@ -218,16 +218,19 @@ export default function AdminInventoryClient({
     })
   }
 
-  // 仕入先希望価格の追加ハンドラー
+  // 仕入先希望価格の追加ハンドラー (小数点第2位まで受け付け)
   const handleAddSupplierItem = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newSupplier.supplierName || !newSupplier.productName) return
+    
+    const parsedPrice = parseFloat(newSupplier.desiredPrice)
+    const validPrice = isNaN(parsedPrice) ? 0 : Math.round(parsedPrice * 100) / 100
     
     const newItem: SupplierItem = {
       id: Date.now().toString(),
       supplierName: newSupplier.supplierName.trim(),
       productName: newSupplier.productName.trim(),
-      desiredPrice: Number(newSupplier.desiredPrice) || 0,
+      desiredPrice: validPrice,
       note: newSupplier.note.trim()
     }
     
@@ -496,7 +499,8 @@ export default function AdminInventoryClient({
                   <input
                     type="number"
                     min="0"
-                    placeholder="希望価格"
+                    step="0.01"
+                    placeholder="希望価格 (例: 100.50)"
                     value={newSupplier.desiredPrice}
                     onChange={e => setNewSupplier({ ...newSupplier, desiredPrice: e.target.value })}
                     className="w-full border rounded p-2 pr-6 text-sm bg-white text-right"
@@ -526,7 +530,7 @@ export default function AdminInventoryClient({
                         <thead>
                           <tr className="bg-gray-50 border-b text-xs text-gray-500">
                             <th className="p-2.5">商品名</th>
-                            <th className="p-2.5 text-right w-32">仕入先希望価格</th>
+                            <th className="p-2.5 text-right w-36">仕入先希望価格</th>
                             <th className="p-2.5 text-center w-16">操作</th>
                           </tr>
                         </thead>
@@ -535,7 +539,14 @@ export default function AdminInventoryClient({
                             <tr key={item.id} className="border-b last:border-0 hover:bg-gray-50/50">
                               <td className="p-2.5 font-medium">{item.productName}</td>
                               <td className="p-2.5 text-right font-semibold text-emerald-700">
-                                {item.desiredPrice > 0 ? `¥${item.desiredPrice.toLocaleString()}` : '未定'}
+                                {item.desiredPrice > 0 ? (
+                                  `¥${item.desiredPrice.toLocaleString(undefined, { 
+                                    minimumFractionDigits: 2, 
+                                    maximumFractionDigits: 2 
+                                  })}`
+                                ) : (
+                                  '未定'
+                                )}
                               </td>
                               <td className="p-2.5 text-center">
                                 <button
