@@ -20,6 +20,8 @@ export default function AdminInventoryClient({
     name: '',
     price: 0,
     cost_price: 0,
+    supplier_name: '',
+    supplier_price: 0,
     weight: 0,
     stock: 0,
     is_active: true,
@@ -96,6 +98,8 @@ export default function AdminInventoryClient({
       name: product.name,
       price: product.price,
       cost_price: product.cost_price ?? 0,
+      supplier_name: product.supplier_name || '',
+      supplier_price: product.supplier_price ?? 0,
       weight: product.weight,
       stock: product.stock,
       is_active: product.is_active,
@@ -108,7 +112,17 @@ export default function AdminInventoryClient({
 
   const handleCancel = () => {
     setEditingId(null)
-    setForm({ name: '', price: 0, cost_price: 0, weight: 0, stock: 0, is_active: true, image_url: '' })
+    setForm({ 
+      name: '', 
+      price: 0, 
+      cost_price: 0, 
+      supplier_name: '', 
+      supplier_price: 0, 
+      weight: 0, 
+      stock: 0, 
+      is_active: true, 
+      image_url: '' 
+    })
     setMarginInput('')
     setStockInput('')
     setFile(null)
@@ -142,6 +156,8 @@ export default function AdminInventoryClient({
           name: form.name,
           price: Number(form.price),
           cost_price: Number(form.cost_price),
+          supplier_name: form.supplier_name || '',
+          supplier_price: Number(form.supplier_price) || 0,
           weight: Number(form.weight),
           stock: Number(form.stock),
           is_active: form.is_active,
@@ -189,12 +205,47 @@ export default function AdminInventoryClient({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">商品名 (英語推奨)</label>
-            <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full border rounded p-2" />
+            <input 
+              type="text" 
+              required 
+              value={form.name} 
+              onChange={e => setForm({ ...form, name: e.target.value })} 
+              className="w-full border rounded p-2" 
+            />
+          </div>
+
+          {/* 仕入先情報 */}
+          <div className="grid grid-cols-2 gap-2 bg-amber-50/50 p-3 rounded border border-amber-100">
+            <div>
+              <label className="block text-xs font-medium mb-1 text-gray-700">仕入先名</label>
+              <input
+                type="text"
+                value={form.supplier_name || ''}
+                onChange={e => setForm({ ...form, supplier_name: e.target.value })}
+                placeholder="例: 店舗名 / 卸先"
+                className="w-full border rounded p-2 text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1 text-gray-700">仕入先希望価格</label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.supplier_price === 0 ? '' : form.supplier_price}
+                  onChange={e => setForm({ ...form, supplier_price: e.target.value === '' ? 0 : Number(e.target.value) })}
+                  placeholder="0"
+                  className="w-full border rounded p-2 pr-6 bg-white text-sm text-right"
+                />
+                <span className="absolute right-2 text-xs text-gray-500 pointer-events-none">円</span>
+              </div>
+            </div>
           </div>
           
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-xs font-medium mb-1">仕入価格</label>
+              <label className="block text-xs font-medium mb-1">実仕入価格 (原価)</label>
               <div className="relative flex items-center">
                 <input
                   type="number"
@@ -320,9 +371,11 @@ export default function AdminInventoryClient({
             <thead>
               <tr className="border-b bg-gray-50">
                 <th className="p-2 w-12">画像</th>
-                <th className="p-2 min-w-[150px]">商品名</th>
+                <th className="p-2 min-w-[140px]">商品名</th>
+                <th className="p-2 min-w-[100px]">仕入先</th>
+                <th className="p-2 text-right">希望価格</th>
+                <th className="p-2 text-right">実仕入価格</th>
                 <th className="p-2 text-right">販売価格</th>
-                <th className="p-2 text-right">仕入価格</th>
                 <th className="p-2 text-right">想定利益</th>
                 <th className="p-2 text-center">在庫</th>
                 <th className="p-2 text-center">状態</th>
@@ -333,6 +386,7 @@ export default function AdminInventoryClient({
               {products.map((product) => {
                 const costPrice = Number(product.cost_price || 0)
                 const price = Number(product.price || 0)
+                const supplierPrice = product.supplier_price != null ? Number(product.supplier_price) : null
                 const profit = price - costPrice
                 const profitRate = price > 0 ? (profit / price) * 100 : 0
                 
@@ -346,8 +400,14 @@ export default function AdminInventoryClient({
                       )}
                     </td>
                     <td className="p-2 font-medium break-words">{product.name}</td>
-                    <td className="p-2 text-right font-semibold text-blue-700">¥{price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-gray-700">{product.supplier_name || '-'}</td>
+                    <td className="p-2 text-right text-gray-600">
+                      {supplierPrice !== null && supplierPrice > 0 
+                        ? `¥${supplierPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}` 
+                        : '-'}
+                    </td>
                     <td className="p-2 text-right text-red-600">¥{costPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td className="p-2 text-right font-semibold text-blue-700">¥{price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                     <td className="p-2 text-right">
                       <div className="flex flex-col items-end">
                         <span className="font-bold text-emerald-600">¥{profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
@@ -374,7 +434,7 @@ export default function AdminInventoryClient({
               })}
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-4 text-center text-gray-500">商品が登録されていません</td>
+                  <td colSpan={10} className="p-4 text-center text-gray-500">商品が登録されていません</td>
                 </tr>
               )}
             </tbody>

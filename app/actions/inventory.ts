@@ -7,6 +7,8 @@ export type ProductInput = {
   name: string
   price: number
   cost_price: number
+  supplier_name?: string
+  supplier_price?: number
   weight: number
   stock: number
   image_url?: string
