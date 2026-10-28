@@ -470,16 +470,23 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
 
     // 🌟 単体AIの個別実行ハンドラー
     const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') => {
-        setRunningAction(action)
-        setAiError(null)
+        setRunningAction(action);
         try {
             const res = await fetch('/api/ai/intelligence', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, currentData: aiData || {} }),
-            })
-            const json = await res.json()
-            if (!json.success) throw new Error(json.error || '生成失敗')
+            });
+
+            // JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                const errorText = await res.text();
+                throw new Error(`サーバーエラー (${res.status}): ${errorText.slice(0, 200)}`);
+            }
+
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || '生成失敗');
 
             setAiData(prev => ({
                 trendInsights: prev?.trendInsights || [],
@@ -488,13 +495,13 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
                 salesDM: prev?.salesDM || '',
                 accountInsights: prev?.accountInsights || '',
                 ...json.data
-            }))
+            }));
         } catch (err: any) {
-            alert(`⚠️ 実行エラー: ${err.message}`)
+            alert(`⚠️ 実行エラー: ${err.message}`);
         } finally {
-            setRunningAction(null)
+            setRunningAction(null);
         }
-    }
+    };
 
     // AIパイプライン（一括）を実行する
     const runIntelligenceAnalysis = async () => {
