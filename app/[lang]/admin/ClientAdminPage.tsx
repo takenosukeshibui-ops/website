@@ -462,6 +462,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     const [aiData, setAiData] = useState<IntelligenceData | null>(null)
     const [aiError, setAiError] = useState<string | null>(null)
     const [copiedKey, setCopiedKey] = useState<string | null>(null)
+    const [history, setHistory] = useState<any[]>([])
+    const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null)
 
     const [orders, setOrders] = useState(() =>
         initialOrders.map(order => ({
@@ -490,18 +492,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 method: 'POST',
             })
 
-            if (!res.ok) {
-                throw new Error(`通信エラーが発生しました: ${res.statusText}`)
-            }
-
+            if (!res.ok) throw new Error(`通信エラー: ${res.statusText}`)
             const json = await res.json()
-            if (!json.success) {
-                throw new Error(json.error || '分析に失敗しました')
-            }
+            if (!json.success) throw new Error(json.error || '分析失敗')
 
             setAiData(json.data)
+
+            // 💡 実行後に最新履歴一覧を再取得してセレクターを最新化
+            const historyRes = await fetch('/api/ai/intelligence')
+            const historyJson = await historyRes.json()
+            if (historyJson.success && historyJson.history) {
+                setHistory(historyJson.history)
+                setSelectedRecordId(json.savedRecordId || historyJson.history[0]?.id)
+            }
         } catch (err: any) {
-            setAiError(err.message || '予期せぬエラーが発生しました')
+            setAiError(err.message || '予期せぬエラー')
         } finally {
             setAiLoading(false)
         }
@@ -514,6 +519,29 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         setTimeout(() => setCopiedKey(null), 2000)
     }
 
+    useEffect(() => {
+        const fetchLatestHistory = async () => {
+            try {
+                const res = await fetch('/api/ai/intelligence')
+                const json = await res.json()
+                if (json.success && json.history && json.history.length > 0) {
+                    setHistory(json.history)
+                    const latest = json.history[0]
+                    setAiData({
+                        trendInsights: latest.trend_insights,
+                        profitableCards: latest.profitable_cards,
+                        snsPosts: latest.sns_posts,
+                        salesDM: latest.sales_dm,
+                    })
+                    setSelectedRecordId(latest.id)
+                }
+            } catch (e) {
+                console.error('履歴取得エラー:', e)
+            }
+        }
+        fetchLatestHistory()
+    }, [])
+    
     useEffect(() => {
         try {
             const saved = localStorage.getItem('admin_order_weights')
@@ -983,6 +1011,41 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             )}
                         </button>
                     </div>
+
+                    {/* 過去履歴セレクターバー */}
+                    {history.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-900 border border-slate-800 p-3 rounded-xl">
+                            <div className="flex items-center gap-2">
+                                <span className="text-slate-400 font-bold">📅 過去の保存履歴:</span>
+                                <select
+                                    value={selectedRecordId || ''}
+                                    disabled={aiLoading}
+                                    onChange={(e) => {
+                                        const target = history.find(h => h.id === e.target.value)
+                                        if (target) {
+                                            setSelectedRecordId(target.id)
+                                            setAiData({
+                                                trendInsights: target.trend_insights,
+                                                profitableCards: target.profitable_cards,
+                                                snsPosts: target.sns_posts,
+                                                salesDM: target.sales_dm,
+                                            })
+                                        }
+                                    }}
+                                    className="bg-slate-950 text-slate-200 border border-slate-700 rounded px-2.5 py-1 text-xs outline-none focus:border-amber-400 transition-colors"
+                                >
+                                    {history.map((h) => (
+                                        <option key={h.id} value={h.id}>
+                                            {new Date(h.created_at).toLocaleString('ja-JP')} [{h.trigger_type === 'cron' ? '⏰ 自動定期' : '👤 手動'}]
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <span className="text-[11px] text-slate-500">
+                                全 {history.length} 件の履歴を保持中
+                            </span>
+                        </div>
+                    )}
 
                     {aiError && (
                         <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-red-200 text-xs">

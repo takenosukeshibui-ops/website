@@ -87,8 +87,6 @@ app/
       fedex/
         shipment/
           route.ts
-      intelligence/
-        page.tsx
       paypal/
         invoice/
           route.ts
@@ -106,6 +104,9 @@ app/
         route.ts
     calculate/
       route.ts
+    cron/
+      intelligence/
+        route.ts
     wise/
       quote/
         route.ts
@@ -162,6 +163,7 @@ package.json
 postcss.config.mjs
 README.md
 tsconfig.json
+vercel.json
 </directory_structure>
 
 <files>
@@ -525,6 +527,17 @@ import { calculateShippingFees } from '@/lib/calculator'
 export async function POST(request: Request)
 </file>
 
+<file path="app/api/cron/intelligence/route.ts">
+// app/api/cron/intelligence/route.ts
+import { NextResponse } from 'next/server';
+⋮----
+export async function GET(req: Request)
+⋮----
+// Vercel Cronからの正規アクセスか検証（CRON_SECRETを設定している場合）
+⋮----
+// 既存のAIインテリジェンスAPIを triggerType='cron' で呼び出す
+</file>
+
 <file path="app/api/wise/quote/route.ts">
 // app/api/wise/quote/route.ts
 import { NextResponse } from 'next/server' // [UPDATED] 'next' から 'next/server' に修正
@@ -694,6 +707,160 @@ export function TrackingLink({
 })
 ⋮----
 onClick={(e) => e.stopPropagation()} // [NEW] クライアントコンポーネント内で安全にイベントバブリングを防止
+</file>
+
+<file path="dictionaries/en.json">
+{
+  "home": {
+    "title": "Welcome to our service",
+    "description": "Providing efficient management tools.",
+    "login": "Login",
+    "signup": "Sign Up",
+    "calculator": "Shipping Simulator",
+    "inventory": "📦 Inventory",
+    "estimate": "💰 Total Fee Estimator"
+  },
+  "dashboard": {
+    "title": "My Page",
+    "logout": "Logout",
+    "accountSettings": "⚙️ Account Settings",
+    "shippingCalculator": "✈️ Shipping Simulator ↗",
+    "orderHistory": "Order History",
+    "noOrders": "No orders found.",
+    "itemCount": "Items:",
+    "status": {
+      "shipping": "Shipping:",
+      "payment": "Payment:",
+      "tracking": "Tracking:",
+      "attention": "Attention (User action required)"
+    },
+    "invoice": {
+      "title": "■ Invoice",
+      "shippingNote": "※Estimated based on user shipping method & weight",
+      "productTotal": "Product Total",
+      "proxyFee": "Proxy Fee (5%)",
+      "shipping": "Shipping",
+      "paymentFee": "Payment Fee",
+      "grandTotal": "Grand Total"
+    },
+    "form": {
+      "urlPlaceholder": "Product URL",
+      "titlePlaceholder": "Product Name",
+      "pricePlaceholder": "Desired Price (optional)",
+      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
+      "addButton": "Add to Cart",
+      "addingButton": "Adding...",
+      "replyButton": "Send Answer",
+      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
+      "adminNoteLabel": "⚠️ Admin Comment:"
+    },
+    "bookmarklet": {
+      "title": "Bookmarklet",
+      "description": "Drag and drop the button below to your bookmarks bar.",
+      "addButton": "Add to Cart"
+    },
+    "cart": {
+      "title": "Items in Cart",
+      "noItems": "No items in cart.",
+      "name": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "quantity": "Quantity",
+      "desiredPrice": "Desired Price",
+      "action": "Action",
+      "delete": "Delete",
+      "shippingMethod": "Shipping Method:",
+      "paymentMethod": "Payment Method:",
+      "submitButton": "Submit Purchase Request",
+      "submittingButton": "Submitting..."
+    },
+    "table": {
+      "order": "Order",
+      "item": "Product Name",
+      "url": "URL",
+      "remarks": "Remarks",
+      "requestedQuantity": "Req. Qty",
+      "confirmedQuantity": "Conf. Qty",
+      "desiredPrice": "Desired Price",
+      "price": "Price (Conf.)",
+      "subtotal": "Subtotal",
+      "status": "Status"
+    },
+    "badge": {
+      "status": {
+        "ordered": "Ordered",
+        "purchased": "Purchased",
+        "shipping_prep": "Shipping Prep",
+        "payment_waiting": "Awaiting Payment",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled"
+      },
+      "item": {
+        "cart": "Cart",
+        "ordered": "Ordered",
+        "out_of_stock": "Out of Stock",
+        "purchased": "Purchased",
+        "warehouse_arrival": "Arrived at Warehouse",
+        "cancelled": "Cancelled",
+        "info_required": "Action Required"
+      }
+    }
+  },
+  "settings": {
+    "loginSecurity": "Login Information & Security",
+    "loginEmail": "Login Email",
+    "emailNote": "*A confirmation email will be sent when you click change. The address will not change until you click the link in the email.",
+    "passwordSettings": "Password Settings",
+    "changePassword": "Change Password",
+    "cancel": "Cancel",
+    "newPassword": "New Password (min 6 chars)",
+    "confirmPassword": "Confirm New Password",
+    "changing": "Changing...",
+    "change": "Change",
+    "basicInfo": "Basic Information",
+    "fullName": "Full Name",
+    "companyName": "Company Name",
+    "phone": "Phone",
+    "contactEmail": "Contact Email",
+    "sameAsLogin": "Same as login",
+    "country": "Country",
+    "fedexAccount": "FedEx Account Number",
+    "fedexNote": "*Required for customs clearance when using air freight.",
+    "zipCode": "Zip Code",
+    "taxId": "Tax ID",
+    "city": "City",
+    "stateProvince": "State/Province",
+    "addressLine1": "Address Line 1",
+    "addressLine2": "Address Line 2",
+    "addressLine3": "Address Line 3",
+    "addressType": "Address Type (Residential/Commercial)",
+    "residential": "Residential",
+    "commercial": "Commercial",
+    "addressNote": "*Courier deliveries to residential addresses may incur additional charges. Please select correctly.",
+    "paymentAccount": "Payment Account Information",
+    "paypalLink": "PayPal Account Link",
+    "paypalLinked": "Linked",
+    "paypalRelink": "Relink PayPal Account",
+    "paypalDoLink": "Link with PayPal",
+    "wiseEmail": "Wise Email",
+    "defaultOrderSettings": "Default Order Settings",
+    "defaultOrderNote": "These will be initially selected when submitting a request from the cart.",
+    "shippingMethod": "Shipping Method",
+    "paymentMethod": "Payment Method",
+    "save": "Save",
+    "saving": "Saving...",
+    "backToMyPage": "← Back to My Page"
+  },
+  "forgotPassword": {
+    "title": "Reset Password",
+    "description": "Please enter your registered email address. We will send you a link to reset your password.",
+    "sentSuccess": "✅ Email sent successfully.",
+    "sentInstruction": "Please check your inbox and click the link in the email to reset your password.",
+    "backToLogin": "Return to Login",
+    "submitButton": "Send Reset Link",
+    "submittingButton": "Sending..."
+  }
+}
 </file>
 
 <file path="lib/supabase/client.ts">
@@ -1146,6 +1313,17 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="vercel.json">
+{
+  "crons": [
+    {
+      "path": "/api/cron/intelligence",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+</file>
+
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -1216,311 +1394,6 @@ let isNewOrder = false // ロールバック制御用のフラグ
 // 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
 ⋮----
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
-</file>
-
-<file path="app/api/admin/intelligence/page.tsx">
-// app/admin/intelligence/page.tsx
-⋮----
-import React, { useState } from 'react';
-⋮----
-// レスポンスの型定義
-interface ProfitableCard {
-  cardName: string;
-  jpPriceJPY: number;
-  usPriceUSD: number;
-  estimatedProfitUSD: number;
-  reason: string;
-}
-⋮----
-interface SnsPosts {
-  trendPost: string;
-  arbitragePost: string;
-  hybridPost: string;
-}
-⋮----
-interface IntelligenceData {
-  trendInsights: string[];
-  profitableCards: ProfitableCard[];
-  snsPosts: SnsPosts;
-  salesDM: string;
-}
-⋮----
-// AIパイプラインを実行する
-const runIntelligenceAnalysis = async () =>
-⋮----
-// テキストをクリップボードにコピー
-const handleCopy = (text: string, key: string) =>
-⋮----
-{/* ヘッダーセクション */}
-⋮----
-{/* エラー表示 */}
-⋮----
-{/* 左カラム：情報収集＆サヤ発掘結果 */}
-⋮----
-{/* 1. 予言者AI：トレンドインサイト */}
-⋮----
-{/* 2. サヤ分析AI：利鞘発掘カード */}
-⋮----
-{/* 右カラム：コンテンツ出力（SNS・営業DM） */}
-⋮----
-{/* 3. SNS運用AI：3パターンの投稿文 */}
-⋮----
-{/* タブ or 並列展開：ハイブリッド投稿 */}
-⋮----
-onClick=
-⋮----
-{/* サヤ特化投稿 */}
-⋮----
-{/* トレンド特化投稿 */}
-⋮----
-{/* 4. 営業DMAI：オファー文 */}
-</file>
-
-<file path="dictionaries/en.json">
-{
-  "home": {
-    "title": "Welcome to our service",
-    "description": "Providing efficient management tools.",
-    "login": "Login",
-    "signup": "Sign Up",
-    "calculator": "Shipping Simulator",
-    "inventory": "📦 Inventory",
-    "estimate": "💰 Total Fee Estimator"
-  },
-  "dashboard": {
-    "title": "My Page",
-    "logout": "Logout",
-    "accountSettings": "⚙️ Account Settings",
-    "shippingCalculator": "✈️ Shipping Simulator ↗",
-    "orderHistory": "Order History",
-    "noOrders": "No orders found.",
-    "itemCount": "Items:",
-    "status": {
-      "shipping": "Shipping:",
-      "payment": "Payment:",
-      "tracking": "Tracking:",
-      "attention": "Attention (User action required)"
-    },
-    "invoice": {
-      "title": "■ Invoice",
-      "shippingNote": "※Estimated based on user shipping method & weight",
-      "productTotal": "Product Total",
-      "proxyFee": "Proxy Fee (5%)",
-      "shipping": "Shipping",
-      "paymentFee": "Payment Fee",
-      "grandTotal": "Grand Total"
-    },
-    "form": {
-      "urlPlaceholder": "Product URL",
-      "titlePlaceholder": "Product Name",
-      "pricePlaceholder": "Desired Price (optional)",
-      "remarksPlaceholder": "Enter size, color, conditions, etc. (optional)",
-      "addButton": "Add to Cart",
-      "addingButton": "Adding...",
-      "replyButton": "Send Answer",
-      "replyPlaceholder": "Enter details (size, color, etc.) to reply",
-      "adminNoteLabel": "⚠️ Admin Comment:"
-    },
-    "bookmarklet": {
-      "title": "Bookmarklet",
-      "description": "Drag and drop the button below to your bookmarks bar.",
-      "addButton": "Add to Cart"
-    },
-    "cart": {
-      "title": "Items in Cart",
-      "noItems": "No items in cart.",
-      "name": "Product Name",
-      "url": "URL",
-      "remarks": "Remarks",
-      "quantity": "Quantity",
-      "desiredPrice": "Desired Price",
-      "action": "Action",
-      "delete": "Delete",
-      "shippingMethod": "Shipping Method:",
-      "paymentMethod": "Payment Method:",
-      "submitButton": "Submit Purchase Request",
-      "submittingButton": "Submitting..."
-    },
-    "table": {
-      "order": "Order",
-      "item": "Product Name",
-      "url": "URL",
-      "remarks": "Remarks",
-      "requestedQuantity": "Req. Qty",
-      "confirmedQuantity": "Conf. Qty",
-      "desiredPrice": "Desired Price",
-      "price": "Price (Conf.)",
-      "subtotal": "Subtotal",
-      "status": "Status"
-    },
-    "badge": {
-      "status": {
-        "ordered": "Ordered",
-        "purchased": "Purchased",
-        "shipping_prep": "Shipping Prep",
-        "payment_waiting": "Awaiting Payment",
-        "shipped": "Shipped",
-        "cancelled": "Cancelled"
-      },
-      "item": {
-        "cart": "Cart",
-        "ordered": "Ordered",
-        "out_of_stock": "Out of Stock",
-        "purchased": "Purchased",
-        "warehouse_arrival": "Arrived at Warehouse",
-        "cancelled": "Cancelled",
-        "info_required": "Action Required"
-      }
-    }
-  },
-  "settings": {
-    "loginSecurity": "Login Information & Security",
-    "loginEmail": "Login Email",
-    "emailNote": "*A confirmation email will be sent when you click change. The address will not change until you click the link in the email.",
-    "passwordSettings": "Password Settings",
-    "changePassword": "Change Password",
-    "cancel": "Cancel",
-    "newPassword": "New Password (min 6 chars)",
-    "confirmPassword": "Confirm New Password",
-    "changing": "Changing...",
-    "change": "Change",
-    "basicInfo": "Basic Information",
-    "fullName": "Full Name",
-    "companyName": "Company Name",
-    "phone": "Phone",
-    "contactEmail": "Contact Email",
-    "sameAsLogin": "Same as login",
-    "country": "Country",
-    "fedexAccount": "FedEx Account Number",
-    "fedexNote": "*Required for customs clearance when using air freight.",
-    "zipCode": "Zip Code",
-    "taxId": "Tax ID",
-    "city": "City",
-    "stateProvince": "State/Province",
-    "addressLine1": "Address Line 1",
-    "addressLine2": "Address Line 2",
-    "addressLine3": "Address Line 3",
-    "addressType": "Address Type (Residential/Commercial)",
-    "residential": "Residential",
-    "commercial": "Commercial",
-    "addressNote": "*Courier deliveries to residential addresses may incur additional charges. Please select correctly.",
-    "paymentAccount": "Payment Account Information",
-    "paypalLink": "PayPal Account Link",
-    "paypalLinked": "Linked",
-    "paypalRelink": "Relink PayPal Account",
-    "paypalDoLink": "Link with PayPal",
-    "wiseEmail": "Wise Email",
-    "defaultOrderSettings": "Default Order Settings",
-    "defaultOrderNote": "These will be initially selected when submitting a request from the cart.",
-    "shippingMethod": "Shipping Method",
-    "paymentMethod": "Payment Method",
-    "save": "Save",
-    "saving": "Saving...",
-    "backToMyPage": "← Back to My Page"
-  },
-  "forgotPassword": {
-    "title": "Reset Password",
-    "description": "Please enter your registered email address. We will send you a link to reset your password.",
-    "sentSuccess": "✅ Email sent successfully.",
-    "sentInstruction": "Please check your inbox and click the link in the email to reset your password.",
-    "backToLogin": "Return to Login",
-    "submitButton": "Send Reset Link",
-    "submittingButton": "Sending..."
-  }
-}
-</file>
-
-<file path="next.config.ts">
-import type { NextConfig } from "next";
-⋮----
-/* 既存の設定項目があればここに記述 */
-⋮----
-// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
-</file>
-
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@langchain/core": "^1.3.1",
-    "@langchain/google-genai": "^2.3.4",
-    "@langchain/langgraph": "^1.5.3",
-    "@langchain/openai": "^1.8.0",
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
-
-<file path="app/[lang]/layout.tsx">
-// app/[lang]/layout.tsx
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-⋮----
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-⋮----
-icon: "/icon.png", // 🌟 app/icon.png を指定
-⋮----
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ lang: string }>;
-})
-</file>
-
-<file path="app/actions/items.ts">
-// app/actions/items.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// [NEW] 共通キャッシュ破棄関数
-function revalidateAll()
-⋮----
-export async function addToCart(formData: FormData)
-⋮----
-status: 'draft' // カート内商品は draft として追加
-⋮----
-revalidateAll() // [UPDATED] 全ページへ反映
-⋮----
-export async function deleteItem(itemId: string)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
-export async function replyToAdminNote(itemId: string, remarks: string)
-⋮----
-revalidateAll() // [UPDATED]
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1675,6 +1548,99 @@ revalidateAll() // [UPDATED]
     "submittingButton": "送信中..."
   }
 }
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+⋮----
+/* 既存の設定項目があればここに記述 */
+⋮----
+// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
+</file>
+
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.3.1",
+    "@langchain/google-genai": "^2.3.4",
+    "@langchain/langgraph": "^1.5.3",
+    "@langchain/openai": "^1.8.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/[lang]/layout.tsx">
+// app/[lang]/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+⋮----
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+⋮----
+icon: "/icon.png", // 🌟 app/icon.png を指定
+⋮----
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+})
+</file>
+
+<file path="app/actions/items.ts">
+// app/actions/items.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+// [NEW] 共通キャッシュ破棄関数
+function revalidateAll()
+⋮----
+export async function addToCart(formData: FormData)
+⋮----
+status: 'draft' // カート内商品は draft として追加
+⋮----
+revalidateAll() // [UPDATED] 全ページへ反映
+⋮----
+export async function deleteItem(itemId: string)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
+export async function replyToAdminNote(itemId: string, remarks: string)
+⋮----
+revalidateAll() // [UPDATED]
 </file>
 
 <file path="app/[lang]/admin/inventory/page.tsx">
@@ -1908,62 +1874,6 @@ onBlur=
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
 </file>
 
-<file path="app/api/ai/intelligence/route.ts">
-// app/api/ai/intelligence/route.ts
-import { NextResponse } from 'next/server';
-import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-⋮----
-// ---------------------------------------------------------
-// 1. State（共有ノート）の定義
-// ---------------------------------------------------------
-⋮----
-// 予言者AIの調査結果（市場の熱狂・テーマ・過熱しているジャンル）
-⋮----
-// サヤ分析AIの調査結果（具体的に日米差益が抜ける実利カード群）
-⋮----
-// SNS運用AIの作成結果（3パターンの投稿）
-⋮----
-trendPost: string;      // トレンド特化型
-arbitragePost: string;  // サヤ特化型
-hybridPost: string;     // トレンド×サヤ掛け合わせ型
-⋮----
-// 営業DMAIの作成結果
-⋮----
-// ---------------------------------------------------------
-// 2. Node 1: 予言者AI (marketTrendAgent)
-// ---------------------------------------------------------
-async function marketTrendAgent(state: typeof GraphState.State)
-⋮----
-// ---------------------------------------------------------
-// 3. Node 2: サヤ分析AI (sayaAnalysisAgent)
-// ---------------------------------------------------------
-async function sayaAnalysisAgent(state: typeof GraphState.State)
-⋮----
-// ---------------------------------------------------------
-// 4. Node 3: SNS運用AI (snsPostAgent)
-// ---------------------------------------------------------
-async function snsPostAgent(state: typeof GraphState.State)
-⋮----
-// ---------------------------------------------------------
-// 5. Node 4: 営業DMAI (salesDMAgent)
-// ---------------------------------------------------------
-async function salesDMAgent(state: typeof GraphState.State)
-⋮----
-// ---------------------------------------------------------
-// 6. APIエンドポイント (並行調査 ➔ 統合生成グラフ)
-// ---------------------------------------------------------
-export async function POST(req: Request)
-⋮----
-// 💡 予言者とサヤ分析を並行して動かし、揃ったらSNSとDMを動かす構造
-⋮----
-// スタートから2つの調査AIへ分岐
-⋮----
-// 2つの調査結果が揃ったらSNS生成へ合流
-⋮----
-// SNS生成後にDM作成を実行して完了
-</file>
-
 <file path="app/actions/inventory.ts">
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
@@ -1991,6 +1901,43 @@ export async function updateProduct(id: string | number, updates: Partial<Produc
 ⋮----
 // 4. 画像アップロード
 export async function uploadProductImage(formData: FormData)
+</file>
+
+<file path="app/api/ai/intelligence/route.ts">
+// app/api/ai/intelligence/route.ts
+import { NextResponse } from 'next/server';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
+⋮----
+// ---------------------------------------------------------
+// 1. State（共有ノート）の定義
+// ---------------------------------------------------------
+⋮----
+// ---------------------------------------------------------
+// 2. 各AIエージェント
+// ---------------------------------------------------------
+async function marketTrendAgent(state: typeof GraphState.State)
+⋮----
+async function sayaAnalysisAgent(state: typeof GraphState.State)
+⋮----
+async function snsPostAgent(state: typeof GraphState.State)
+⋮----
+async function salesDMAgent(state: typeof GraphState.State)
+⋮----
+// ---------------------------------------------------------
+// 3. GET: 最新の保存データと履歴を取得
+// ---------------------------------------------------------
+export async function GET()
+⋮----
+// ---------------------------------------------------------
+// 4. POST: AIパイプライン実行 & Supabase保存
+// ---------------------------------------------------------
+export async function POST(req: Request)
+⋮----
+// ボディがない場合は manual
+⋮----
+// 💡 Supabaseへ保存
 </file>
 
 <file path="app/[lang]/calculator/page.tsx">
@@ -2202,6 +2149,8 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
+// ClientAdminPage.tsx
+⋮----
 import React, { useState, useEffect, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -2226,6 +2175,33 @@ import {
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
 ⋮----
+// ==========================================
+// AIインテリジェンス用の型定義
+// ==========================================
+interface ProfitableCard {
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    reason: string;
+}
+⋮----
+interface SnsPosts {
+    trendPost: string;
+    arbitragePost: string;
+    hybridPost: string;
+}
+⋮----
+interface IntelligenceData {
+    trendInsights: string[];
+    profitableCards: ProfitableCard[];
+    snsPosts: SnsPosts;
+    salesDM: string;
+}
+⋮----
+// ==========================================
+// 既存の補助コンポーネント群
+// ==========================================
 function ActionStateButton(
 ⋮----
 const formattedDisplay = () =>
@@ -2240,6 +2216,24 @@ setIsFocused(false)
 const val = Number(e.target.value)
 ⋮----
 <form action=
+⋮----
+// ==========================================
+// メインコンポーネント (タブ機能統合)
+// ==========================================
+⋮----
+// 💡 タブ切り替え用のState ('orders' または 'intelligence')
+⋮----
+// AIインテリジェンス用のState
+⋮----
+// AIパイプラインを実行する
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 💡 実行後に最新履歴一覧を再取得してセレクターを最新化
+⋮----
+// コピー機能
+const handleCopy = (text: string, key: string) =>
+⋮----
+const fetchLatestHistory = async () =>
 ⋮----
 const fetchWiseQuote = async (orderId: string, amount: number) =>
 ⋮----
@@ -2277,22 +2271,42 @@ const handleQuantityChange = async (itemId: string, newQuantity: number) =>
 ⋮----
 const handleTitleChange = async (itemId: string, newTitle: string) =>
 ⋮----
-{/* 1. 総重量 */}
+{/* 💡 タブ切り替えボタン */}
+⋮----
+onClick=
+⋮----
+{/* ========================================================= */}
+{/* 1. AI市場インテリジェンス タブの内容 */}
+{/* ========================================================= */}
+⋮----
+{/* 過去履歴セレクターバー */}
+⋮----
+{/* 左カラム：情報収集＆サヤ発掘結果 */}
+⋮----
+{/* トレンドインサイト */}
+⋮----
+{/* サヤ抜きカード発掘 */}
+⋮----
+{/* 右カラム：SNS＆DMコンテンツ */}
+⋮----
+{/* SNS投稿（3パターン） */}
+⋮----
+{/* ハイブリッド */}
+⋮----
+{/* サヤ特化 */}
+⋮----
+{/* トレンド特化 */}
+⋮----
+{/* 営業DM */}
+⋮----
+{/* ========================================================= */}
+{/* 2. 既存の注文管理テーブル タブの内容 */}
+{/* ========================================================= */}
 ⋮----
 setOrderInputs(prev => (
 setEditingWeight(prev
 ⋮----
-{/* 2. 配送ラベル */}
-⋮----
-{/* 3. 追跡番号 */}
-⋮----
-{/* 5. お支払い金額 */}
-⋮----
-{/* 6. 請求書送信 (PayPal / Wise 対応) */}
-⋮----
-{/* 7. 発送状態 */}
-⋮----
-決済手数料
+{/* モーダル表示 */}
 </file>
 
 <file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
