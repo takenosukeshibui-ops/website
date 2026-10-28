@@ -96,3 +96,36 @@ export async function publishToInstagram({
     };
   }
 }
+
+/**
+ * 自社Instagramアカウントの過去投稿とエンゲージメント（いいね・コメント数）を取得する
+ * @param limit 取得する過去の投稿数（デフォルト10件）
+ */
+export async function getInstagramInsights(limit = 10) {
+  const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+
+  if (!accountId || !accessToken) {
+    console.warn('Instagram API credentials missing for insights.');
+    return [];
+  }
+
+  try {
+    // 過去の投稿データ（キャプション、いいね数、コメント数、投稿日時など）を取得
+    const url = `https://graph.facebook.com/v26.0/${accountId}/media?fields=id,caption,media_type,timestamp,like_count,comments_count&limit=${limit}&access_token=${accessToken}`;
+    
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error('Instagram Insights Error:', data.error);
+      return [];
+    }
+
+    // 取得した投稿データの配列を返す
+    return data.data || [];
+  } catch (err) {
+    console.error('Failed to fetch Instagram insights:', err);
+    return [];
+  }
+}

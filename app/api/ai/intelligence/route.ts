@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { createClient } from '@/lib/supabase/server';
+import { getInstagramInsights } from '@/lib/instagram'; // 🌟 追加: Instagramデータ取得関数
 
 // ---------------------------------------------------------
 // 1. State（共有ノート）の定義
@@ -18,10 +19,14 @@ const GraphState = Annotation.Root({
     usPriceUSD: number;
     estimatedProfitUSD: number;
     reason: string;
-    imageUrl?: string; // 🌟 追加: 画像URLのプロパティ
+    imageUrl?: string;
   }[]>({
     reducer: (curr, next) => next,
     default: () => [],
+  }),
+  accountInsights: Annotation<string>({ // 🌟 追加: アカウント分析結果を保存するステート
+    reducer: (curr, next) => next,
+    default: () => "",
   }),
   snsPosts: Annotation<{
     trendPost: string;
@@ -84,15 +89,43 @@ async function sayaAnalysisAgent(state: typeof GraphState.State) {
   }
 }
 
+// 🌟 新規追加: アカウント分析担当AI
+async function accountAnalysisAgent(state: typeof GraphState.State) {
+  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.5 });
+  try {
+    // 過去15件の投稿データを取得
+    const posts = await getInstagramInsights(15);
+    
+    if (!posts || posts.length === 0) {
+      return { accountInsights: "過去の投稿データがありません。一般的なベストプラクティス（関連ハッシュタグの多用、絵文字での視覚的アピール）に従って投稿を作成してください。" };
+    }
+
+    // AIに読ませるためにデータをテキスト化
+    const postData = posts.map((p: any) => `[いいね: ${p.like_count || 0}, コメント: ${p.comments_count || 0}]\n内容: ${p.caption}`).join('\n---\n');
+
+    const prompt = `あなたはInstagramマーケティングのプロです。以下の自社アカウントの過去投稿データ（エンゲージメント結果）を分析し、SNS投稿作成担当者に向けて「今反応が良いハッシュタグ」「ウケる文章のトーン」「エンゲージメントを高めるためのアドバイス」を2〜3行の簡潔なインサイトとしてまとめてください。
+    【過去の投稿データ】\n${postData}`;
+
+    const response = await llm.invoke(prompt);
+    return { accountInsights: response.content.toString() };
+  } catch (error) {
+    console.error("Account Analysis Error:", error);
+    return { accountInsights: "過去データの分析に失敗しました。通常通り魅力的な投稿を作成してください。" };
+  }
+}
+
+// 🌟 修正: SNS投稿AIが、アカウント分析AIからのアドバイスを受け取るように変更
 async function snsPostAgent(state: typeof GraphState.State) {
   const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.8 });
   const trends = state.trendInsights.join("\n- ");
   const cards = state.profitableCards.map(c => 
     `- ${c.cardName}: ¥${c.jpPriceJPY.toLocaleString()} ➔ $${c.usPriceUSD} (+$${c.estimatedProfitUSD}) / 理由: ${c.reason}`
   ).join("\n");
+  const advice = state.accountInsights; // 🌟 分析担当からのアドバイス
 
   const prompt = `
     日本のトレカB2BポータルのSNSディレクターとして、XやInstagram用の英語投稿を3パターン作成してください。
+    【自社アカウント分析からの指示（最優先で反映してください）】\n${advice}\n
     【トレンド情報】\n- ${trends}\n
     【サヤ抜きカード】\n${cards}\n
     以下のJSON形式のみで出力してください。
@@ -159,14 +192,17 @@ export async function POST(req: Request) {
       // ボディがない場合は manual
     }
 
+    // 🌟 修正: ワークフローにアカウント分析AIを追加し、並列実行・合流を設定
     const workflow = new StateGraph(GraphState)
       .addNode("marketTrendAgent", marketTrendAgent)
       .addNode("sayaAnalysisAgent", sayaAnalysisAgent)
+      .addNode("accountAnalysisAgent", accountAnalysisAgent) // 追加
       .addNode("snsPostAgent", snsPostAgent)
       .addNode("salesDMAgent", salesDMAgent)
       .addEdge(START, "marketTrendAgent")
       .addEdge(START, "sayaAnalysisAgent")
-      .addEdge(["marketTrendAgent", "sayaAnalysisAgent"], "snsPostAgent")
+      .addEdge(START, "accountAnalysisAgent") // 追加：3つを同時に並列スタート
+      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "snsPostAgent") // 修正：3つのAIのタスクが全て完了したら投稿作成へ進む
       .addEdge("snsPostAgent", "salesDMAgent")
       .addEdge("salesDMAgent", END);
 
@@ -174,6 +210,7 @@ export async function POST(req: Request) {
     const result = await app.invoke({
       trendInsights: [],
       profitableCards: [],
+      accountInsights: "", // 追加
       snsPosts: { trendPost: "", arbitragePost: "", hybridPost: "" },
       salesDM: ""
     });
