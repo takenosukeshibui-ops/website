@@ -22,29 +22,165 @@ import {
     addAdminAdjustmentItem,
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
+
 // ==========================================
-// AIインテリジェンス用の型定義
+// AIインテリジェンス用の型定義（6項目レポート対応）
 // ==========================================
-interface ProfitableCard {
+export interface FactItem {
+    label: string;
+    value: string;
+}
+
+export interface RiskAndMitigation {
+    risk: string;
+    mitigation: string;
+}
+
+export interface StrategicReport {
+    title: string;
+    claim: string;
+    reasons: string[];
+    facts: FactItem[];
+    soWhat: string;
+    riskAndMitigation: RiskAndMitigation;
+    verificationChecklist: string[];
+}
+
+export interface ProfitableCardReport extends StrategicReport {
     cardName: string;
     jpPriceJPY: number;
     usPriceUSD: number;
     estimatedProfitUSD: number;
-    reason: string;
     imageUrl?: string;
 }
-interface SnsPosts {
-    trendPost: string;
-    arbitragePost: string;
-    hybridPost: string;
+
+export interface SnsPostsData {
+    theme: string;
+    recommendedTiming: string;
+    visualGuideline: {
+        coverSlide: string;
+        carouselSlides: string[];
+    };
+    posts: {
+        hybridPost: string;
+        arbitragePost: string;
+        trendPost: string;
+    };
+    discordCTA: string;
 }
-interface IntelligenceData {
-    trendInsights: string[];
-    profitableCards: ProfitableCard[];
-    snsPosts: SnsPosts;
-    salesDM: string;
-    accountInsights?: string;
+
+export interface SalesDMData {
+    targetSegment: string;
+    offerSummary: string;
+    discordMessage: string;
+    commercialTerms: {
+        minimumOrderQty: string;
+        shippingMethod: string;
+        paymentMethod: string;
+    };
+    negotiationTip: string;
 }
+
+export interface IntelligenceData {
+    trendInsights: StrategicReport[];
+    profitableCards: ProfitableCardReport[];
+    accountInsights?: StrategicReport;
+    snsPosts: SnsPostsData;
+    salesDM: SalesDMData;
+}
+
+function StrategicReportCard({
+    report,
+    accentColor = 'amber'
+}: {
+    report: StrategicReport;
+    accentColor?: 'amber' | 'emerald' | 'pink';
+}) {
+    if (!report) return null;
+    const badgeColors = {
+        amber: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+        emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+        pink: 'bg-pink-500/20 text-pink-300 border-pink-500/30'
+    };
+
+    return (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 shadow-md">
+            {/* タイトル & 1. Claim (結論) */}
+            <div className="border-b border-slate-800 pb-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Strategic Intelligence</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${badgeColors[accentColor]}`}>
+                        Actionable
+                    </span>
+                </div>
+                <h4 className="text-sm font-bold text-white mb-1">{report.title}</h4>
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800/80">
+                    <p className="text-xs text-amber-300 font-medium leading-relaxed">
+                        🎯 <span className="font-bold">結論:</span> {report.claim}
+                    </p>
+                </div>
+            </div>
+
+            {/* 2. Reason & 4. So What? */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/60">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">💡 根拠 (Reason)</span>
+                    <ul className="space-y-1 list-disc list-inside text-slate-300 text-[11px]">
+                        {report.reasons?.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                </div>
+                <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/60">
+                    <span className="text-[10px] font-bold text-blue-400 block mb-1">🔍 示唆 (So What?)</span>
+                    <p className="text-slate-300 text-[11px] leading-relaxed">{report.soWhat}</p>
+                </div>
+            </div>
+
+            {/* 3. Facts (客観的データ) */}
+            {report.facts && report.facts.length > 0 && (
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1.5">📊 客観的ファクト (Data)</span>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        {report.facts.map((f, i) => (
+                            <div key={i} className="flex justify-between items-center bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                                <span className="text-slate-400 text-[10px] truncate">{f.label}</span>
+                                <span className="text-white font-mono font-bold ml-1">{f.value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* 5. 反論・リスクと対策 */}
+            {report.riskAndMitigation && (
+                <div className="bg-rose-950/20 border border-rose-900/40 rounded-lg p-2.5 text-[11px]">
+                    <div className="text-rose-300 font-bold text-[10px] mb-1 flex items-center gap-1">
+                        <span>⚠️</span> 想定リスクと対抗策
+                    </div>
+                    <div className="text-slate-300 space-y-1">
+                        <p><span className="text-rose-400 font-medium">懸念:</span> {report.riskAndMitigation.risk}</p>
+                        <p><span className="text-emerald-400 font-medium">対策:</span> {report.riskAndMitigation.mitigation}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* 6. 人間側のファクトチェック項目 */}
+            {report.verificationChecklist && (
+                <div className="pt-2 border-t border-slate-800/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">📋 実行前セルフチェック</span>
+                    <div className="space-y-1">
+                        {report.verificationChecklist.map((c, i) => (
+                            <label key={i} className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer hover:text-slate-200">
+                                <input type="checkbox" className="rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0 w-3 h-3" />
+                                <span>{c}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ==========================================
 // 既存の補助コンポーネント群
 // ==========================================
@@ -686,9 +822,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             setAiData(prev => ({
                 trendInsights: prev?.trendInsights || [],
                 profitableCards: prev?.profitableCards || [],
-                snsPosts: prev?.snsPosts || { trendPost: '', arbitragePost: '', hybridPost: '' },
-                salesDM: prev?.salesDM || '',
-                accountInsights: prev?.accountInsights || '',
+                snsPosts: prev?.snsPosts || {
+                    theme: '',
+                    recommendedTiming: '',
+                    visualGuideline: { coverSlide: '', carouselSlides: [] },
+                    posts: { trendPost: '', arbitragePost: '', hybridPost: '' },
+                    discordCTA: ''
+                },
+                salesDM: prev?.salesDM || {
+                    targetSegment: '',
+                    offerSummary: '',
+                    discordMessage: '',
+                    commercialTerms: { minimumOrderQty: '', shippingMethod: '', paymentMethod: '' },
+                    negotiationTip: ''
+                },
+                accountInsights: prev?.accountInsights,
                 ...json.data
             }));
         } catch (err: any) {
@@ -1450,7 +1598,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         <ul className="space-y-2">
                                                             {aiData.trendInsights.map((insight, idx) => (
                                                                 <li key={idx} className="text-xs text-slate-300 bg-slate-950 p-2.5 rounded-lg border border-slate-800 leading-relaxed">
-                                                                    {insight}
+                                                                    <p className="font-bold text-amber-300 mb-0.5">{insight.title}</p>
+                                                                    <p className="text-[11px] text-slate-400">{insight.claim}</p>
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -1502,8 +1651,15 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                                 {runningAction === 'account' ? '...' : '🔄 再分析'}
                                                             </button>
                                                         </div>
-                                                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
-                                                            {aiData.accountInsights || "インサイト分析データがありません。"}
+                                                        <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-56 overflow-y-auto space-y-1.5">
+                                                            {aiData.accountInsights ? (
+                                                                <>
+                                                                    <p className="text-pink-300 font-bold text-[11px]">🎯 {aiData.accountInsights.claim}</p>
+                                                                    <p className="text-slate-400 text-[10px]">💡 {aiData.accountInsights.soWhat}</p>
+                                                                </>
+                                                            ) : (
+                                                                "インサイト分析データがありません。"
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <button onClick={() => setAiActiveDesk('desk_account')} className="mt-4 text-[11px] text-pink-400 hover:underline text-left block">
@@ -1538,14 +1694,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         </div>
                                                     </div>
                                                     <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
-                                                        {aiData.snsPosts.hybridPost}
+                                                        {aiData.snsPosts?.posts?.hybridPost}
                                                     </pre>
                                                     <div className="flex justify-between items-center pt-2 border-t border-slate-800">
                                                         <button onClick={() => setAiActiveDesk('desk_sns')} className="text-[11px] text-sky-400 hover:underline">
                                                             他2パターンを確認 ➔
                                                         </button>
                                                         <button
-                                                            onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid', aiData.profitableCards[0]?.imageUrl)}
+                                                            onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid', aiData.profitableCards?.[0]?.imageUrl)}
                                                             disabled={Boolean(isPublishingInstagram)}
                                                             className="px-3 py-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
                                                         >
@@ -1565,14 +1721,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         </button>
                                                     </div>
                                                     <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
-                                                        {aiData.salesDM}
+                                                        {aiData.salesDM?.discordMessage}
                                                     </pre>
                                                     <div className="flex justify-between items-center pt-2 border-t border-slate-800">
                                                         <button onClick={() => setAiActiveDesk('desk_sales')} className="text-[11px] text-purple-400 hover:underline">
                                                             営業デスク詳細 ➔
                                                         </button>
                                                         <button
-                                                            onClick={() => handlePublishToDiscord(aiData.salesDM)}
+                                                            onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')}
                                                             disabled={isPublishingDiscord}
                                                             className="px-3 py-1.5 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
                                                         >
@@ -1584,34 +1740,28 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                         </div>
                                     )}
 
-                                    {/* 3. 個別デスク ビュー群（左タブクリック時に表示） */}
-                                    {/* アナリストデスク */}
                                     {aiActiveDesk === 'desk_trend' && aiData && (
                                         <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
-                                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                                           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-3xl">🔮</span>
                                                     <div>
                                                         <h2 className="text-lg font-bold text-white">アナリスト専用デスク</h2>
-                                                        <p className="text-xs text-slate-400">海外市場トレンドの抽出・分析担当</p>
+                                                        <p className="text-xs text-slate-400">海外市場トレンド戦略レポート（6項目フレームワーク）</p>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => runSingleAi('trend')} disabled={runningAction === 'trend'} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold">
                                                     {runningAction === 'trend' ? '調査中...' : '🔄 トレンド再調査を実行'}
                                                 </button>
                                             </div>
-                                            <div className="space-y-3">
-                                                {aiData.trendInsights.map((t, idx) => (
-                                                    <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-200">
-                                                        <span className="text-amber-400 font-bold block mb-1">■ トレンド {idx + 1}</span>
-                                                        {t}
-                                                    </div>
+                                            <div className="space-y-4">
+                                                {aiData.trendInsights?.map((report, idx) => (
+                                                    <StrategicReportCard key={idx} report={report} accentColor="amber" />
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* バイヤーデスク */}
                                     {aiActiveDesk === 'desk_arbitrage' && aiData && (
                                         <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1619,34 +1769,33 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                     <span className="text-3xl">💎</span>
                                                     <div>
                                                         <h2 className="text-lg font-bold text-white">凄腕バイヤー専用デスク</h2>
-                                                        <p className="text-xs text-slate-400">日米の価格差（サヤ）計算と仕入れ推奨カードの発掘担当</p>
+                                                        <p className="text-xs text-slate-400">日米サヤ抜き投資判断レポート</p>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => runSingleAi('arbitrage')} disabled={runningAction === 'arbitrage'} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold">
                                                     {runningAction === 'arbitrage' ? '計算中...' : '🔄 サヤ再発掘を実行'}
                                                 </button>
                                             </div>
-                                            <div className="space-y-3">
-                                                {aiData.profitableCards.map((card, idx) => (
-                                                    <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-                                                        <div className="flex justify-between items-center">
+                                            <div className="space-y-4">
+                                                {aiData.profitableCards?.map((card, idx) => (
+                                                    <div key={idx} className="space-y-2">
+                                                        <div className="flex justify-between items-center bg-slate-900 border border-slate-800 p-3 rounded-t-xl">
                                                             <span className="font-bold text-sm text-white">{card.cardName}</span>
-                                                            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs px-2.5 py-0.5 rounded-full">
-                                                                想定利益 +${card.estimatedProfitUSD}
-                                                            </span>
+                                                            <div className="flex gap-2 items-center font-mono text-xs">
+                                                                <span className="text-slate-400">仕入: ¥{card.jpPriceJPY?.toLocaleString()}</span>
+                                                                <span className="text-slate-400">米相場: ${card.usPriceUSD}</span>
+                                                                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold px-2.5 py-0.5 rounded-full">
+                                                                    想定利益 +${card.estimatedProfitUSD}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-xs text-slate-400 flex gap-4 font-mono">
-                                                            <span>日本仕入: ¥{card.jpPriceJPY.toLocaleString()}</span>
-                                                            <span>米販売相場: ${card.usPriceUSD}</span>
-                                                        </div>
-                                                        <p className="text-xs text-slate-300 pt-2 border-t border-slate-800/80">{card.reason}</p>
+                                                        <StrategicReportCard report={card} accentColor="emerald" />
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* IGアカウント分析デスク */}
                                     {aiActiveDesk === 'desk_account' && aiData && (
                                         <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1654,102 +1803,138 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                     <span className="text-3xl">📊</span>
                                                     <div>
                                                         <h2 className="text-lg font-bold text-white">Instagram分析ディレクター専用デスク</h2>
-                                                        <p className="text-xs text-slate-400">自社過去投稿のエンゲージメント・改善施策分析担当</p>
-                                                    </div>
+                                                        <p className="text-xs text-slate-400">自社アカウント反応分析・ファネル改善レポート</p>
+                                                   </div>
                                                 </div>
                                                 <button onClick={() => runSingleAi('account')} disabled={runningAction === 'account'} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold">
                                                     {runningAction === 'account' ? '分析中...' : '🔄 アカウント再分析を実行'}
                                                 </button>
                                             </div>
-                                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
-                                                {aiData.accountInsights}
-                                            </div>
+                                            {aiData.accountInsights && (
+                                                <StrategicReportCard report={aiData.accountInsights} accentColor="pink" />
+                                            )}
                                         </div>
                                     )}
 
-                                    {/* SNS広報デスク */}
                                     {aiActiveDesk === 'desk_sns' && aiData && (
                                         <div className="max-w-5xl mx-auto space-y-5 animate-fadeIn">
                                             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-3xl">📸</span>
                                                     <div>
-                                                        <h2 className="text-lg font-bold text-white">SNS広報専用デスク</h2>
-                                                        <p className="text-xs text-slate-400">3パターンの海外向けSNS投稿の作成と投稿管理</p>
+                                                        <h2 className="text-lg font-bold text-white">SNS広報専用デスク（無料集客）</h2>
+                                                        <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ Discord誘導キャプション</p>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold">
                                                     {runningAction === 'sns' ? '作成中...' : '🔄 全パターン再生成'}
                                                 </button>
                                             </div>
+
+                                            {/* 🌟 カルーセル画像指示 & 投稿タイミング */}
+                                            <div className="bg-slate-900 border border-sky-500/30 rounded-xl p-4 text-xs space-y-2">
+                                                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                                    <span className="font-bold text-sky-300">🎨 推奨カルーセルスライド構成</span>
+                                                    <span className="font-mono text-slate-400">⏰ {aiData.snsPosts?.recommendedTiming}</span>
+                                                </div>
+                                                <p className="text-slate-300 font-medium">1枚目(カバー): {aiData.snsPosts?.visualGuideline?.coverSlide}</p>
+                                                <ul className="list-disc list-inside text-slate-400 space-y-0.5 pl-2">
+                                                    {aiData.snsPosts?.visualGuideline?.carouselSlides?.map((slide, i) => (
+                                                        <li key={i}>{slide}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+
+                                            {/* 3パターンキャプション */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 {/* ハイブリッド */}
                                                 <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-4 flex flex-col justify-between">
                                                     <div>
                                                         <span className="text-xs font-bold text-amber-400 block mb-2">★ 推奨: トレンド×サヤ</span>
                                                         <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                            {aiData.snsPosts.hybridPost}
+                                                            {aiData.snsPosts?.posts?.hybridPost}
                                                         </pre>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <button onClick={() => handleCopy(aiData.snsPosts.hybridPost, 'hybrid')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid', aiData.profitableCards[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                        <button onClick={() => handleCopy(aiData.snsPosts?.posts?.hybridPost, 'hybrid')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                       <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost, 'hybrid', aiData.profitableCards?.[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                                     </div>
                                                 </div>
+
                                                 {/* サヤ特化 */}
                                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
                                                     <div>
                                                         <span className="text-xs font-bold text-emerald-400 block mb-2">利益・価格差重視</span>
                                                         <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                            {aiData.snsPosts.arbitragePost}
+                                                            {aiData.snsPosts?.posts?.arbitragePost}
                                                         </pre>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <button onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arbitrage')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts.arbitragePost, 'arbitrage', aiData.profitableCards[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                        <button onClick={() => handleCopy(aiData.snsPosts?.posts?.arbitragePost, 'arbitrage')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.arbitragePost, 'arbitrage', aiData.profitableCards?.[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                                     </div>
                                                 </div>
+
                                                 {/* トレンド特化 */}
                                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
                                                     <div>
                                                         <span className="text-xs font-bold text-sky-400 block mb-2">考察・トレンド重視</span>
                                                         <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                            {aiData.snsPosts.trendPost}
+                                                            {aiData.snsPosts?.posts?.trendPost}
                                                         </pre>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        <button onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts.trendPost, 'trend', aiData.profitableCards[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                        <button onClick={() => handleCopy(aiData.snsPosts?.posts?.trendPost, 'trend')} className="text-[11px] bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.trendPost, 'trend', aiData.profitableCards?.[0]?.imageUrl)} className="text-[11px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* 海外営業デスク */}
                                     {aiActiveDesk === 'desk_sales' && aiData && (
                                         <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-3xl">✉️</span>
                                                     <div>
-                                                        <h2 className="text-lg font-bold text-white">海外営業専用デスク</h2>
-                                                        <p className="text-xs text-slate-400">Discord大口バイヤー向け個別オファー作成・送信担当</p>
+                                                        <h2 className="text-lg font-bold text-white">海外営業専用デスク（限定Discordコミュニティ）</h2>
+                                                        <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）</p>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">
                                                     {runningAction === 'dm' ? '作成中...' : '🔄 営業文再生成'}
                                                 </button>
                                             </div>
-                                            <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-5 space-y-4">
+
+                                            {/* 🌟 商条件 ＆ 交渉対策 */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                                <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-3 space-y-1">
+                                                    <span className="font-bold text-indigo-300 block mb-1">📦 取引条件 (Commercial Terms)</span>
+                                                    <p className="text-slate-300">最低ロット: <span className="text-white font-mono">{aiData.salesDM?.commercialTerms?.minimumOrderQty}</span></p>
+                                                    <p className="text-slate-300">配送便: <span className="text-white">{aiData.salesDM?.commercialTerms?.shippingMethod}</span></p>
+                                                    <p className="text-slate-300">決済方法: <span className="text-white">{aiData.salesDM?.commercialTerms?.paymentMethod}</span></p>
+                                                </div>
+                                                <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-3 space-y-1">
+                                                    <span className="font-bold text-amber-300 block mb-1">🤝 価格交渉対策 (Negotiation Tip)</span>
+                                                    <p className="text-slate-300 leading-relaxed text-[11px]">{aiData.salesDM?.negotiationTip}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Discord投稿用メッセージ */}
+                                            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="font-bold text-white">{aiData.salesDM?.offerSummary}</span>
+                                                    <span className="text-slate-400 font-mono text-[10px]">Target: {aiData.salesDM?.targetSegment}</span>
+                                                </div>
                                                 <pre className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
-                                                    {aiData.salesDM}
+                                                    {aiData.salesDM?.discordMessage}
                                                 </pre>
                                                 <div className="flex justify-end gap-2">
-                                                    <button onClick={() => handleCopy(aiData.salesDM, 'dm')} className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">
+                                                    <button onClick={() => handleCopy(aiData.salesDM?.discordMessage, 'dm')} className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">
                                                         {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
                                                     </button>
-                                                    <button onClick={() => handlePublishToDiscord(aiData.salesDM)} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
+                                                    <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage)} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
                                                         {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
                                                     </button>
                                                 </div>
