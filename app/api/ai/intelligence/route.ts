@@ -44,7 +44,7 @@ const GraphState = Annotation.Root({
 // ---------------------------------------------------------
 async function marketTrendAgent(state: typeof GraphState.State) {
   console.log("--- [調査員1] 実行中: 予言者AI (トレンド分析) ---");
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-2.5-flash-lite', temperature: 0.7 });
+  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.7 });
 
   const prompt = `
     あなたは世界のポケモンカード市場に精通したトレンドアナリストです。
@@ -75,7 +75,7 @@ async function marketTrendAgent(state: typeof GraphState.State) {
 // ---------------------------------------------------------
 async function sayaAnalysisAgent(state: typeof GraphState.State) {
   console.log("--- [調査員2] 実行中: サヤ分析AI (利鞘カード発掘) ---");
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-2.5-flash-lite', temperature: 0.4 });
+  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.4 });
 
   const prompt = `
     あなたは日米のポケモンカード市場の価格差（サヤ）を突き詰めるアービトラージ専門AIです。
@@ -108,7 +108,7 @@ async function sayaAnalysisAgent(state: typeof GraphState.State) {
 // ---------------------------------------------------------
 async function snsPostAgent(state: typeof GraphState.State) {
   console.log("--- [コンテンツ生成1] 実行中: SNS運用AI ---");
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-2.5-flash-lite', temperature: 0.8 });
+  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.8 });
 
   const trends = state.trendInsights.join("\n- ");
   const cards = state.profitableCards.map(c => 
@@ -155,7 +155,7 @@ async function snsPostAgent(state: typeof GraphState.State) {
 // ---------------------------------------------------------
 async function salesDMAgent(state: typeof GraphState.State) {
   console.log("--- [コンテンツ生成2] 実行中: 営業DMAI ---");
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-2.5-flash-lite', temperature: 0.7 });
+  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.7 });
 
   const trends = state.trendInsights.join(", ");
   const cards = state.profitableCards.map(c => `- ${c.cardName} (Est. Profit: +$${c.estimatedProfitUSD})`).join("\n");
