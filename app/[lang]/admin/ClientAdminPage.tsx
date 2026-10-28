@@ -1,4 +1,4 @@
-// ClientAdminPage.tsx
+// app/[lang]/admin/ClientAdminPage.tsx
 'use client'
 
 import React, { useState, useEffect, useTransition } from 'react'
@@ -454,7 +454,7 @@ function BulkStatusSelectForm({
 // メインコンポーネント (タブ機能統合)
 // ==========================================
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
-    // 💡 タブ切り替え用のState ('orders' または 'intelligence')
+    // タブ切り替え用のState
     const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
 
     // AIインテリジェンス用のState
@@ -464,6 +464,9 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     const [copiedKey, setCopiedKey] = useState<string | null>(null)
     const [history, setHistory] = useState<any[]>([])
     const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null)
+
+    // Discord送信用のローディングState
+    const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false)
 
     const [orders, setOrders] = useState(() =>
         initialOrders.map(order => ({
@@ -498,7 +501,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
             setAiData(json.data)
 
-            // 💡 実行後に最新履歴一覧を再取得してセレクターを最新化
+            // 実行後に最新履歴一覧を再取得してセレクターを最新化
             const historyRes = await fetch('/api/ai/intelligence')
             const historyJson = await historyRes.json()
             if (historyJson.success && historyJson.history) {
@@ -517,6 +520,29 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         navigator.clipboard.writeText(text)
         setCopiedKey(key)
         setTimeout(() => setCopiedKey(null), 2000)
+    }
+
+    // 💡 Discord直接送信ハンドラー
+    const handlePublishToDiscord = async (content: string) => {
+        if (!window.confirm('Discordの大口バイヤー用チャンネルへ直接オファー文を送信しますか？')) return
+
+        setIsPublishingDiscord(true)
+        try {
+            const res = await fetch('/api/ai/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: 'discord', content }),
+            })
+
+            const json = await res.json()
+            if (!json.success) throw new Error(json.error)
+
+            alert(`✅ ${json.message}`)
+        } catch (err: any) {
+            alert(`⚠️ 送信エラー: ${err.message}`)
+        } finally {
+            setIsPublishingDiscord(false)
+        }
     }
 
     useEffect(() => {
@@ -948,7 +974,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
     return (
         <div className="p-6">
-            {/* 💡 タブ切り替えボタン */}
+            {/* タブ切り替えボタン */}
             <div className="flex items-center gap-3 border-b border-slate-200 pb-3 mb-6">
                 <button
                     onClick={() => setActiveTab('orders')}
@@ -1032,7 +1058,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             })
                                         }
                                     }}
-                                    className="bg-slate-950 text-slate-200 border border-slate-700 rounded px-2.5 py-1 text-xs outline-none focus:border-amber-400 transition-colors"
+                                    className="bg-slate-950 text-slate-200 border border-slate-700 rounded px-2.5 py-1 text-xs outline-none focus:border-amber-400 transition-colors disabled:opacity-50"
                                 >
                                     {history.map((h) => (
                                         <option key={h.id} value={h.id}>
@@ -1167,12 +1193,22 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                         <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
                                             <span>✉️</span> 大口バイヤー向け営業オファー文
                                         </h3>
-                                        <button
-                                            onClick={() => handleCopy(aiData.salesDM, 'dm')}
-                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                        >
-                                            {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {/* 💡 Discord直接送信ボタン */}
+                                            <button
+                                                onClick={() => handlePublishToDiscord(aiData.salesDM)}
+                                                disabled={isPublishingDiscord}
+                                                className="px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold transition disabled:opacity-50 flex items-center gap-1 shadow-sm"
+                                            >
+                                                {isPublishingDiscord ? '送信中...' : '💬 Discord送信'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleCopy(aiData.salesDM, 'dm')}
+                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                            >
+                                                {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap border border-slate-800 max-h-80 overflow-y-auto leading-relaxed">
                                         {aiData.salesDM}
