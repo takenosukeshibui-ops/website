@@ -467,6 +467,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
     // Discord送信用のローディングState
     const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false)
+    // 🌟 Instagram送信用のローディングState
+    const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null)
 
     const [orders, setOrders] = useState(() =>
         initialOrders.map(order => ({
@@ -542,6 +544,29 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             alert(`⚠️ 送信エラー: ${err.message}`)
         } finally {
             setIsPublishingDiscord(false)
+        }
+    }
+
+    // 🌟 Instagram直接投稿ハンドラー
+    const handlePublishToInstagram = async (content: string, typeKey: string) => {
+        if (!window.confirm('この内容を Instagram (worldwidejapan2023) に自動投稿しますか？')) return
+
+        setIsPublishingInstagram(typeKey)
+        try {
+            const res = await fetch('/api/ai/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: 'instagram', content }),
+            })
+
+            const json = await res.json()
+            if (!json.success) throw new Error(json.error)
+
+            alert(`✅ ${json.message}`)
+        } catch (err: any) {
+            alert(`⚠️ Instagram投稿エラー: ${err.message}`)
+        } finally {
+            setIsPublishingInstagram(null)
         }
     }
 
@@ -1142,12 +1167,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between items-center text-xs">
                                             <span className="font-bold text-amber-400 text-[11px]">★ 推奨: トレンド×サヤ ハイブリッド型</span>
-                                            <button
-                                                onClick={() => handleCopy(aiData.snsPosts.hybridPost, 'hybrid')}
-                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                            >
-                                                {copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}
-                                            </button>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid')}
+                                                    disabled={Boolean(isPublishingInstagram)}
+                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
+                                                >
+                                                    {isPublishingInstagram === 'hybrid' ? '投稿中...' : '📸 IG投稿'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCopy(aiData.snsPosts.hybridPost, 'hybrid')}
+                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                                >
+                                                    {copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}
+                                                </button>
+                                            </div>
                                         </div>
                                         <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
                                             {aiData.snsPosts.hybridPost}
@@ -1158,12 +1192,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     <div className="space-y-1.5 pt-2 border-t border-slate-800">
                                         <div className="flex justify-between items-center text-xs">
                                             <span className="font-bold text-emerald-400 text-[11px]">利益・スプレッド特化型</span>
-                                            <button
-                                                onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arbitrage')}
-                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                            >
-                                                {copiedKey === 'arbitrage' ? '✓ コピー完了' : 'コピー'}
-                                            </button>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.arbitragePost, 'arbitrage')}
+                                                    disabled={Boolean(isPublishingInstagram)}
+                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
+                                                >
+                                                    {isPublishingInstagram === 'arbitrage' ? '投稿中...' : '📸 IG投稿'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arbitrage')}
+                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                                >
+                                                    {copiedKey === 'arbitrage' ? '✓ コピー完了' : 'コピー'}
+                                                </button>
+                                            </div>
                                         </div>
                                         <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
                                             {aiData.snsPosts.arbitragePost}
@@ -1174,12 +1217,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     <div className="space-y-1.5 pt-2 border-t border-slate-800">
                                         <div className="flex justify-between items-center text-xs">
                                             <span className="font-bold text-sky-400 text-[11px]">トレンド・考察特化型</span>
-                                            <button
-                                                onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')}
-                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                            >
-                                                {copiedKey === 'trend' ? '✓ コピー完了' : 'コピー'}
-                                            </button>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.trendPost, 'trend')}
+                                                    disabled={Boolean(isPublishingInstagram)}
+                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
+                                                >
+                                                    {isPublishingInstagram === 'trend' ? '投稿中...' : '📸 IG投稿'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')}
+                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                                >
+                                                    {copiedKey === 'trend' ? '✓ コピー完了' : 'コピー'}
+                                                </button>
+                                            </div>
                                         </div>
                                         <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
                                             {aiData.snsPosts.trendPost}

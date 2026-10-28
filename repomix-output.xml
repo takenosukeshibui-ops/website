@@ -93,6 +93,8 @@ app/
     ai/
       intelligence/
         route.ts
+      publish/
+        route.ts
     auth/
       callback/
         paypal/
@@ -337,6 +339,27 @@ import { useActionState } from 'react'
 import { updatePassword } from '@/app/actions/auth'
 </file>
 
+<file path="app/[lang]/page.tsx">
+// app/[lang]/page.tsx
+// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
+import Link from "next/link";
+import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
+⋮----
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
+})
+⋮----
+params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
+⋮----
+const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
+⋮----
+{/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
+⋮----
+{/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
+</file>
+
 <file path="app/actions/auth.ts">
 // app/actions/auth.ts
 // [UPDATED] エラーメッセージをバイリンガル(日本語 / 英語)表記に修正
@@ -525,17 +548,6 @@ import { calculateShippingFees } from '@/lib/calculator'
 // Vercelキャッシュを無効化
 ⋮----
 export async function POST(request: Request)
-</file>
-
-<file path="app/api/cron/intelligence/route.ts">
-// app/api/cron/intelligence/route.ts
-import { NextResponse } from 'next/server';
-⋮----
-export async function GET(req: Request)
-⋮----
-// Vercel Cronからの正規アクセスか検証（CRON_SECRETを設定している場合）
-⋮----
-// 既存のAIインテリジェンスAPIを triggerType='cron' で呼び出す
 </file>
 
 <file path="app/api/wise/quote/route.ts">
@@ -1313,38 +1325,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="vercel.json">
-{
-  "crons": [
-    {
-      "path": "/api/cron/intelligence",
-      "schedule": "0 0 * * *"
-    }
-  ]
-}
-</file>
-
-<file path="app/[lang]/page.tsx">
-// app/[lang]/page.tsx
-// [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
-import Link from "next/link";
-import { getDictionary } from "@/lib/dictionaries"; // [NEW] 辞書取得関数をインポート
-⋮----
-export default async function Home({
-  params,
-}: {
-  params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
-})
-⋮----
-params: Promise<{ lang: 'en' | 'ja' }>; // [UPDATED] 型を 'en' | 'ja' に厳密化
-⋮----
-const dict = await getDictionary(lang); // [NEW] URLパラメータから現在の言語の辞書を取得
-⋮----
-{/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
-⋮----
-{/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
-</file>
-
 <file path="app/actions/cart.ts">
 // app/actions/cart.ts
 ⋮----
@@ -1394,6 +1374,26 @@ let isNewOrder = false // ロールバック制御用のフラグ
 // 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
 ⋮----
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="app/api/ai/publish/route.ts">
+// app/api/ai/publish/route.ts
+import { NextResponse } from 'next/server';
+⋮----
+export async function POST(req: Request)
+⋮----
+// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
+</file>
+
+<file path="app/api/cron/intelligence/route.ts">
+// app/api/cron/intelligence/route.ts
+import { NextResponse } from 'next/server';
+⋮----
+export async function GET(req: Request)
+⋮----
+// Vercel Cronからの正規アクセスか検証（CRON_SECRETを設定している場合）
+⋮----
+// 既存のAIインテリジェンスAPIを triggerType='cron' で呼び出す
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1593,6 +1593,17 @@ import type { NextConfig } from "next";
     "tailwindcss": "^4",
     "typescript": "^5"
   }
+}
+</file>
+
+<file path="vercel.json">
+{
+  "crons": [
+    {
+      "path": "/api/cron/intelligence",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
 </file>
 
@@ -1962,45 +1973,6 @@ onChange=
 {/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
 </file>
 
-<file path="app/[lang]/dashboard/page.tsx">
-import { getDictionary } from "@/lib/dictionaries";
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
-⋮----
-function getTrackingUrl(trackingNumber: string): string
-⋮----
-function calculateUserInvoiceDetails(order: any)
-⋮----
-let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
-⋮----
-// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-⋮----
-// 🌟 修正：order_number を user_order_seq に変更
-⋮----
-const getTranslatedShippingMethod = (method: string) =>
-⋮----
-{/* ▼ 追加: 取扱商品へのリンクボタン */}
-⋮----
-<form action=
-⋮----
-{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
-⋮----
-{/* 請求明細パネル */}
-⋮----
-{/* 注文商品テーブル */}
-⋮----
-if (replyRemarks)
-</file>
-
 <file path="app/[lang]/estimate/page.tsx">
 import React, { useState, useEffect, use } from 'react'
 import Link from 'next/link'
@@ -2045,6 +2017,45 @@ const formatConverted = (jpyAmount: number) =>
 {/* ▼ 追加：お支払い総額の換算表示 */}
 ⋮----
 {/* よくある質問 (FAQ) セクション */}
+</file>
+
+<file path="app/[lang]/dashboard/page.tsx">
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
+⋮----
+function getTrackingUrl(trackingNumber: string): string
+⋮----
+function calculateUserInvoiceDetails(order: any)
+⋮----
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+⋮----
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+⋮----
+// 🌟 修正：order_number を user_order_seq に変更
+⋮----
+const getTranslatedShippingMethod = (method: string) =>
+⋮----
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
+⋮----
+<form action=
+⋮----
+{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
+⋮----
+{/* 請求明細パネル */}
+⋮----
+{/* 注文商品テーブル */}
+⋮----
+if (replyRemarks)
 </file>
 
 <file path="app/[lang]/inventory/page.tsx">
@@ -2149,7 +2160,7 @@ export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
-// ClientAdminPage.tsx
+// app/[lang]/admin/ClientAdminPage.tsx
 ⋮----
 import React, { useState, useEffect, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
@@ -2221,17 +2232,22 @@ const val = Number(e.target.value)
 // メインコンポーネント (タブ機能統合)
 // ==========================================
 ⋮----
-// 💡 タブ切り替え用のState ('orders' または 'intelligence')
+// タブ切り替え用のState
 ⋮----
 // AIインテリジェンス用のState
+⋮----
+// Discord送信用のローディングState
 ⋮----
 // AIパイプラインを実行する
 const runIntelligenceAnalysis = async () =>
 ⋮----
-// 💡 実行後に最新履歴一覧を再取得してセレクターを最新化
+// 実行後に最新履歴一覧を再取得してセレクターを最新化
 ⋮----
 // コピー機能
 const handleCopy = (text: string, key: string) =>
+⋮----
+// 💡 Discord直接送信ハンドラー
+const handlePublishToDiscord = async (content: string) =>
 ⋮----
 const fetchLatestHistory = async () =>
 ⋮----
@@ -2271,7 +2287,7 @@ const handleQuantityChange = async (itemId: string, newQuantity: number) =>
 ⋮----
 const handleTitleChange = async (itemId: string, newTitle: string) =>
 ⋮----
-{/* 💡 タブ切り替えボタン */}
+{/* タブ切り替えボタン */}
 ⋮----
 onClick=
 ⋮----
@@ -2298,6 +2314,8 @@ onClick=
 {/* トレンド特化 */}
 ⋮----
 {/* 営業DM */}
+⋮----
+{/* 💡 Discord直接送信ボタン */}
 ⋮----
 {/* ========================================================= */}
 {/* 2. 既存の注文管理テーブル タブの内容 */}
