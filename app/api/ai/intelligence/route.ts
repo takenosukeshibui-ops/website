@@ -195,17 +195,22 @@ export async function POST(req: Request) {
     }
 
     // 🌟 修正: ワークフローにアカウント分析AIを追加し、並列実行・合流を設定
+    // 🌟 修正: ワークフローの経路を最適化し、snsPost と salesDM を同時に走らせて大幅な時短を図る
     const workflow = new StateGraph(GraphState)
       .addNode("marketTrendAgent", marketTrendAgent)
       .addNode("sayaAnalysisAgent", sayaAnalysisAgent)
-      .addNode("accountAnalysisAgent", accountAnalysisAgent) // 追加
+      .addNode("accountAnalysisAgent", accountAnalysisAgent)
       .addNode("snsPostAgent", snsPostAgent)
       .addNode("salesDMAgent", salesDMAgent)
+      // 1. 最初の3つのAIを同時にスタート
       .addEdge(START, "marketTrendAgent")
       .addEdge(START, "sayaAnalysisAgent")
-      .addEdge(START, "accountAnalysisAgent") // 追加：3つを同時に並列スタート
-      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "snsPostAgent") // 修正：3つのAIのタスクが全て完了したら投稿作成へ進む
-      .addEdge("snsPostAgent", "salesDMAgent")
+      .addEdge(START, "accountAnalysisAgent")
+      // 2. 最初の3つが終わったら、SNS投稿AIと営業DMAIを【同時に】スタート（待ち時間を半分にする）
+      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "snsPostAgent")
+      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "salesDMAgent")
+      // 3. 両方終わったら終了
+      .addEdge("snsPostAgent", END)
       .addEdge("salesDMAgent", END);
 
     const app = workflow.compile();
