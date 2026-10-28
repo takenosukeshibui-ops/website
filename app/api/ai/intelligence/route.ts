@@ -1,4 +1,6 @@
 // app/api/ai/intelligence/route.ts
+export const maxDuration = 60;
+
 import { NextResponse } from 'next/server';
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
