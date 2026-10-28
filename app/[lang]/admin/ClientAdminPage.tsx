@@ -435,6 +435,7 @@ function BulkStatusSelectForm({
 // メインコンポーネント (タブ機能統合)
 // ==========================================
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
+    const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
     // 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
     const [aiActiveDesk, setAiActiveDesk] = useState<string>('analysis_team')
     const [chatCommand, setChatCommand] = useState('')
@@ -449,30 +450,36 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         timestamp: string;
     }
 
-    // 🌟 デスク・チームごとのメッセージ履歴 State
-    const [chatLogs, setChatLogs] = useState<Record<string, ChatMessage[]>>({
-        analysis_team: [
-            { id: '1', sender: 'アナリスト', avatar: '🔮', text: '分析チームへようこそ！気になるカードや市場動向があれば何でも聞いてください。', isUser: false, timestamp: '10:00' },
-        ],
-        execution_team: [
-            { id: '1', sender: 'SNS広報', avatar: '📸', text: '実行チームです。投稿トーンの調整やDiscordの提案内容について指示があればどうぞ！', isUser: false, timestamp: '10:00' },
-        ],
-        desk_trend: [
-            { id: '1', sender: 'アナリスト', avatar: '🔮', text: 'アナリストデスクです。海外コレクターの熱狂や需要の動向を調査します。', isUser: false, timestamp: '10:00' },
-        ],
-        desk_arbitrage: [
-            { id: '1', sender: 'バイヤー', avatar: '💎', text: 'バイヤーデスクです。利ざやが抜けるカードの試算や仕入れ判断をサポートします。', isUser: false, timestamp: '10:00' },
-        ],
-        desk_account: [
-            { id: '1', sender: 'IG分析ディレクター', avatar: '📊', text: 'IG分析デスクです。投稿のエンゲージメントやハッシュタグの分析はお任せください。', isUser: false, timestamp: '10:00' },
-        ],
-        desk_sns: [
-            { id: '1', sender: 'SNS広報', avatar: '📸', text: 'SNSデスクです。Instagram投稿の作成や文面の細かい微調整を承ります。', isUser: false, timestamp: '10:00' },
-        ],
-        desk_sales: [
-            { id: '1', sender: '海外営業', avatar: '✉️', text: '海外営業デスクです。Discordの大口オファー文面をバイヤーに合わせて調整します。', isUser: false, timestamp: '10:00' },
-        ],
-    });
+    // 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
+    const [chatLogs, setChatLogs] = useState<Record<string, ChatMessage[]>>({});
+
+    // 🌟 ナレッジ登録処理
+    const handlePinKnowledge = async (sender: string, text: string) => {
+        const senderToAgentKey: Record<string, string> = {
+            'アナリスト': 'trend',
+            'バイヤー': 'arbitrage',
+            'IG分析ディレクター': 'account',
+            'SNS広報': 'sns',
+            '海外営業': 'sales'
+        };
+        const agentKey = senderToAgentKey[sender];
+        if (!agentKey) return alert('エージェントが特定できません。');
+
+        if (!window.confirm(`この発言を「${sender}」の社内ルール（ナレッジ）として学習させますか？\n\n${text.slice(0, 50)}...`)) return;
+
+        try {
+            const res = await fetch('/api/ai/knowledge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentKey, content: text }),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error);
+            alert('📌 ナレッジとして学習・登録しました！次回からこのルールを参考にして回答します。');
+        } catch (err: any) {
+            alert(`⚠️ エラー: ${err.message}`);
+        }
+    };
 
     const [isChatSubmitting, setIsChatSubmitting] = useState<boolean>(false);
 
@@ -537,6 +544,32 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     };
 
+        // 🌟 デスク切り替え時にチャット履歴をDBから取得
+    useEffect(() => {
+        if (activeTab !== 'intelligence') return;
+        
+        const fetchChatLogs = async () => {
+            try {
+                const res = await fetch(`/api/ai/chat?target=${aiActiveDesk}`);
+                const json = await res.json();
+                if (json.success && json.logs) {
+                    const formatted = json.logs.map((log: any) => ({
+                        id: log.id,
+                        sender: log.sender,
+                        avatar: log.avatar,
+                        text: log.text,
+                        isUser: log.is_user,
+                        timestamp: new Date(log.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+                    }));
+                    setChatLogs(prev => ({ ...prev, [aiActiveDesk]: formatted }));
+                }
+            } catch (e) {
+                console.error('Chat log fetch error:', e);
+            }
+        };
+        fetchChatLogs();
+    }, [aiActiveDesk, activeTab]);
+
     // AIインテリジェンス用のState
     const [aiLoading, setAiLoading] = useState<boolean>(false)
     const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
@@ -567,7 +600,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     const [wiseQuoteData, setWiseQuoteData] = useState<Record<string, { fee: number; rate?: number; sourceCurrency?: string }>>({})
     const [activeAddressOrder, setActiveAddressOrder] = useState<any | null>(null)
     const [isGeneratingLabel, setIsGeneratingLabel] = useState<boolean>(false)
-    const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
 
     // 🌟 単体AIの個別実行ハンドラー
 
@@ -1716,6 +1748,18 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <span className="text-[9px] opacity-50 font-mono">{msg.timestamp}</span>
                                             </div>
                                             <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                                            {/* AIのメッセージの場合のみ学習ボタンを表示 */}
+                                           {!msg.isUser && (
+                                               <div className="mt-2 pt-2 border-t border-slate-700/50 text-right">
+                                                   <button 
+                                                       onClick={() => handlePinKnowledge(msg.sender, msg.text)}
+                                                       className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 ml-auto transition-colors"
+                                                   >
+                                                       <span>📌</span> ルールとして学習させる
+                                                   </button>
+                                               </div>
+                                           )}
                                         </div>
                                         {msg.isUser && (
                                             <div className="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center shrink-0 text-white text-xs font-bold">

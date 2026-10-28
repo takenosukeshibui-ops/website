@@ -3,49 +3,33 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server'; // Supabase追加
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-// 🌟 各AI社員のプロファイル定義
 const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: string; instruction: string }> = {
-  trend: {
-    name: 'アナリスト',
-    avatar: '🔮',
-    role: '海外トレンド調査員',
-    instruction: '日本のトレカに関する海外市場トレンド、米・欧コレクターの関心動向について簡潔かつ的確に答えてください。',
-  },
-  arbitrage: {
-    name: 'バイヤー',
-    avatar: '💎',
-    role: '仕入れ・サヤ分析担当',
-    instruction: '日米トレカ市場の価格差（サヤ）、仕入れ推奨カードや利益試算について具体的に答えてください。',
-  },
-  account: {
-    name: 'IG分析ディレクター',
-    avatar: '📊',
-    role: '自社アカウント反応分析担当',
-    instruction: '自社Instagramの反応傾向やエンゲージメント改善、ハッシュタグ戦略の視点から答えてください。',
-  },
-  sns: {
-    name: 'SNS広報',
-    avatar: '📸',
-    role: 'SNSディレクター',
-    instruction: '海外向けInstagram/X投稿のトーン、表現、コピーライティングについて具体的な投稿案を交えて答えてください。',
-  },
-  sales: {
-    name: '海外営業',
-    avatar: '✉️',
-    role: 'Discord営業担当',
-    instruction: '海外大口バイヤー向けのDiscord営業DMやオファー文の提案・調整について答えてください。',
-  },
+  trend: { name: 'アナリスト', avatar: '🔮', role: '海外トレンド調査員', instruction: '日本のトレカに関する海外市場トレンドについて答えてください。' },
+  arbitrage: { name: 'バイヤー', avatar: '💎', role: '仕入れ・サヤ分析担当', instruction: '日米トレカ市場の価格差や仕入れ推奨カードについて答えてください。' },
+  account: { name: 'IG分析ディレクター', avatar: '📊', role: '自社アカウント反応分析担当', instruction: '自社Instagramの反応傾向や改善戦略の視点から答えてください。' },
+  sns: { name: 'SNS広報', avatar: '📸', role: 'SNSディレクター', instruction: '海外向けInstagram投稿のトーンやコピーライティングについて答えてください。' },
+  sales: { name: '海外営業', avatar: '✉️', role: 'Discord営業担当', instruction: '海外大口バイヤー向けのDiscord営業DMについて答えてください。' },
 };
 
-// 🌟 個別エージェントの回答生成（15秒タイムアウト保護付き）
-async function getAgentReply(agentKey: string, userMessage: string, contextData: any) {
+async function getAgentReply(agentKey: string, userMessage: string, contextData: any, supabase: any) {
   const profile = AGENT_PROFILES[agentKey];
   if (!profile) return null;
 
   try {
+    // 🌟 1. このAI専用の過去ナレッジをDBから取得（Step3: RAG実装）
+    const { data: knowledgeData } = await supabase
+      .from('ai_knowledge_base')
+      .select('content')
+      .eq('agent_key', agentKey);
+    
+    const knowledgeText = knowledgeData && knowledgeData.length > 0
+      ? knowledgeData.map((k: any) => `・${k.content}`).join('\n')
+      : '特になし';
+
     const llm = new ChatGoogleGenerativeAI({
       model: 'gemini-3.1-flash-lite',
       temperature: 0.7,
@@ -60,12 +44,16 @@ async function getAgentReply(agentKey: string, userMessage: string, contextData:
 【現在の最新ダッシュボード状況】
 - トレンド抽出: ${JSON.stringify(contextData?.trendInsights || [])}
 - 発掘サヤカード: ${JSON.stringify(contextData?.profitableCards || [])}
-- 自社アカウント分析: ${contextData?.accountInsights || '過去データなし'}
+- 自社アカウント分析: ${contextData?.accountInsights || 'なし'}
 
-オーナー（ユーザー）から以下の発言・指示を受けました：
+💡【社内ルール・過去の成功ナレッジ（最重要）】
+以下のナレッジを必ず遵守・参考にして回答してください：
+${knowledgeText}
+
+オーナー（ユーザー）からの指示：
 「${userMessage}」
 
-${profile.name}として、敬語かつ親しみやすいビジネス口調で、自身の専門領域から的確に回答してください（150〜250文字程度）。
+${profile.name}として、敬語かつ親しみやすいビジネス口調で、自身の専門領域から的確に回答してください。
 `;
 
     const res = await Promise.race([
@@ -80,12 +68,11 @@ ${profile.name}として、敬語かつ親しみやすいビジネス口調で�
       text: res.content.toString().trim(),
     };
   } catch (error) {
-    console.warn(`[Chat API] ${profile.name} reply failed:`, error);
     return {
       agentKey,
       sender: profile.name,
       avatar: profile.avatar,
-      text: '現在リクエストが混み合っているため、少し時間をおいてからお声がけください。',
+      text: '現在リクエストが混み合っているため、少し時間をおいてお声がけください。',
     };
   }
 }
@@ -94,41 +81,68 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { target, message, contextData } = body;
+    if (!message || !target) return NextResponse.json({ success: false, error: '引数が不足' }, { status: 400 });
 
-    if (!message || !target) {
-      return NextResponse.json({ success: false, error: '引数が不足しています' }, { status: 400 });
+    const supabase = await createClient();
+
+    // 🌟 2. ユーザーの送信メッセージをDBに保存（Step1）
+    await supabase.from('ai_chat_logs').insert({
+      desk_id: target,
+      sender: 'あなた',
+      avatar: '👤',
+      text: message,
+      is_user: true
+    });
+
+    let targetAgents: string[] = [];
+    if (target === 'analysis_team') targetAgents = ['trend', 'arbitrage', 'account'];
+    else if (target === 'execution_team') targetAgents = ['sns', 'sales'];
+    else {
+      const cleanKey = target.replace('desk_', '');
+      if (AGENT_PROFILES[cleanKey]) targetAgents = [cleanKey];
     }
 
-    // 🌟 宛先判定（チーム全体か、個別デスクか）
-    let targetAgents: string[] = [];
+    if (targetAgents.length === 0) return NextResponse.json({ success: false, error: '無効な宛先' }, { status: 400 });
 
-    if (target === 'analysis_team') {
-      targetAgents = ['trend', 'arbitrage', 'account'];
-    } else if (target === 'execution_team') {
-      targetAgents = ['sns', 'sales'];
-    } else {
-      // 個別デスク（例: desk_trend -> trend）
-      const cleanKey = target.replace('desk_', '');
-      if (AGENT_PROFILES[cleanKey]) {
-        targetAgents = [cleanKey];
+    // 各AIの回答を生成
+    const replies = (await Promise.all(
+      targetAgents.map((agentKey) => getAgentReply(agentKey, message, contextData, supabase))
+    )).filter(Boolean);
+
+    // 🌟 3. AIの回答をDBに保存（Step1）
+    for (const rep of replies) {
+      if (rep) {
+        await supabase.from('ai_chat_logs').insert({
+          desk_id: target,
+          sender: rep.sender,
+          avatar: rep.avatar,
+          text: rep.text,
+          is_user: false
+        });
       }
     }
 
-    if (targetAgents.length === 0) {
-      return NextResponse.json({ success: false, error: '無効な宛先です' }, { status: 400 });
-    }
-
-    // 各担当AIの回答を並列で実行
-    const replies = await Promise.all(
-      targetAgents.map((agentKey) => getAgentReply(agentKey, message, contextData))
-    );
-
-    return NextResponse.json({
-      success: true,
-      replies: replies.filter(Boolean),
-    });
+    return NextResponse.json({ success: true, replies });
   } catch (error: any) {
-    console.error('[Chat API Error]:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
+}
+
+// 🌟 4. デスク切り替え時に過去のチャット履歴を取得するエンドポイント
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const target = searchParams.get('target');
+  
+  if (!target) return NextResponse.json({ success: false, logs: [] });
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('ai_chat_logs')
+    .select('*')
+    .eq('desk_id', target)
+    .order('created_at', { ascending: true })
+    .limit(50); // 直近50件を取得
+
+  if (error) return NextResponse.json({ success: false, error: error.message });
+  return NextResponse.json({ success: true, logs: data });
 }
