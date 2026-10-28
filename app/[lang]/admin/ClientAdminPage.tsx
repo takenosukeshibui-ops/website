@@ -4,52 +4,52 @@ import { useFormStatus } from 'react-dom'
 import { StatusBadge } from '@/components/StatusBadge'
 import ItemStatusSelect from '@/components/ItemStatusSelect'
 import {
-sendInvoice,
-deleteInvoice,
-shipOrder,
-deleteShip,
-cancelShip,
-updateItemQuantity,
-updateItemPrice,
-updateItemTitle,
-updateTrackingNumber,
-updateAdminNote,
-cancelAdminNote,
-updateOrderStatusToPaymentRequired,
-cancelPaymentRequired,
-updateItemStatus,
-sendPayPalInvoice,
-addAdminAdjustmentItem,
-updateAllOrderItemsStatus
+    sendInvoice,
+    deleteInvoice,
+    shipOrder,
+    deleteShip,
+    cancelShip,
+    updateItemQuantity,
+    updateItemPrice,
+    updateItemTitle,
+    updateTrackingNumber,
+    updateAdminNote,
+    cancelAdminNote,
+    updateOrderStatusToPaymentRequired,
+    cancelPaymentRequired,
+    updateItemStatus,
+    sendPayPalInvoice,
+    addAdminAdjustmentItem,
+    updateAllOrderItemsStatus
 } from '@/app/actions/admin'
 // ==========================================
 // AIインテリジェンス用の型定義
 // ==========================================
 interface ProfitableCard {
-cardName: string;
-jpPriceJPY: number;
-usPriceUSD: number;
-estimatedProfitUSD: number;
-reason: string;
-imageUrl?: string;
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    reason: string;
+    imageUrl?: string;
 }
 interface SnsPosts {
-trendPost: string;
-arbitragePost: string;
-hybridPost: string;
+    trendPost: string;
+    arbitragePost: string;
+    hybridPost: string;
 }
 interface IntelligenceData {
-trendInsights: string[];
-profitableCards: ProfitableCard[];
-snsPosts: SnsPosts;
-salesDM: string;
-accountInsights?: string;
+    trendInsights: string[];
+    profitableCards: ProfitableCard[];
+    snsPosts: SnsPosts;
+    salesDM: string;
+    accountInsights?: string;
 }
 // ==========================================
 // 既存の補助コンポーネント群
 // ==========================================
 function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', pendingText: string }) {
-const { pending } = useFormStatus();
+    const { pending } = useFormStatus();
     const bgClass = state === 'confirm'
         ? 'bg-blue-600 hover:bg-blue-700'
         : 'bg-slate-700 hover:bg-slate-800';
@@ -67,29 +67,29 @@ const { pending } = useFormStatus();
     )
 }
 function getTrackingUrl(trackingNumber: string): string {
-const cleaned = trackingNumber.replace(/[\s-]/g, '');
-if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
-return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
-}
-return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
+    const cleaned = trackingNumber.replace(/[\s-]/g, '');
+    if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
+        return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
+    }
+    return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
 }
 function CurrencyInput({
-defaultValue,
-placeholder,
-className,
-name,
-onValueChange,
+    defaultValue,
+    placeholder,
+    className,
+    name,
+    onValueChange,
 }: {
-defaultValue?: number | null
-placeholder?: string
-className?: string
-name?: string
-onValueChange?: (val: number) => void
+    defaultValue?: number | null
+    placeholder?: string
+    className?: string
+    name?: string
+    onValueChange?: (val: number) => void
 }) {
-const [isFocused, setIsFocused] = useState(false)
-const [rawValue, setRawValue] = useState<string>(
-defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : ''
-)
+    const [isFocused, setIsFocused] = useState(false)
+    const [rawValue, setRawValue] = useState<string>(
+        defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : ''
+    )
     useEffect(() => {
         if (!isFocused) {
             setRawValue(defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : '')
@@ -129,14 +129,14 @@ defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : ''
     )
 }
 function calculateInvoiceDetails(
-order: any,
-calculatedFee: number | null,
-hasInvoice: boolean,
-isEditingWeight: boolean,
-wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
+    order: any,
+    calculatedFee: number | null,
+    hasInvoice: boolean,
+    isEditingWeight: boolean,
+    wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
 ) {
-let productTotal = 0;
-let proxyFeeTargetTotal = 0;
+    let productTotal = 0;
+    let proxyFeeTargetTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
         if (item) {
@@ -204,19 +204,19 @@ let proxyFeeTargetTotal = 0;
     return { productTotal, proxyFee, shippingFee, baseAmount, paymentFee, paymentFeeDetail, grandTotal };
 }
 function AdminNoteForm({
-orderId,
-item,
-onSubmit,
-onCancel
+    orderId,
+    item,
+    onSubmit,
+    onCancel
 }: {
-orderId: string,
-item: any,
-onSubmit: (orderId: string, itemId: string, note: string) => Promise<void>,
-onCancel: (orderId: string, itemId: string) => Promise<void>
+    orderId: string,
+    item: any,
+    onSubmit: (orderId: string, itemId: string, note: string) => Promise<void>,
+    onCancel: (orderId: string, itemId: string) => Promise<void>
 }) {
-const [isEditing, setIsEditing] = useState(false)
-const [showHistory, setShowHistory] = useState(false)
-const isNoteActive = item?.status === 'info_required'
+    const [isEditing, setIsEditing] = useState(false)
+    const [showHistory, setShowHistory] = useState(false)
+    const isNoteActive = item?.status === 'info_required'
     if (isNoteActive && !isEditing) {
         return (
             <div className="flex flex-col gap-1">
@@ -318,9 +318,9 @@ const isNoteActive = item?.status === 'info_required'
     )
 }
 function calculateOrderStatus(order: any) {
-if (order.status && order.status !== 'pending') {
-return order.status
-}
+    if (order.status && order.status !== 'pending') {
+        return order.status
+    }
     const allStatuses = (order.order_items || []).map((oi: any) => {
         const itemObj = Array.isArray(oi.items) ? oi.items[0] : oi.items
         return itemObj?.status
@@ -348,9 +348,9 @@ return order.status
     return order.status || 'pending'
 }
 function AddAdjustmentForm({ orderId, userId }: { orderId: string; userId: string }) {
-const [title, setTitle] = useState('')
-const [price, setPrice] = useState<string>('')
-const [isPending, startTransition] = useTransition()
+    const [title, setTitle] = useState('')
+    const [price, setPrice] = useState<string>('')
+    const [isPending, startTransition] = useTransition()
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!title || price === '') return
@@ -392,14 +392,14 @@ const [isPending, startTransition] = useTransition()
     )
 }
 function BulkStatusSelectForm({
-orderId,
-onBulkUpdate
+    orderId,
+    onBulkUpdate
 }: {
-orderId: string
-onBulkUpdate: (orderId: string, newStatus: string) => Promise<void>
+    orderId: string
+    onBulkUpdate: (orderId: string, newStatus: string) => Promise<void>
 }) {
-const [status, setStatus] = useState('purchased')
-const [isPending, startTransition] = useTransition()
+    const [status, setStatus] = useState('purchased')
+    const [isPending, startTransition] = useTransition()
     const handleApply = () => {
         if (!window.confirm('全商品のステータスを一括で変更しますか？')) return
         startTransition(async () => {
@@ -435,8 +435,9 @@ const [isPending, startTransition] = useTransition()
 // メインコンポーネント (タブ機能統合)
 // ==========================================
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
-// タブ切り替え用のState
-const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
+    // 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
+    const [aiActiveDesk, setAiActiveDesk] = useState<'timeline' | 'sns' | 'sales'>('timeline')
+    const [chatCommand, setChatCommand] = useState('')
     // AIインテリジェンス用のState
     const [aiLoading, setAiLoading] = useState<boolean>(false)
     const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
@@ -467,8 +468,10 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
     const [wiseQuoteData, setWiseQuoteData] = useState<Record<string, { fee: number; rate?: number; sourceCurrency?: string }>>({})
     const [activeAddressOrder, setActiveAddressOrder] = useState<any | null>(null)
     const [isGeneratingLabel, setIsGeneratingLabel] = useState<boolean>(false)
+    const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
 
     // 🌟 単体AIの個別実行ハンドラー
+
     const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') => {
         setRunningAction(action);
         try {
@@ -611,7 +614,7 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
         }
         fetchLatestHistory()
     }, [])
-    
+
     useEffect(() => {
         try {
             const saved = localStorage.getItem('admin_order_weights')
@@ -715,7 +718,7 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             destination: destCountry,
-                            postalCode: destPostalCode, 
+                            postalCode: destPostalCode,
                             weight: weightVal,
                             targetCurrency: 'JPY'
                         })
@@ -1022,22 +1025,20 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
             <div className="flex items-center gap-3 border-b border-slate-200 pb-3 mb-6">
                 <button
                     onClick={() => setActiveTab('orders')}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
-                        activeTab === 'orders'
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${activeTab === 'orders'
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                        }`}
                 >
                     <span>📦 注文管理 ({orders.length}件)</span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('intelligence')}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
-                        activeTab === 'intelligence'
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${activeTab === 'intelligence'
                             ? 'bg-slate-900 text-amber-400 shadow-sm border border-slate-800'
                             : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-                    }`}
+                        }`}
                 >
                     <span>⚡ AI市場インテリジェンス (日米サヤ & SNS)</span>
                     <span className="bg-amber-400/20 text-amber-600 text-[10px] px-1.5 py-0.5 rounded font-mono">NEW</span>
@@ -1045,303 +1046,323 @@ const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
             </div>
 
             {/* ========================================================= */}
-            {/* 1. AI市場インテリジェンス タブの内容 */}
+            {/* 1. AI STAFF OFFICE ダッシュボード */}
             {/* ========================================================= */}
             {activeTab === 'intelligence' && (
-                <div className="bg-slate-950 text-slate-100 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl border border-slate-800 animate-fadeIn">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-                        <div>
-                            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-                                <span className="text-amber-400">⚡</span> 自律型トレカ市場インテリジェンス
-                            </h2>
-                            <p className="text-slate-400 text-xs mt-1">
-                                各AIの個別実行、または一括分析を実行してSNS投稿3パターン＆大口DM文を自動生成します。
-                            </p>
+                <div className="flex h-[800px] bg-slate-950 text-slate-50 overflow-hidden font-sans rounded-xl border border-slate-800 shadow-2xl animate-fadeIn">
+
+                    {/* 左サイドバー: AI社員リスト */}
+                    <div className="w-80 border-r border-slate-800 bg-slate-900/50 flex flex-col shrink-0">
+                        <div className="p-5 border-b border-slate-800 flex items-center gap-3 bg-slate-950">
+                            <span className="text-2xl">🤖</span>
+                            <h1 className="text-base font-bold tracking-wider text-slate-100">AI STAFF OFFICE</h1>
                         </div>
 
-                        <button
-                            onClick={runIntelligenceAnalysis}
-                            disabled={aiLoading || Boolean(runningAction)}
-                            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
-                                aiLoading
-                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-500/20 disabled:opacity-50'
-                            }`}
-                        >
-                            {aiLoading ? (
-                                <>
-                                    <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                                    </svg>
-                                    AIエージェント分析実行中...
-                                </>
-                            ) : (
-                                <span>🚀 一括インテリジェンス実行</span>
-                            )}
-                        </button>
+                        <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">Active Team</h2>
+
+                            {/* アナリスト */}
+                            <div className="bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800/80 transition-colors cursor-pointer rounded-xl p-3 flex items-center gap-4" onClick={() => setAiActiveDesk('timeline')}>
+                                <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-xl shadow-inner">🔮</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold text-slate-200 truncate">アナリスト</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${runningAction === 'trend' ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-300'}`}>
+                                            {runningAction === 'trend' ? '調査中' : '稼働可能'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 truncate">海外市場トレンド調査</p>
+                                </div>
+                            </div>
+
+                            {/* バイヤー */}
+                            <div className="bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800/80 transition-colors cursor-pointer rounded-xl p-3 flex items-center gap-4" onClick={() => setAiActiveDesk('timeline')}>
+                                <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-xl shadow-inner">💎</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold text-slate-200 truncate">バイヤー</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${runningAction === 'arbitrage' ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-300'}`}>
+                                            {runningAction === 'arbitrage' ? '計算中' : '稼働可能'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 truncate">日米サヤ抜き価格計算</p>
+                                </div>
+                            </div>
+
+                            {/* SNSディレクター */}
+                            <div className={`bg-slate-800/40 border hover:bg-slate-800/80 transition-colors cursor-pointer rounded-xl p-3 flex items-center gap-4 ${aiActiveDesk === 'sns' ? 'border-amber-500/50 bg-slate-800/80' : 'border-slate-700/50'}`} onClick={() => setAiActiveDesk('sns')}>
+                                <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-xl shadow-inner">📱</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold text-slate-200 truncate">SNS広報</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${runningAction === 'sns' || runningAction === 'account' ? 'bg-blue-500/20 text-blue-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                            {runningAction === 'sns' ? '執筆中' : '承認待ち'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 truncate">Instagram分析・投稿</p>
+                                </div>
+                            </div>
+
+                            {/* 営業 */}
+                            <div className={`bg-slate-800/40 border hover:bg-slate-800/80 transition-colors cursor-pointer rounded-xl p-3 flex items-center gap-4 ${aiActiveDesk === 'sales' ? 'border-amber-500/50 bg-slate-800/80' : 'border-slate-700/50'}`} onClick={() => setAiActiveDesk('sales')}>
+                                <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center text-xl shadow-inner">✉️</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-sm font-bold text-slate-200 truncate">海外営業</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${runningAction === 'dm' ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-300'}`}>
+                                            {runningAction === 'dm' ? '作成中' : '稼働可能'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 truncate">Discord大口バイヤー開拓</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 履歴セレクター */}
+                        <div className="p-4 border-t border-slate-800 bg-slate-900">
+                            <span className="text-[10px] text-slate-400 mb-1 block">📅 過去のオフィス記録</span>
+                            <select
+                                value={selectedRecordId || ''}
+                                onChange={(e) => {
+                                    const target = history.find(h => h.id === e.target.value)
+                                    if (target) {
+                                        setSelectedRecordId(target.id)
+                                        setAiData({
+                                            trendInsights: target.trend_insights,
+                                            profitableCards: target.profitable_cards,
+                                            snsPosts: target.sns_posts,
+                                            salesDM: target.sales_dm,
+                                            accountInsights: target.account_insights,
+                                        })
+                                    }
+                                }}
+                                className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded px-2 py-1 text-xs outline-none"
+                            >
+                                {history.map((h) => (
+                                    <option key={h.id} value={h.id}>
+                                        {new Date(h.created_at).toLocaleString('ja-JP')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
-                    {/* 過去履歴セレクターバー */}
-                    {history.length > 0 && (
-                        <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-900 border border-slate-800 p-3 rounded-xl">
-                            <div className="flex items-center gap-2">
-                                <span className="text-slate-400 font-bold">📅 過去の保存履歴:</span>
-                                <select
-                                    value={selectedRecordId || ''}
-                                    disabled={aiLoading || Boolean(runningAction)}
-                                    onChange={(e) => {
-                                        const target = history.find(h => h.id === e.target.value)
-                                        if (target) {
-                                            setSelectedRecordId(target.id)
-                                            setAiData({
-                                                trendInsights: target.trend_insights,
-                                                profitableCards: target.profitable_cards,
-                                                snsPosts: target.sns_posts,
-                                                salesDM: target.sales_dm,
-                                                accountInsights: target.account_insights,
-                                            })
-                                        }
-                                    }}
-                                    className="bg-slate-950 text-slate-200 border border-slate-700 rounded px-2.5 py-1 text-xs outline-none focus:border-amber-400 transition-colors disabled:opacity-50"
-                                >
-                                    {history.map((h) => (
-                                        <option key={h.id} value={h.id}>
-                                            {new Date(h.created_at).toLocaleString('ja-JP')} [{h.trigger_type === 'cron' ? '⏰ 自動定期' : '👤 手動'}]
-                                        </option>
-                                    ))}
-                                </select>
+                    {/* 中央メインエリア */}
+                    <div className="flex-1 flex flex-col relative bg-slate-950/50">
+                        {/* 共通ヘッダー */}
+                        <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-between px-6 shrink-0">
+                            <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+                                <button onClick={() => setAiActiveDesk('timeline')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${aiActiveDesk === 'timeline' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                    オフィス・タイムライン
+                                </button>
+                                <button onClick={() => setAiActiveDesk('sns')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${aiActiveDesk === 'sns' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                    SNSデスク
+                                </button>
+                                <button onClick={() => setAiActiveDesk('sales')} className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${aiActiveDesk === 'sales' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
+                                    営業デスク
+                                </button>
                             </div>
-                            <span className="text-[11px] text-slate-500">
-                                全 {history.length} 件の履歴を保持中
-                            </span>
-                        </div>
-                    )}
+                            <button
+                                onClick={runIntelligenceAnalysis}
+                                disabled={aiLoading || Boolean(runningAction)}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 disabled:opacity-50 transition"
+                            >
+                                {aiLoading ? '🔄 チーム全体でリサーチ中...' : '🚀 チーム全体へ調査指示'}
+                            </button>
+                        </header>
 
-                    {aiError && (
-                        <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-red-200 text-xs">
-                            {aiError}
-                        </div>
-                    )}
-
-                    {!aiData && !aiLoading && !aiError && (
-                        <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
-                            右上の「🚀 一括インテリジェンス実行」または各項目の「🔄 個別実行」をクリックすると、AIが動き出します。
-                        </div>
-                    )}
-
-                    {aiData && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* 左カラム：情報収集＆サヤ発掘結果 */}
-                            <div className="space-y-5">
-                                {/* トレンドインサイト */}
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
-                                            <span>🔮</span> 市場トレンドインサイト（予言者AI）
-                                        </h3>
-                                        <button
-                                            onClick={() => runSingleAi('trend')}
-                                            disabled={Boolean(runningAction) || aiLoading}
-                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded text-[11px] font-bold transition disabled:opacity-50"
-                                        >
-                                            {runningAction === 'trend' ? '分析中...' : '🔄 トレンド再分析'}
-                                        </button>
-                                    </div>
-                                    <ul className="space-y-2">
-                                        {aiData.trendInsights.map((insight, idx) => (
-                                            <li key={idx} className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800/80 leading-relaxed">
-                                                {insight}
-                                            </li>
-                                        ))}
-                                    </ul>
+                        {/* コンテンツ領域 */}
+                        <div className="flex-1 overflow-y-auto p-6 pb-24">
+                            {!aiData && !aiLoading ? (
+                                <div className="text-center py-20 text-slate-500 text-sm">
+                                    右上の「チーム全体へ調査指示」を押すと、AI社員が動き出します。
                                 </div>
+                            ) : (
+                                <>
+                                    {/* タイムライン ビュー */}
+                                    {aiActiveDesk === 'timeline' && aiData && (
+                                        <div className="max-w-3xl mx-auto space-y-6">
+                                            <h2 className="text-xl font-bold text-slate-100 mb-6">Live Operations</h2>
 
-                                {/* サヤ抜きカード発掘 */}
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
-                                            <span>💎</span> 日米サヤ抜き発掘カード（サヤ分析AI）
-                                        </h3>
-                                        <button
-                                            onClick={() => runSingleAi('arbitrage')}
-                                            disabled={Boolean(runningAction) || aiLoading}
-                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[11px] font-bold transition disabled:opacity-50"
-                                        >
-                                            {runningAction === 'arbitrage' ? '発掘中...' : '🔄 サヤ再発掘'}
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        {aiData.profitableCards.map((card, idx) => (
-                                            <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <span className="font-bold text-white text-xs">{card.cardName}</span>
-                                                    <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] rounded-full whitespace-nowrap">
-                                                        想定利益 +${card.estimatedProfitUSD}
-                                                    </span>
+                                            {/* トレンド報告 */}
+                                            <div className="bg-slate-900/60 border-l-4 border-slate-700 rounded-lg p-5 flex gap-4">
+                                                <div className="text-2xl pt-1">🔮</div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-bold text-sm text-slate-200">アナリストからの報告</span>
+                                                        <span className="text-xs text-slate-500">Just now</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-300 mb-3">海外市場のリサーチが完了しました。現在の主要トレンドは以下の通りです。</p>
+                                                    <ul className="text-xs text-amber-300 space-y-1 mb-4 bg-slate-950 p-3 rounded border border-slate-800">
+                                                        {aiData.trendInsights.map((t, i) => <li key={i}>・{t}</li>)}
+                                                    </ul>
+                                                    <button onClick={() => runSingleAi('trend')} disabled={runningAction === 'trend'} className="bg-slate-800 hover:bg-slate-700 text-white text-[11px] px-3 py-1.5 rounded transition">
+                                                        {runningAction === 'trend' ? '再調査中...' : '🔄 トレンドを再調査させる'}
+                                                    </button>
                                                 </div>
-                                                <div className="flex gap-4 text-[11px] text-slate-400 font-mono">
-                                                    <span>日本仕入: <strong className="text-slate-200">¥{card.jpPriceJPY.toLocaleString()}</strong></span>
-                                                    <span>米相場: <strong className="text-slate-200">${card.usPriceUSD}</strong></span>
+                                            </div>
+
+                                            {/* バイヤー報告 */}
+                                            <div className="bg-slate-900/60 border-l-4 border-emerald-500 rounded-lg p-5 flex gap-4">
+                                                <div className="text-2xl pt-1">💎</div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-bold text-sm text-slate-200">バイヤーからの提案</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-300 mb-3">トレンドに基づき、利ザヤが抜ける優良カードを発掘しました！</p>
+                                                    <div className="space-y-2 mb-4">
+                                                        {aiData.profitableCards.map((c, i) => (
+                                                            <div key={i} className="text-xs bg-emerald-950/30 p-2 rounded border border-emerald-900/50 flex justify-between items-center">
+                                                                <span className="text-emerald-300 font-bold">{c.cardName}</span>
+                                                                <span className="bg-emerald-600/30 text-emerald-400 px-2 py-0.5 rounded font-mono">+${c.estimatedProfitUSD}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <button onClick={() => runSingleAi('arbitrage')} disabled={runningAction === 'arbitrage'} className="bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] px-3 py-1.5 rounded transition">
+                                                        {runningAction === 'arbitrage' ? '再計算中...' : '🔄 別のカードを発掘させる'}
+                                                    </button>
                                                 </div>
-                                                <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80 leading-relaxed">
-                                                    {card.reason}
-                                                </p>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* 自社Instagramアカウント分析 */}
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="text-sm font-bold text-pink-400 flex items-center gap-1.5">
-                                            <span>📊</span> 自社Instagram反応分析（アカウント分析AI）
-                                        </h3>
-                                        <button
-                                            onClick={() => runSingleAi('account')}
-                                            disabled={Boolean(runningAction) || aiLoading}
-                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-pink-300 rounded text-[11px] font-bold transition disabled:opacity-50"
-                                        >
-                                            {runningAction === 'account' ? '分析中...' : '🔄 アカウント再分析'}
-                                        </button>
-                                    </div>
-                                    <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap border border-slate-800 leading-relaxed">
-                                        {aiData.accountInsights || "過去の分析データはありません。「🔄 アカウント再分析」を実行すると直近の投稿エンゲージメントから改善指示を抽出します。"}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 右カラム：SNS＆DMコンテンツ */}
-                            <div className="space-y-5">
-                                {/* SNS投稿（3パターン） */}
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
-                                            <span>📱</span> 海外向けSNS投稿（X / Instagram）
-                                        </h3>
-                                        <button
-                                            onClick={() => runSingleAi('sns')}
-                                            disabled={Boolean(runningAction) || aiLoading}
-                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded text-[11px] font-bold transition disabled:opacity-50"
-                                        >
-                                            {runningAction === 'sns' ? '作成中...' : '🔄 投稿文を再生成'}
-                                        </button>
-                                    </div>
-
-                                    {/* ハイブリッド */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="font-bold text-amber-400 text-[11px]">★ 推奨: トレンド×サヤ ハイブリッド型</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid', aiData.profitableCards[0]?.imageUrl)}
-                                                    disabled={Boolean(isPublishingInstagram)}
-                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
-                                                >
-                                                    {isPublishingInstagram === 'hybrid' ? '投稿中...' : '📸 IG投稿'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCopy(aiData.snsPosts.hybridPost, 'hybrid')}
-                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                                >
-                                                    {copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}
-                                                </button>
+                                            {/* SNS & 営業の通知 */}
+                                            <div className="bg-slate-900/60 border-l-4 border-blue-500 rounded-lg p-5 flex gap-4">
+                                                <div className="text-2xl pt-1">📱</div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-bold text-sm text-slate-200">SNS広報 ＆ 営業チーム</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-300 mb-4">
+                                                        抽出されたトレンドとカード情報を元に、Instagram用原稿と大口向けDMの作成が完了しています。確認をお願いします。
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setAiActiveDesk('sns')} className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] px-3 py-1.5 rounded font-bold transition">
+                                                            🔍 SNS原稿を確認・承認する
+                                                        </button>
+                                                        <button onClick={() => setAiActiveDesk('sales')} className="bg-slate-700 hover:bg-slate-600 text-white text-[11px] px-3 py-1.5 rounded font-bold transition">
+                                                            🔍 DM原稿を確認・承認する
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
-                                            {aiData.snsPosts.hybridPost}
-                                        </pre>
-                                    </div>
+                                    )}
 
-                                    {/* サヤ特化 */}
-                                    <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="font-bold text-emerald-400 text-[11px]">利益・スプレッド特化型</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.arbitragePost, 'arbitrage', aiData.profitableCards[0]?.imageUrl)}
-                                                    disabled={Boolean(isPublishingInstagram)}
-                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
-                                                >
-                                                    {isPublishingInstagram === 'arbitrage' ? '投稿中...' : '📸 IG投稿'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arbitrage')}
-                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                                >
-                                                    {copiedKey === 'arbitrage' ? '✓ コピー完了' : 'コピー'}
-                                                </button>
+                                    {/* SNS デスク ビュー */}
+                                    {aiActiveDesk === 'sns' && aiData && (
+                                        <div className="max-w-5xl mx-auto">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <span className="text-3xl">📱</span>
+                                                <div>
+                                                    <h2 className="text-xl font-bold text-slate-100">SNS広報の専用デスク</h2>
+                                                    <p className="text-xs text-slate-400">アカウントの分析と、Instagramへの自動投稿管理</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className="space-y-4">
+                                                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                                                        <h3 className="text-xs font-bold text-pink-400 mb-3 border-b border-slate-800 pb-2 flex justify-between items-center">
+                                                            📊 直近のインサイト分析
+                                                            <button onClick={() => runSingleAi('account')} className="bg-slate-800 px-2 py-1 rounded text-slate-300 hover:text-white">🔄</button>
+                                                        </h3>
+                                                        <p className="text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                                            {aiData.accountInsights || "過去データがありません。"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="md:col-span-2 space-y-4">
+                                                    <div className="bg-slate-800/30 border border-blue-500/30 rounded-xl p-4">
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <span className="text-sm font-bold text-blue-400">承認待ち: 推奨ハイブリッド原稿</span>
+                                                            <span className="bg-blue-500/20 text-blue-300 text-[10px] px-2 py-0.5 rounded">Draft</span>
+                                                        </div>
+                                                        <pre className="bg-slate-950 p-3 rounded border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed mb-3">
+                                                            {aiData.snsPosts.hybridPost}
+                                                        </pre>
+                                                        <div className="flex justify-end gap-2">
+                                                            <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="text-[11px] px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded transition">
+                                                                {runningAction === 'sns' ? '修正中...' : '🔄 やり直し'}
+                                                            </button>
+                                                            <button onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid', aiData.profitableCards[0]?.imageUrl)} disabled={Boolean(isPublishingInstagram)} className="text-[11px] font-bold px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition flex items-center gap-1">
+                                                                ✅ 承認 ＆ Instagramへ投稿
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                                                            <span className="text-[11px] font-bold text-slate-400 block mb-2">予備: トレンド特化</span>
+                                                            <pre className="text-[10px] text-slate-500 whitespace-pre-wrap font-sans truncate max-h-20">{aiData.snsPosts.trendPost}</pre>
+                                                            <button onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')} className="mt-2 text-[10px] text-blue-400 hover:underline">コピーして使用</button>
+                                                        </div>
+                                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                                                            <span className="text-[11px] font-bold text-slate-400 block mb-2">予備: 利益特化</span>
+                                                            <pre className="text-[10px] text-slate-500 whitespace-pre-wrap font-sans truncate max-h-20">{aiData.snsPosts.arbitragePost}</pre>
+                                                            <button onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arb')} className="mt-2 text-[10px] text-blue-400 hover:underline">コピーして使用</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
-                                            {aiData.snsPosts.arbitragePost}
-                                        </pre>
-                                    </div>
+                                    )}
 
-                                    {/* トレンド特化 */}
-                                    <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="font-bold text-sky-400 text-[11px]">トレンド・考察特化型</span>
-                                            <div className="flex items-center gap-1.5">
-                                                <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.trendPost, 'trend', aiData.profitableCards[0]?.imageUrl)}
-                                                    disabled={Boolean(isPublishingInstagram)}
-                                                    className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
-                                                >
-                                                    {isPublishingInstagram === 'trend' ? '投稿中...' : '📸 IG投稿'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')}
-                                                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                                >
-                                                    {copiedKey === 'trend' ? '✓ コピー完了' : 'コピー'}
-                                                </button>
+                                    {/* 営業 デスク ビュー */}
+                                    {aiActiveDesk === 'sales' && aiData && (
+                                        <div className="max-w-4xl mx-auto">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <span className="text-3xl">✉️</span>
+                                                <div>
+                                                    <h2 className="text-xl font-bold text-slate-100">海外営業の専用デスク</h2>
+                                                    <p className="text-xs text-slate-400">大口バイヤー向けDiscordオファー文の作成</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-800/30 border border-indigo-500/30 rounded-xl p-5">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-sm font-bold text-indigo-400">承認待ち: セールスオファー</span>
+                                                </div>
+                                                <pre className="bg-slate-950 p-4 rounded border border-slate-800 text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed mb-4">
+                                                    {aiData.salesDM}
+                                                </pre>
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="text-xs px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded transition">
+                                                        {runningAction === 'dm' ? '修正中...' : '🔄 やり直し'}
+                                                    </button>
+                                                    <button onClick={() => handlePublishToDiscord(aiData.salesDM)} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded transition flex items-center gap-1">
+                                                        💬 Discordへ直接送信
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
-                                            {aiData.snsPosts.trendPost}
-                                        </pre>
-                                    </div>
-                                </div>
-
-                                {/* 営業DM */}
-                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
-                                            <span>✉️</span> 大口バイヤー向け営業オファー文
-                                        </h3>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => runSingleAi('dm')}
-                                                disabled={Boolean(runningAction) || aiLoading}
-                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded text-[11px] font-bold transition disabled:opacity-50"
-                                            >
-                                                {runningAction === 'dm' ? '作成中...' : '🔄 DM文を再生成'}
-                                            </button>
-                                            {/* 💡 Discord直接送信ボタン */}
-                                            <button
-                                                onClick={() => handlePublishToDiscord(aiData.salesDM)}
-                                                disabled={isPublishingDiscord}
-                                                className="px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold transition disabled:opacity-50 flex items-center gap-1 shadow-sm"
-                                            >
-                                                {isPublishingDiscord ? '送信中...' : '💬 Discord送信'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleCopy(aiData.salesDM, 'dm')}
-                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
-                                            >
-                                                {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap border border-slate-800 max-h-80 overflow-y-auto leading-relaxed">
-                                        {aiData.salesDM}
-                                    </div>
-                                </div>
-                            </div>
+                                    )}
+                                </>
+                            )}
                         </div>
-                    )}
+
+                        {/* チャット / コマンドバー */}
+                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent">
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (!chatCommand.trim()) return;
+                                    alert(`送信内容: ${chatCommand}\n\n※このプロンプトをAIに直接指示する機能は次回組み込みます。`);
+                                    setChatCommand('');
+                                }}
+                                className="max-w-4xl mx-auto relative shadow-2xl"
+                            >
+                                <input
+                                    value={chatCommand}
+                                    onChange={e => setChatCommand(e.target.value)}
+                                    placeholder="AIチームへ指示を出す (例: クリスマス向けにテンション高めで書き直して)..."
+                                    className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:border-blue-500 shadow-inner"
+                                />
+                                <button type="submit" className="absolute right-2 top-2 bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg shadow-sm transition">
+                                    ✈️
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             )}
 
