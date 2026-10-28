@@ -452,9 +452,53 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
     // 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
     const [chatLogs, setChatLogs] = useState<Record<string, ChatMessage[]>>({});
+    const [isChatSubmitting, setIsChatSubmitting] = useState<boolean>(false);
 
-    // 🌟 ナレッジ登録処理
-    const handlePinKnowledge = async (sender: string, text: string) => {
+    // 🌟 登録済みナレッジ用 State
+    interface KnowledgeItem {
+        id: string;
+        agent_key: string;
+        content: string;
+        created_at: string;
+    }
+    const [knowledgeList, setKnowledgeList] = useState<KnowledgeItem[]>([]);
+    const [showKnowledgePanel, setShowKnowledgePanel] = useState<boolean>(false);
+
+    // デスクに対応する agentKey を取得するヘルパー
+    const getActiveAgentKey = (desk: string): string | null => {
+        if (desk.startsWith('desk_')) return desk.replace('desk_', '');
+        return null;
+    };
+
+    // ナレッジ一覧の取得関数
+    const fetchKnowledge = async () => {
+        const agentKey = getActiveAgentKey(aiActiveDesk);
+        try {
+            const url = agentKey ? `/api/ai/knowledge?agentKey=${agentKey}` : '/api/ai/knowledge?agentKey=all';
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.success) setKnowledgeList(json.knowledge || []);
+        } catch (e) {
+            console.error('ナレッジ取得エラー:', e);
+        }
+    };
+
+    // ナレッジ削除ハンドラー
+    const handleDeleteKnowledge = async (id: string) => {
+        if (!window.confirm('このナレッジ（学習ルール）を削除しますか？次回からAIはこのルールを参照しなくなります。')) return;
+        try {
+            const res = await fetch(`/api/ai/knowledge?id=${id}`, { method: 'DELETE' });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error);
+            setKnowledgeList(prev => prev.filter(k => k.id !== id));
+            alert('🗑️ ナレッジを削除しました');
+        } catch (err: any) {
+            alert(`⚠️ 削除エラー: ${err.message}`);
+        }
+    };
+
+    // 🌟 ナレッジ登録処理（AI発言・ユーザー発言双方に対応）
+    const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) => {
         const senderToAgentKey: Record<string, string> = {
             'アナリスト': 'trend',
             'バイヤー': 'arbitrage',
@@ -462,10 +506,24 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             'SNS広報': 'sns',
             '海外営業': 'sales'
         };
-        const agentKey = senderToAgentKey[sender];
-        if (!agentKey) return alert('エージェントが特定できません。');
 
-        if (!window.confirm(`この発言を「${sender}」の社内ルール（ナレッジ）として学習させますか？\n\n${text.slice(0, 50)}...`)) return;
+        // ユーザーの発言の場合は、現在開いている個別デスクのAIを対象にする
+        let agentKey = senderToAgentKey[sender];
+        if (isUserMessage) {
+            agentKey = getActiveAgentKey(aiActiveDesk) || '';
+            if (!agentKey) {
+                alert('チームビューでの指示は、個別デスク（アナリストやSNS広報など）を開いてから学習登録してください。');
+                return;
+            }
+        }
+
+        if (!agentKey) return alert('対象のエージェントが特定できません。');
+
+        const confirmMsg = isUserMessage
+            ? `あなたのこの指示を、担当AIの「社内ルール（ナレッジ）」として学習させますか？\n\n${text.slice(0, 60)}...`
+            : `この発言を「${sender}」の社内ルール（ナレッジ）として学習させますか？\n\n${text.slice(0, 60)}...`;
+
+        if (!window.confirm(confirmMsg)) return;
 
         try {
             const res = await fetch('/api/ai/knowledge', {
@@ -476,12 +534,11 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
             alert('📌 ナレッジとして学習・登録しました！次回からこのルールを参考にして回答します。');
+            fetchKnowledge(); // 登録後に一覧を即時更新
         } catch (err: any) {
             alert(`⚠️ エラー: ${err.message}`);
         }
     };
-
-    const [isChatSubmitting, setIsChatSubmitting] = useState<boolean>(false);
 
     // 🌟 チャット送信処理ハンドラー
     const handleSendChatMessage = async (e: React.FormEvent) => {
@@ -544,10 +601,10 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }
     };
 
-        // 🌟 デスク切り替え時にチャット履歴をDBから取得
+    // 🌟 デスク切り替え時にチャット履歴をDBから取得
     useEffect(() => {
         if (activeTab !== 'intelligence') return;
-        
+
         const fetchChatLogs = async () => {
             try {
                 const res = await fetch(`/api/ai/chat?target=${aiActiveDesk}`);
@@ -1157,8 +1214,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 <button
                     onClick={() => setActiveTab('orders')}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${activeTab === 'orders'
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                         }`}
                 >
                     <span>📦 注文管理 ({orders.length}件)</span>
@@ -1167,8 +1224,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 <button
                     onClick={() => setActiveTab('intelligence')}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${activeTab === 'intelligence'
-                            ? 'bg-slate-900 text-amber-400 shadow-sm border border-slate-800'
-                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                        ? 'bg-slate-900 text-amber-400 shadow-sm border border-slate-800'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                         }`}
                 >
                     <span>⚡ AI市場インテリジェンス (日米サヤ & SNS)</span>
@@ -1181,7 +1238,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             {/* ========================================================= */}
             {activeTab === 'intelligence' && (
                 <div className="flex h-[820px] bg-slate-950 text-slate-50 overflow-hidden font-sans rounded-xl border border-slate-800 shadow-2xl animate-fadeIn">
-                    
+
                     {/* ① 左サイドバー: ACTIVE TEAM（クリックで個別デスク展開） */}
                     <div className="w-80 border-r border-slate-800 bg-slate-900/50 flex flex-col shrink-0">
                         <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
@@ -1191,20 +1248,19 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             </div>
                             <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-mono font-bold">5 Agents</span>
                         </div>
-                        
+
                         <div className="flex-1 p-3 space-y-2 overflow-y-auto">
                             <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
                                 Active Team（デスク選択）
                             </h2>
-                            
+
                             {/* 1. アナリスト */}
-                            <div 
+                            <div
                                 onClick={() => setAiActiveDesk('desk_trend')}
-                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${
-                                    aiActiveDesk === 'desk_trend' 
-                                        ? 'bg-amber-500/10 border-amber-500/60 shadow-sm' 
+                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_trend'
+                                        ? 'bg-amber-500/10 border-amber-500/60 shadow-sm'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                                }`}
+                                    }`}
                             >
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">🔮</div>
                                 <div className="flex-1 min-w-0">
@@ -1217,13 +1273,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             </div>
 
                             {/* 2. バイヤー */}
-                            <div 
+                            <div
                                 onClick={() => setAiActiveDesk('desk_arbitrage')}
-                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${
-                                    aiActiveDesk === 'desk_arbitrage' 
-                                        ? 'bg-emerald-500/10 border-emerald-500/60 shadow-sm' 
+                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_arbitrage'
+                                        ? 'bg-emerald-500/10 border-emerald-500/60 shadow-sm'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                                }`}
+                                    }`}
                             >
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">💎</div>
                                 <div className="flex-1 min-w-0">
@@ -1236,13 +1291,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             </div>
 
                             {/* 3. IG分析ディレクター */}
-                            <div 
+                            <div
                                 onClick={() => setAiActiveDesk('desk_account')}
-                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${
-                                    aiActiveDesk === 'desk_account' 
-                                        ? 'bg-pink-500/10 border-pink-500/60 shadow-sm' 
+                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_account'
+                                        ? 'bg-pink-500/10 border-pink-500/60 shadow-sm'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                                }`}
+                                    }`}
                             >
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📊</div>
                                 <div className="flex-1 min-w-0">
@@ -1255,13 +1309,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             </div>
 
                             {/* 4. SNS広報 */}
-                            <div 
+                            <div
                                 onClick={() => setAiActiveDesk('desk_sns')}
-                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${
-                                    aiActiveDesk === 'desk_sns' 
-                                        ? 'bg-sky-500/10 border-sky-500/60 shadow-sm' 
+                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
+                                        ? 'bg-sky-500/10 border-sky-500/60 shadow-sm'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                                }`}
+                                    }`}
                             >
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📸</div>
                                 <div className="flex-1 min-w-0">
@@ -1274,13 +1327,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             </div>
 
                             {/* 5. 海外営業 */}
-                            <div 
+                            <div
                                 onClick={() => setAiActiveDesk('desk_sales')}
-                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${
-                                    aiActiveDesk === 'desk_sales' 
-                                        ? 'bg-purple-500/10 border-purple-500/60 shadow-sm' 
+                                className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
+                                        ? 'bg-purple-500/10 border-purple-500/60 shadow-sm'
                                         : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                                }`}
+                                    }`}
                             >
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">✉️</div>
                                 <div className="flex-1 min-w-0">
@@ -1328,24 +1380,22 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         {/* 上部ヘッダー（2チーム切り替えタブ ＋ 一括実行ボタン） */}
                         <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-between px-6 shrink-0">
                             <div className="flex items-center gap-2 bg-slate-900 rounded-xl p-1 border border-slate-800">
-                                <button 
-                                    onClick={() => setAiActiveDesk('analysis_team')} 
-                                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                                        aiActiveDesk === 'analysis_team' 
-                                            ? 'bg-blue-600 text-white shadow-md' 
+                                <button
+                                    onClick={() => setAiActiveDesk('analysis_team')}
+                                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${aiActiveDesk === 'analysis_team'
+                                            ? 'bg-blue-600 text-white shadow-md'
                                             : 'text-slate-400 hover:text-white'
-                                    }`}
+                                        }`}
                                 >
                                     <span>📊 分析チーム</span>
                                     <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">3</span>
                                 </button>
-                                <button 
-                                    onClick={() => setAiActiveDesk('execution_team')} 
-                                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                                        aiActiveDesk === 'execution_team' 
-                                            ? 'bg-blue-600 text-white shadow-md' 
+                                <button
+                                    onClick={() => setAiActiveDesk('execution_team')}
+                                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${aiActiveDesk === 'execution_team'
+                                            ? 'bg-blue-600 text-white shadow-md'
                                             : 'text-slate-400 hover:text-white'
-                                    }`}
+                                        }`}
                                 >
                                     <span>⚡ 実行チーム</span>
                                     <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">2</span>
@@ -1696,84 +1746,144 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
                                                     </button>
                                                     <button onClick={() => handlePublishToDiscord(aiData.salesDM)} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
-                                            {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
-                        <div className="mt-8 border-t border-slate-800 pt-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                                    <span>💬</span>
-                                    <span>
-                                        {aiActiveDesk === 'analysis_team' && '分析チーム（3名）とのチャット'}
-                                        {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
-                                        {aiActiveDesk === 'desk_trend' && 'アナリストとの個別チャット'}
-                                        {aiActiveDesk === 'desk_arbitrage' && 'バイヤーとの個別チャット'}
-                                        {aiActiveDesk === 'desk_account' && 'IG分析ディレクターとの個別チャット'}
-                                        {aiActiveDesk === 'desk_sns' && 'SNS広報との個別チャット'}
-                                        {aiActiveDesk === 'desk_sales' && '海外営業との個別チャット'}
-                                    </span>
-                                </h3>
-                                {isChatSubmitting && (
-                                    <span className="text-[10px] text-blue-400 animate-pulse font-mono flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></span>
-                                        AIが入力中...
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* チャットふきだし一覧 */}
-                            <div className="space-y-3 bg-slate-900/40 rounded-xl p-4 border border-slate-800/80 max-h-72 overflow-y-auto">
-                                {(chatLogs[aiActiveDesk] || []).map((msg) => (
-                                    <div
-                                        key={msg.id}
-                                        className={`flex gap-3 text-xs ${msg.isUser ? 'justify-end' : 'justify-start'}`}
-                                    >
-                                        {!msg.isUser && (
-                                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-base">
-                                                {msg.avatar}
+                                                        {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                        )}
-                                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 leading-relaxed shadow-sm ${
-                                            msg.isUser
-                                                ? 'bg-blue-600 text-white rounded-br-none'
-                                                : 'bg-slate-800 border border-slate-700/60 text-slate-200 rounded-bl-none'
-                                        }`}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-bold text-[11px] opacity-80">{msg.sender}</span>
-                                                <span className="text-[9px] opacity-50 font-mono">{msg.timestamp}</span>
-                                            </div>
-                                            <div className="whitespace-pre-wrap">{msg.text}</div>
-
-                                            {/* AIのメッセージの場合のみ学習ボタンを表示 */}
-                                           {!msg.isUser && (
-                                               <div className="mt-2 pt-2 border-t border-slate-700/50 text-right">
-                                                   <button 
-                                                       onClick={() => handlePinKnowledge(msg.sender, msg.text)}
-                                                       className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 ml-auto transition-colors"
-                                                   >
-                                                       <span>📌</span> ルールとして学習させる
-                                                   </button>
-                                               </div>
-                                           )}
                                         </div>
-                                        {msg.isUser && (
-                                            <div className="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center shrink-0 text-white text-xs font-bold">
-                                                YOU
+                                    )}
+
+                                    {/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
+                                    <div className="mt-8 border-t border-slate-800 pt-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                                <span>💬</span>
+                                                <span>
+                                                    {aiActiveDesk === 'analysis_team' && '分析チーム（3名）とのチャット'}
+                                                    {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
+                                                    {aiActiveDesk === 'desk_trend' && 'アナリストとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_arbitrage' && 'バイヤーとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_account' && 'IG分析ディレクターとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_sns' && 'SNS広報との個別チャット'}
+                                                    {aiActiveDesk === 'desk_sales' && '海外営業との個別チャット'}
+                                                </span>
+                                            </h3>
+
+                                            <div className="flex items-center gap-3">
+                                                {/* 🌟 ナレッジ管理アコーディオン切り替えボタン */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowKnowledgePanel(!showKnowledgePanel)}
+                                                    className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1 font-bold transition-all"
+                                                >
+                                                    <span>📖 蓄積ナレッジ ({knowledgeList.length})</span>
+                                                    <span>{showKnowledgePanel ? '▲' : '▼'}</span>
+                                                </button>
+
+                                                {isChatSubmitting && (
+                                                    <span className="text-[10px] text-blue-400 animate-pulse font-mono flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></span>
+                                                        AIが入力中...
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* 🌟 ナレッジ一覧管理パネル（展開時） */}
+                                        {showKnowledgePanel && (
+                                            <div className="mb-4 bg-slate-900 border border-amber-500/40 rounded-xl p-4 animate-fadeIn shadow-lg">
+                                                <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-2">
+                                                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                                        <span>🧠</span> 学習済み社内ルール一覧（Geminiプロンプトへ自動注入中）
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">不要になったルールはゴミ箱で削除可能</span>
+                                                </div>
+
+                                                {knowledgeList.length === 0 ? (
+                                                    <p className="text-xs text-slate-500 py-3 text-center">まだ登録されたルールはありません。チャットから「📌 ルールとして学習」を押すと蓄積されます。</p>
+                                                ) : (
+                                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                                        {knowledgeList.map((item) => (
+                                                            <div key={item.id} className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex justify-between items-start gap-3">
+                                                                <div className="text-xs text-slate-300 flex-1 whitespace-pre-wrap leading-relaxed">
+                                                                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono mr-2">
+                                                                        {item.agent_key}
+                                                                    </span>
+                                                                    {item.content}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteKnowledge(item.id)}
+                                                                    className="text-slate-500 hover:text-red-400 text-xs px-2 py-1 bg-slate-900 hover:bg-red-500/10 rounded transition-colors"
+                                                                    title="このルールを削除"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
 
-                    </>
-                )}
-            </div>
+                                        {/* チャットふきだし一覧 */}
+                                        <div className="space-y-3 bg-slate-900/40 rounded-xl p-4 border border-slate-800/80 max-h-72 overflow-y-auto">
+                                            {(chatLogs[aiActiveDesk] || []).map((msg) => (
+                                                <div
+                                                    key={msg.id}
+                                                    className={`flex gap-3 text-xs ${msg.isUser ? 'justify-end' : 'justify-start'}`}
+                                                >
+                                                    {!msg.isUser && (
+                                                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-base">
+                                                            {msg.avatar}
+                                                        </div>
+                                                    )}
+                                                    <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 leading-relaxed shadow-sm ${msg.isUser
+                                                            ? 'bg-blue-600 text-white rounded-br-none'
+                                                            : 'bg-slate-800 border border-slate-700/60 text-slate-200 rounded-bl-none'
+                                                        }`}>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="font-bold text-[11px] opacity-80">{msg.sender}</span>
+                                                            <span className="text-[9px] opacity-50 font-mono">{msg.timestamp}</span>
+                                                        </div>
+                                                        <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                                                        {/* AIのメッセージの場合：学習ボタン */}
+                                                        {!msg.isUser && (
+                                                            <div className="mt-2 pt-2 border-t border-slate-700/50 text-right">
+                                                                <button
+                                                                    onClick={() => handlePinKnowledge(msg.sender, msg.text, false)}
+                                                                    className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 ml-auto transition-colors"
+                                                                >
+                                                                    <span>📌</span> 回答をルールとして学習
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {/* 🌟 ユーザーのメッセージの場合：直接ルール化ボタン（個別デスク時のみ） */}
+                                                        {msg.isUser && aiActiveDesk.startsWith('desk_') && (
+                                                            <div className="mt-2 pt-2 border-t border-blue-500/50 text-right">
+                                                                <button
+                                                                    onClick={() => handlePinKnowledge('YOU', msg.text, true)}
+                                                                    className="text-[10px] text-blue-100 hover:text-white font-bold flex items-center gap-1 ml-auto transition-colors opacity-90 hover:opacity-100"
+                                                                >
+                                                                    <span>📌</span> この指示を社内ルール化
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {msg.isUser && (
+                                                        <div className="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center shrink-0 text-white text-xs font-bold">
+                                                            YOU
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
 
                         {/* 下部コマンドバー（全画面共通） */}
                         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent">
@@ -1787,11 +1897,11 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     onChange={e => setChatCommand(e.target.value)}
                                     placeholder={
                                         aiActiveDesk === 'analysis_team' ? '分析チーム全員に質問・指示を出す...' :
-                                        aiActiveDesk === 'execution_team' ? '実行チーム全員に質問・指示を出す...' :
-                                        'この担当AIにチャットを送る...'
+                                            aiActiveDesk === 'execution_team' ? '実行チーム全員に質問・指示を出す...' :
+                                                'この担当AIにチャットを送る...'
                                     }
                                     className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl pl-4 pr-16 py-3.5 focus:outline-none focus:border-blue-500 shadow-inner disabled:opacity-60"
-                               />
+                                />
                                 <button
                                     type="submit"
                                     disabled={isChatSubmitting || !chatCommand.trim()}
