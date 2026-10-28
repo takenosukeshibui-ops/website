@@ -96,7 +96,7 @@ async function accountAnalysisAgent(state: typeof GraphState.State) {
   const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.5 });
   try {
     // 過去15件の投稿データを取得
-    const posts = await getInstagramInsights(15);
+    const posts = await getInstagramInsights(5);
     
     if (!posts || posts.length === 0) {
       return { accountInsights: "過去の投稿データがありません。一般的なベストプラクティス（関連ハッシュタグの多用、絵文字での視覚的アピール）に従って投稿を作成してください。" };
