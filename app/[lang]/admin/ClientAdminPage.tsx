@@ -438,6 +438,105 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     // 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
     const [aiActiveDesk, setAiActiveDesk] = useState<string>('analysis_team')
     const [chatCommand, setChatCommand] = useState('')
+
+    // 🌟 チャット用のメッセージ履歴型
+    interface ChatMessage {
+        id: string;
+        sender: string;
+        avatar: string;
+        text: string;
+        isUser: boolean;
+        timestamp: string;
+    }
+
+    // 🌟 デスク・チームごとのメッセージ履歴 State
+    const [chatLogs, setChatLogs] = useState<Record<string, ChatMessage[]>>({
+        analysis_team: [
+            { id: '1', sender: 'アナリスト', avatar: '🔮', text: '分析チームへようこそ！気になるカードや市場動向があれば何でも聞いてください。', isUser: false, timestamp: '10:00' },
+        ],
+        execution_team: [
+            { id: '1', sender: 'SNS広報', avatar: '📸', text: '実行チームです。投稿トーンの調整やDiscordの提案内容について指示があればどうぞ！', isUser: false, timestamp: '10:00' },
+        ],
+        desk_trend: [
+            { id: '1', sender: 'アナリスト', avatar: '🔮', text: 'アナリストデスクです。海外コレクターの熱狂や需要の動向を調査します。', isUser: false, timestamp: '10:00' },
+        ],
+        desk_arbitrage: [
+            { id: '1', sender: 'バイヤー', avatar: '💎', text: 'バイヤーデスクです。利ざやが抜けるカードの試算や仕入れ判断をサポートします。', isUser: false, timestamp: '10:00' },
+        ],
+        desk_account: [
+            { id: '1', sender: 'IG分析ディレクター', avatar: '📊', text: 'IG分析デスクです。投稿のエンゲージメントやハッシュタグの分析はお任せください。', isUser: false, timestamp: '10:00' },
+        ],
+        desk_sns: [
+            { id: '1', sender: 'SNS広報', avatar: '📸', text: 'SNSデスクです。Instagram投稿の作成や文面の細かい微調整を承ります。', isUser: false, timestamp: '10:00' },
+        ],
+        desk_sales: [
+            { id: '1', sender: '海外営業', avatar: '✉️', text: '海外営業デスクです。Discordの大口オファー文面をバイヤーに合わせて調整します。', isUser: false, timestamp: '10:00' },
+        ],
+    });
+
+    const [isChatSubmitting, setIsChatSubmitting] = useState<boolean>(false);
+
+    // 🌟 チャット送信処理ハンドラー
+    const handleSendChatMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!chatCommand.trim() || isChatSubmitting) return;
+
+        const userMsgText = chatCommand.trim();
+        const currentTarget = aiActiveDesk;
+        const nowTime = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+
+        const newUserMessage: ChatMessage = {
+            id: Date.now().toString(),
+            sender: 'あなた',
+            avatar: '👤',
+            text: userMsgText,
+            isUser: true,
+            timestamp: nowTime,
+        };
+
+        // 1. ユーザーの発言を画面に即時反映
+        setChatLogs(prev => ({
+            ...prev,
+            [currentTarget]: [...(prev[currentTarget] || []), newUserMessage]
+        }));
+        setChatCommand('');
+        setIsChatSubmitting(true);
+
+        try {
+            const res = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target: currentTarget,
+                    message: userMsgText,
+                    contextData: aiData || {},
+                }),
+            });
+
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'チャット応答の取得に失敗しました');
+
+            // 2. AIからの返信をチャットログに追加
+            const incomingReplies: ChatMessage[] = json.replies.map((rep: any, idx: number) => ({
+                id: `${Date.now()}_${idx}`,
+                sender: rep.sender,
+                avatar: rep.avatar,
+                text: rep.text,
+                isUser: false,
+                timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+            }));
+
+            setChatLogs(prev => ({
+                ...prev,
+                [currentTarget]: [...(prev[currentTarget] || []), ...incomingReplies]
+            }));
+        } catch (err: any) {
+            alert(`⚠️ チャットエラー: ${err.message}`);
+        } finally {
+            setIsChatSubmitting(false);
+        }
+    };
+
     // AIインテリジェンス用のState
     const [aiLoading, setAiLoading] = useState<boolean>(false)
     const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
@@ -1565,35 +1664,96 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
                                                     </button>
                                                     <button onClick={() => handlePublishToDiscord(aiData.salesDM)} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
-                                                        {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
-                                                    </button>
-                                                </div>
+                                            {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
+                        <div className="mt-8 border-t border-slate-800 pt-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2">
+                                    <span>💬</span>
+                                    <span>
+                                        {aiActiveDesk === 'analysis_team' && '分析チーム（3名）とのチャット'}
+                                        {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
+                                        {aiActiveDesk === 'desk_trend' && 'アナリストとの個別チャット'}
+                                        {aiActiveDesk === 'desk_arbitrage' && 'バイヤーとの個別チャット'}
+                                        {aiActiveDesk === 'desk_account' && 'IG分析ディレクターとの個別チャット'}
+                                        {aiActiveDesk === 'desk_sns' && 'SNS広報との個別チャット'}
+                                        {aiActiveDesk === 'desk_sales' && '海外営業との個別チャット'}
+                                    </span>
+                                </h3>
+                                {isChatSubmitting && (
+                                    <span className="text-[10px] text-blue-400 animate-pulse font-mono flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></span>
+                                        AIが入力中...
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* チャットふきだし一覧 */}
+                            <div className="space-y-3 bg-slate-900/40 rounded-xl p-4 border border-slate-800/80 max-h-72 overflow-y-auto">
+                                {(chatLogs[aiActiveDesk] || []).map((msg) => (
+                                    <div
+                                        key={msg.id}
+                                        className={`flex gap-3 text-xs ${msg.isUser ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        {!msg.isUser && (
+                                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-base">
+                                                {msg.avatar}
                                             </div>
+                                        )}
+                                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 leading-relaxed shadow-sm ${
+                                            msg.isUser
+                                                ? 'bg-blue-600 text-white rounded-br-none'
+                                                : 'bg-slate-800 border border-slate-700/60 text-slate-200 rounded-bl-none'
+                                        }`}>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-[11px] opacity-80">{msg.sender}</span>
+                                                <span className="text-[9px] opacity-50 font-mono">{msg.timestamp}</span>
+                                            </div>
+                                            <div className="whitespace-pre-wrap">{msg.text}</div>
                                         </div>
-                                    )}
-                                </>
-                            )}
+                                        {msg.isUser && (
+                                            <div className="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center shrink-0 text-white text-xs font-bold">
+                                                YOU
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
+
+                    </>
+                )}
+            </div>
 
                         {/* 下部コマンドバー（全画面共通） */}
                         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-950 via-slate-950 to-transparent">
                             <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    if (!chatCommand.trim()) return;
-                                    alert(`送信指示: ${chatCommand}\n\n※この入力指示をプロンプトに動的に差し込む機能は次のステップで組み込みます。`);
-                                    setChatCommand('');
-                                }}
+                                onSubmit={handleSendChatMessage}
                                 className="max-w-4xl mx-auto relative shadow-2xl"
                             >
                                 <input
                                     value={chatCommand}
+                                    disabled={isChatSubmitting}
                                     onChange={e => setChatCommand(e.target.value)}
-                                    placeholder="AIチームへ直接指示を出す (例: クリスマス向けにテンション高めで書き直して)..."
-                                    className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:border-blue-500 shadow-inner"
-                                />
-                                <button type="submit" className="absolute right-2 top-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg shadow-sm transition text-xs font-bold">
-                                    送信
+                                    placeholder={
+                                        aiActiveDesk === 'analysis_team' ? '分析チーム全員に質問・指示を出す...' :
+                                        aiActiveDesk === 'execution_team' ? '実行チーム全員に質問・指示を出す...' :
+                                        'この担当AIにチャットを送る...'
+                                    }
+                                    className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl pl-4 pr-16 py-3.5 focus:outline-none focus:border-blue-500 shadow-inner disabled:opacity-60"
+                               />
+                                <button
+                                    type="submit"
+                                    disabled={isChatSubmitting || !chatCommand.trim()}
+                                    className="absolute right-2 top-2 bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg shadow-sm transition text-xs font-bold disabled:opacity-40"
+                                >
+                                    {isChatSubmitting ? '...' : '送信'}
                                 </button>
                             </form>
                         </div>
