@@ -198,16 +198,22 @@ export async function POST(req: Request) {
     let currentData: any = {};
     let triggerType = 'manual';
 
+    // リクエストボディの安全な解析
     try {
       const body = await req.json();
       if (body?.action) action = body.action;
       if (body?.currentData) currentData = body.currentData;
       if (body?.triggerType) triggerType = body.triggerType;
-    } catch {
-      // ボディなしは一括実行
+    } catch (e) {
+      // ボディが無い場合は一括
+      action = 'all';
     }
 
-    // --- 個別実行モード ---
+    console.log(`[AI Pipeline] Received Action: ${action}`);
+
+    // ==========================================
+    // 🌟 単体実行モード（数秒で終わる軽量ルート）
+    // ==========================================
     if (action === 'trend') {
       const trendInsights = await runMarketTrend();
       return NextResponse.json({ success: true, data: { trendInsights } });
@@ -238,7 +244,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, data: { salesDM } });
     }
 
-    // --- 一括実行モード（従来のパイプライン） ---
+    // ==========================================
+    // 🌟 一括実行モード（ボタンを押した時のみ）
+    // ==========================================
     const [trendInsights, profitableCards, accountInsights] = await Promise.all([
       runMarketTrend(),
       runSayaAnalysis(),
