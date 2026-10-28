@@ -1481,7 +1481,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                         <p className="text-xs font-bold text-slate-200 truncate">有料コミュニティ担当</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-medium">実行</span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 truncate">Discord大口オファー送信</p>
+                                    <p className="text-[11px] text-slate-400 truncate">Discord有料コミュニティ投稿</p>
                                 </div>
                             </div>
                         </div>
@@ -1696,7 +1696,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
                                                     <div className="flex justify-between items-center">
                                                         <h3 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                                                            <span>✉️</span> Discord 大口バイヤー営業DM
+                                                            <span>✉️</span> Discord 有料コミュニティ投稿
                                                         </h3>
                                                         <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-300">
                                                             {runningAction === 'dm' ? '生成中...' : '🔄 DMリライト'}
@@ -1896,7 +1896,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                         {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
                                                     </button>
                                                     <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
-                                                        {isPublishingDiscord ? '送信中...' : '💬 Discord大口チャンネルへ送信'}
+                                                        {isPublishingDiscord ? '送信中...' : '💬 Discord有料コミュニティへ送信'}
                                                     </button>
                                                 </div>
                                             </div>
