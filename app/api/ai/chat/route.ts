@@ -6,7 +6,7 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-// 各AI社員のプロファイル定義
+// 🌟 各AI社員のプロファイル定義
 const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: string; instruction: string }> = {
   trend: {
     name: 'アナリスト',
@@ -40,6 +40,7 @@ const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: strin
   },
 };
 
+// 🌟 個別エージェントの回答生成（15秒タイムアウト保護付き）
 async function getAgentReply(agentKey: string, userMessage: string, contextData: any) {
   const profile = AGENT_PROFILES[agentKey];
   if (!profile) return null;
@@ -54,16 +55,17 @@ async function getAgentReply(agentKey: string, userMessage: string, contextData:
 
     const prompt = `
 あなたはトレカB2B事業チームの「${profile.name} (${profile.role})」です。
-【役割】${profile.instruction}
-【現在の最新データ状況】
-- トレンド: ${JSON.stringify(contextData?.trendInsights || [])}
-- サヤカード: ${JSON.stringify(contextData?.profitableCards || [])}
-- アカウント分析: ${contextData?.accountInsights || 'なし'}
+【役割・専門分野】${profile.instruction}
 
-オーナー（ユーザー）から以下の発言・質問・指示を受けました：
+【現在の最新ダッシュボード状況】
+- トレンド抽出: ${JSON.stringify(contextData?.trendInsights || [])}
+- 発掘サヤカード: ${JSON.stringify(contextData?.profitableCards || [])}
+- 自社アカウント分析: ${contextData?.accountInsights || '過去データなし'}
+
+オーナー（ユーザー）から以下の発言・指示を受けました：
 「${userMessage}」
 
-${profile.name}として、敬語で親しみやすく、かつプロとしての視点から的確に回答してください（150〜250文字程度）。
+${profile.name}として、敬語かつ親しみやすいビジネス口調で、自身の専門領域から的確に回答してください（150〜250文字程度）。
 `;
 
     const res = await Promise.race([
@@ -78,11 +80,12 @@ ${profile.name}として、敬語で親しみやすく、かつプロとして�
       text: res.content.toString().trim(),
     };
   } catch (error) {
+    console.warn(`[Chat API] ${profile.name} reply failed:`, error);
     return {
       agentKey,
       sender: profile.name,
       avatar: profile.avatar,
-      text: '現在リクエストが混み合っているため、少し時間を置いてからお声がけください。',
+      text: '現在リクエストが混み合っているため、少し時間をおいてからお声がけください。',
     };
   }
 }
@@ -96,7 +99,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: '引数が不足しています' }, { status: 400 });
     }
 
-    // 宛先リストの決定
+    // 🌟 宛先判定（チーム全体か、個別デスクか）
     let targetAgents: string[] = [];
 
     if (target === 'analysis_team') {
@@ -104,7 +107,7 @@ export async function POST(req: Request) {
     } else if (target === 'execution_team') {
       targetAgents = ['sns', 'sales'];
     } else {
-      // 個別デスク (例: desk_trend -> trend)
+      // 個別デスク（例: desk_trend -> trend）
       const cleanKey = target.replace('desk_', '');
       if (AGENT_PROFILES[cleanKey]) {
         targetAgents = [cleanKey];
@@ -115,7 +118,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: '無効な宛先です' }, { status: 400 });
     }
 
-    // 並列で各AIからの回答を生成
+    // 各担当AIの回答を並列で実行
     const replies = await Promise.all(
       targetAgents.map((agentKey) => getAgentReply(agentKey, message, contextData))
     );
@@ -125,6 +128,7 @@ export async function POST(req: Request) {
       replies: replies.filter(Boolean),
     });
   } catch (error: any) {
+    console.error('[Chat API Error]:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
