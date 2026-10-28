@@ -34,6 +34,7 @@ interface ProfitableCard {
     usPriceUSD: number;
     estimatedProfitUSD: number;
     reason: string;
+    imageUrl?: string;
 }
 
 interface SnsPosts {
@@ -548,7 +549,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     }
 
     // 🌟 Instagram直接投稿ハンドラー
-    const handlePublishToInstagram = async (content: string, typeKey: string) => {
+    const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) => {
         if (!window.confirm('この内容を Instagram (worldwidejapan2023) に自動投稿しますか？')) return
 
         setIsPublishingInstagram(typeKey)
@@ -556,7 +557,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             const res = await fetch('/api/ai/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ platform: 'instagram', content }),
+                body: JSON.stringify({ platform: 'instagram', content, imageUrl }),
             })
 
             const json = await res.json()
@@ -1169,7 +1170,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             <span className="font-bold text-amber-400 text-[11px]">★ 推奨: トレンド×サヤ ハイブリッド型</span>
                                             <div className="flex items-center gap-1.5">
                                                 <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid')}
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.hybridPost, 'hybrid', aiData.profitableCards[0]?.imageUrl)}
                                                     disabled={Boolean(isPublishingInstagram)}
                                                     className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
                                                 >
@@ -1194,7 +1195,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             <span className="font-bold text-emerald-400 text-[11px]">利益・スプレッド特化型</span>
                                             <div className="flex items-center gap-1.5">
                                                 <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.arbitragePost, 'arbitrage')}
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.arbitragePost, 'arbitrage', aiData.profitableCards[0]?.imageUrl)}
                                                     disabled={Boolean(isPublishingInstagram)}
                                                     className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
                                                 >
@@ -1219,7 +1220,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             <span className="font-bold text-sky-400 text-[11px]">トレンド・考察特化型</span>
                                             <div className="flex items-center gap-1.5">
                                                 <button
-                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.trendPost, 'trend')}
+                                                    onClick={() => handlePublishToInstagram(aiData.snsPosts.trendPost, 'trend', aiData.profitableCards[0]?.imageUrl)}
                                                     disabled={Boolean(isPublishingInstagram)}
                                                     className="px-2 py-0.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded text-[11px] font-bold transition disabled:opacity-50"
                                                 >

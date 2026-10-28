@@ -18,6 +18,7 @@ const GraphState = Annotation.Root({
     usPriceUSD: number;
     estimatedProfitUSD: number;
     reason: string;
+    imageUrl?: string; // 🌟 追加: 画像URLのプロパティ
   }[]>({
     reducer: (curr, next) => next,
     default: () => [],
@@ -69,7 +70,8 @@ async function sayaAnalysisAgent(state: typeof GraphState.State) {
         "jpPriceJPY": 日本想定仕入相場(円),
         "usPriceUSD": 米国想定売価(ドル),
         "estimatedProfitUSD": 想定純利益(ドル: 1ドル=150円計算、送料等考慮),
-        "reason": "サヤの理由"
+        "reason": "サヤの理由",
+        "imageUrl": "公式データベースや一般的なトレカ販売サイトでアクセス可能な、高画質な実際のカード画像のHTTPS URL。もし取得が難しい場合は https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080 を使用してください"
       }
     ]
   `;
@@ -90,7 +92,7 @@ async function snsPostAgent(state: typeof GraphState.State) {
   ).join("\n");
 
   const prompt = `
-    日本のトレカB2BポータルのSNSディレクターとして、X用の英語投稿を3パターン作成してください。
+    日本のトレカB2BポータルのSNSディレクターとして、XやInstagram用の英語投稿を3パターン作成してください。
     【トレンド情報】\n- ${trends}\n
     【サヤ抜きカード】\n${cards}\n
     以下のJSON形式のみで出力してください。
