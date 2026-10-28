@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { createClient } from '@/lib/supabase/server';
-import { getInstagramInsights } from '@/lib/instagram'; // 🌟 追加: Instagramデータ取得関数
+import { getInstagramInsights } from '@/lib/instagram';
 
 // ---------------------------------------------------------
 // 1. State（共有ノート）の定義
@@ -26,7 +26,7 @@ const GraphState = Annotation.Root({
     reducer: (curr, next) => next,
     default: () => [],
   }),
-  accountInsights: Annotation<string>({ // 🌟 追加: アカウント分析結果を保存するステート
+  accountInsights: Annotation<string>({
     reducer: (curr, next) => next,
     default: () => "",
   }),
@@ -45,120 +45,129 @@ const GraphState = Annotation.Root({
 });
 
 // ---------------------------------------------------------
-// 2. 各AIエージェント
+// 2. 各AIエージェント処理関数
 // ---------------------------------------------------------
-async function marketTrendAgent(state: typeof GraphState.State) {
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.7 });
-  const prompt = `今、海外のコレクターの間で熱い日本のカードや現象を3つ予測し、JSON配列のみで出力してください。["トレンド1", "トレンド2", "トレンド3"]`;
+async function runMarketTrend() {
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.7,
+    maxOutputTokens: 300,
+  });
+  const prompt = `今海外コレクターの間で熱い日本のトレカトレンドを3つ、JSON配列のみで出力してください。["トレンド1", "トレンド2", "トレンド3"]`;
   try {
-    const response = await llm.invoke(prompt);
-    const cleanJson = response.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
-    return { trendInsights: JSON.parse(cleanJson) };
-  } catch (error) {
-    return {
-      trendInsights: [
-        "Vintage Japanese Gengar & Alakazam Holo hype in US/EU markets",
-        "Pokemon Card 151 Master Ball Reverse Holos seeing supply shortage",
-        "Exclusive Japanese Pikachu promos spiking in raw condition demand"
-      ]
-    };
+    const res = await llm.invoke(prompt);
+    const cleanJson = res.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+  } catch {
+    return [
+      "Vintage Japanese Holos hype in US/EU markets",
+      "Pokemon Card 151 Master Ball Reverse Holos supply shortage",
+      "Exclusive Japanese Pikachu promos spiking in raw condition demand"
+    ];
   }
 }
 
-async function sayaAnalysisAgent(state: typeof GraphState.State) {
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.4 });
+async function runSayaAnalysis() {
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.4,
+    maxOutputTokens: 500,
+  });
   const prompt = `
-    あなたは日米のポケモンカード市場の価格差（サヤ）を突き詰めるアービトラージ専門AIです。
-    日本国内（駿河屋、メルカリ等）で仕入れ、米国（eBay等）へ販売することで、現在実際に利鞘が大きく抜ける具体的な日本のカードを3枚独自に発掘してください。
-    以下のJSON配列形式のみで出力してください。
+    日米ポケモンカード市場で利鞘が抜けるカードを2〜3枚発掘し、JSON配列形式のみで出力してください。
     [
       {
-        "cardName": "カード名（英語）",
-        "jpPriceJPY": 日本想定仕入相場(円),
-        "usPriceUSD": 米国想定売価(ドル),
-        "estimatedProfitUSD": 想定純利益(ドル: 1ドル=150円計算、送料等考慮),
-        "reason": "サヤの理由",
-        "imageUrl": "公式データベースや一般的なトレカ販売サイトでアクセス可能な、高画質な実際のカード画像のHTTPS URL。もし取得が難しい場合は https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080 を使用してください"
+        "cardName": "Card Name (English)",
+        "jpPriceJPY": 10000,
+        "usPriceUSD": 120,
+        "estimatedProfitUSD": 35,
+        "reason": "Short reason",
+        "imageUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080"
       }
     ]
   `;
   try {
-    const response = await llm.invoke(prompt);
-    const cleanJson = response.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
-    return { profitableCards: JSON.parse(cleanJson) };
-  } catch (error) {
-    return { profitableCards: [] };
+    const res = await llm.invoke(prompt);
+    const cleanJson = res.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+  } catch {
+    return [];
   }
 }
 
-// 🌟 新規追加: アカウント分析担当AI
-async function accountAnalysisAgent(state: typeof GraphState.State) {
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.5 });
+async function runAccountAnalysis() {
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.5,
+    maxOutputTokens: 250,
+  });
   try {
-    // 過去15件の投稿データを取得
-    const posts = await getInstagramInsights(5);
-    
+    const posts = await Promise.race([
+      getInstagramInsights(3),
+      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+    ]).catch(() => []);
+
     if (!posts || posts.length === 0) {
-      return { accountInsights: "過去の投稿データがありません。一般的なベストプラクティス（関連ハッシュタグの多用、絵文字での視覚的アピール）に従って投稿を作成してください。" };
+      return "Use engaging hashtags like #PokemonTCG #PokemonCards and eye-catching emojis.";
     }
 
-    // AIに読ませるためにデータをテキスト化
-    const postData = posts.map((p: any) => `[いいね: ${p.like_count || 0}, コメント: ${p.comments_count || 0}]\n内容: ${p.caption}`).join('\n---\n');
+    const postData = posts
+      .map((p: any) => `[Likes:${p.like_count || 0}] ${p.caption?.slice(0, 150) || ''}`)
+      .join('\n');
 
-    const prompt = `あなたはInstagramマーケティングのプロです。以下の自社アカウントの過去投稿データ（エンゲージメント結果）を分析し、SNS投稿作成担当者に向けて「今反応が良いハッシュタグ」「ウケる文章のトーン」「エンゲージメントを高めるためのアドバイス」を2〜3行の簡潔なインサイトとしてまとめてください。
-    【過去の投稿データ】\n${postData}`;
-
-    const response = await llm.invoke(prompt);
-    return { accountInsights: response.content.toString() };
-  } catch (error) {
-    console.error("Account Analysis Error:", error);
-    return { accountInsights: "過去データの分析に失敗しました。通常通り魅力的な投稿を作成してください。" };
+    const prompt = `Based on past Instagram posts, provide 2 short bullet points on best hashtags and tone to maximize engagement:\n${postData}`;
+    const res = await llm.invoke(prompt);
+    return res.content.toString();
+  } catch {
+    return "Use relevant trading card hashtags and direct CTA.";
   }
 }
 
-// 🌟 修正: SNS投稿AIが、アカウント分析AIからのアドバイスを受け取るように変更
-async function snsPostAgent(state: typeof GraphState.State) {
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.8 });
-  const trends = state.trendInsights.join("\n- ");
-  const cards = state.profitableCards.map(c => 
-    `- ${c.cardName}: ¥${c.jpPriceJPY.toLocaleString()} ➔ $${c.usPriceUSD} (+$${c.estimatedProfitUSD}) / 理由: ${c.reason}`
-  ).join("\n");
-  const advice = state.accountInsights; // 🌟 分析担当からのアドバイス
+async function runSnsPosts(trends: string[], cards: any[], advice: string) {
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.8,
+    maxOutputTokens: 600,
+  });
+  const trendsStr = trends.slice(0, 2).join(", ");
+  const cardsStr = cards.slice(0, 2).map((c: any) => `${c.cardName} (+$${c.estimatedProfitUSD})`).join(", ");
 
   const prompt = `
-    日本のトレカB2BポータルのSNSディレクターとして、XやInstagram用の英語投稿を3パターン作成してください。
-    【自社アカウント分析からの指示（最優先で反映してください）】\n${advice}\n
-    【トレンド情報】\n- ${trends}\n
-    【サヤ抜きカード】\n${cards}\n
-    以下のJSON形式のみで出力してください。
+    日本のトレカB2BポータルのSNSディレクターとして、英語投稿文を3パターン作成してください。
+    【アカウント分析アドバイス】${advice || 'Engaging hashtags and tone'}
+    【トレンド】${trendsStr || 'General Vintage & Modern Japanese Cards'}
+    【サヤ抜きカード】${cardsStr || 'High spread cards'}
+    以下のJSONのみ出力してください。
     {
-      "trendPost": "トレンドに焦点を当てた熱狂的な投稿（英語、絵文字、タグ）",
-      "arbitragePost": "利益額とスプレッドに焦点を当てたリセラー向け投稿（英語、絵文字、タグ）",
-      "hybridPost": "トレンドと実利を掛け合わせた成約率重視の投稿（英語、絵文字、タグ）"
+      "trendPost": "トレンド重視（英語、タグ）",
+      "arbitragePost": "利益重視（英語、タグ）",
+      "hybridPost": "ハイブリッド型（英語、タグ）"
     }
   `;
   try {
-    const response = await llm.invoke(prompt);
-    const cleanJson = response.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
-    return { snsPosts: JSON.parse(cleanJson) };
-  } catch (error) {
+    const res = await llm.invoke(prompt);
+    const cleanJson = res.content.toString().replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+  } catch {
     return {
-      snsPosts: {
-        trendPost: "Check out the latest hype in Japanese vintage cards! #PokemonTCG",
-        arbitragePost: "Massive arbitrage spread available right now! #PokemonCards",
-        hybridPost: "Hot market trend meets huge profit margin! Source directly now. #PokemonTCG"
-      }
+      trendPost: "Check out the latest hype in Japanese vintage cards! #PokemonTCG",
+      arbitragePost: "Massive arbitrage spread available right now! #PokemonCards",
+      hybridPost: "Hot market trend meets huge profit margin! Source directly now. #PokemonTCG"
     };
   }
 }
 
-async function salesDMAgent(state: typeof GraphState.State) {
-  const llm = new ChatGoogleGenerativeAI({ model: 'gemini-3.1-flash-lite', temperature: 0.7 });
-  const trends = state.trendInsights.join(", ");
-  const cards = state.profitableCards.map(c => `- ${c.cardName} (+$${c.estimatedProfitUSD})`).join("\n");
-  const prompt = `海外の大口VIPバイヤー向けにDiscord/Email用営業DM（英語）を作成してください。トレンド（${trends}）と具体カード（${cards}）を交えポータル発注を促してください。`;
-  const response = await llm.invoke(prompt);
-  return { salesDM: response.content.toString() };
+async function runSalesDM(trends: string[], cards: any[]) {
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.7,
+    maxOutputTokens: 400,
+  });
+  const trendsStr = trends.slice(0, 2).join(", ");
+  const cardsStr = cards.slice(0, 2).map((c: any) => `- ${c.cardName} (+$${c.estimatedProfitUSD})`).join("\n");
+  const prompt = `海外の大口バイヤー向けに簡潔なDiscord営業DM（英語）を作成してください。トレンド: ${trendsStr}、カード:\n${cardsStr}`;
+  const res = await llm.invoke(prompt);
+  return res.content.toString();
 }
 
 // ---------------------------------------------------------
@@ -174,7 +183,6 @@ export async function GET() {
       .limit(10);
 
     if (error) throw error;
-
     return NextResponse.json({ success: true, history: data || [] });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -182,55 +190,82 @@ export async function GET() {
 }
 
 // ---------------------------------------------------------
-// 4. POST: AIパイプライン実行 & Supabase保存
+// 4. POST: 個別実行 または 一括パイプライン実行
 // ---------------------------------------------------------
 export async function POST(req: Request) {
   try {
+    let action = 'all';
+    let currentData: any = {};
     let triggerType = 'manual';
+
     try {
       const body = await req.json();
+      if (body?.action) action = body.action;
+      if (body?.currentData) currentData = body.currentData;
       if (body?.triggerType) triggerType = body.triggerType;
     } catch {
-      // ボディがない場合は manual
+      // ボディなしは一括実行
     }
 
-    // 🌟 修正: ワークフローにアカウント分析AIを追加し、並列実行・合流を設定
-    // 🌟 修正: ワークフローの経路を最適化し、snsPost と salesDM を同時に走らせて大幅な時短を図る
-    const workflow = new StateGraph(GraphState)
-      .addNode("marketTrendAgent", marketTrendAgent)
-      .addNode("sayaAnalysisAgent", sayaAnalysisAgent)
-      .addNode("accountAnalysisAgent", accountAnalysisAgent)
-      .addNode("snsPostAgent", snsPostAgent)
-      .addNode("salesDMAgent", salesDMAgent)
-      // 1. 最初の3つのAIを同時にスタート
-      .addEdge(START, "marketTrendAgent")
-      .addEdge(START, "sayaAnalysisAgent")
-      .addEdge(START, "accountAnalysisAgent")
-      // 2. 最初の3つが終わったら、SNS投稿AIと営業DMAIを【同時に】スタート（待ち時間を半分にする）
-      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "snsPostAgent")
-      .addEdge(["marketTrendAgent", "sayaAnalysisAgent", "accountAnalysisAgent"], "salesDMAgent")
-      // 3. 両方終わったら終了
-      .addEdge("snsPostAgent", END)
-      .addEdge("salesDMAgent", END);
+    // --- 個別実行モード ---
+    if (action === 'trend') {
+      const trendInsights = await runMarketTrend();
+      return NextResponse.json({ success: true, data: { trendInsights } });
+    }
 
-    const app = workflow.compile();
-    const result = await app.invoke({
-      trendInsights: [],
-      profitableCards: [],
-      accountInsights: "", // 追加
-      snsPosts: { trendPost: "", arbitragePost: "", hybridPost: "" },
-      salesDM: ""
-    });
+    if (action === 'arbitrage') {
+      const profitableCards = await runSayaAnalysis();
+      return NextResponse.json({ success: true, data: { profitableCards } });
+    }
 
-    // 💡 Supabaseへ保存
+    if (action === 'account') {
+      const accountInsights = await runAccountAnalysis();
+      return NextResponse.json({ success: true, data: { accountInsights } });
+    }
+
+    if (action === 'sns') {
+      const trends = currentData.trendInsights || [];
+      const cards = currentData.profitableCards || [];
+      const advice = currentData.accountInsights || '';
+      const snsPosts = await runSnsPosts(trends, cards, advice);
+      return NextResponse.json({ success: true, data: { snsPosts } });
+    }
+
+    if (action === 'dm') {
+      const trends = currentData.trendInsights || [];
+      const cards = currentData.profitableCards || [];
+      const salesDM = await runSalesDM(trends, cards);
+      return NextResponse.json({ success: true, data: { salesDM } });
+    }
+
+    // --- 一括実行モード（従来のパイプライン） ---
+    const [trendInsights, profitableCards, accountInsights] = await Promise.all([
+      runMarketTrend(),
+      runSayaAnalysis(),
+      runAccountAnalysis(),
+    ]);
+
+    const [snsPosts, salesDM] = await Promise.all([
+      runSnsPosts(trendInsights, profitableCards, accountInsights),
+      runSalesDM(trendInsights, profitableCards),
+    ]);
+
+    const fullResult = {
+      trendInsights,
+      profitableCards,
+      accountInsights,
+      snsPosts,
+      salesDM,
+    };
+
     const supabase = await createClient();
     const { data: savedRecord, error: insertError } = await supabase
       .from('ai_market_intelligence')
       .insert({
-        trend_insights: result.trendInsights,
-        profitable_cards: result.profitableCards,
-        sns_posts: result.snsPosts,
-        sales_dm: result.salesDM,
+        trend_insights: fullResult.trendInsights,
+        profitable_cards: fullResult.profitableCards,
+        sns_posts: fullResult.snsPosts,
+        sales_dm: fullResult.salesDM,
         trigger_type: triggerType,
       })
       .select()
@@ -242,11 +277,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: fullResult,
       savedRecordId: savedRecord?.id || null,
     });
   } catch (error: any) {
-    console.error("LangGraph API エラー:", error);
+    console.error("API エラー:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

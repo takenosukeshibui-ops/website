@@ -1,61 +1,55 @@
-// app/[lang]/admin/ClientAdminPage.tsx
 'use client'
-
 import React, { useState, useEffect, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 import { StatusBadge } from '@/components/StatusBadge'
 import ItemStatusSelect from '@/components/ItemStatusSelect'
 import {
-    sendInvoice,
-    deleteInvoice,
-    shipOrder,
-    deleteShip,
-    cancelShip,
-    updateItemQuantity,
-    updateItemPrice,
-    updateItemTitle,
-    updateTrackingNumber,
-    updateAdminNote,
-    cancelAdminNote,
-    updateOrderStatusToPaymentRequired,
-    cancelPaymentRequired,
-    updateItemStatus,
-    sendPayPalInvoice,
-    addAdminAdjustmentItem,
-    updateAllOrderItemsStatus
+sendInvoice,
+deleteInvoice,
+shipOrder,
+deleteShip,
+cancelShip,
+updateItemQuantity,
+updateItemPrice,
+updateItemTitle,
+updateTrackingNumber,
+updateAdminNote,
+cancelAdminNote,
+updateOrderStatusToPaymentRequired,
+cancelPaymentRequired,
+updateItemStatus,
+sendPayPalInvoice,
+addAdminAdjustmentItem,
+updateAllOrderItemsStatus
 } from '@/app/actions/admin'
-
 // ==========================================
 // AIインテリジェンス用の型定義
 // ==========================================
 interface ProfitableCard {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    reason: string;
-    imageUrl?: string;
+cardName: string;
+jpPriceJPY: number;
+usPriceUSD: number;
+estimatedProfitUSD: number;
+reason: string;
+imageUrl?: string;
 }
-
 interface SnsPosts {
-    trendPost: string;
-    arbitragePost: string;
-    hybridPost: string;
+trendPost: string;
+arbitragePost: string;
+hybridPost: string;
 }
-
 interface IntelligenceData {
-    trendInsights: string[];
-    profitableCards: ProfitableCard[];
-    snsPosts: SnsPosts;
-    salesDM: string;
+trendInsights: string[];
+profitableCards: ProfitableCard[];
+snsPosts: SnsPosts;
+salesDM: string;
+accountInsights?: string;
 }
-
 // ==========================================
 // 既存の補助コンポーネント群
 // ==========================================
 function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', pendingText: string }) {
-    const { pending } = useFormStatus();
-
+const { pending } = useFormStatus();
     const bgClass = state === 'confirm'
         ? 'bg-blue-600 hover:bg-blue-700'
         : 'bg-slate-700 hover:bg-slate-800';
@@ -72,33 +66,30 @@ function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', 
         </button>
     )
 }
-
 function getTrackingUrl(trackingNumber: string): string {
-    const cleaned = trackingNumber.replace(/[\s-]/g, '');
-    if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
-        return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
-    }
-    return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
+const cleaned = trackingNumber.replace(/[\s-]/g, '');
+if (/^\d{12}$|^\d{15}$|^\d{20}$/.test(cleaned)) {
+return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleaned)}`;
 }
-
+return `https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo=${encodeURIComponent(cleaned)}`;
+}
 function CurrencyInput({
-    defaultValue,
-    placeholder,
-    className,
-    name,
-    onValueChange,
+defaultValue,
+placeholder,
+className,
+name,
+onValueChange,
 }: {
-    defaultValue?: number | null
-    placeholder?: string
-    className?: string
-    name?: string
-    onValueChange?: (val: number) => void
+defaultValue?: number | null
+placeholder?: string
+className?: string
+name?: string
+onValueChange?: (val: number) => void
 }) {
-    const [isFocused, setIsFocused] = useState(false)
-    const [rawValue, setRawValue] = useState<string>(
-        defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : ''
-    )
-
+const [isFocused, setIsFocused] = useState(false)
+const [rawValue, setRawValue] = useState<string>(
+defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : ''
+)
     useEffect(() => {
         if (!isFocused) {
             setRawValue(defaultValue !== null && defaultValue !== undefined ? String(defaultValue) : '')
@@ -137,17 +128,15 @@ function CurrencyInput({
         </>
     )
 }
-
 function calculateInvoiceDetails(
-    order: any,
-    calculatedFee: number | null,
-    hasInvoice: boolean,
-    isEditingWeight: boolean,
-    wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
+order: any,
+calculatedFee: number | null,
+hasInvoice: boolean,
+isEditingWeight: boolean,
+wiseQuoteData: { fee: number; rate?: number; sourceCurrency?: string } | null = null
 ) {
-    let productTotal = 0;
-    let proxyFeeTargetTotal = 0;
-
+let productTotal = 0;
+let proxyFeeTargetTotal = 0;
     (order.order_items || []).forEach((oi: any) => {
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
         if (item) {
@@ -214,22 +203,20 @@ function calculateInvoiceDetails(
 
     return { productTotal, proxyFee, shippingFee, baseAmount, paymentFee, paymentFeeDetail, grandTotal };
 }
-
 function AdminNoteForm({
-    orderId,
-    item,
-    onSubmit,
-    onCancel
+orderId,
+item,
+onSubmit,
+onCancel
 }: {
-    orderId: string,
-    item: any,
-    onSubmit: (orderId: string, itemId: string, note: string) => Promise<void>,
-    onCancel: (orderId: string, itemId: string) => Promise<void>
+orderId: string,
+item: any,
+onSubmit: (orderId: string, itemId: string, note: string) => Promise<void>,
+onCancel: (orderId: string, itemId: string) => Promise<void>
 }) {
-    const [isEditing, setIsEditing] = useState(false)
-    const [showHistory, setShowHistory] = useState(false)
-    const isNoteActive = item?.status === 'info_required'
-
+const [isEditing, setIsEditing] = useState(false)
+const [showHistory, setShowHistory] = useState(false)
+const isNoteActive = item?.status === 'info_required'
     if (isNoteActive && !isEditing) {
         return (
             <div className="flex flex-col gap-1">
@@ -330,12 +317,10 @@ function AdminNoteForm({
         </div>
     )
 }
-
 function calculateOrderStatus(order: any) {
-    if (order.status && order.status !== 'pending') {
-        return order.status
-    }
-
+if (order.status && order.status !== 'pending') {
+return order.status
+}
     const allStatuses = (order.order_items || []).map((oi: any) => {
         const itemObj = Array.isArray(oi.items) ? oi.items[0] : oi.items
         return itemObj?.status
@@ -362,12 +347,10 @@ function calculateOrderStatus(order: any) {
 
     return order.status || 'pending'
 }
-
 function AddAdjustmentForm({ orderId, userId }: { orderId: string; userId: string }) {
-    const [title, setTitle] = useState('')
-    const [price, setPrice] = useState<string>('')
-    const [isPending, startTransition] = useTransition()
-
+const [title, setTitle] = useState('')
+const [price, setPrice] = useState<string>('')
+const [isPending, startTransition] = useTransition()
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!title || price === '') return
@@ -408,17 +391,15 @@ function AddAdjustmentForm({ orderId, userId }: { orderId: string; userId: strin
         </form>
     )
 }
-
-function BulkStatusSelectForm({ 
-    orderId, 
-    onBulkUpdate 
-}: { 
-    orderId: string
-    onBulkUpdate: (orderId: string, newStatus: string) => Promise<void> 
+function BulkStatusSelectForm({
+orderId,
+onBulkUpdate
+}: {
+orderId: string
+onBulkUpdate: (orderId: string, newStatus: string) => Promise<void>
 }) {
-    const [status, setStatus] = useState('purchased')
-    const [isPending, startTransition] = useTransition()
-
+const [status, setStatus] = useState('purchased')
+const [isPending, startTransition] = useTransition()
     const handleApply = () => {
         if (!window.confirm('全商品のステータスを一括で変更しますか？')) return
         startTransition(async () => {
@@ -450,16 +431,15 @@ function BulkStatusSelectForm({
         </div>
     )
 }
-
 // ==========================================
 // メインコンポーネント (タブ機能統合)
 // ==========================================
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
-    // タブ切り替え用のState
-    const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
-
+// タブ切り替え用のState
+const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
     // AIインテリジェンス用のState
     const [aiLoading, setAiLoading] = useState<boolean>(false)
+    const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
     const [aiData, setAiData] = useState<IntelligenceData | null>(null)
     const [aiError, setAiError] = useState<string | null>(null)
     const [copiedKey, setCopiedKey] = useState<string | null>(null)
@@ -488,7 +468,35 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     const [activeAddressOrder, setActiveAddressOrder] = useState<any | null>(null)
     const [isGeneratingLabel, setIsGeneratingLabel] = useState<boolean>(false)
 
-    // AIパイプラインを実行する
+    // 🌟 単体AIの個別実行ハンドラー
+    const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') => {
+        setRunningAction(action)
+        setAiError(null)
+        try {
+            const res = await fetch('/api/ai/intelligence', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, currentData: aiData || {} }),
+            })
+            const json = await res.json()
+            if (!json.success) throw new Error(json.error || '生成失敗')
+
+            setAiData(prev => ({
+                trendInsights: prev?.trendInsights || [],
+                profitableCards: prev?.profitableCards || [],
+                snsPosts: prev?.snsPosts || { trendPost: '', arbitragePost: '', hybridPost: '' },
+                salesDM: prev?.salesDM || '',
+                accountInsights: prev?.accountInsights || '',
+                ...json.data
+            }))
+        } catch (err: any) {
+            alert(`⚠️ 実行エラー: ${err.message}`)
+        } finally {
+            setRunningAction(null)
+        }
+    }
+
+    // AIパイプライン（一括）を実行する
     const runIntelligenceAnalysis = async () => {
         setAiLoading(true)
         setAiError(null)
@@ -496,6 +504,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         try {
             const res = await fetch('/api/ai/intelligence', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'all' }),
             })
 
             if (!res.ok) throw new Error(`通信エラー: ${res.statusText}`)
@@ -584,6 +594,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         profitableCards: latest.profitable_cards,
                         snsPosts: latest.sns_posts,
                         salesDM: latest.sales_dm,
+                        accountInsights: latest.account_insights,
                     })
                     setSelectedRecordId(latest.id)
                 }
@@ -1037,17 +1048,17 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <span className="text-amber-400">⚡</span> 自律型トレカ市場インテリジェンス
                             </h2>
                             <p className="text-slate-400 text-xs mt-1">
-                                予言者AI（トレンド予測）とサヤ分析AI（利鞘発掘）を並行実行し、SNS投稿3パターン＆大口DM文を自動生成します。
+                                各AIの個別実行、または一括分析を実行してSNS投稿3パターン＆大口DM文を自動生成します。
                             </p>
                         </div>
 
                         <button
                             onClick={runIntelligenceAnalysis}
-                            disabled={aiLoading}
+                            disabled={aiLoading || Boolean(runningAction)}
                             className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
                                 aiLoading
                                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-500/20'
+                                    : 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-500/20 disabled:opacity-50'
                             }`}
                         >
                             {aiLoading ? (
@@ -1059,7 +1070,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     AIエージェント分析実行中...
                                 </>
                             ) : (
-                                <span>🚀 最新市場インテリジェンスを実行</span>
+                                <span>🚀 一括インテリジェンス実行</span>
                             )}
                         </button>
                     </div>
@@ -1071,7 +1082,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <span className="text-slate-400 font-bold">📅 過去の保存履歴:</span>
                                 <select
                                     value={selectedRecordId || ''}
-                                    disabled={aiLoading}
+                                    disabled={aiLoading || Boolean(runningAction)}
                                     onChange={(e) => {
                                         const target = history.find(h => h.id === e.target.value)
                                         if (target) {
@@ -1081,6 +1092,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 profitableCards: target.profitable_cards,
                                                 snsPosts: target.sns_posts,
                                                 salesDM: target.sales_dm,
+                                                accountInsights: target.account_insights,
                                             })
                                         }
                                     }}
@@ -1107,7 +1119,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                     {!aiData && !aiLoading && !aiError && (
                         <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
-                            右上の「🚀 最新市場インテリジェンスを実行」をクリックすると、AIパイプラインが動き出します。
+                            右上の「🚀 一括インテリジェンス実行」または各項目の「🔄 個別実行」をクリックすると、AIが動き出します。
                         </div>
                     )}
 
@@ -1117,9 +1129,18 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                             <div className="space-y-5">
                                 {/* トレンドインサイト */}
                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-                                    <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-1.5">
-                                        <span>🔮</span> 市場トレンドインサイト（予言者AI）
-                                    </h3>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+                                            <span>🔮</span> 市場トレンドインサイト（予言者AI）
+                                        </h3>
+                                        <button
+                                            onClick={() => runSingleAi('trend')}
+                                            disabled={Boolean(runningAction) || aiLoading}
+                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded text-[11px] font-bold transition disabled:opacity-50"
+                                        >
+                                            {runningAction === 'trend' ? '分析中...' : '🔄 トレンド再分析'}
+                                        </button>
+                                    </div>
                                     <ul className="space-y-2">
                                         {aiData.trendInsights.map((insight, idx) => (
                                             <li key={idx} className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800/80 leading-relaxed">
@@ -1131,9 +1152,18 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                                 {/* サヤ抜きカード発掘 */}
                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-                                    <h3 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
-                                        <span>💎</span> 日米サヤ抜き発掘カード（サヤ分析AI）
-                                    </h3>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                                            <span>💎</span> 日米サヤ抜き発掘カード（サヤ分析AI）
+                                        </h3>
+                                        <button
+                                            onClick={() => runSingleAi('arbitrage')}
+                                            disabled={Boolean(runningAction) || aiLoading}
+                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[11px] font-bold transition disabled:opacity-50"
+                                        >
+                                            {runningAction === 'arbitrage' ? '発掘中...' : '🔄 サヤ再発掘'}
+                                        </button>
+                                    </div>
                                     <div className="space-y-3">
                                         {aiData.profitableCards.map((card, idx) => (
                                             <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
@@ -1154,15 +1184,43 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* 自社Instagramアカウント分析 */}
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h3 className="text-sm font-bold text-pink-400 flex items-center gap-1.5">
+                                            <span>📊</span> 自社Instagram反応分析（アカウント分析AI）
+                                        </h3>
+                                        <button
+                                            onClick={() => runSingleAi('account')}
+                                            disabled={Boolean(runningAction) || aiLoading}
+                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-pink-300 rounded text-[11px] font-bold transition disabled:opacity-50"
+                                        >
+                                            {runningAction === 'account' ? '分析中...' : '🔄 アカウント再分析'}
+                                        </button>
+                                    </div>
+                                    <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap border border-slate-800 leading-relaxed">
+                                        {aiData.accountInsights || "過去の分析データはありません。「🔄 アカウント再分析」を実行すると直近の投稿エンゲージメントから改善指示を抽出します。"}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* 右カラム：SNS＆DMコンテンツ */}
                             <div className="space-y-5">
                                 {/* SNS投稿（3パターン） */}
                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
-                                    <h3 className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
-                                        <span>📱</span> 海外向けSNS投稿（X / Twitter）
-                                    </h3>
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
+                                            <span>📱</span> 海外向けSNS投稿（X / Instagram）
+                                        </h3>
+                                        <button
+                                            onClick={() => runSingleAi('sns')}
+                                            disabled={Boolean(runningAction) || aiLoading}
+                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded text-[11px] font-bold transition disabled:opacity-50"
+                                        >
+                                            {runningAction === 'sns' ? '作成中...' : '🔄 投稿文を再生成'}
+                                        </button>
+                                    </div>
 
                                     {/* ハイブリッド */}
                                     <div className="space-y-1.5">
@@ -1247,6 +1305,13 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                             <span>✉️</span> 大口バイヤー向け営業オファー文
                                         </h3>
                                         <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => runSingleAi('dm')}
+                                                disabled={Boolean(runningAction) || aiLoading}
+                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded text-[11px] font-bold transition disabled:opacity-50"
+                                            >
+                                                {runningAction === 'dm' ? '作成中...' : '🔄 DM文を再生成'}
+                                            </button>
                                             {/* 💡 Discord直接送信ボタン */}
                                             <button
                                                 onClick={() => handlePublishToDiscord(aiData.salesDM)}
