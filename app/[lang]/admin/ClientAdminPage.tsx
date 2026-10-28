@@ -638,7 +638,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         if (isUserMessage) {
             agentKey = getActiveAgentKey(aiActiveDesk) || '';
             if (!agentKey) {
-                alert('チームビューでの指示は、個別デスク（アナリストやSNS広報など）を開いてから学習登録してください。');
+                alert('チームビューでの指示は、個別デスク（アナリストやSNS担当など）を開いてから学習登録してください。');
                 return;
             }
         }
@@ -1407,14 +1407,13 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">🔮</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-xs font-bold text-slate-200 truncate">アナリスト</p>
+                                        <p className="text-xs font-bold text-slate-200 truncate">市場アナリスト</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium">分析</span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 truncate">海外市場トレンド調査</p>
                                 </div>
                             </div>
 
-                            {/* 2. バイヤー */}
                             <div
                                 onClick={() => setAiActiveDesk('desk_arbitrage')}
                                 className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_arbitrage'
@@ -1425,10 +1424,10 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">💎</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-xs font-bold text-slate-200 truncate">バイヤー</p>
+                                        <p className="text-xs font-bold text-slate-200 truncate">アービトラージアナリスト</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-medium">分析</span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 truncate">日米サヤ抜き価格計算</p>
+                                    <p className="text-[11px] text-slate-400 truncate">サヤ抜きできる商品調査</p>
                                 </div>
                             </div>
 
@@ -1443,14 +1442,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📊</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-xs font-bold text-slate-200 truncate">IG分析ディレクター</p>
+                                        <p className="text-xs font-bold text-slate-200 truncate">IGアナリスト</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 font-medium">分析</span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 truncate">自社アカウント反応分析</p>
                                 </div>
                             </div>
 
-                            {/* 4. SNS広報 */}
+                            {/* 4. SNS担当 */}
                             <div
                                 onClick={() => setAiActiveDesk('desk_sns')}
                                 className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
@@ -1461,14 +1460,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📸</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-xs font-bold text-slate-200 truncate">SNS広報</p>
+                                        <p className="text-xs font-bold text-slate-200 truncate">SNS担当</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-medium">実行</span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 truncate">Instagram原稿＆自動投稿</p>
                                 </div>
                             </div>
 
-                            {/* 5. 海外営業 */}
+                            {/* 5. 有料コミュニティ担当 */}
                             <div
                                 onClick={() => setAiActiveDesk('desk_sales')}
                                 className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
@@ -1479,7 +1478,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">✉️</div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-0.5">
-                                        <p className="text-xs font-bold text-slate-200 truncate">海外営業</p>
+                                        <p className="text-xs font-bold text-slate-200 truncate">有料コミュニティ担当</p>
                                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-medium">実行</span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 truncate">Discord大口オファー送信</p>
@@ -1561,7 +1560,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 </div>
                             ) : (
                                 <>
-                                    {/* 1. 分析チーム ビュー（アナリスト + バイヤー + IG分析） */}
+                                    {/* 1. 分析チーム ビュー（市場アナリスト + アービトラージアナリスト + IGアナリスト） */}
                                     {/* 1. 分析チーム ビュー */}
                                     {aiActiveDesk === 'analysis_team' && aiData && (
                                         <div className="max-w-5xl mx-auto space-y-6">
@@ -1693,7 +1692,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                     </div>
                                                 </div>
 
-                                                {/* 海外営業 */}
+                                                {/* 有料コミュニティ担当 */}
                                                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
                                                     <div className="flex justify-between items-center">
                                                         <h3 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
@@ -1784,7 +1783,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-3xl">📸</span>
                                                     <div>
-                                                        <h2 className="text-lg font-bold text-white">SNS広報専用デスク（無料集客）</h2>
+                                                        <h2 className="text-lg font-bold text-white">SNS担当専用デスク</h2>
                                                         <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ Discord誘導キャプション</p>
                                                     </div>
                                                 </div>
@@ -1860,7 +1859,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-3xl">✉️</span>
                                                     <div>
-                                                        <h2 className="text-lg font-bold text-white">海外営業専用デスク（限定Discordコミュニティ）</h2>
+                                                        <h2 className="text-lg font-bold text-white">有料コミュニティ担当専用デスク（限定Discordコミュニティ）</h2>
                                                         <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）</p>
                                                     </div>
                                                 </div>
@@ -1912,11 +1911,11 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                                 <span>
                                                     {aiActiveDesk === 'analysis_team' && '分析チーム（3名）とのチャット'}
                                                     {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
-                                                    {aiActiveDesk === 'desk_trend' && 'アナリストとの個別チャット'}
-                                                    {aiActiveDesk === 'desk_arbitrage' && 'バイヤーとの個別チャット'}
-                                                    {aiActiveDesk === 'desk_account' && 'IG分析ディレクターとの個別チャット'}
-                                                    {aiActiveDesk === 'desk_sns' && 'SNS広報との個別チャット'}
-                                                    {aiActiveDesk === 'desk_sales' && '海外営業との個別チャット'}
+                                                    {aiActiveDesk === 'desk_trend' && '市場アナリストとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_arbitrage' && 'アービトラージアナリストとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_account' && 'IGアナリストとの個別チャット'}
+                                                    {aiActiveDesk === 'desk_sns' && 'SNS担当との個別チャット'}
+                                                    {aiActiveDesk === 'desk_sales' && '有料コミュニティ担当との個別チャット'}
                                                 </span>
                                             </h3>
 

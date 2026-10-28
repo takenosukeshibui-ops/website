@@ -8,11 +8,11 @@ import { createClient } from '@/lib/supabase/server'; // Supabase追加
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
 const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: string; instruction: string }> = {
-  trend: { name: 'アナリスト', avatar: '🔮', role: '海外トレンド調査員', instruction: '日本のトレカに関する海外市場トレンドについて答えてください。' },
-  arbitrage: { name: 'バイヤー', avatar: '💎', role: '仕入れ・サヤ分析担当', instruction: '日米トレカ市場の価格差や仕入れ推奨カードについて答えてください。' },
-  account: { name: 'IG分析ディレクター', avatar: '📊', role: '自社アカウント反応分析担当', instruction: '自社Instagramの反応傾向や改善戦略の視点から答えてください。' },
-  sns: { name: 'SNS広報', avatar: '📸', role: 'SNSディレクター', instruction: '海外向けInstagram投稿のトーンやコピーライティングについて答えてください。' },
-  sales: { name: '海外営業', avatar: '✉️', role: 'Discord営業担当', instruction: '海外大口バイヤー向けのDiscord営業DMについて答えてください。' },
+  trend: { name: '市場アナリスト', avatar: '🔮', role: '海外トレンド調査員', instruction: '日本のトレカに関する海外市場トレンドについて答えてください。' },
+  arbitrage: { name: 'アービトラージアナリスト', avatar: '💎', role: '仕入れ・サヤ分析担当', instruction: '日米トレカ市場の価格差や仕入れ推奨カードについて答えてください。' },
+  account: { name: 'IGアナリスト', avatar: '📊', role: '自社アカウント反応分析担当', instruction: '自社Instagramの反応傾向や改善戦略の視点から答えてください。' },
+  sns: { name: 'SNS担当', avatar: '📸', role: 'SNSディレクター', instruction: '海外向けInstagram投稿のトーンやコピーライティングについて答えてください。' },
+  sales: { name: '有料コミュニティ担当', avatar: '✉️', role: 'Discord営業担当', instruction: '海外大口バイヤー向けのDiscord営業DMについて答えてください。' },
 };
 
 async function getAgentReply(agentKey: string, userMessage: string, contextData: any, supabase: any) {
