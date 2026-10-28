@@ -90,6 +90,9 @@ app/
       paypal/
         invoice/
           route.ts
+    ai/
+      intelligence/
+        route.ts
     auth/
       callback/
         paypal/
@@ -380,6 +383,48 @@ export async function executeWisePayout(targetUserId: string, amount: number)
 const transactionId = crypto.randomUUID() // 標準の globalThis.crypto を使用
 </file>
 
+<file path="app/api/admin/fedex/shipment/route.ts">
+// app/api/admin/fedex/shipment/route.ts
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+⋮----
+// FedEx OAuth2 Token 取得ヘルパー
+async function getFedExAccessToken()
+⋮----
+export async function POST(req: Request)
+⋮----
+// 1. 管理者権限チェック
+⋮----
+// 2. リクエスト解析
+⋮----
+// 3. 注文情報とユーザープロフィールの取得
+⋮----
+// 4. FedEx OAuth トークン取得
+⋮----
+// 5. 請求種別の判定
+⋮----
+// 重量（デフォルト 1.0kg）
+⋮----
+// 注文商品からの Commercial Invoice 用 Commodities リスト作成
+⋮----
+// 6. FedEx Ship API (Shipment) リクエスト構築
+⋮----
+personName: 'Takenosuke Shibui', // 実際のご担当者名
+companyName: 'Worldwide Japan', // 貴社名
+phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
+⋮----
+streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
+city: 'Chuo-ku',               // 市区町村
+stateOrProvinceCode: 'Tokyo',   // 都道府県
+postalCode: '1040061',          // ハイフンなし郵便番号
+⋮----
+// 7. FedEx Ship API 送信
+⋮----
+// 8. レスポンスから追跡番号とラベルPDF情報を取得
+⋮----
+// 9. 追跡番号を DB に自動更新
+</file>
+
 <file path="app/api/admin/paypal/invoice/route.ts">
 // app/api/admin/paypal/invoice/route.ts
 import { createClient } from '@/lib/supabase/server'
@@ -403,6 +448,56 @@ export async function POST(req: Request)
 // [NEW] 柔軟な ID 取得ロジック (ルート id, links 配列, Href等からの抽出)
 ⋮----
 // 5. 請求書の送信 (Send Invoice)
+</file>
+
+<file path="app/api/ai/intelligence/route.ts">
+// app/api/ai/intelligence/route.ts
+import { NextResponse } from 'next/server';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
+import { ChatOpenAI } from '@langchain/openai';
+⋮----
+// ---------------------------------------------------------
+// 1. State（共有ノート）の定義
+// ---------------------------------------------------------
+⋮----
+reducer: (curr, next) => next, // 常に新しい配列で上書き
+⋮----
+// ---------------------------------------------------------
+// 2. Node 1: 予言者AI (marketTrendAgent)
+// ---------------------------------------------------------
+async function marketTrendAgent(state: typeof GraphState.State)
+⋮----
+// OpenAIモデルの初期化 (ここでは軽量・高速な gpt-4o-mini を使用)
+⋮----
+// LLMにトレンド予測を依頼し、JSON配列形式で返すように指示
+⋮----
+// LLMの返答からJSONをパース（余計なマークダウン記号などを除去）
+⋮----
+// Stateの trends を更新して次のノードへ渡す
+⋮----
+// エラー時のフォールバックダミーデータ
+⋮----
+// ---------------------------------------------------------
+// 3. Node 2: ハンターAI (sayaAnalysisAgent)
+// ---------------------------------------------------------
+async function sayaAnalysisAgent(state: typeof GraphState.State)
+⋮----
+const EXCHANGE_RATE = 150; // 1USD = 150JPY
+const PROXY_FEE = 1.05;    // 5%の手数料
+const SHIPPING_FEE = 20;   // 送料(USD)
+⋮----
+// トレンドAIから渡されたカードごとにサヤ（利益）を計算
+⋮----
+// ※今回はテストのため、現実的だがランダムなダミー相場を生成
+// 日本相場: 5,000円 〜 15,000円
+⋮----
+// 米国相場: 日本相場をドル換算したものに、+ $10 〜 $80 のプレミアムを乗せる
+⋮----
+// 利益計算: 米国相場 - ((日本相場 / 150) * 1.05) - 送料20ドル
+⋮----
+// 利益がプラス（0ドルより大きい）の場合のみ、リストに追加
+⋮----
+// 小数点以下2桁に丸める
 </file>
 
 <file path="app/api/auth/callback/paypal/route.ts">
@@ -474,6 +569,29 @@ export async function POST(req: Request)
 input,
 ⋮----
 body {
+</file>
+
+<file path="components/BookmarkletGenerator.tsx">
+// components/BookmarkletGenerator.tsx
+⋮----
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { X, HelpCircle } from 'lucide-react'
+⋮----
+interface BookmarkletGeneratorProps {
+    dict: any;
+}
+⋮----
+// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
+⋮----
+const handleKeyDown = (e: KeyboardEvent) =>
+⋮----
+{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
+⋮----
+{/* ここに生のHTML要素（aタグ）が挿入されます */}
+⋮----
+onClick=
 </file>
 
 <file path="components/countries.ts">
@@ -967,6 +1085,9 @@ export function middleware(request: NextRequest)
     "lint": "eslint"
   },
   "dependencies": {
+    "@langchain/core": "^1.3.1",
+    "@langchain/langgraph": "^1.5.3",
+    "@langchain/openai": "^1.8.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^17.4.2",
@@ -1122,48 +1243,6 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
 </file>
 
-<file path="app/api/admin/fedex/shipment/route.ts">
-// app/api/admin/fedex/shipment/route.ts
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-⋮----
-// FedEx OAuth2 Token 取得ヘルパー
-async function getFedExAccessToken()
-⋮----
-export async function POST(req: Request)
-⋮----
-// 1. 管理者権限チェック
-⋮----
-// 2. リクエスト解析
-⋮----
-// 3. 注文情報とユーザープロフィールの取得
-⋮----
-// 4. FedEx OAuth トークン取得
-⋮----
-// 5. 請求種別の判定
-⋮----
-// 重量（デフォルト 1.0kg）
-⋮----
-// 注文商品からの Commercial Invoice 用 Commodities リスト作成
-⋮----
-// 6. FedEx Ship API (Shipment) リクエスト構築
-⋮----
-personName: 'Takenosuke Shibui', // 実際のご担当者名
-companyName: 'Worldwide Japan', // 貴社名
-phoneNumber: '0312345678',      // 実際の電話番号（ハイフンなし）
-⋮----
-streetLines: ['1-1-1 Ginza'],   // 実際の発送元住所1（英語表記）
-city: 'Chuo-ku',               // 市区町村
-stateOrProvinceCode: 'Tokyo',   // 都道府県
-postalCode: '1040061',          // ハイフンなし郵便番号
-⋮----
-// 7. FedEx Ship API 送信
-⋮----
-// 8. レスポンスから追跡番号とラベルPDF情報を取得
-⋮----
-// 9. 追跡番号を DB に自動更新
-</file>
-
 <file path="lib/dictionaries.ts">
 // lib/dictionaries.ts
 // [NEW] 辞書ファイルを非同期で読み込むユーティリティ
@@ -1179,23 +1258,6 @@ import type { NextConfig } from "next";
 /* 既存の設定項目があればここに記述 */
 ⋮----
 // Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
-</file>
-
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-⋮----
-export default async function AdminPage(props:
-⋮----
-// URLから言語(lang)を取得
-⋮----
-{/* [UPDATED] 当社在庫管理へのリンク先を /${lang}/admin/inventory に変更 */}
-⋮----
-{/* 他のリンクも言語対応 */}
 </file>
 
 <file path="app/[lang]/layout.tsx">
@@ -1399,6 +1461,110 @@ revalidateAll() // [UPDATED]
 }
 </file>
 
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
+⋮----
+export default async function AdminInventoryPage()
+⋮----
+// 管理者権限として全ての商品(非公開含む)を取得
+</file>
+
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+⋮----
+export default async function AdminPage(props:
+⋮----
+// URLから言語(lang)を取得
+⋮----
+// --- 💡 ここから追加・変更：ユーザーごとの連番を計算する ---
+⋮----
+// 古い注文（配列の末尾）から新しい注文に向かって、ユーザーごとの連番を振る
+⋮----
+const uid = order.user_id // どのユーザーの注文か
+⋮----
+userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタート
+⋮----
+// 割り出した連番を order に直接セットする (ClientAdminPage 側で読み取られます)
+⋮----
+// --- 💡 追加ここまで ---
+⋮----
+{/* ... ヘッダー部分はそのまま ... */}
+⋮----
+{/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
+</file>
+
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
+import React, { useState } from 'react'
+import { addToCart } from '@/app/actions/items'
+⋮----
+const handleAction = async (formData: FormData) =>
+⋮----
+// 成功時にトーストを表示し、3秒後に消す
+⋮----
+// 未ログイン時のボタン非活性化表示
+⋮----
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+⋮----
+{/* トースト通知 (画面右下に固定表示) */}
+</file>
+
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export async function deleteCartItem(itemId: string)
+⋮----
+// 1. ユーザー情報の取得
+⋮----
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+⋮----
+// 🔍 デバッグ2: 自分の所有物かチェック
+⋮----
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+⋮----
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+⋮----
+// 5. サイト全体のキャッシュを確実に破棄
+⋮----
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+⋮----
+// 1. ユーザーの配送先プロフを取得
+⋮----
+// --- 💡 ここから差分：既存の pending 注文を探す分岐 ---
+⋮----
+let isNewOrder = false // ロールバック制御用のフラグ
+⋮----
+// 未処理の注文があれば合流（マージ）
+⋮----
+// 2. 新規注文レコードの作成（既存コードのロジック）
+⋮----
+// --- 💡 差分ここまで ---
+⋮----
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+⋮----
+// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+⋮----
+// 4. 中間テーブル (order_items) に紐付け登録
+// 💡 変更: newOrder.id から orderId に変更
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻す
+⋮----
+// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+⋮----
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
 <file path="dictionaries/ja.json">
 {
   "home": {
@@ -1407,7 +1573,7 @@ revalidateAll() // [UPDATED]
     "login": "ログイン",
     "signup": "新規登録",
     "calculator": "送料シミュレーター",
-    "inventory": "📦 取扱商品",
+    "inventory": "📦 自社商品",
     "estimate": "💰 総合料金シミュレーター"
   },
   "dashboard": {
@@ -1551,30 +1717,6 @@ revalidateAll() // [UPDATED]
     "submittingButton": "送信中..."
   }
 }
-</file>
-
-<file path="app/[lang]/admin/inventory/page.tsx">
-import { getProducts } from '@/app/actions/inventory'
-import AdminInventoryClient from './AdminInventoryClient'
-⋮----
-export default async function AdminInventoryPage()
-⋮----
-// 管理者権限として全ての商品(非公開含む)を取得
-</file>
-
-<file path="app/[lang]/inventory/AddToCartForm.tsx">
-import React, { useState } from 'react'
-import { addToCart } from '@/app/actions/items'
-⋮----
-const handleAction = async (formData: FormData) =>
-⋮----
-// 成功時にトーストを表示し、3秒後に消す
-⋮----
-// 未ログイン時のボタン非活性化表示
-⋮----
-<input type="hidden" name="url" value={`inhouse://${product.id}`} />
-⋮----
-{/* トースト通知 (画面右下に固定表示) */}
 </file>
 
 <file path="app/actions/admin.ts">
@@ -1723,135 +1865,6 @@ export async function updateAllOrderItemsStatus(orderId: string, status: string)
 // 2. 該当アイテムのステータスを一括更新
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-export async function deleteCartItem(itemId: string)
-⋮----
-// 1. ユーザー情報の取得
-⋮----
-// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
-⋮----
-// 🔍 デバッグ2: 自分の所有物かチェック
-⋮----
-// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
-⋮----
-// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
-⋮----
-// 5. サイト全体のキャッシュを確実に破棄
-⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
-⋮----
-// 1. ユーザーの配送先プロフを取得
-⋮----
-// 2. 新規注文レコードの作成
-⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
-⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
-⋮----
-// 商品のステータス更新に失敗した場合は作成した注文を削除（ロールバック）
-⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
-⋮----
-// 紐付け失敗時は商品ステータスを draft に戻し、注文も削除する
-⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
-</file>
-
-<file path="components/BookmarkletGenerator.tsx">
-// components/BookmarkletGenerator.tsx
-⋮----
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { X, HelpCircle } from 'lucide-react'
-⋮----
-interface BookmarkletGeneratorProps {
-    dict: any;
-}
-⋮----
-// ▼ 変更: Reactのイベントシステムを完全に回避するため、生のHTMLとしてボタンを生成する
-⋮----
-const handleKeyDown = (e: KeyboardEvent) =>
-⋮----
-{/* ▼ 変更: 生成したボタンを表示するための空のコンテナを用意 */}
-⋮----
-{/* ここに生のHTML要素（aタグ）が挿入されます */}
-⋮----
-onClick=
-</file>
-
-<file path="app/actions/inventory.ts">
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-export type ProductInput = {
-  name: string
-  price: number
-  cost_price: number
-  weight: number
-  stock: number
-  image_url?: string
-  is_active?: boolean
-}
-⋮----
-// 1. 全商品取得
-export async function getProducts(isAdmin = false)
-⋮----
-// 2. 新規追加
-export async function addProduct(product: ProductInput)
-⋮----
-// 3. 商品更新
-export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
-⋮----
-// 4. 画像アップロード
-export async function uploadProductImage(formData: FormData)
-</file>
-
-<file path="app/[lang]/dashboard/page.tsx">
-import { getDictionary } from "@/lib/dictionaries";
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
-⋮----
-function getTrackingUrl(trackingNumber: string): string
-⋮----
-function calculateUserInvoiceDetails(order: any)
-⋮----
-let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
-⋮----
-// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-⋮----
-// 🌟 修正：order_number を user_order_seq に変更
-⋮----
-const getTranslatedShippingMethod = (method: string) =>
-⋮----
-{/* ▼ 追加: 取扱商品へのリンクボタン */}
-⋮----
-<form action=
-⋮----
-{/* 🌟 修正：ユーザー毎の連番を表示 */}
-⋮----
-{/* 請求明細パネル */}
-⋮----
-{/* 注文商品テーブル */}
-⋮----
-if (replyRemarks)
-</file>
-
 <file path="components/CartManager.tsx">
 // components/CartManager.tsx
 ⋮----
@@ -1884,6 +1897,35 @@ onBlur=
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
 </file>
 
+<file path="app/actions/inventory.ts">
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  supplier_name?: string
+  supplier_price?: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
+⋮----
+// 1. 全商品取得
+export async function getProducts(isAdmin = false)
+⋮----
+// 2. 新規追加
+export async function addProduct(product: ProductInput)
+⋮----
+// 3. 商品更新
+export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+⋮----
+// 4. 画像アップロード
+export async function uploadProductImage(formData: FormData)
+</file>
+
 <file path="app/[lang]/calculator/page.tsx">
 import { useState, use } from "react";
 import Link from "next/link";
@@ -1904,6 +1946,45 @@ onChange=
 {/* 内訳アコーディオン */}
 ⋮----
 {/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
+</file>
+
+<file path="app/[lang]/dashboard/page.tsx">
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
+⋮----
+function getTrackingUrl(trackingNumber: string): string
+⋮----
+function calculateUserInvoiceDetails(order: any)
+⋮----
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+⋮----
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+⋮----
+// 🌟 修正：order_number を user_order_seq に変更
+⋮----
+const getTranslatedShippingMethod = (method: string) =>
+⋮----
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
+⋮----
+<form action=
+⋮----
+{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
+⋮----
+{/* 請求明細パネル */}
+⋮----
+{/* 注文商品テーブル */}
+⋮----
+if (replyRemarks)
 </file>
 
 <file path="app/[lang]/estimate/page.tsx">
@@ -2151,6 +2232,25 @@ setEditingWeight(prev
 import React, { useState, useMemo, useTransition } from 'react'
 import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
 ⋮----
+// 仕入先別の希望価格管理用型定義
+interface SupplierItem {
+  id: string
+  supplierName: string
+  productName: string
+  desiredPrice: number
+  note?: string
+}
+⋮----
+// 「仕入先情報一覧」モーダルの開閉状態
+⋮----
+// 商品とは独立した仕入先・希望価格データリスト
+⋮----
+// 仕入先追加用の簡易フォームState
+⋮----
+// 自社在庫商品の入力フォーム (元のシンプルな構成を保持)
+⋮----
+// 仕入先名ごとにグループ化
+⋮----
 const handlePriceChange = (val: number) =>
 ⋮----
 const calculateAutoPrice = (cost: number, marginPercent: number): number =>
@@ -2167,7 +2267,12 @@ const handleCancel = () =>
 ⋮----
 const handleSubmit = (e: React.FormEvent) =>
 ⋮----
-{/* フォームセクション */}
+// 仕入先希望価格の追加ハンドラー (小数点第2位まで受け付け)
+const handleAddSupplierItem = (e: React.FormEvent) =>
+⋮----
+const handleDeleteSupplierItem = (id: string) =>
+⋮----
+{/* 自社商品登録フォーム */}
 ⋮----
 onChange=
 ⋮----
@@ -2177,7 +2282,17 @@ onChange=
 ⋮----
 {/* 一覧セクション */}
 ⋮----
+{/* 仕入先情報一覧を開くボタン */}
+⋮----
 onClick=
+⋮----
+{/* 仕入先別情報一覧モーダル */}
+⋮----
+{/* モーダルヘッダー */}
+⋮----
+{/* 仕入先希望価格の簡易追加バー */}
+⋮----
+{/* モーダルフッター */}
 </file>
 
 </files>
