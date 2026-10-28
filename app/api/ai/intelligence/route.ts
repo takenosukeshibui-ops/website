@@ -4,7 +4,7 @@ export const maxDuration = 60;
 import { NextResponse } from 'next/server';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { createClient } from '@/lib/supabase/server';
-// import { getInstagramInsights } from '@/lib/instagram'; // 🌟 一時的にコメントアウト
+import { getInstagramInsights } from '@/lib/instagram';
 
 // 🌟 apiKey をファイル先頭で安全に定義
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -87,8 +87,18 @@ async function runSayaAnalysis() {
 
 async function runAccountAnalysis() {
   try {
-    // 🌟 Instagramへの外部通信をスキップし、仮テキストでテスト実行
-    const postData = "Likes: 25, Caption: Check out our vintage Japanese Pokemon cards! Direct shipping from Japan.";
+    // 🌟 Instagramから直近3件のデータを取得
+    const posts = await getInstagramInsights(3);
+
+    let postData = "";
+    if (posts && posts.length > 0) {
+      postData = posts
+        .map((p: any) => `[Likes:${p.like_count || 0}, Comments:${p.comments_count || 0}] ${p.caption?.slice(0, 150) || ''}`)
+        .join('\n');
+    } else {
+      // データが取得できなかった（トークン切れ含む）場合の代替データ
+      postData = "Likes: 30, Comments: 5, Caption: Japanese vintage Pokemon booster boxes direct export.";
+    }
 
     const llm = new ChatGoogleGenerativeAI({
       model: 'gemini-3.1-flash-lite',

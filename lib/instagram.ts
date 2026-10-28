@@ -101,31 +101,40 @@ export async function publishToInstagram({
  * 自社Instagramアカウントの過去投稿とエンゲージメント（いいね・コメント数）を取得する
  * @param limit 取得する過去の投稿数（デフォルト10件）
  */
-export async function getInstagramInsights(limit = 10) {
+// lib/instagram.ts
+
+export async function getInstagramInsights(limit: number = 5) {
   const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
 
+  // 1. 環境変数が設定されていない場合は即座に安全終了
   if (!accountId || !accessToken) {
-    console.warn('Instagram API credentials missing for insights.');
+    console.warn("Instagram credentials missing. Skipping insights.");
     return [];
   }
 
-  try {
-    // 過去の投稿データ（キャプション、いいね数、コメント数、投稿日時など）を取得
-    const url = `https://graph.facebook.com/v26.0/${accountId}/media?fields=id,caption,media_type,timestamp,like_count,comments_count&limit=${limit}&access_token=${accessToken}`;
-    
-    const res = await fetch(url);
-    const data = await res.json();
+  const url = `https://graph.facebook.com/v19.0/${accountId}/media?fields=id,caption,like_count,comments_count,timestamp&limit=${limit}&access_token=${accessToken}`;
 
-    if (!res.ok || data.error) {
-      console.error('Instagram Insights Error:', data.error);
+  try {
+    // 2. 4秒以上応答がなければ強制キャンセルする（Vercelのタイムアウト防止）
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(4000),
+      // キャッシュさせずに最新を取得
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      console.error("Instagram Graph API Error:", errJson);
+      // トークン切れ等の場合もエラーを投げずに空配列で安全に落とす
       return [];
     }
 
-    // 取得した投稿データの配列を返す
-    return data.data || [];
-  } catch (err) {
-    console.error('Failed to fetch Instagram insights:', err);
+    const data = await res.json();
+    return data?.data || [];
+  } catch (error: any) {
+    // タイムアウトやネットワーク切断時もパイプラインを止めない
+    console.warn("Failed to fetch Instagram insights (timed out or network error):", error.message);
     return [];
   }
 }
