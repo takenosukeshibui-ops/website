@@ -1,3 +1,4 @@
+// ClientAdminPage.tsx
 'use client'
 
 import React, { useState, useEffect, useTransition } from 'react'
@@ -24,6 +25,33 @@ import {
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
 
+// ==========================================
+// AIインテリジェンス用の型定義
+// ==========================================
+interface ProfitableCard {
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    reason: string;
+}
+
+interface SnsPosts {
+    trendPost: string;
+    arbitragePost: string;
+    hybridPost: string;
+}
+
+interface IntelligenceData {
+    trendInsights: string[];
+    profitableCards: ProfitableCard[];
+    snsPosts: SnsPosts;
+    salesDM: string;
+}
+
+// ==========================================
+// 既存の補助コンポーネント群
+// ==========================================
 function ActionStateButton({ state, pendingText }: { state: 'save' | 'confirm', pendingText: string }) {
     const { pending } = useFormStatus();
 
@@ -123,10 +151,8 @@ function calculateInvoiceDetails(
         const item = Array.isArray(oi.items) ? oi.items[0] : oi.items;
         if (item) {
             const qty = item.admin_quantity ?? item.quantity ?? 1;
-            
             const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
             const price = item.price ?? (isInhouse ? item.price_estimated : 0);
-            
             const subtotal = qty * price;
             productTotal += subtotal;
 
@@ -136,7 +162,6 @@ function calculateInvoiceDetails(
         }
     });
 
-    
     const proxyFeeRate = 0.05;
     const proxyFee = Math.floor(proxyFeeTargetTotal * proxyFeeRate);
 
@@ -148,7 +173,6 @@ function calculateInvoiceDetails(
     }
 
     const baseAmount = productTotal + proxyFee + shippingFee;
-
     const rawPaymentMethod = order.payment_method ? String(order.payment_method).trim().toLowerCase() : '';
     const paymentMethod = rawPaymentMethod === 'wise' ? 'Wise' : 'PayPal';
 
@@ -187,15 +211,7 @@ function calculateInvoiceDetails(
         grandTotal = Number(order.total_amount);
     }
 
-    return {
-        productTotal,
-        proxyFee,
-        shippingFee,
-        baseAmount,
-        paymentFee,
-        paymentFeeDetail,
-        grandTotal
-    };
+    return { productTotal, proxyFee, shippingFee, baseAmount, paymentFee, paymentFeeDetail, grandTotal };
 }
 
 function AdminNoteForm({
@@ -434,7 +450,19 @@ function BulkStatusSelectForm({
     )
 }
 
+// ==========================================
+// メインコンポーネント (タブ機能統合)
+// ==========================================
 export default function ClientAdminPage({ orders: initialOrders }: { orders: any[] }) {
+    // 💡 タブ切り替え用のState ('orders' または 'intelligence')
+    const [activeTab, setActiveTab] = useState<'orders' | 'intelligence'>('orders')
+
+    // AIインテリジェンス用のState
+    const [aiLoading, setAiLoading] = useState<boolean>(false)
+    const [aiData, setAiData] = useState<IntelligenceData | null>(null)
+    const [aiError, setAiError] = useState<string | null>(null)
+    const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
     const [orders, setOrders] = useState(() =>
         initialOrders.map(order => ({
             ...order,
@@ -442,19 +470,49 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         }))
     )
     const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
-
     const [orderInputs, setOrderInputs] = useState<Record<string, { weight: string }>>({})
     const [editingWeight, setEditingWeight] = useState<Set<string>>(new Set())
-
     const [calculatedFees, setCalculatedFees] = useState<Record<string, number>>({})
     const [calculatingOrders, setCalculatingOrders] = useState<Set<string>>(new Set())
     const [calcErrors, setCalcErrors] = useState<Record<string, string>>({})
     const [selectedServiceNames, setSelectedServiceNames] = useState<Record<string, string>>({})
-
     const [wiseQuoteData, setWiseQuoteData] = useState<Record<string, { fee: number; rate?: number; sourceCurrency?: string }>>({})
-
     const [activeAddressOrder, setActiveAddressOrder] = useState<any | null>(null)
     const [isGeneratingLabel, setIsGeneratingLabel] = useState<boolean>(false)
+
+    // AIパイプラインを実行する
+    const runIntelligenceAnalysis = async () => {
+        setAiLoading(true)
+        setAiError(null)
+
+        try {
+            const res = await fetch('/api/ai/intelligence', {
+                method: 'POST',
+            })
+
+            if (!res.ok) {
+                throw new Error(`通信エラーが発生しました: ${res.statusText}`)
+            }
+
+            const json = await res.json()
+            if (!json.success) {
+                throw new Error(json.error || '分析に失敗しました')
+            }
+
+            setAiData(json.data)
+        } catch (err: any) {
+            setAiError(err.message || '予期せぬエラーが発生しました')
+        } finally {
+            setAiLoading(false)
+        }
+    }
+
+    // コピー機能
+    const handleCopy = (text: string, key: string) => {
+        navigator.clipboard.writeText(text)
+        setCopiedKey(key)
+        setTimeout(() => setCopiedKey(null), 2000)
+    }
 
     useEffect(() => {
         try {
@@ -537,25 +595,13 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         const calculateFeesForOrders = async () => {
             for (const order of orders) {
                 const inputs = orderInputs[order.id] || {};
-
-                let weightStr = inputs.weight;
-                if (weightStr === undefined) {
-                    weightStr = '';
-                }
-
+                let weightStr = inputs.weight ?? '';
                 const weightVal = parseFloat(weightStr);
+
                 if (isNaN(weightVal) || weightVal <= 0) {
                     if (calculatedFees[order.id] !== undefined) {
-                        setCalculatedFees(prev => {
-                            const next = { ...prev };
-                            delete next[order.id];
-                            return next;
-                        });
-                        setSelectedServiceNames(prev => {
-                            const next = { ...prev };
-                            delete next[order.id];
-                            return next;
-                        });
+                        setCalculatedFees(prev => { const next = { ...prev }; delete next[order.id]; return next; });
+                        setSelectedServiceNames(prev => { const next = { ...prev }; delete next[order.id]; return next; });
                     }
                     continue;
                 }
@@ -566,7 +612,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                 try {
                     setCalculatingOrders(prev => new Set(prev).add(order.id));
-
                     const res = await fetch('/api/calculate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -579,7 +624,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                     });
 
                     const contentType = res.headers.get('content-type') || '';
-
                     if (res.ok && contentType.includes('application/json')) {
                         const data = await res.json();
                         let fee: number | null = null;
@@ -588,9 +632,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                         if (selectedMethod.includes('船便')) {
                             fee = data.japanPost?.total || null;
                             resolvedServiceName = data.japanPost?.serviceName || '日本郵便 (船便)';
-                            if (data.japanPost?.error) {
-                                setCalcErrors(prev => ({ ...prev, [order.id]: data.japanPost.error }));
-                            }
+                            if (data.japanPost?.error) setCalcErrors(prev => ({ ...prev, [order.id]: data.japanPost.error }));
                         } else {
                             const fedexList = data.fedexRates || [];
                             if (fedexList.length > 0) {
@@ -598,9 +640,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     fee = fedexList[0].total;
                                     resolvedServiceName = fedexList[0].serviceName;
                                 } else {
-                                    const matched = fedexList.find((f: any) =>
-                                        selectedMethod.includes(f.serviceName) || f.serviceName.includes(selectedMethod)
-                                    );
+                                    const matched = fedexList.find((f: any) => selectedMethod.includes(f.serviceName) || f.serviceName.includes(selectedMethod));
                                     fee = matched ? matched.total : fedexList[0].total;
                                     resolvedServiceName = matched ? matched.serviceName : fedexList[0].serviceName;
                                 }
@@ -611,35 +651,21 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
                         if (fee !== null) {
                             setCalculatedFees(prev => ({ ...prev, [order.id]: fee }));
-                            if (resolvedServiceName) {
-                                setSelectedServiceNames(prev => ({ ...prev, [order.id]: resolvedServiceName }));
-                            }
-                            setCalcErrors(prev => {
-                                const next = { ...prev };
-                                delete next[order.id];
-                                return next;
-                            });
+                            if (resolvedServiceName) setSelectedServiceNames(prev => ({ ...prev, [order.id]: resolvedServiceName }));
+                            setCalcErrors(prev => { const next = { ...prev }; delete next[order.id]; return next; });
                         }
                     } else {
                         setCalcErrors(prev => ({ ...prev, [order.id]: `計算APIエラー (${res.status})` }));
                     }
                 } catch (err: any) {
-                    console.error('送料の自動計算エラー:', err);
                     setCalcErrors(prev => ({ ...prev, [order.id]: '通信エラーが発生しました' }));
                 } finally {
-                    setCalculatingOrders(prev => {
-                        const next = new Set(prev);
-                        next.delete(order.id);
-                        return next;
-                    });
+                    setCalculatingOrders(prev => { const next = new Set(prev); next.delete(order.id); return next; });
                 }
             }
         };
 
-        const timer = setTimeout(() => {
-            calculateFeesForOrders();
-        }, 300);
-
+        const timer = setTimeout(() => { calculateFeesForOrders(); }, 300);
         return () => clearTimeout(timer);
     }, [orderInputs, orders]);
 
@@ -653,10 +679,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
     }
 
     const handleWeightChange = (orderId: string, value: string) => {
-        setOrderInputs(prev => ({
-            ...prev,
-            [orderId]: { weight: value }
-        }))
+        setOrderInputs(prev => ({ ...prev, [orderId]: { weight: value } }))
     }
 
     const handleItemStatusUpdated = async (orderId: string, itemId: string, newStatus: string) => {
@@ -673,16 +696,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                     return oi
                 })
                 const tempOrder = { ...order, order_items: updatedOrderItems }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder),
-                }
+                return { ...tempOrder, status: calculateOrderStatus(tempOrder) }
             })
         )
         try {
             await updateItemStatus(itemId, newStatus, orderId)
         } catch (error) {
-            console.error('DBへのステータス保存に失敗しました:', error)
             alert('ステータスの保存に失敗しました')
         }
     }
@@ -701,16 +720,12 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                     return oi
                 })
                 const tempOrder = { ...order, order_items: updatedOrderItems }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder),
-                }
+                return { ...tempOrder, status: calculateOrderStatus(tempOrder) }
             })
         )
         try {
             await updateAllOrderItemsStatus(orderId, newStatus)
         } catch (error: any) {
-            console.error('一括更新エラー:', error)
             alert(error?.message || 'ステータスの一括更新に失敗しました')
         }
     }
@@ -729,10 +744,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                     return oi
                 })
                 const tempOrder = { ...order, order_items: updatedOrderItems }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder),
-                }
+                return { ...tempOrder, status: calculateOrderStatus(tempOrder) }
             })
         )
         await updateAdminNote(itemId, note)
@@ -752,10 +764,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                     return oi
                 })
                 const tempOrder = { ...order, order_items: updatedOrderItems }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder),
-                }
+                return { ...tempOrder, status: calculateOrderStatus(tempOrder) }
             })
         )
         await cancelAdminNote(itemId)
@@ -769,19 +778,15 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderId }),
             })
-
             const data = await res.json()
-
             if (!res.ok || data.error) {
                 alert(`⚠️ FedExラベル発行エラー: ${data.error}`)
                 return
             }
-
             if (data.trackingNumber) {
                 setOrders(prev => prev.map(o => o.id === orderId ? { ...o, tracking_number: data.trackingNumber } : o))
                 await updateTrackingNumber(orderId, data.trackingNumber)
             }
-
             if (data.labelPdfBase64) {
                 const byteCharacters = atob(data.labelPdfBase64)
                 const byteNumbers = new Array(byteCharacters.length)
@@ -793,10 +798,8 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                 const fileURL = URL.createObjectURL(blob)
                 window.open(fileURL, '_blank')
             }
-
-            alert(`✅ FedEx 配送ラベルを発行しました！\n追跡番号を自動入力しました: ${data.trackingNumber}`)
+            alert(`✅ FedEx 配送ラベルを発行しました！\n追跡番号: ${data.trackingNumber}`)
         } catch (err: any) {
-            console.error('FedExラベル発行エラー:', err)
             alert('通信エラーが発生しました。')
         } finally {
             setIsGeneratingLabel(false)
@@ -808,11 +811,7 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
         const weightNum = parseFloat(weightStr);
 
         if (!weightStr || weightStr.trim() === '' || isNaN(weightNum) || weightNum === 0) {
-            setOrderInputs(prev => {
-                const next = { ...prev };
-                delete next[orderId];
-                return next;
-            })
+            setOrderInputs(prev => { const next = { ...prev }; delete next[orderId]; return next; })
             setEditingWeight(prev => { const next = new Set(prev); next.delete(orderId); return next; })
             setOrders(prev => prev.map(o => {
                 if (o.id === orderId) {
@@ -846,645 +845,730 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
 
     const handleMarkAsPaymentRequiredWithWise = async (order: any, amount: number) => {
         if (!amount || amount <= 0) {
-            alert('お支払い金額（合計金額）が入力されていません。')
+            alert('お支払い金額が入力されていません。')
             return
         }
-
         const wiseEmail = order.profiles?.wise_email || ''
         const orderSeq = order.user_order_seq ?? order.order_number ?? ''
-
         const copyText = `${wiseEmail}\n${orderSeq}\n${amount}`
         navigator.clipboard.writeText(copyText)
 
-        alert(
-            `✅ 以下の請求情報をクリップボードにコピーしました！\n\n` +
-            `------------------------\n` +
-            `${copyText}\n` +
-            `------------------------\n\n` +
-            `Wiseの画面が開いたら、上記内容を元に請求を作成してください。`
-        )
-
+        alert(`✅ 請求情報をコピーしました！\n\n${copyText}\n\nWiseを開きます。`)
         window.open('https://wise.com/flows/create-invoice/?utm_source=requested_payments_list#/create', '_blank')
 
-        setOrders((prevOrders) =>
-            prevOrders.map((o) => {
-                if (o.id !== order.id) return o
-                return { ...o, status: 'payment_required' }
-            })
-        )
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'payment_required' } : o))
         await updateOrderStatusToPaymentRequired(order.id)
     }
 
     const handleSendInvoiceByPaymentMethod = async (order: any, amount: number) => {
         if (!amount || amount <= 0) {
-            alert('お支払い金額（合計金額）が入力されていません。総重量を入力するか確定してください。')
+            alert('お支払い金額が入力されていません。')
             return
         }
-
         const paymentMethod = order.payment_method || 'Wise'
-
         if (paymentMethod === 'PayPal') {
             const paypalEmail = order.profiles?.paypal_email || order.profiles?.email || '未登録'
-            if (!window.confirm(`PayPalで以下の宛先に請求書を自動送信しますか？\n宛先: ${paypalEmail}\n金額: ${amount.toLocaleString()} 円`)) {
-                return
-            }
-
+            if (!window.confirm(`PayPalで請求書を自動送信しますか？\n宛先: ${paypalEmail}\n金額: ${amount.toLocaleString()} 円`)) return
             try {
-                setOrders((prevOrders) =>
-                    prevOrders.map((o) => o.id === order.id ? { ...o, status: 'payment_required' } : o)
-                )
-
+                setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'payment_required' } : o))
                 await sendPayPalInvoice(order.id)
                 alert('✅ PayPal 請求書を自動送信しました！')
             } catch (err: any) {
-                console.error(err)
-                setOrders((prevOrders) =>
-                    prevOrders.map((o) => o.id === order.id ? { ...o, status: calculateOrderStatus(o) } : o)
-                )
-                alert(`⚠️ PayPal 請求書の送信に失敗しました: ${err.message}`)
+                alert(`⚠️ 送信失敗: ${err.message}`)
             }
             return
         }
-
         await handleMarkAsPaymentRequiredWithWise(order, amount)
     }
 
     const handleCancelPaymentRequired = async (order: any) => {
         if (!window.confirm('送信済みの状態を取り消しますか？')) return
-        setOrders((prevOrders) =>
-            prevOrders.map((o) => {
-                if (o.id !== order.id) return o
-                const tempOrder = { ...o, status: 'pending' }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder)
-                }
-            })
-        )
+        setOrders(prev => prev.map(o => {
+            if (o.id !== order.id) return o
+            const temp = { ...o, status: 'pending' }
+            return { ...temp, status: calculateOrderStatus(temp) }
+        }))
         await cancelPaymentRequired(order.id)
     }
 
     const handleMarkAsShipped = async (order: any) => {
-        setOrders((prevOrders) =>
-            prevOrders.map((o) => {
-                if (o.id !== order.id) return o
-                return { ...o, status: 'shipped' }
-            })
-        )
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'shipped' } : o))
         await shipOrder(order.id, order.tracking_number || '')
     }
 
     const handleCancelShip = async (orderId: string) => {
-        if (!window.confirm('発送済みの状態を取り消しますか？（追跡番号は保持されます）')) return
-        setOrders((prevOrders) =>
-            prevOrders.map((order) => {
-                if (order.id !== orderId) return order
-                const tempOrder = { ...order, status: 'payment_required' }
-                return {
-                    ...tempOrder,
-                    status: calculateOrderStatus(tempOrder),
-                }
-            })
-        )
+        if (!window.confirm('発送済みの状態を取り消しますか？')) return
+        setOrders(prev => prev.map(order => {
+            if (order.id !== orderId) return order
+            const temp = { ...order, status: 'payment_required' }
+            return { ...temp, status: calculateOrderStatus(temp) }
+        }))
         await cancelShip(orderId)
     }
 
     const handlePriceChange = async (itemId: string, newPrice: number) => {
-        try {
-            await updateItemPrice(itemId, newPrice)
-        } catch (e: any) {
-            alert('価格の更新に失敗しました: ' + (e?.message || '不明なエラー'))
-        }
+        try { await updateItemPrice(itemId, newPrice) } catch (e: any) { alert(e?.message) }
     }
 
     const handleQuantityChange = async (itemId: string, newQuantity: number) => {
-        try {
-            await updateItemQuantity(itemId, newQuantity)
-        } catch (e: any) {
-            alert('数量の更新に失敗しました: ' + (e?.message || '不明なエラー'))
-        }
+        try { await updateItemQuantity(itemId, newQuantity) } catch (e: any) { alert(e?.message) }
     }
 
     const handleTitleChange = async (itemId: string, newTitle: string) => {
-        try {
-            await updateItemTitle(itemId, newTitle)
-        } catch (e: any) {
-            alert('商品名の更新に失敗しました: ' + (e?.message || '不明なエラー'))
-        }
+        try { await updateItemTitle(itemId, newTitle) } catch (e: any) { alert(e?.message) }
     }
 
     return (
-        <div className="p-6 overflow-x-auto">
-            <h1 className="text-2xl font-bold mb-4">Admin Dashboard</h1>
+        <div className="p-6">
+            {/* 💡 タブ切り替えボタン */}
+            <div className="flex items-center gap-3 border-b border-slate-200 pb-3 mb-6">
+                <button
+                    onClick={() => setActiveTab('orders')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+                        activeTab === 'orders'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    <span>📦 注文管理 ({orders.length}件)</span>
+                </button>
 
-            <table className="min-w-full border-collapse border border-slate-300 text-sm text-left bg-white shadow-sm">
-                <thead className="bg-slate-100">
-                    <tr>
-                        <th className="border border-slate-300 p-2 w-10 text-center"></th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center">注文No.</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center min-w-[130px]">ユーザー情報</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap">注文ステータス</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center">商品数</th>
-                        <th className="border border-slate-300 p-2 min-w-[200px] text-center">総重量</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center min-w-[140px]">配送ラベル</th>
-                        <th className="border border-slate-300 p-2 min-w-[200px]">追跡番号</th>
-                        <th className="border border-slate-300 p-2 min-w-[150px] text-right">着金金額</th>
-                        <th className="border border-slate-300 p-2 min-w-[150px] text-right">お支払い金額</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center">請求書送信</th>
-                        <th className="border border-slate-300 p-2 whitespace-nowrap text-center">発送状態</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {orders?.map((order) => {
-                        if (!order) return null
-                        const isExpanded = expandedOrders.has(order.id)
-                        const itemCount = order.order_items?.length || 0
+                <button
+                    onClick={() => setActiveTab('intelligence')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+                        activeTab === 'intelligence'
+                            ? 'bg-slate-900 text-amber-400 shadow-sm border border-slate-800'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    <span>⚡ AI市場インテリジェンス (日米サヤ & SNS)</span>
+                    <span className="bg-amber-400/20 text-amber-600 text-[10px] px-1.5 py-0.5 rounded font-mono">NEW</span>
+                </button>
+            </div>
 
-                        const hasInvoice = order.total_amount !== null && order.total_amount !== undefined && Number(order.total_amount) > 0
-                        const isPaymentRequired = order.status === 'payment_required'
-                        const hasTracking = Boolean(order.tracking_number && String(order.tracking_number).trim() !== '')
-                        const isShipped = order.status === 'shipped'
+            {/* ========================================================= */}
+            {/* 1. AI市場インテリジェンス タブの内容 */}
+            {/* ========================================================= */}
+            {activeTab === 'intelligence' && (
+                <div className="bg-slate-950 text-slate-100 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl border border-slate-800 animate-fadeIn">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+                        <div>
+                            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                                <span className="text-amber-400">⚡</span> 自律型トレカ市場インテリジェンス
+                            </h2>
+                            <p className="text-slate-400 text-xs mt-1">
+                                予言者AI（トレンド予測）とサヤ分析AI（利鞘発掘）を並行実行し、SNS投稿3パターン＆大口DM文を自動生成します。
+                            </p>
+                        </div>
 
-                        const hasInfoRequiredItem = order.order_items?.some((oi: any) => {
-                            const item = Array.isArray(oi.items) ? oi.items[0] : oi.items
-                            return item?.status === 'info_required'
-                        })
+                        <button
+                            onClick={runIntelligenceAnalysis}
+                            disabled={aiLoading}
+                            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+                                aiLoading
+                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-500/20'
+                            }`}
+                        >
+                            {aiLoading ? (
+                                <>
+                                    <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                    </svg>
+                                    AIエージェント分析実行中...
+                                </>
+                            ) : (
+                                <span>🚀 最新市場インテリジェンスを実行</span>
+                            )}
+                        </button>
+                    </div>
 
-                        const isEditingWeight = editingWeight.has(order.id);
+                    {aiError && (
+                        <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-red-200 text-xs">
+                            {aiError}
+                        </div>
+                    )}
 
-                        const inputs = orderInputs[order.id] || {}
+                    {!aiData && !aiLoading && !aiError && (
+                        <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl text-slate-400 text-xs">
+                            右上の「🚀 最新市場インテリジェンスを実行」をクリックすると、AIパイプラインが動き出します。
+                        </div>
+                    )}
 
-                        let displayWeight = '';
-                        if (inputs.weight !== undefined) {
-                            displayWeight = inputs.weight;
-                        } else if (order.weight !== undefined && order.weight !== null) {
-                            displayWeight = String(order.weight);
-                        } else {
-                            displayWeight = '';
-                        }
+                    {aiData && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* 左カラム：情報収集＆サヤ発掘結果 */}
+                            <div className="space-y-5">
+                                {/* トレンドインサイト */}
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-1.5">
+                                        <span>🔮</span> 市場トレンドインサイト（予言者AI）
+                                    </h3>
+                                    <ul className="space-y-2">
+                                        {aiData.trendInsights.map((insight, idx) => (
+                                            <li key={idx} className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800/80 leading-relaxed">
+                                                {insight}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
 
-                        const weightVal = parseFloat(displayWeight) || 0;
-
-                        const calculatedFee = calculatedFees[order.id] ?? null;
-                        const wiseQuote = wiseQuoteData[order.id] ?? null;
-                        const details = calculateInvoiceDetails(order, calculatedFee, hasInvoice, isEditingWeight, wiseQuote);
-                        const receivedAmount = details.productTotal + details.proxyFee + details.shippingFee;
-
-                        const shippingServiceName = order.shipping_method;
-                        const paymentServiceName = order.payment_method;
-
-                        const isCalculating = calculatingOrders.has(order.id);
-                        const calcErrorMsg = calcErrors[order.id];
-
-                        const fullName = order.profiles?.full_name;
-                        const companyName = order.profiles?.company_name;
-
-                        const canMarkAsShipped = isPaymentRequired && hasTracking
-
-                        const canSendInvoice = hasInvoice || details.grandTotal > 0
-
-                        const resolvedShippingDisp = (shippingServiceName?.includes('最安プラン') || !shippingServiceName)
-                            ? (selectedServiceNames[order.id] ? `${selectedServiceNames[order.id]}` : (shippingServiceName || '最安プラン自動選択 (航空便)'))
-                            : shippingServiceName;
-
-                        return (
-                            <React.Fragment key={order.id}>
-                                <tr className="hover:bg-slate-50 transition-colors border-t border-slate-300">
-                                    <td className="border border-slate-300 p-2 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleOrder(order.id)}
-                                            className="p-1 rounded hover:bg-slate-200 text-slate-600 font-mono text-xs w-6 h-6 flex items-center justify-center"
-                                        >
-                                            {isExpanded ? '▼' : '▶'}
-                                        </button>
-                                    </td>
-
-                                    <td className="border border-slate-300 p-2 font-mono text-xs font-bold text-center text-slate-700">
-                                        #{order.user_order_seq ?? order.order_number ?? '-'}
-                                        {(shippingServiceName || paymentServiceName) && (
-                                            <div className="flex flex-col gap-0.5 mt-1">
-                                                {shippingServiceName && (
-                                                    <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1 py-0.2 rounded font-normal whitespace-nowrap">
-                                                        配送: {shippingServiceName}
+                                {/* サヤ抜きカード発掘 */}
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-1.5">
+                                        <span>💎</span> 日米サヤ抜き発掘カード（サヤ分析AI）
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {aiData.profitableCards.map((card, idx) => (
+                                            <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <span className="font-bold text-white text-xs">{card.cardName}</span>
+                                                    <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-[11px] rounded-full whitespace-nowrap">
+                                                        想定利益 +${card.estimatedProfitUSD}
                                                     </span>
-                                                )}
-                                                {paymentServiceName && (
-                                                    <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1 py-0.2 rounded font-normal whitespace-nowrap">
-                                                        決済: {paymentServiceName}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </td>
-
-                                    <td className="border border-slate-300 p-2 text-center">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <div className="flex flex-col items-center leading-tight">
-                                                <span className="font-bold text-slate-800 text-xs">
-                                                    {fullName || companyName || '担当者未設定'}
-                                                </span>
-                                            </div>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => setActiveAddressOrder(order)}
-                                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 mt-1 rounded transition-colors whitespace-nowrap flex items-center gap-1 shadow-sm"
-                                            >
-                                                詳細
-                                            </button>
-                                        </div>
-                                    </td>
-
-                                    <td className="border border-slate-300 p-2">
-                                        <StatusBadge status={order.status} />
-                                    </td>
-
-                                    <td className="border border-slate-300 p-2 text-center font-medium">
-                                        <button
-                                            type="button"
-                                            onClick={() => toggleOrder(order.id)}
-                                            className="text-blue-600 hover:underline block mx-auto"
-                                        >
-                                            {itemCount} 件
-                                        </button>
-                                        {hasInfoRequiredItem && (
-                                            <div className="mt-1">
-                                                <span className="inline-block bg-red-100 text-red-700 border border-red-300 text-[10px] px-1.5 py-0.5 rounded font-bold animate-pulse whitespace-nowrap">
-                                                    要確認あり
-                                                </span>
-                                            </div>
-                                        )}
-                                    </td>
-
-                                    {/* 1. 総重量 */}
-                                    <td className="border border-slate-300 p-2 text-center">
-                                        {hasInvoice && !isEditingWeight ? (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <div className="flex items-baseline gap-0.5 px-2">
-                                                    <span className="font-mono font-bold text-slate-800 text-sm">{displayWeight || '-'}</span>
-                                                    <span className="text-[10px] text-slate-500">kg</span>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setOrderInputs(prev => ({ ...prev, [order.id]: { weight: displayWeight } }));
-                                                        setEditingWeight(prev => new Set(prev).add(order.id));
-                                                    }}
-                                                    className="px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors text-white bg-emerald-500 hover:bg-emerald-600"
-                                                >
-                                                    変更
-                                                </button>
+                                                <div className="flex gap-4 text-[11px] text-slate-400 font-mono">
+                                                    <span>日本仕入: <strong className="text-slate-200">¥{card.jpPriceJPY.toLocaleString()}</strong></span>
+                                                    <span>米相場: <strong className="text-slate-200">${card.usPriceUSD}</strong></span>
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800/80 leading-relaxed">
+                                                    {card.reason}
+                                                </p>
                                             </div>
-                                        ) : (
-                                            <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal, resolvedShippingDisp)} className="flex items-center justify-center gap-1.5">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    name="weightStr"
-                                                    placeholder="重量"
-                                                    value={displayWeight}
-                                                    onChange={(e) => handleWeightChange(order.id, e.target.value)}
-                                                    className="border border-slate-300 p-1.5 rounded text-xs w-20 text-right font-mono outline-blue-400 focus:border-blue-400 transition-colors bg-white"
-                                                />
-                                                <span className="text-[10px] text-slate-500">kg</span>
-                                                <ActionStateButton state={hasInvoice ? 'confirm' : 'save'} pendingText="..." />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
 
-                                                {isEditingWeight && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setEditingWeight(prev => { const next = new Set(prev); next.delete(order.id); return next; })}
-                                                        className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
-                                                    >
-                                                        取消
-                                                    </button>
-                                                )}
-                                            </form>
-                                        )}
-                                    </td>
+                            {/* 右カラム：SNS＆DMコンテンツ */}
+                            <div className="space-y-5">
+                                {/* SNS投稿（3パターン） */}
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+                                    <h3 className="text-sm font-bold text-sky-400 flex items-center gap-1.5">
+                                        <span>📱</span> 海外向けSNS投稿（X / Twitter）
+                                    </h3>
 
-                                    {/* 2. 配送ラベル */}
-                                    <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleGenerateFedExLabel(order.id)}
-                                            disabled={isGeneratingLabel}
-                                            className={`px-2.5 py-1.5 text-white font-bold rounded text-xs shadow-sm transition-colors whitespace-nowrap disabled:opacity-50 ${hasTracking ? 'bg-purple-900 hover:bg-purple-950' : 'bg-purple-700 hover:bg-purple-800'
-                                                }`}
-                                        >
-                                            {isGeneratingLabel ? '処理中...' : hasTracking ? '📄 ラベル表示 (PDF)' : '📦 ラベル作成'}
-                                        </button>
-                                    </td>
-
-                                    {/* 3. 追跡番号 */}
-                                    <td className="border border-slate-300 p-2">
-                                        {hasTracking ? (
-                                            <div className="bg-emerald-50 border border-emerald-200 px-2 py-1.5 rounded flex items-center justify-between">
-                                                <span className="text-xs font-mono text-emerald-900 font-bold truncate">
-                                                    {order.tracking_number}
-                                                </span>
-                                                <a
-                                                    href={getTrackingUrl(order.tracking_number)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    title="追跡状況を確認"
-                                                    className="text-blue-600 hover:text-blue-800 font-bold ml-2 text-xs"
-                                                >
-                                                    ↗
-                                                </a>
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-slate-400 italic px-1 block text-center">
-                                                未発行
-                                            </span>
-                                        )}
-                                    </td>
-
-                                    {/* 4. 着金金額 */}
-                                    <td className="border border-slate-300 p-2 text-right">
-                                        <span className="font-bold text-slate-700 text-sm">
-                                            {receivedAmount.toLocaleString()} 円
-                                        </span>
-                                    </td>
-
-                                    {/* 5. お支払い金額 */}
-                                    <td className="border border-slate-300 p-2 text-right">
-                                        <div className="flex flex-col items-end justify-center bg-amber-50 p-1.5 rounded border border-amber-300">
-                                            {isCalculating ? (
-                                                <span className="text-xs text-blue-600 font-bold animate-pulse px-1">送料試算中...</span>
-                                            ) : (
-                                                <span className="font-bold text-amber-700 text-sm px-1">
-                                                    {details.grandTotal.toLocaleString()} 円
-                                                </span>
-                                            )}
-                                            {calcErrorMsg && (
-                                                <span className="text-[9px] text-rose-600 font-bold mt-0.5" title={calcErrorMsg}>
-                                                    ⚠️ {calcErrorMsg}
-                                                </span>
-                                            )}
+                                    {/* ハイブリッド */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-bold text-amber-400 text-[11px]">★ 推奨: トレンド×サヤ ハイブリッド型</span>
+                                            <button
+                                                onClick={() => handleCopy(aiData.snsPosts.hybridPost, 'hybrid')}
+                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                            >
+                                                {copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}
+                                            </button>
                                         </div>
-                                    </td>
+                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
+                                            {aiData.snsPosts.hybridPost}
+                                        </pre>
+                                    </div>
 
-                                    {/* 6. 請求書送信 (PayPal / Wise 対応) */}
-                                    <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
-                                        {isPaymentRequired || isShipped ? (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="px-3 py-1.5 rounded text-xs font-bold shadow-sm text-white bg-emerald-500 cursor-default">
-                                                    送信済み
-                                                </span>
-                                                {!isShipped && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleCancelPaymentRequired(order)}
-                                                        className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
-                                                    >
-                                                        取消
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ) : (
+                                    {/* サヤ特化 */}
+                                    <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-bold text-emerald-400 text-[11px]">利益・スプレッド特化型</span>
                                             <button
-                                                type="button"
-                                                onClick={() => handleSendInvoiceByPaymentMethod(order, details.grandTotal)}
-                                                disabled={!canSendInvoice}
-                                                title={!canSendInvoice ? "総重量を入力してお支払い金額を算出してください" : `${paymentServiceName || 'Wise'}で請求を作成`}
-                                                className={`px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors whitespace-nowrap text-white ${!canSendInvoice
-                                                    ? 'bg-slate-300 cursor-not-allowed opacity-70'
-                                                    : paymentServiceName === 'PayPal'
-                                                        ? 'bg-[#003087] hover:bg-[#001C60]'
-                                                        : 'bg-slate-700 hover:bg-slate-800'
-                                                    }`}
+                                                onClick={() => handleCopy(aiData.snsPosts.arbitragePost, 'arbitrage')}
+                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
                                             >
-                                                {paymentServiceName === 'PayPal' ? '送信 (PayPal) ↗' : '送信 (Wise) ↗'}
+                                                {copiedKey === 'arbitrage' ? '✓ コピー完了' : 'コピー'}
                                             </button>
-                                        )}
-                                    </td>
+                                        </div>
+                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
+                                            {aiData.snsPosts.arbitragePost}
+                                        </pre>
+                                    </div>
 
-                                    {/* 7. 発送状態 */}
-                                    <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
-                                        {isShipped ? (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="px-3 py-1.5 rounded text-xs font-bold shadow-sm text-white bg-emerald-500 cursor-default">
-                                                    発送済み
-                                                </span>
+                                    {/* トレンド特化 */}
+                                    <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="font-bold text-sky-400 text-[11px]">トレンド・考察特化型</span>
+                                            <button
+                                                onClick={() => handleCopy(aiData.snsPosts.trendPost, 'trend')}
+                                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                            >
+                                                {copiedKey === 'trend' ? '✓ コピー完了' : 'コピー'}
+                                            </button>
+                                        </div>
+                                        <pre className="p-2.5 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
+                                            {aiData.snsPosts.trendPost}
+                                        </pre>
+                                    </div>
+                                </div>
+
+                                {/* 営業DM */}
+                                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+                                            <span>✉️</span> 大口バイヤー向け営業オファー文
+                                        </h3>
+                                        <button
+                                            onClick={() => handleCopy(aiData.salesDM, 'dm')}
+                                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+                                        >
+                                            {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
+                                        </button>
+                                    </div>
+                                    <div className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap border border-slate-800 max-h-80 overflow-y-auto leading-relaxed">
+                                        {aiData.salesDM}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* 2. 既存の注文管理テーブル タブの内容 */}
+            {/* ========================================================= */}
+            {activeTab === 'orders' && (
+                <div className="overflow-x-auto">
+                    <h2 className="text-lg font-bold mb-3 text-slate-800">注文一覧</h2>
+                    <table className="min-w-full border-collapse border border-slate-300 text-sm text-left bg-white shadow-sm">
+                        <thead className="bg-slate-100">
+                            <tr>
+                                <th className="border border-slate-300 p-2 w-10 text-center"></th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center">注文No.</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center min-w-[130px]">ユーザー情報</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap">注文ステータス</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center">商品数</th>
+                                <th className="border border-slate-300 p-2 min-w-[200px] text-center">総重量</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center min-w-[140px]">配送ラベル</th>
+                                <th className="border border-slate-300 p-2 min-w-[200px]">追跡番号</th>
+                                <th className="border border-slate-300 p-2 min-w-[150px] text-right">着金金額</th>
+                                <th className="border border-slate-300 p-2 min-w-[150px] text-right">お支払い金額</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center">請求書送信</th>
+                                <th className="border border-slate-300 p-2 whitespace-nowrap text-center">発送状態</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {orders?.map((order) => {
+                                if (!order) return null
+                                const isExpanded = expandedOrders.has(order.id)
+                                const itemCount = order.order_items?.length || 0
+                                const hasInvoice = order.total_amount !== null && order.total_amount !== undefined && Number(order.total_amount) > 0
+                                const isPaymentRequired = order.status === 'payment_required'
+                                const hasTracking = Boolean(order.tracking_number && String(order.tracking_number).trim() !== '')
+                                const isShipped = order.status === 'shipped'
+                                const hasInfoRequiredItem = order.order_items?.some((oi: any) => {
+                                    const item = Array.isArray(oi.items) ? oi.items[0] : oi.items
+                                    return item?.status === 'info_required'
+                                })
+                                const isEditingWeight = editingWeight.has(order.id);
+                                const inputs = orderInputs[order.id] || {}
+                                let displayWeight = inputs.weight !== undefined ? inputs.weight : (order.weight !== undefined && order.weight !== null ? String(order.weight) : '');
+                                const weightVal = parseFloat(displayWeight) || 0;
+                                const calculatedFee = calculatedFees[order.id] ?? null;
+                                const wiseQuote = wiseQuoteData[order.id] ?? null;
+                                const details = calculateInvoiceDetails(order, calculatedFee, hasInvoice, isEditingWeight, wiseQuote);
+                                const receivedAmount = details.productTotal + details.proxyFee + details.shippingFee;
+                                const shippingServiceName = order.shipping_method;
+                                const paymentServiceName = order.payment_method;
+                                const isCalculating = calculatingOrders.has(order.id);
+                                const calcErrorMsg = calcErrors[order.id];
+                                const fullName = order.profiles?.full_name;
+                                const companyName = order.profiles?.company_name;
+                                const canMarkAsShipped = isPaymentRequired && hasTracking
+                                const canSendInvoice = hasInvoice || details.grandTotal > 0
+                                const resolvedShippingDisp = (shippingServiceName?.includes('最安プラン') || !shippingServiceName)
+                                    ? (selectedServiceNames[order.id] ? `${selectedServiceNames[order.id]}` : (shippingServiceName || '最安プラン自動選択 (航空便)'))
+                                    : shippingServiceName;
+
+                                return (
+                                    <React.Fragment key={order.id}>
+                                        <tr className="hover:bg-slate-50 transition-colors border-t border-slate-300">
+                                            <td className="border border-slate-300 p-2 text-center">
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleCancelShip(order.id)}
-                                                    className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
+                                                    onClick={() => toggleOrder(order.id)}
+                                                    className="p-1 rounded hover:bg-slate-200 text-slate-600 font-mono text-xs w-6 h-6 flex items-center justify-center"
                                                 >
-                                                    取消
+                                                    {isExpanded ? '▼' : '▶'}
                                                 </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleMarkAsShipped(order)}
-                                                disabled={!canMarkAsShipped}
-                                                title={!canMarkAsShipped ? "請求書の送信完了および配送ラベル/追跡番号の発行が必要です" : ""}
-                                                className={`px-3 py-1.5 text-white rounded text-xs font-bold shadow-sm transition-colors ${canMarkAsShipped
-                                                    ? 'bg-blue-600 hover:bg-blue-700'
-                                                    : 'bg-slate-300 cursor-not-allowed opacity-70'
-                                                    }`}
-                                            >
-                                                発送完了
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
+                                            </td>
 
-                                {isExpanded && (
-                                    <tr className="bg-slate-50/70">
-                                        <td colSpan={11} className="border border-slate-300 p-4 pl-12">
-                                            <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
-                                                <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">
-                                                    <span>■ 請求明細</span>
-                                                    {!hasInvoice && <span className="text-[10px] text-amber-600 font-normal">※ユーザー選択方法（{shippingServiceName || '航空便'}）＆重量に基づき試算中</span>}
-                                                </h4>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-slate-500 font-medium">商品価格合計</span>
-                                                        <span className="text-sm font-mono text-slate-800">{details.productTotal.toLocaleString()} 円</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-slate-500 font-medium">代理手数料 (5%)</span>
-                                                        <span className="text-sm font-mono text-slate-800">{details.proxyFee.toLocaleString()} 円</span>
-                                                    </div>
-
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-slate-500 font-medium">
-                                                            送料 <span className="text-slate-500 font-normal">({resolvedShippingDisp})</span>
-                                                        </span>
-                                                        <div className="flex items-baseline gap-1">
-                                                            <span className="text-sm font-mono text-slate-800">{details.shippingFee.toLocaleString()} 円</span>
-                                                            <span className="text-[10px] font-mono text-blue-600 font-bold">
-                                                                ({weightVal > 0 ? `${weightVal}kg` : '-'})
+                                            <td className="border border-slate-300 p-2 font-mono text-xs font-bold text-center text-slate-700">
+                                                #{order.user_order_seq ?? order.order_number ?? '-'}
+                                                {(shippingServiceName || paymentServiceName) && (
+                                                    <div className="flex flex-col gap-0.5 mt-1">
+                                                        {shippingServiceName && (
+                                                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1 py-0.2 rounded font-normal whitespace-nowrap">
+                                                                配送: {shippingServiceName}
                                                             </span>
-                                                        </div>
+                                                        )}
+                                                        {paymentServiceName && (
+                                                            <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1 py-0.2 rounded font-normal whitespace-nowrap">
+                                                                決済: {paymentServiceName}
+                                                            </span>
+                                                        )}
                                                     </div>
+                                                )}
+                                            </td>
 
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                                                            決済手数料 {paymentServiceName ? <span className="text-slate-400 font-normal">({paymentServiceName})</span> : ''}
-                                                            {paymentServiceName === 'Wise' && wiseQuoteData[order.id] !== undefined && (
-                                                                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 rounded">API取得</span>
-                                                            )}
+                                            <td className="border border-slate-300 p-2 text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <div className="flex flex-col items-center leading-tight">
+                                                        <span className="font-bold text-slate-800 text-xs">
+                                                            {fullName || companyName || '担当者未設定'}
                                                         </span>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-mono text-slate-800">{details.paymentFee.toLocaleString()} 円</span>
-                                                            {details.paymentFeeDetail && (
-                                                                <span className="text-[9px] text-slate-500 font-normal">
-                                                                    内訳: {details.paymentFeeDetail}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveAddressOrder(order)}
+                                                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 mt-1 rounded transition-colors whitespace-nowrap flex items-center gap-1 shadow-sm"
+                                                    >
+                                                        詳細
+                                                    </button>
+                                                </div>
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2">
+                                                <StatusBadge status={order.status} />
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-center font-medium">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleOrder(order.id)}
+                                                    className="text-blue-600 hover:underline block mx-auto"
+                                                >
+                                                    {itemCount} 件
+                                                </button>
+                                                {hasInfoRequiredItem && (
+                                                    <div className="mt-1">
+                                                        <span className="inline-block bg-red-100 text-red-700 border border-red-300 text-[10px] px-1.5 py-0.5 rounded font-bold animate-pulse whitespace-nowrap">
+                                                            要確認あり
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-center">
+                                                {hasInvoice && !isEditingWeight ? (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <div className="flex items-baseline gap-0.5 px-2">
+                                                            <span className="font-mono font-bold text-slate-800 text-sm">{displayWeight || '-'}</span>
+                                                            <span className="text-[10px] text-slate-500">kg</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setOrderInputs(prev => ({ ...prev, [order.id]: { weight: displayWeight } }));
+                                                                setEditingWeight(prev => new Set(prev).add(order.id));
+                                                            }}
+                                                            className="px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors text-white bg-emerald-500 hover:bg-emerald-600"
+                                                        >
+                                                            変更
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <form action={handleInvoiceSubmit.bind(null, order.id, details.shippingFee, details.grandTotal, resolvedShippingDisp)} className="flex items-center justify-center gap-1.5">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            name="weightStr"
+                                                            placeholder="重量"
+                                                            value={displayWeight}
+                                                            onChange={(e) => handleWeightChange(order.id, e.target.value)}
+                                                            className="border border-slate-300 p-1.5 rounded text-xs w-20 text-right font-mono outline-blue-400 focus:border-blue-400 transition-colors bg-white"
+                                                        />
+                                                        <span className="text-[10px] text-slate-500">kg</span>
+                                                        <ActionStateButton state={hasInvoice ? 'confirm' : 'save'} pendingText="..." />
+
+                                                        {isEditingWeight && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditingWeight(prev => { const next = new Set(prev); next.delete(order.id); return next; })}
+                                                                className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
+                                                            >
+                                                                取消
+                                                            </button>
+                                                        )}
+                                                    </form>
+                                                )}
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleGenerateFedExLabel(order.id)}
+                                                    disabled={isGeneratingLabel}
+                                                    className={`px-2.5 py-1.5 text-white font-bold rounded text-xs shadow-sm transition-colors whitespace-nowrap disabled:opacity-50 ${hasTracking ? 'bg-purple-900 hover:bg-purple-950' : 'bg-purple-700 hover:bg-purple-800'}`}
+                                                >
+                                                    {isGeneratingLabel ? '処理中...' : hasTracking ? '📄 ラベル表示 (PDF)' : '📦 ラベル作成'}
+                                                </button>
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2">
+                                                {hasTracking ? (
+                                                    <div className="bg-emerald-50 border border-emerald-200 px-2 py-1.5 rounded flex items-center justify-between">
+                                                        <span className="text-xs font-mono text-emerald-900 font-bold truncate">
+                                                            {order.tracking_number}
+                                                        </span>
+                                                        <a
+                                                            href={getTrackingUrl(order.tracking_number)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            title="追跡状況を確認"
+                                                            className="text-blue-600 hover:text-blue-800 font-bold ml-2 text-xs"
+                                                        >
+                                                            ↗
+                                                        </a>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 italic px-1 block text-center">
+                                                        未発行
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-right">
+                                                <span className="font-bold text-slate-700 text-sm">
+                                                    {receivedAmount.toLocaleString()} 円
+                                                </span>
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-right">
+                                                <div className="flex flex-col items-end justify-center bg-amber-50 p-1.5 rounded border border-amber-300">
+                                                    {isCalculating ? (
+                                                        <span className="text-xs text-blue-600 font-bold animate-pulse px-1">送料試算中...</span>
+                                                    ) : (
+                                                        <span className="font-bold text-amber-700 text-sm px-1">
+                                                            {details.grandTotal.toLocaleString()} 円
+                                                        </span>
+                                                    )}
+                                                    {calcErrorMsg && (
+                                                        <span className="text-[9px] text-rose-600 font-bold mt-0.5" title={calcErrorMsg}>
+                                                            ⚠️ {calcErrorMsg}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
+                                                {isPaymentRequired || isShipped ? (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <span className="px-3 py-1.5 rounded text-xs font-bold shadow-sm text-white bg-emerald-500 cursor-default">
+                                                            送信済み
+                                                        </span>
+                                                        {!isShipped && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCancelPaymentRequired(order)}
+                                                                className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
+                                                            >
+                                                                取消
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSendInvoiceByPaymentMethod(order, details.grandTotal)}
+                                                        disabled={!canSendInvoice}
+                                                        className={`px-3 py-1.5 rounded text-xs font-bold shadow-sm transition-colors whitespace-nowrap text-white ${!canSendInvoice
+                                                            ? 'bg-slate-300 cursor-not-allowed opacity-70'
+                                                            : paymentServiceName === 'PayPal'
+                                                                ? 'bg-[#003087] hover:bg-[#001C60]'
+                                                                : 'bg-slate-700 hover:bg-slate-800'
+                                                            }`}
+                                                    >
+                                                        {paymentServiceName === 'PayPal' ? '送信 (PayPal) ↗' : '送信 (Wise) ↗'}
+                                                    </button>
+                                                )}
+                                            </td>
+
+                                            <td className="border border-slate-300 p-2 text-center whitespace-nowrap">
+                                                {isShipped ? (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <span className="px-3 py-1.5 rounded text-xs font-bold shadow-sm text-white bg-emerald-500 cursor-default">
+                                                            発送済み
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleCancelShip(order.id)}
+                                                            className="text-[10px] text-rose-600 hover:text-rose-800 underline whitespace-nowrap"
+                                                        >
+                                                            取消
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleMarkAsShipped(order)}
+                                                        disabled={!canMarkAsShipped}
+                                                        className={`px-3 py-1.5 text-white rounded text-xs font-bold shadow-sm transition-colors ${canMarkAsShipped
+                                                            ? 'bg-blue-600 hover:bg-blue-700'
+                                                            : 'bg-slate-300 cursor-not-allowed opacity-70'
+                                                            }`}
+                                                    >
+                                                        発送完了
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+
+                                        {isExpanded && (
+                                            <tr className="bg-slate-50/70">
+                                                <td colSpan={12} className="border border-slate-300 p-4 pl-12">
+                                                    <div className="bg-white border border-slate-200 rounded shadow-inner p-4 mb-4">
+                                                        <h4 className="text-xs font-bold text-slate-600 mb-3 border-b border-slate-200 pb-1 flex justify-between items-center">
+                                                            <span>■ 請求明細</span>
+                                                            {!hasInvoice && <span className="text-[10px] text-amber-600 font-normal">※ユーザー選択方法（{shippingServiceName || '航空便'}）＆重量に基づき試算中</span>}
+                                                        </h4>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] text-slate-500 font-medium">商品価格合計</span>
+                                                                <span className="text-sm font-mono text-slate-800">{details.productTotal.toLocaleString()} 円</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] text-slate-500 font-medium">代理手数料 (5%)</span>
+                                                                <span className="text-sm font-mono text-slate-800">{details.proxyFee.toLocaleString()} 円</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] text-slate-500 font-medium">送料 ({resolvedShippingDisp})</span>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className="text-sm font-mono text-slate-800">{details.shippingFee.toLocaleString()} 円</span>
+                                                                    <span className="text-[10px] font-mono text-blue-600 font-bold">({weightVal > 0 ? `${weightVal}kg` : '-'})</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                                                                    決済手数料 {paymentServiceName ? `(${paymentServiceName})` : ''}
                                                                 </span>
-                                                            )}
+                                                                <span className="text-sm font-mono text-slate-800">{details.paymentFee.toLocaleString()} 円</span>
+                                                            </div>
+                                                            <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
+                                                                <span className="text-[10px] text-amber-800 font-bold">お支払い金額</span>
+                                                                <span className="text-base font-mono font-bold text-amber-700">{details.grandTotal.toLocaleString()} 円</span>
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-col bg-amber-100/50 p-1.5 rounded border border-amber-200 -mt-1 -mb-1 justify-center px-2">
-                                                        <span className="text-[10px] text-amber-800 font-bold">お支払い金額</span>
-                                                        <span className="text-base font-mono font-bold text-amber-700">{details.grandTotal.toLocaleString()} 円</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-white border border-slate-200 rounded shadow-inner p-3">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                        注文商品一覧 ({itemCount}件)
-                                                    </h4>
-                                                    <BulkStatusSelectForm orderId={order.id} onBulkUpdate={handleBulkStatusUpdate} />
-                                                </div>
-                                                <table className="min-w-full border-collapse border border-slate-200 text-xs text-left">
-                                                    <thead>
-                                                        <tr className="bg-slate-100 text-slate-700">
-                                                            <th className="border border-slate-200 p-2 font-semibold min-w-[180px]">商品名</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold">URL</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-24">備考(サイズ等)</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-20 text-center whitespace-nowrap">依頼数量</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-24 text-center whitespace-nowrap">確定数量</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-24 text-right">希望価格</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-28 text-right">購入価格(確定)</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold w-32">ステータス</th>
-                                                            <th className="border border-slate-200 p-2 font-semibold min-w-[200px]">連絡欄 (ユーザーへ確認)</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {order.order_items?.map((oi: any, idx: number) => {
-                                                            const item = Array.isArray(oi.items) ? oi.items[0] : oi.items
-                                                            if (!item) return null
-
-                                                            const cartQty = item.quantity ?? 1
-                                                            const adminQty = item.admin_quantity
-
-                                                            const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
-                                                            const displayPrice = item.price ?? (isInhouse ? item.price_estimated : null);
-
-                                                            return (
-                                                                <tr key={item.id || idx} className="hover:bg-slate-50 transition-colors">
-                                                                    <td className="border border-slate-200 p-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            defaultValue={item?.title || ''}
-                                                                            placeholder="商品名を入力"
-                                                                            onFocus={(e) => {
-                                                                                const target = e.target
-                                                                                setTimeout(() => target.select(), 0)
-                                                                            }}
-                                                                            onBlur={(e) => {
-                                                                                const val = e.target.value.trim()
-                                                                                if (val !== (item?.title || '')) {
-                                                                                    handleTitleChange(item.id, val)
-                                                                                }
-                                                                            }}
-                                                                            className="w-full border border-slate-300 p-1 rounded text-xs font-medium text-slate-800 outline-blue-400 focus:border-blue-400"
-                                                                        />
-                                                                    </td>
-            
-                                                                    <td className="border border-slate-200 p-2 max-w-[150px] truncate">
-                                                                        {isInhouse ? (
-                                                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold border border-blue-300">
-                                                                                In-House Inventory
-                                                                            </span>
-                                                                        ) : item.url ? (
-                                                                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block">
-                                                                                {item.url}
-                                                                            </a>
-                                                                        ) : (
-                                                                            <span className="text-slate-400">-</span>
-                                                                        )}
-                                                                    </td>
-
-                                                                    <td className="border border-slate-200 p-2 text-xs text-slate-600 max-w-[120px] truncate" title={item.remarks}>
-                                                                        {item.remarks || '-'}
-                                                                    </td>
-                                                                    <td className="border border-slate-200 p-2 text-center font-mono text-slate-500">
-                                                                       {Number(cartQty).toLocaleString()}
-                                                                    </td>
-                                                                    <td className="border border-slate-200 p-2 text-center">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            defaultValue={adminQty ?? cartQty}
-                                                                            onFocus={(e) => {
-                                                                                const target = e.target
-                                                                                setTimeout(() => target.select(), 0)
-                                                                            }}
-                                                                            onBlur={(e) => {
-                                                                                const val = Number(e.target.value)
-                                                                                if (val !== adminQty && val > 0) {
-                                                                                    handleQuantityChange(item.id, val)
-                                                                                }
-                                                                            }}
-                                                                            className="border border-slate-300 p-1 rounded text-xs w-20 text-center font-mono font-bold"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="border border-slate-200 p-2 text-right font-mono text-slate-500">
-                                                                        {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
-                                                                    </td>
-            
-                                                                    <td className="border border-slate-200 p-2 text-right">
-                                                                        <CurrencyInput
-                                                                            defaultValue={displayPrice}
-                                                                            placeholder="落札/購入額"
-                                                                            onValueChange={(val) => {
-                                                                                if (val !== item.price) {
-                                                                                    handlePriceChange(item.id, val)
-                                                                                }
-                                                                            }}
-                                                                            className="border border-slate-300 p-1 rounded text-xs w-24 text-right font-mono"
-                                                                        />
-                                                                    </td>
-
-                                                                    <td className="border border-slate-200 p-2 align-top">
-                                                                        <ItemStatusSelect
-                                                                            item={item}
-                                                                            onStatusChange={(newStatus) => handleItemStatusUpdated(order.id, item.id, newStatus)}
-                                                                        />
-                                                                    </td>
-
-                                                                    <td className="border border-slate-200 p-2 align-top">
-                                                                        <AdminNoteForm
-                                                                            orderId={order.id}
-                                                                            item={item}
-                                                                            onSubmit={handleNoteSubmit}
-                                                                            onCancel={handleCancelNote}
-                                                                        />
-                                                                    </td>
+                                                    <div className="bg-white border border-slate-200 rounded shadow-inner p-3">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                                注文商品一覧 ({itemCount}件)
+                                                            </h4>
+                                                            <BulkStatusSelectForm orderId={order.id} onBulkUpdate={handleBulkStatusUpdate} />
+                                                        </div>
+                                                        <table className="min-w-full border-collapse border border-slate-200 text-xs text-left">
+                                                            <thead>
+                                                                <tr className="bg-slate-100 text-slate-700">
+                                                                    <th className="border border-slate-200 p-2 font-semibold min-w-[180px]">商品名</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold">URL</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-24">備考(サイズ等)</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-20 text-center whitespace-nowrap">依頼数量</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-24 text-center whitespace-nowrap">確定数量</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-24 text-right">希望価格</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-28 text-right">購入価格(確定)</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold w-32">ステータス</th>
+                                                                    <th className="border border-slate-200 p-2 font-semibold min-w-[200px]">連絡欄 (ユーザーへ確認)</th>
                                                                 </tr>
-                                                            )
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                                <AddAdjustmentForm orderId={order.id} userId={order.user_id} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </React.Fragment>
-                        )
-                    })}
-                </tbody>
-            </table>
+                                                            </thead>
+                                                            <tbody>
+                                                                {order.order_items?.map((oi: any, idx: number) => {
+                                                                    const item = Array.isArray(oi.items) ? oi.items[0] : oi.items
+                                                                    if (!item) return null
+                                                                    const cartQty = item.quantity ?? 1
+                                                                    const adminQty = item.admin_quantity
+                                                                    const isInhouse = item.url?.startsWith('inhouse://') || item.url?.startsWith('inhouse-item-');
+                                                                    const displayPrice = item.price ?? (isInhouse ? item.price_estimated : null);
 
+                                                                    return (
+                                                                        <tr key={item.id || idx} className="hover:bg-slate-50 transition-colors">
+                                                                            <td className="border border-slate-200 p-2">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    defaultValue={item?.title || ''}
+                                                                                    placeholder="商品名を入力"
+                                                                                    onBlur={(e) => {
+                                                                                        const val = e.target.value.trim()
+                                                                                        if (val !== (item?.title || '')) handleTitleChange(item.id, val)
+                                                                                    }}
+                                                                                    className="w-full border border-slate-300 p-1 rounded text-xs font-medium text-slate-800 outline-blue-400"
+                                                                                />
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 max-w-[150px] truncate">
+                                                                                {isInhouse ? (
+                                                                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold border border-blue-300">
+                                                                                        In-House Inventory
+                                                                                    </span>
+                                                                                ) : item.url ? (
+                                                                                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block">
+                                                                                        {item.url}
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <span className="text-slate-400">-</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 text-xs text-slate-600 max-w-[120px] truncate" title={item.remarks}>
+                                                                                {item.remarks || '-'}
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 text-center font-mono text-slate-500">
+                                                                                {Number(cartQty).toLocaleString()}
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 text-center">
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min={1}
+                                                                                    defaultValue={adminQty ?? cartQty}
+                                                                                    onBlur={(e) => {
+                                                                                        const val = Number(e.target.value)
+                                                                                        if (val !== adminQty && val > 0) handleQuantityChange(item.id, val)
+                                                                                    }}
+                                                                                    className="border border-slate-300 p-1 rounded text-xs w-20 text-center font-mono font-bold"
+                                                                                />
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 text-right font-mono text-slate-500">
+                                                                                {item.desired_price ? `${Number(item.desired_price).toLocaleString()} 円` : '-'}
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 text-right">
+                                                                                <CurrencyInput
+                                                                                    defaultValue={displayPrice}
+                                                                                    placeholder="落札/購入額"
+                                                                                    onValueChange={(val) => {
+                                                                                        if (val !== item.price) handlePriceChange(item.id, val)
+                                                                                    }}
+                                                                                    className="border border-slate-300 p-1 rounded text-xs w-24 text-right font-mono"
+                                                                                />
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 align-top">
+                                                                                <ItemStatusSelect
+                                                                                    item={item}
+                                                                                    onStatusChange={(newStatus) => handleItemStatusUpdated(order.id, item.id, newStatus)}
+                                                                                />
+                                                                            </td>
+                                                                            <td className="border border-slate-200 p-2 align-top">
+                                                                                <AdminNoteForm
+                                                                                    orderId={order.id}
+                                                                                    item={item}
+                                                                                    onSubmit={handleNoteSubmit}
+                                                                                    onCancel={handleCancelNote}
+                                                                                />
+                                                                            </td>
+                                                                        </tr>
+                                                                    )
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                        <AddAdjustmentForm orderId={order.id} userId={order.user_id} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* モーダル表示 */}
             {activeAddressOrder && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-lg w-full border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col animate-fadeIn">
@@ -1503,7 +1587,6 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                 ✕
                             </button>
                         </div>
-
                         <div className="p-4 space-y-4 text-xs text-slate-700 overflow-y-auto">
                             <div className="border border-slate-200 rounded p-3 bg-slate-50 space-y-2">
                                 <h4 className="font-bold text-slate-800 text-xs border-b border-slate-200 pb-1 flex justify-between items-center">
@@ -1523,97 +1606,14 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
                                     </button>
                                 </h4>
                                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">担当者名 (Full Name):</span>
-                                        <span className="font-bold text-slate-800">{activeAddressOrder.profiles?.full_name || '未設定'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">会社名 (Company Name):</span>
-                                        <span className="font-medium text-slate-800">{activeAddressOrder.profiles?.company_name || '-'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">電話番号 (Phone):</span>
-                                        <span className="font-mono font-bold text-slate-800">{activeAddressOrder.profiles?.phone || '未設定'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">連絡用Email (Contact Email):</span>
-                                        <span className="font-mono font-bold text-blue-700">{activeAddressOrder.profiles?.contact_email || activeAddressOrder.profiles?.email || '未設定'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">国 (Country):</span>
-                                        <span className="font-bold text-slate-800 font-mono">{activeAddressOrder.shipping_country || activeAddressOrder.profiles?.country || '未設定'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">FedEx アカウント番号:</span>
-                                        <span className="font-mono font-bold text-purple-700">{activeAddressOrder.profiles?.fedex_account_number || '未登録'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">郵便番号 (Zip Code):</span>
-                                        <span className="font-bold text-slate-800 font-mono">{activeAddressOrder.shipping_zip_code || activeAddressOrder.profiles?.zip_code || '未設定'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">納税番号 (Tax ID):</span>
-                                        <span className="font-mono text-slate-800">{activeAddressOrder.profiles?.tax_id || '-'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">都市名 (City):</span>
-                                        <span className="font-medium text-slate-800">{activeAddressOrder.shipping_city || activeAddressOrder.profiles?.city || '-'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">州または省 (State/Province):</span>
-                                        <span className="font-medium text-slate-800">{activeAddressOrder.shipping_state_province || activeAddressOrder.profiles?.state_province || '-'}</span>
-                                    </div>
-
-                                    <div className="col-span-2 pt-1 border-t border-slate-200/80">
-                                        <span className="text-slate-400 block font-bold">住所1 (Address Line 1):</span>
-                                        <span className="font-medium text-slate-800 font-mono">
-                                            {activeAddressOrder.shipping_address_line1 || activeAddressOrder.profiles?.address_line1 || '-'}
-                                        </span>
-                                    </div>
-
-                                    {(activeAddressOrder.shipping_address_line2 || activeAddressOrder.profiles?.address_line2) && (
-                                        <div className="col-span-2">
-                                            <span className="text-slate-400 block font-bold">住所2 (Address Line 2):</span>
-                                            <span className="font-medium text-slate-800 font-mono">
-                                                {activeAddressOrder.shipping_address_line2 || activeAddressOrder.profiles?.address_line2}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {(activeAddressOrder.shipping_address_line3 || activeAddressOrder.profiles?.address_line3) && (
-                                        <div className="col-span-2">
-                                            <span className="text-slate-400 block font-bold">住所3 (Address Line 3):</span>
-                                            <span className="font-medium text-slate-800 font-mono">
-                                                {activeAddressOrder.shipping_address_line3 || activeAddressOrder.profiles?.address_line3}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    <div className="col-span-2">
-                                        <span className="text-slate-400 block font-bold">お届け先の種類:</span>
-                                        <span className="font-medium text-slate-800">
-                                            {(activeAddressOrder.shipping_is_residential ?? activeAddressOrder.profiles?.is_residential) ? '個人宅 (Residential)' : '事業所・会社 (Commercial)'}
-                                        </span>
-                                    </div>
-
-                                    <div className="col-span-2 pt-1 border-t border-slate-200 mt-1">
-                                        <span className="text-slate-400 block font-bold">ログイン用Email (システム管理用):</span>
-                                        <span className="font-mono text-slate-600">{activeAddressOrder.profiles?.email || '未設定'}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="border border-slate-200 rounded p-3 bg-slate-50 space-y-2">
-                                <h4 className="font-bold text-slate-800 text-xs border-b border-slate-200 pb-1">■ お支払いアカウント情報</h4>
-                                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">Wise用Email:</span>
-                                        <span className="font-mono font-bold text-slate-800">{activeAddressOrder.profiles?.wise_email || '-'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-slate-400 block font-bold">PayPalアカウント:</span>
-                                        <span className="font-mono text-slate-800">{activeAddressOrder.profiles?.paypal_email || '-'}</span>
-                                    </div>
+                                    <div><span className="text-slate-400 block font-bold">担当者名:</span><span className="font-bold text-slate-800">{activeAddressOrder.profiles?.full_name || '未設定'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">会社名:</span><span className="font-medium text-slate-800">{activeAddressOrder.profiles?.company_name || '-'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">電話番号:</span><span className="font-mono font-bold text-slate-800">{activeAddressOrder.profiles?.phone || '未設定'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">連絡用Email:</span><span className="font-mono font-bold text-blue-700">{activeAddressOrder.profiles?.contact_email || activeAddressOrder.profiles?.email || '未設定'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">国:</span><span className="font-bold text-slate-800 font-mono">{activeAddressOrder.shipping_country || activeAddressOrder.profiles?.country || '未設定'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">FedEx No:</span><span className="font-mono font-bold text-purple-700">{activeAddressOrder.profiles?.fedex_account_number || '未登録'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">郵便番号:</span><span className="font-bold text-slate-800 font-mono">{activeAddressOrder.shipping_zip_code || activeAddressOrder.profiles?.zip_code || '未設定'}</span></div>
+                                    <div><span className="text-slate-400 block font-bold">納税番号:</span><span className="font-mono text-slate-800">{activeAddressOrder.profiles?.tax_id || '-'}</span></div>
                                 </div>
                             </div>
                         </div>

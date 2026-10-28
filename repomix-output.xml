@@ -87,6 +87,8 @@ app/
       fedex/
         shipment/
           route.ts
+      intelligence/
+        page.tsx
       paypal/
         invoice/
           route.ts
@@ -293,6 +295,23 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
+<file path="app/[lang]/forgot-password/page.tsx">
+// app/[lang]/forgot-password/page.tsx
+⋮----
+import { useActionState, use } from 'react'
+import { resetPassword } from '@/app/actions/auth'
+import Link from 'next/link'
+import { getDictionary } from '@/lib/dictionaries'
+⋮----
+// 1. URLから言語(lang)を取得し、対応する辞書を読み込む
+⋮----
+{/* 2. ベタ書きだった日本語を辞書データ {t.XXX} に置き換え */}
+⋮----
+{/* 「メールアドレス」のラベルは辞書にないのでここで直接切り替え */}
+⋮----
+{/* 3. 戻るリンクも、現在の言語(lang)を引き継ぐように修正 */}
+</file>
+
 <file path="app/[lang]/login/page.tsx">
 // app/[lang]/login/page.tsx
 ⋮----
@@ -307,6 +326,13 @@ import Link from 'next/link'
 import { useActionState, use } from 'react'
 import { signup } from '@/app/actions/auth'
 import Link from 'next/link'
+</file>
+
+<file path="app/[lang]/update-password/page.tsx">
+// app/update-password/page.tsx
+⋮----
+import { useActionState } from 'react'
+import { updatePassword } from '@/app/actions/auth'
 </file>
 
 <file path="app/actions/auth.ts">
@@ -448,56 +474,6 @@ export async function POST(req: Request)
 // [NEW] 柔軟な ID 取得ロジック (ルート id, links 配列, Href等からの抽出)
 ⋮----
 // 5. 請求書の送信 (Send Invoice)
-</file>
-
-<file path="app/api/ai/intelligence/route.ts">
-// app/api/ai/intelligence/route.ts
-import { NextResponse } from 'next/server';
-import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
-import { ChatOpenAI } from '@langchain/openai';
-⋮----
-// ---------------------------------------------------------
-// 1. State（共有ノート）の定義
-// ---------------------------------------------------------
-⋮----
-reducer: (curr, next) => next, // 常に新しい配列で上書き
-⋮----
-// ---------------------------------------------------------
-// 2. Node 1: 予言者AI (marketTrendAgent)
-// ---------------------------------------------------------
-async function marketTrendAgent(state: typeof GraphState.State)
-⋮----
-// OpenAIモデルの初期化 (ここでは軽量・高速な gpt-4o-mini を使用)
-⋮----
-// LLMにトレンド予測を依頼し、JSON配列形式で返すように指示
-⋮----
-// LLMの返答からJSONをパース（余計なマークダウン記号などを除去）
-⋮----
-// Stateの trends を更新して次のノードへ渡す
-⋮----
-// エラー時のフォールバックダミーデータ
-⋮----
-// ---------------------------------------------------------
-// 3. Node 2: ハンターAI (sayaAnalysisAgent)
-// ---------------------------------------------------------
-async function sayaAnalysisAgent(state: typeof GraphState.State)
-⋮----
-const EXCHANGE_RATE = 150; // 1USD = 150JPY
-const PROXY_FEE = 1.05;    // 5%の手数料
-const SHIPPING_FEE = 20;   // 送料(USD)
-⋮----
-// トレンドAIから渡されたカードごとにサヤ（利益）を計算
-⋮----
-// ※今回はテストのため、現実的だがランダムなダミー相場を生成
-// 日本相場: 5,000円 〜 15,000円
-⋮----
-// 米国相場: 日本相場をドル換算したものに、+ $10 〜 $80 のプレミアムを乗せる
-⋮----
-// 利益計算: 米国相場 - ((日本相場 / 150) * 1.05) - 送料20ドル
-⋮----
-// 利益がプラス（0ドルより大きい）の場合のみ、リストに追加
-⋮----
-// 小数点以下2桁に丸める
 </file>
 
 <file path="app/api/auth/callback/paypal/route.ts">
@@ -736,6 +712,15 @@ setAll(cookiesToSet)
 // The `setAll` method was called from a Server Component.
 // This can be ignored if you have middleware refreshing
 // user sessions.
+</file>
+
+<file path="lib/dictionaries.ts">
+// lib/dictionaries.ts
+// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
+⋮----
+export const getDictionary = async (locale: 'en' | 'ja') =>
+⋮----
+// 指定された言語がない場合は英語をフォールバックとして使用
 </file>
 
 <file path="lib/paypal.ts">
@@ -1073,43 +1058,6 @@ export function middleware(request: NextRequest)
 // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
 </file>
 
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@langchain/core": "^1.3.1",
-    "@langchain/langgraph": "^1.5.3",
-    "@langchain/openai": "^1.8.0",
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="postcss.config.mjs">
 
 </file>
@@ -1198,30 +1146,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/forgot-password/page.tsx">
-// app/[lang]/forgot-password/page.tsx
-⋮----
-import { useActionState, use } from 'react'
-import { resetPassword } from '@/app/actions/auth'
-import Link from 'next/link'
-import { getDictionary } from '@/lib/dictionaries'
-⋮----
-// 1. URLから言語(lang)を取得し、対応する辞書を読み込む
-⋮----
-{/* 2. ベタ書きだった日本語を辞書データ {t.XXX} に置き換え */}
-⋮----
-{/* 「メールアドレス」のラベルは辞書にないのでここで直接切り替え */}
-⋮----
-{/* 3. 戻るリンクも、現在の言語(lang)を引き継ぐように修正 */}
-</file>
-
-<file path="app/[lang]/update-password/page.tsx">
-// app/update-password/page.tsx
-⋮----
-import { useActionState } from 'react'
-import { updatePassword } from '@/app/actions/auth'
-</file>
-
 <file path="app/[lang]/page.tsx">
 // app/[lang]/page.tsx
 // [UPDATED] 辞書（Dictionaries）パターンを導入し、多言語対応
@@ -1243,68 +1167,113 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
 </file>
 
-<file path="lib/dictionaries.ts">
-// lib/dictionaries.ts
-// [NEW] 辞書ファイルを非同期で読み込むユーティリティ
-⋮----
-export const getDictionary = async (locale: 'en' | 'ja') =>
-⋮----
-// 指定された言語がない場合は英語をフォールバックとして使用
-</file>
-
-<file path="next.config.ts">
-import type { NextConfig } from "next";
-⋮----
-/* 既存の設定項目があればここに記述 */
-⋮----
-// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
-</file>
-
-<file path="app/[lang]/layout.tsx">
-// app/[lang]/layout.tsx
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-⋮----
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-⋮----
-icon: "/icon.png", // 🌟 app/icon.png を指定
-⋮----
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ lang: string }>;
-})
-</file>
-
-<file path="app/actions/items.ts">
-// app/actions/items.ts
+<file path="app/actions/cart.ts">
+// app/actions/cart.ts
 ⋮----
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 ⋮----
-// [NEW] 共通キャッシュ破棄関数
-function revalidateAll()
+export async function deleteCartItem(itemId: string)
 ⋮----
-export async function addToCart(formData: FormData)
+// 1. ユーザー情報の取得
 ⋮----
-status: 'draft' // カート内商品は draft として追加
+// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
 ⋮----
-revalidateAll() // [UPDATED] 全ページへ反映
+// 🔍 デバッグ2: 自分の所有物かチェック
 ⋮----
-export async function deleteItem(itemId: string)
+// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
 ⋮----
-revalidateAll() // [UPDATED]
+// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
 ⋮----
-export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
+// 5. サイト全体のキャッシュを確実に破棄
 ⋮----
-revalidateAll() // [UPDATED]
+// カートからの注文作成処理
+export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
 ⋮----
-// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
-export async function replyToAdminNote(itemId: string, remarks: string)
+// 1. ユーザーの配送先プロフを取得
 ⋮----
-revalidateAll() // [UPDATED]
+// --- 💡 ここから差分：既存の pending 注文を探す分岐 ---
+⋮----
+let isNewOrder = false // ロールバック制御用のフラグ
+⋮----
+// 未処理の注文があれば合流（マージ）
+⋮----
+// 2. 新規注文レコードの作成（既存コードのロジック）
+⋮----
+// --- 💡 差分ここまで ---
+⋮----
+// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
+⋮----
+.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
+⋮----
+// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+⋮----
+// 4. 中間テーブル (order_items) に紐付け登録
+// 💡 変更: newOrder.id から orderId に変更
+⋮----
+// 紐付け失敗時は商品ステータスを draft に戻す
+⋮----
+// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
+⋮----
+// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="app/api/admin/intelligence/page.tsx">
+// app/admin/intelligence/page.tsx
+⋮----
+import React, { useState } from 'react';
+⋮----
+// レスポンスの型定義
+interface ProfitableCard {
+  cardName: string;
+  jpPriceJPY: number;
+  usPriceUSD: number;
+  estimatedProfitUSD: number;
+  reason: string;
+}
+⋮----
+interface SnsPosts {
+  trendPost: string;
+  arbitragePost: string;
+  hybridPost: string;
+}
+⋮----
+interface IntelligenceData {
+  trendInsights: string[];
+  profitableCards: ProfitableCard[];
+  snsPosts: SnsPosts;
+  salesDM: string;
+}
+⋮----
+// AIパイプラインを実行する
+const runIntelligenceAnalysis = async () =>
+⋮----
+// テキストをクリップボードにコピー
+const handleCopy = (text: string, key: string) =>
+⋮----
+{/* ヘッダーセクション */}
+⋮----
+{/* エラー表示 */}
+⋮----
+{/* 左カラム：情報収集＆サヤ発掘結果 */}
+⋮----
+{/* 1. 予言者AI：トレンドインサイト */}
+⋮----
+{/* 2. サヤ分析AI：利鞘発掘カード */}
+⋮----
+{/* 右カラム：コンテンツ出力（SNS・営業DM） */}
+⋮----
+{/* 3. SNS運用AI：3パターンの投稿文 */}
+⋮----
+{/* タブ or 並列展開：ハイブリッド投稿 */}
+⋮----
+onClick=
+⋮----
+{/* サヤ特化投稿 */}
+⋮----
+{/* トレンド特化投稿 */}
+⋮----
+{/* 4. 営業DMAI：オファー文 */}
 </file>
 
 <file path="dictionaries/en.json">
@@ -1461,108 +1430,97 @@ revalidateAll() // [UPDATED]
 }
 </file>
 
-<file path="app/[lang]/admin/inventory/page.tsx">
-import { getProducts } from '@/app/actions/inventory'
-import AdminInventoryClient from './AdminInventoryClient'
+<file path="next.config.ts">
+import type { NextConfig } from "next";
 ⋮----
-export default async function AdminInventoryPage()
+/* 既存の設定項目があればここに記述 */
 ⋮----
-// 管理者権限として全ての商品(非公開含む)を取得
+// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
 </file>
 
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
-⋮----
-export default async function AdminPage(props:
-⋮----
-// URLから言語(lang)を取得
-⋮----
-// --- 💡 ここから追加・変更：ユーザーごとの連番を計算する ---
-⋮----
-// 古い注文（配列の末尾）から新しい注文に向かって、ユーザーごとの連番を振る
-⋮----
-const uid = order.user_id // どのユーザーの注文か
-⋮----
-userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタート
-⋮----
-// 割り出した連番を order に直接セットする (ClientAdminPage 側で読み取られます)
-⋮----
-// --- 💡 追加ここまで ---
-⋮----
-{/* ... ヘッダー部分はそのまま ... */}
-⋮----
-{/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.3.1",
+    "@langchain/google-genai": "^2.3.4",
+    "@langchain/langgraph": "^1.5.3",
+    "@langchain/openai": "^1.8.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
 </file>
 
-<file path="app/[lang]/inventory/AddToCartForm.tsx">
-import React, { useState } from 'react'
-import { addToCart } from '@/app/actions/items'
+<file path="app/[lang]/layout.tsx">
+// app/[lang]/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 ⋮----
-const handleAction = async (formData: FormData) =>
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 ⋮----
-// 成功時にトーストを表示し、3秒後に消す
+icon: "/icon.png", // 🌟 app/icon.png を指定
 ⋮----
-// 未ログイン時のボタン非活性化表示
-⋮----
-<input type="hidden" name="url" value={`inhouse://${product.id}`} />
-⋮----
-{/* トースト通知 (画面右下に固定表示) */}
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+})
 </file>
 
-<file path="app/actions/cart.ts">
-// app/actions/cart.ts
+<file path="app/actions/items.ts">
+// app/actions/items.ts
 ⋮----
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 ⋮----
-export async function deleteCartItem(itemId: string)
+// [NEW] 共通キャッシュ破棄関数
+function revalidateAll()
 ⋮----
-// 1. ユーザー情報の取得
+export async function addToCart(formData: FormData)
 ⋮----
-// 🔍 デバッグ1: そもそも対象の商品が存在するかチェック
+status: 'draft' // カート内商品は draft として追加
 ⋮----
-// 🔍 デバッグ2: 自分の所有物かチェック
+revalidateAll() // [UPDATED] 全ページへ反映
 ⋮----
-// 🗑️ 削除実行 (select()を付けることで、実際に消えたデータを受け取る)
+export async function deleteItem(itemId: string)
 ⋮----
-// 🔍 デバッグ4: 削除空振り（サイレント失敗）チェック
+revalidateAll() // [UPDATED]
 ⋮----
-// 5. サイト全体のキャッシュを確実に破棄
+export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
 ⋮----
-// カートからの注文作成処理
-export async function createOrderFromCart(itemIds: string[], shippingMethod: string, paymentMethod: string)
+revalidateAll() // [UPDATED]
 ⋮----
-// 1. ユーザーの配送先プロフを取得
+// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
+export async function replyToAdminNote(itemId: string, remarks: string)
 ⋮----
-// --- 💡 ここから差分：既存の pending 注文を探す分岐 ---
-⋮----
-let isNewOrder = false // ロールバック制御用のフラグ
-⋮----
-// 未処理の注文があれば合流（マージ）
-⋮----
-// 2. 新規注文レコードの作成（既存コードのロジック）
-⋮----
-// --- 💡 差分ここまで ---
-⋮----
-// 3. 先に対象商品のステータスを 'pending' (注文済み) に変更
-⋮----
-.eq('status', 'draft') // カート内商品(draft)のみ確実に更新
-⋮----
-// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
-⋮----
-// 4. 中間テーブル (order_items) に紐付け登録
-// 💡 変更: newOrder.id から orderId に変更
-⋮----
-// 紐付け失敗時は商品ステータスを draft に戻す
-⋮----
-// 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
-⋮----
-// 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+revalidateAll() // [UPDATED]
 </file>
 
 <file path="dictionaries/ja.json">
@@ -1717,6 +1675,59 @@ let isNewOrder = false // ロールバック制御用のフラグ
     "submittingButton": "送信中..."
   }
 }
+</file>
+
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
+⋮----
+export default async function AdminInventoryPage()
+⋮----
+// 管理者権限として全ての商品(非公開含む)を取得
+</file>
+
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+⋮----
+export default async function AdminPage(props:
+⋮----
+// URLから言語(lang)を取得
+⋮----
+// --- 💡 ここから追加・変更：ユーザーごとの連番を計算する ---
+⋮----
+// 古い注文（配列の末尾）から新しい注文に向かって、ユーザーごとの連番を振る
+⋮----
+const uid = order.user_id // どのユーザーの注文か
+⋮----
+userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタート
+⋮----
+// 割り出した連番を order に直接セットする (ClientAdminPage 側で読み取られます)
+⋮----
+// --- 💡 追加ここまで ---
+⋮----
+{/* ... ヘッダー部分はそのまま ... */}
+⋮----
+{/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
+</file>
+
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
+import React, { useState } from 'react'
+import { addToCart } from '@/app/actions/items'
+⋮----
+const handleAction = async (formData: FormData) =>
+⋮----
+// 成功時にトーストを表示し、3秒後に消す
+⋮----
+// 未ログイン時のボタン非活性化表示
+⋮----
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+⋮----
+{/* トースト通知 (画面右下に固定表示) */}
 </file>
 
 <file path="app/actions/admin.ts">
@@ -1895,6 +1906,62 @@ const val = e.target.value.trim()
 onBlur=
 ⋮----
 {/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
+</file>
+
+<file path="app/api/ai/intelligence/route.ts">
+// app/api/ai/intelligence/route.ts
+import { NextResponse } from 'next/server';
+import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+⋮----
+// ---------------------------------------------------------
+// 1. State（共有ノート）の定義
+// ---------------------------------------------------------
+⋮----
+// 予言者AIの調査結果（市場の熱狂・テーマ・過熱しているジャンル）
+⋮----
+// サヤ分析AIの調査結果（具体的に日米差益が抜ける実利カード群）
+⋮----
+// SNS運用AIの作成結果（3パターンの投稿）
+⋮----
+trendPost: string;      // トレンド特化型
+arbitragePost: string;  // サヤ特化型
+hybridPost: string;     // トレンド×サヤ掛け合わせ型
+⋮----
+// 営業DMAIの作成結果
+⋮----
+// ---------------------------------------------------------
+// 2. Node 1: 予言者AI (marketTrendAgent)
+// ---------------------------------------------------------
+async function marketTrendAgent(state: typeof GraphState.State)
+⋮----
+// ---------------------------------------------------------
+// 3. Node 2: サヤ分析AI (sayaAnalysisAgent)
+// ---------------------------------------------------------
+async function sayaAnalysisAgent(state: typeof GraphState.State)
+⋮----
+// ---------------------------------------------------------
+// 4. Node 3: SNS運用AI (snsPostAgent)
+// ---------------------------------------------------------
+async function snsPostAgent(state: typeof GraphState.State)
+⋮----
+// ---------------------------------------------------------
+// 5. Node 4: 営業DMAI (salesDMAgent)
+// ---------------------------------------------------------
+async function salesDMAgent(state: typeof GraphState.State)
+⋮----
+// ---------------------------------------------------------
+// 6. APIエンドポイント (並行調査 ➔ 統合生成グラフ)
+// ---------------------------------------------------------
+export async function POST(req: Request)
+⋮----
+// 💡 予言者とサヤ分析を並行して動かし、揃ったらSNSとDMを動かす構造
+⋮----
+// スタートから2つの調査AIへ分岐
+⋮----
+// 2つの調査結果が揃ったらSNS生成へ合流
+⋮----
+// SNS生成後にDM作成を実行して完了
 </file>
 
 <file path="app/actions/inventory.ts">
