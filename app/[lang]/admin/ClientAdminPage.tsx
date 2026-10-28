@@ -666,7 +666,11 @@ export default function ClientAdminPage({ orders: initialOrders }: { orders: any
             const res = await fetch('/api/ai/intelligence', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, currentData: aiData || {} }),
+                body: JSON.stringify({
+                    action, 
+                    currentData: aiData || {},
+                    recordId: selectedRecordId 
+                }),
             });
 
             // JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示

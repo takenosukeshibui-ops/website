@@ -215,47 +215,67 @@ export async function POST(req: Request) {
     let action: string = 'all';
     let currentData: any = {};
     let triggerType: string = 'manual';
+    let recordId: string | null = null; // 🌟 追加: 更新対象レコードID
 
     try {
       const body = await req.json();
       if (body?.action) action = String(body.action);
       if (body?.currentData) currentData = body.currentData;
       if (body?.triggerType) triggerType = String(body.triggerType);
+      if (body?.recordId) recordId = String(body.recordId);
     } catch {
       action = 'all';
     }
 
+    const supabase = await createClient();
+
     // ==========================================
-    // 🌟 単体実行モード
+    // 🌟 単体実行モード（DBへの上書きUPDATE処理付き）
     // ==========================================
-    if (action === 'trend') {
-      const trendInsights = await runMarketTrend();
-      return NextResponse.json({ success: true, data: { trendInsights } });
-    }
+    if (action !== 'all') {
+      let updatedField: Record<string, any> = {};
+      let responsePayload: Record<string, any> = {};
 
-    if (action === 'arbitrage') {
-      const profitableCards = await runSayaAnalysis();
-      return NextResponse.json({ success: true, data: { profitableCards } });
-    }
+      if (action === 'trend') {
+        const trendInsights = await runMarketTrend();
+        updatedField = { trend_insights: trendInsights };
+        responsePayload = { trendInsights };
+      } else if (action === 'arbitrage') {
+        const profitableCards = await runSayaAnalysis();
+        updatedField = { profitable_cards: profitableCards };
+        responsePayload = { profitableCards };
+      } else if (action === 'account') {
+        const accountInsights = await runAccountAnalysis();
+        updatedField = { account_insights: accountInsights };
+        responsePayload = { accountInsights };
+      } else if (action === 'sns') {
+        const trends = currentData.trendInsights || [];
+        const cards = currentData.profitableCards || [];
+        const advice = currentData.accountInsights || '';
+        const snsPosts = await runSnsPosts(trends, cards, advice);
+        updatedField = { sns_posts: snsPosts };
+        responsePayload = { snsPosts };
+      } else if (action === 'dm') {
+        const trends = currentData.trendInsights || [];
+        const cards = currentData.profitableCards || [];
+        const salesDM = await runSalesDM(trends, cards);
+        updatedField = { sales_dm: salesDM };
+        responsePayload = { salesDM };
+      }
 
-    if (action === 'account') {
-      const accountInsights = await runAccountAnalysis();
-      return NextResponse.json({ success: true, data: { accountInsights } });
-    }
+      // 🌟 recordId が渡されている場合は Supabase 上の既存行を上書き更新
+      if (recordId) {
+        const { error: updateError } = await supabase
+          .from('ai_market_intelligence')
+          .update(updatedField)
+          .eq('id', recordId);
 
-    if (action === 'sns') {
-      const trends = currentData.trendInsights || [];
-      const cards = currentData.profitableCards || [];
-      const advice = currentData.accountInsights || '';
-      const snsPosts = await runSnsPosts(trends, cards, advice);
-      return NextResponse.json({ success: true, data: { snsPosts } });
-    }
+        if (updateError) {
+          console.error("個別実行データ上書き更新エラー:", updateError);
+        }
+      }
 
-    if (action === 'dm') {
-      const trends = currentData.trendInsights || [];
-      const cards = currentData.profitableCards || [];
-      const salesDM = await runSalesDM(trends, cards);
-      return NextResponse.json({ success: true, data: { salesDM } });
+      return NextResponse.json({ success: true, data: responsePayload });
     }
 
     // ==========================================
@@ -280,7 +300,6 @@ export async function POST(req: Request) {
       salesDM,
     };
 
-    const supabase = await createClient();
     const { data: savedRecord, error: insertError } = await supabase
       .from('ai_market_intelligence')
       .insert({
@@ -288,6 +307,7 @@ export async function POST(req: Request) {
         profitable_cards: fullResult.profitableCards,
         sns_posts: fullResult.snsPosts,
         sales_dm: fullResult.salesDM,
+        account_insights: fullResult.accountInsights,
         trigger_type: triggerType,
       })
       .select()
