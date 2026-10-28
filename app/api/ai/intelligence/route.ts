@@ -45,7 +45,7 @@ const GraphState = Annotation.Root({
 });
 
 // ---------------------------------------------------------
-// 2. 各AIエージェント処理関数
+// 2. 各AIエージェント処理関数（トークン上限指定で高速化）
 // ---------------------------------------------------------
 async function runMarketTrend() {
   const llm = new ChatGoogleGenerativeAI({
@@ -102,6 +102,7 @@ async function runAccountAnalysis() {
     maxOutputTokens: 250,
   });
   try {
+    // タイムアウト付きで最大3件取得
     const posts = await Promise.race([
       getInstagramInsights(3),
       new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
@@ -194,25 +195,21 @@ export async function GET() {
 // ---------------------------------------------------------
 export async function POST(req: Request) {
   try {
-    let action = 'all';
+    let action: string = 'all'; // 🌟 型注釈を追加してTS2367エラーを解消
     let currentData: any = {};
-    let triggerType = 'manual';
+    let triggerType: string = 'manual';
 
-    // リクエストボディの安全な解析
     try {
       const body = await req.json();
-      if (body?.action) action = body.action;
+      if (body?.action) action = String(body.action);
       if (body?.currentData) currentData = body.currentData;
-      if (body?.triggerType) triggerType = body.triggerType;
-    } catch (e) {
-      // ボディが無い場合は一括
+      if (body?.triggerType) triggerType = String(body.triggerType);
+    } catch {
       action = 'all';
     }
 
-    console.log(`[AI Pipeline] Received Action: ${action}`);
-
     // ==========================================
-    // 🌟 単体実行モード（数秒で終わる軽量ルート）
+    // 🌟 単体実行モード（数秒で返る軽量ルート）
     // ==========================================
     if (action === 'trend') {
       const trendInsights = await runMarketTrend();
@@ -245,7 +242,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 🌟 一括実行モード（ボタンを押した時のみ）
+    // 🌟 一括実行モード（全並列処理 & Supabase保存）
     // ==========================================
     const [trendInsights, profitableCards, accountInsights] = await Promise.all([
       runMarketTrend(),
