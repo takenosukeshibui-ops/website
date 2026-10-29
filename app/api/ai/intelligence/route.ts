@@ -174,7 +174,7 @@ ${JSON.stringify(profits)}
 }
 
 // ---------------------------------------------------------
-// 4. IGアナリスト（自社アカウント分析）
+// 4. IGアナリスト（自社Instagramアカウント分析）
 // ---------------------------------------------------------
 async function runAccountAnalysis() {
     const rawInsights = await getInstagramInsights(5);
@@ -203,7 +203,7 @@ async function runAccountAnalysis() {
     { "label": "推奨投稿時間帯", "value": "日本時間 20:00〜22:00" },
     { "label": "プロフ遷移率", "value": "X.X%" }
   ],
-  "soWhat": "次回のSNSクリエイターへの指示ルール",
+  "soWhat": "次回のInstagramクリエイターへの指示ルール",
   "riskAndMitigation": {
     "risk": "アルゴリズム変更によるリーチ低下",
     "mitigation": "カルーセルスライド複数枚化による滞在時間の向上"
@@ -219,7 +219,55 @@ async function runAccountAnalysis() {
 }
 
 // ---------------------------------------------------------
-// 5. Instagramクリエイター（撒き餌作成）
+// 5. Xアナリスト（自社Xアカウント・アルゴリズム分析専任）
+// ---------------------------------------------------------
+async function runXAccountAnalysis() {
+    const model = new ChatGoogleGenerativeAI({
+        model: "gemini-2.5-flash",
+        temperature: 0.2,
+    });
+
+    const prompt = `あなたは越境トレカ販売事業の専任【X (Twitter) アナリスト】です。
+設計書第2章に基づき、Xプラットフォーム特有のアルゴリズム（インプレッション最大化、ブックマーク保存率、リポスト連鎖、外部リンク遷移のペナルティ回避）を分析し、Xクリエイター向けの戦術ルールを策定してください。
+
+【X戦術の主要診断項目】:
+- 1ポスト目の「クリック率・展開率」を高めるフック構文
+- ブックマーク（保存）を急増させるデータ・インフォグラフィックの提示方法
+- 外部リンク（自社サイト・Discord）を1ポスト目ではなくスレッド末尾やリプ欄に配置する導線最適化
+
+以下のJSON形式のみを出力してください:
+{
+  "title": "自社X (Twitter) アルゴリズム・エンゲージメント診断",
+  "claim": "Xの拡散力・ブックマーク率を最大化する投稿戦術ルールの推奨アクション",
+  "reasons": [
+    "1ポスト目の文字数・行数とインプレッションの相関",
+    "画像4枚構成時のプレビュー視認性ルール",
+    "リポストおよびリプライ欄導線のクリック率検証"
+  ],
+  "facts": [
+    { "label": "目標ブックマーク率", "value": "1.5%以上" },
+    { "label": "推奨スレッド構成", "value": "全3〜4ポスト" },
+    { "label": "推奨投稿時間帯", "value": "日本時間 19:00〜21:00 / 08:00 (米国夕方)" },
+    { "label": "リンク配置ルール", "value": "スレッド最終ポストまたは固定ポスト" }
+  ],
+  "soWhat": "次回のXクリエイターへの制作戦術指示（フック文字数、画像アスペクト比、ツリー展開順）",
+  "riskAndMitigation": {
+    "risk": "外部リンク貼付による表示回数制限（シャドウリミット）",
+    "mitigation": "1ポスト目にはリンクを置かず、完全スレッド完結型にしてリプ欄にURL配置"
+  },
+  "verificationChecklist": [
+    "1ポスト目が140文字以内に収まっているか",
+    "画像4枚の視認性チェック",
+    "アナリティクスのインプレッション中央値照合"
+  ]
+}`;
+
+    const res = await model.invoke(prompt);
+    return parseAIJson(res.content.toString());
+}
+
+// ---------------------------------------------------------
+// 6. Instagramクリエイター（撒き餌作成）
 // ---------------------------------------------------------
 async function runSnsPosts(chiefPackage: any, accountReport: any) {
     const model = new ChatGoogleGenerativeAI({
@@ -264,9 +312,9 @@ ${JSON.stringify(accountReport)}
 }
 
 // ---------------------------------------------------------
-// 6. X (Twitter) クリエイター（短文・ツリー・画像4枚構成）
+// 7. X (Twitter) クリエイター（短文・ツリー・画像4枚構成）
 // ---------------------------------------------------------
-async function runXPosts(chiefPackage: any) {
+async function runXPosts(chiefPackage: any, xAccountReport?: any) {
     const model = new ChatGoogleGenerativeAI({
         model: "gemini-2.5-flash",
         temperature: 0.3,
@@ -276,8 +324,10 @@ async function runXPosts(chiefPackage: any) {
 チーフマネージャーからの指示書:
 ${JSON.stringify(chiefPackage)}
 
+Xアナリストの戦術指示:
+${JSON.stringify(xAccountReport || {})}
+
 選定案件: ${chiefPackage?.chosenCardOrItem || '選定案件'}
-チーフのX指示: ${chiefPackage?.creativeDirective?.xTwitterAngle || '拡散重視'}
 
 【X (Twitter) 特化ルール】
 1. 1ポスト目は140文字以内で完結する強烈な「Fact & Result」のフック（数字と差額を全面に）。
@@ -308,7 +358,7 @@ ${JSON.stringify(chiefPackage)}
 }
 
 // ---------------------------------------------------------
-// 7. 有料コミュニティ担当（チーフ指示書に基づく実務オファー）
+// 8. 有料コミュニティ担当（チーフ指示書に基づく実務オファー）
 // ---------------------------------------------------------
 async function runSalesDM(chiefPackage: any) {
     const model = new ChatGoogleGenerativeAI({
@@ -340,7 +390,7 @@ ${JSON.stringify(chiefPackage)}
 }
 
 // ---------------------------------------------------------
-// 8. 的中実績・証明投稿エンジン（タイプC：社会的証明）
+// 9. 的中実績・証明投稿エンジン（タイプC：社会的証明）
 // ---------------------------------------------------------
 async function runHitProofEngine(pastLogs: any[]) {
     const model = new ChatGoogleGenerativeAI({
@@ -455,7 +505,16 @@ export async function POST(req: Request) {
             });
         }
 
-        // 5. Instagram原稿単体実行
+        // 5. Xアナリスト単体実行
+        if (action === 'x_account') {
+            const xAccountReport = await runXAccountAnalysis();
+            return NextResponse.json({
+                success: true,
+                data: { xAccountInsights: xAccountReport }
+            });
+        }
+
+        // 6. Instagram原稿単体実行
         if (action === 'sns') {
             const snsPosts = await runSnsPosts(
                 currentData?.chiefPackage,
@@ -467,16 +526,19 @@ export async function POST(req: Request) {
             });
         }
 
-        // 6. X (Twitter) 原稿単体実行
+        // 7. X (Twitter) 原稿単体実行
         if (action === 'x') {
-            const xPosts = await runXPosts(currentData?.chiefPackage);
+            const xPosts = await runXPosts(
+                currentData?.chiefPackage,
+                currentData?.xAccountInsights
+            );
             return NextResponse.json({
                 success: true,
                 data: { xPosts }
             });
         }
 
-        // 7. 有料コミュニティ営業文単体実行
+        // 8. 有料コミュニティ営業文単体実行
         if (action === 'dm') {
             const salesDM = await runSalesDM(currentData?.chiefPackage);
             return NextResponse.json({
@@ -485,7 +547,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 8. 的中実績・証明投稿（タイプC）単体生成
+        // 9. 的中実績・証明投稿（タイプC）単体生成
         if (action === 'proof') {
             const supabase = await createClient();
             const { data: pastLogs } = await supabase
@@ -501,7 +563,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 9. 全AI一斉調査（階層型フルパイプライン実行）
+        // 10. 全AI一斉調査（階層型フルパイプライン実行: 全11機能）
         if (action === 'all') {
             const supabase = await createClient();
             const { data: pastLogs } = await supabase
@@ -514,6 +576,7 @@ export async function POST(req: Request) {
                 trendUS, trendEU, trendAsia,
                 sayaUS, sayaEU, sayaAsia,
                 accountReport,
+                xAccountReport,
                 proofPackage
             ] = await Promise.all([
                 runMarketTrend('us'),
@@ -523,6 +586,7 @@ export async function POST(req: Request) {
                 runSayaAnalysis('eu'),
                 runSayaAnalysis('asia'),
                 runAccountAnalysis(),
+                runXAccountAnalysis(),
                 runHitProofEngine(pastLogs || [])
             ]);
 
@@ -533,7 +597,7 @@ export async function POST(req: Request) {
 
             const [snsPosts, xPosts, salesDM] = await Promise.all([
                 runSnsPosts(chiefPackage, accountReport),
-                runXPosts(chiefPackage),
+                runXPosts(chiefPackage, xAccountReport),
                 runSalesDM(chiefPackage)
             ]);
 
@@ -543,6 +607,7 @@ export async function POST(req: Request) {
                 chiefPackage,
                 proofPackage,
                 accountInsights: accountReport,
+                xAccountInsights: xAccountReport,
                 snsPosts,
                 xPosts,
                 salesDM
@@ -555,6 +620,7 @@ export async function POST(req: Request) {
                     profitable_cards: profitableCards,
                     chief_package: chiefPackage,
                     account_insights: accountReport,
+                    x_account_insights: xAccountReport,
                     sns_posts: snsPosts,
                     x_posts: xPosts,
                     sales_dm: salesDM,
