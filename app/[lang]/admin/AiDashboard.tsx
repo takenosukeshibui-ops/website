@@ -748,13 +748,13 @@ export default function AiDashboard() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                            {/* チーム全体ビューでデータがまだない場合のみ初期案内を表示 */}
-                            {!aiData && !aiLoading && (aiActiveDesk === 'analysis_team' || aiActiveDesk === 'execution_team') ? (
-                                <div className="text-center py-24 text-slate-500 text-sm border border-dashed border-slate-800 rounded-2xl">
-                                    右上の「全AIに一斉調査・戦略立案を指示」をクリックするか、左サイドバーから各担当デスクを開いて個別調査を実行してください。
-                                </div>
-                            ) : (
-                                <>
+                    {/* チーム全体ビューでデータがまだない場合のみ初期案内を表示 */}
+                    {!aiData && !aiLoading && (aiActiveDesk === 'analysis_team' || aiActiveDesk === 'execution_team') ? (
+                        <div className="text-center py-24 text-slate-500 text-sm border border-dashed border-slate-800 rounded-2xl">
+                            右上の「全AIに一斉調査・戦略立案を指示」をクリックするか、左サイドバーから各担当デスクを開いて個別調査を実行してください。
+                        </div>
+                    ) : (
+                        <>
                             {/* 👑 チーフマネージャー専用デスク ビュー */}
                             {aiActiveDesk === 'desk_chief' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
@@ -763,7 +763,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">👑</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">チーフマネージャー戦略デスク</h2>
-                                                <p className="text-xs text-slate-400">6地域レポートから最優秀撒き餌案件を審査・ディレクション指示発行[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">6地域レポートから最優秀撒き餌案件を審査・ディレクション指示発行</p>
                                             </div>
                                         </div>
                                         <button
@@ -787,7 +787,7 @@ export default function AiDashboard() {
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
-                                                        {aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}[cite: 1]
+                                                        {aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}
                                                     </span>
                                                     <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-1 rounded-lg font-bold uppercase">
                                                         対象地域: {aiData.chiefPackage.winningRegion}
@@ -807,7 +807,7 @@ export default function AiDashboard() {
                                                 <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-xs text-amber-200 leading-relaxed">
                                                     {aiData.chiefPackage.coreHookFact}
                                                 </div>
-                                                <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します[cite: 1]。</span>
+                                                <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します。</span>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -958,7 +958,7 @@ export default function AiDashboard() {
                                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                                 <span>⚡</span> コンテンツ実行チーム（Execution Team）
                                             </h2>
-                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、SNS投稿と大口バイヤー営業DMを作成・配信[cite: 1]</p>
+                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、SNS投稿と大口バイヤー営業DMを作成・配信</p>
                                         </div>
                                         {aiData.chiefPackage && (
                                             <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-lg">
@@ -1028,7 +1028,7 @@ export default function AiDashboard() {
                             )}
 
                             {/* 3. 個別デスク ビュー群 */}
-                            {aiActiveDesk.startsWith('desk_trend') && aiData && (
+                            {aiActiveDesk.startsWith('desk_trend') && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
@@ -1037,7 +1037,7 @@ export default function AiDashboard() {
                                                 <h2 className="text-lg font-bold text-white">
                                                     市場トレンドアナリスト ({activeTrendRegion === 'us' ? '🇺🇸 北米' : activeTrendRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
                                                 </h2>
-                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1064,11 +1064,11 @@ export default function AiDashboard() {
                                             </button>
                                         </div>
                                     </div>
-                                    <DocumentReportView report={aiData.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
+                                    <DocumentReportView report={aiData?.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
                                 </div>
                             )}
 
-                            {aiActiveDesk.startsWith('desk_arbitrage') && aiData && (
+                            {aiActiveDesk.startsWith('desk_arbitrage') && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
@@ -1077,7 +1077,7 @@ export default function AiDashboard() {
                                                 <h2 className="text-lg font-bold text-white">
                                                     アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '🇺🇸 北米' : activeArbitrageRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
                                                 </h2>
-                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1104,36 +1104,36 @@ export default function AiDashboard() {
                                             </button>
                                         </div>
                                     </div>
-                                    <DocumentReportView report={aiData.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
+                                    <DocumentReportView report={aiData?.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
                                 </div>
                             )}
 
-                            {aiActiveDesk === 'desk_account' && aiData && (
+                            {aiActiveDesk === 'desk_account' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">📊</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">IGアナリスト専用デスク</h2>
-                                                <p className="text-xs text-slate-400">自社アカウント反応分析・ファネル改善レポート[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">自社アカウント反応分析・ファネル改善レポート</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('account')} disabled={runningAction === 'account'} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
                                             {runningAction === 'account' ? '分析中...' : '🔄 アカウント再分析'}
                                         </button>
                                     </div>
-                                    <DocumentReportView report={aiData.accountInsights} accentColor="pink" icon="📱" />
+                                    <DocumentReportView report={aiData?.accountInsights || null} accentColor="pink" icon="📱" />
                                 </div>
                             )}
 
-                            {aiActiveDesk === 'desk_sns' && aiData && (
+                            {aiActiveDesk === 'desk_sns' && (
                                 <div className="max-w-5xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">📸</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">SNS担当専用デスク</h2>
-                                                <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold">
@@ -1144,13 +1144,13 @@ export default function AiDashboard() {
                                     <div className="bg-slate-900 border border-sky-500/30 rounded-xl p-4 text-xs space-y-2">
                                         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
                                             <span className="font-bold text-sky-300">🎨 推奨カルーセルスライド構成</span>
-                                            <span className="font-mono text-slate-400">⏰ {aiData.snsPosts?.recommendedTiming}</span>
+                                            <span className="font-mono text-slate-400">⏰ {aiData?.snsPosts?.recommendedTiming || '未設定'}</span>
                                         </div>
-                                        <p className="text-slate-300 font-medium">1枚目(カバー): {aiData.snsPosts?.visualGuideline?.coverSlide}</p>
+                                        <p className="text-slate-300 font-medium">1枚目(カバー): {aiData?.snsPosts?.visualGuideline?.coverSlide || '未生成'}</p>
                                         <ul className="list-disc list-inside text-slate-400 space-y-0.5 pl-2">
-                                            {aiData.snsPosts?.visualGuideline?.carouselSlides?.map((slide, i) => (
+                                            {aiData?.snsPosts?.visualGuideline?.carouselSlides?.map((slide, i) => (
                                                 <li key={i}>{slide}</li>
-                                            ))}
+                                            )) || <li className="italic text-slate-600">スライド指示なし</li>}
                                         </ul>
                                     </div>
 
@@ -1159,12 +1159,12 @@ export default function AiDashboard() {
                                             <div>
                                                 <span className="text-xs font-bold text-amber-400 block mb-2">★ 推奨: トレンド×サヤ</span>
                                                 <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                    {aiData.snsPosts?.posts?.hybridPost}
+                                                    {aiData?.snsPosts?.posts?.hybridPost || 'データがありません。'}
                                                 </pre>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleCopy(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                             </div>
                                         </div>
 
@@ -1172,12 +1172,12 @@ export default function AiDashboard() {
                                             <div>
                                                 <span className="text-xs font-bold text-emerald-400 block mb-2">利益・価格差重視</span>
                                                 <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                    {aiData.snsPosts?.posts?.arbitragePost}
+                                                    {aiData?.snsPosts?.posts?.arbitragePost || 'データがありません。'}
                                                 </pre>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleCopy(aiData.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                             </div>
                                         </div>
 
@@ -1185,26 +1185,26 @@ export default function AiDashboard() {
                                             <div>
                                                 <span className="text-xs font-bold text-sky-400 block mb-2">考察・トレンド重視</span>
                                                 <pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">
-                                                    {aiData.snsPosts?.posts?.trendPost}
+                                                    {aiData?.snsPosts?.posts?.trendPost || 'データがありません。'}
                                                 </pre>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleCopy(aiData.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                                <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
+                                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {aiActiveDesk === 'desk_sales' && aiData && (
+                            {aiActiveDesk === 'desk_sales' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">✉️</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">有料コミュニティ担当専用デスク</h2>
-                                                <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）[cite: 1]</p>
+                                                <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">
@@ -1215,29 +1215,29 @@ export default function AiDashboard() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                                         <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-3 space-y-1">
                                             <span className="font-bold text-indigo-300 block mb-1">📦 取引条件 (Commercial Terms)</span>
-                                            <p className="text-slate-300">最低ロット: <span className="text-white font-mono">{aiData.salesDM?.commercialTerms?.minimumOrderQty}</span></p>
-                                            <p className="text-slate-300">配送便: <span className="text-white">{aiData.salesDM?.commercialTerms?.shippingMethod}</span></p>
-                                            <p className="text-slate-300">決済方法: <span className="text-white">{aiData.salesDM?.commercialTerms?.paymentMethod}</span></p>
+                                            <p className="text-slate-300">最低ロット: <span className="text-white font-mono">{aiData?.salesDM?.commercialTerms?.minimumOrderQty || '-'}</span></p>
+                                            <p className="text-slate-300">配送便: <span className="text-white">{aiData?.salesDM?.commercialTerms?.shippingMethod || '-'}</span></p>
+                                            <p className="text-slate-300">決済方法: <span className="text-white">{aiData?.salesDM?.commercialTerms?.paymentMethod || '-'}</span></p>
                                         </div>
                                         <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-3 space-y-1">
                                             <span className="font-bold text-amber-300 block mb-1">🤝 価格交渉対策 (Negotiation Tip)</span>
-                                            <p className="text-slate-300 leading-relaxed text-[11px]">{aiData.salesDM?.negotiationTip}</p>
+                                            <p className="text-slate-300 leading-relaxed text-[11px]">{aiData?.salesDM?.negotiationTip || '未設定'}</p>
                                         </div>
                                     </div>
 
                                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
                                         <div className="flex justify-between items-center text-xs">
-                                            <span className="font-bold text-white">{aiData.salesDM?.offerSummary}</span>
-                                            <span className="text-slate-400 font-mono text-[10px]">Target: {aiData.salesDM?.targetSegment}</span>
+                                            <span className="font-bold text-white">{aiData?.salesDM?.offerSummary || 'オファー未生成'}</span>
+                                            <span className="text-slate-400 font-mono text-[10px]">Target: {aiData?.salesDM?.targetSegment || '-'}</span>
                                         </div>
                                         <pre className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
-                                            {aiData.salesDM?.discordMessage}
+                                            {aiData?.salesDM?.discordMessage || 'データがありません。'}
                                         </pre>
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => handleCopy(aiData.salesDM?.discordMessage || '', 'dm')} className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">
+                                            <button onClick={() => handleCopy(aiData?.salesDM?.discordMessage || '', 'dm')} className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">
                                                 {copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}
                                             </button>
-                                            <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
+                                            <button onClick={() => handlePublishToDiscord(aiData?.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">
                                                 {isPublishingDiscord ? '送信中...' : '💬 Discord有料コミュニティへ送信'}
                                             </button>
                                         </div>
