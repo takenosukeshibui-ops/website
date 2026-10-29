@@ -632,9 +632,9 @@ export default function AiDashboard() {
                         </div>
                         <div className="mt-1 space-y-1">
                             {([
-                                { key: 'us', label: '🇺🇸 北米担当', desc: 'eBay / TCG' },
-                                { key: 'eu', label: '🇪🇺 欧州担当', desc: 'Cardmarket' },
-                                { key: 'asia', label: '🌏 アジア担当', desc: 'Shopee' }
+                                { key: 'us', label: '北米担当', desc: 'eBay / TCG' },
+                                { key: 'eu', label: '欧州担当', desc: 'Cardmarket' },
+                                { key: 'asia', label: 'アジア担当', desc: 'Shopee' }
                             ] as const).map(item => (
                                 <button
                                     key={item.key}
@@ -664,9 +664,9 @@ export default function AiDashboard() {
                         </div>
                         <div className="mt-1 space-y-1">
                             {([
-                                { key: 'us', label: '🇺🇸 北米サヤ', desc: '日米・FedEx' },
-                                { key: 'eu', label: '🇪🇺 欧州サヤ', desc: '日欧・EMS' },
-                                { key: 'asia', label: '🌏 アジアサヤ', desc: '日亜・Shopee' }
+                                { key: 'us', label: '北米担当', desc: '日米・FedEx' },
+                                { key: 'eu', label: '欧州担当', desc: '日欧・EMS' },
+                                { key: 'asia', label: 'アジア担当', desc: '日亜・Shopee' }
                             ] as const).map(item => (
                                 <button
                                     key={item.key}
