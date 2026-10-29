@@ -39,7 +39,7 @@ async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us') {
 
     const cur = regionContexts[region];
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
@@ -92,7 +92,7 @@ async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us') {
 
     const cur = regionContexts[region];
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.1,
     });
 
@@ -136,7 +136,7 @@ async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us') {
 // ---------------------------------------------------------
 async function runChiefManager(trends: any, profits: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
@@ -178,7 +178,7 @@ ${JSON.stringify(profits)}
 async function runAccountAnalysis() {
     const rawInsights = await getInstagramInsights(5);
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
@@ -222,7 +222,7 @@ async function runAccountAnalysis() {
 // ---------------------------------------------------------
 async function runSnsPosts(chiefPackage: any, accountReport: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.3,
     });
 
@@ -267,7 +267,7 @@ ${JSON.stringify(accountReport)}
 // ---------------------------------------------------------
 async function runSalesDM(chiefPackage: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
@@ -299,7 +299,7 @@ ${JSON.stringify(chiefPackage)}
 // ---------------------------------------------------------
 async function runHitProofEngine(pastLogs: any[]) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
