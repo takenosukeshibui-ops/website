@@ -704,7 +704,7 @@ export default function AiDashboard() {
                                         : 'text-slate-300 hover:bg-slate-800/80'
                                 }`}
                             >
-                                <span>📊 IGアナリスト</span>
+                                <span>📊 Instagram アナリスト</span>
                                 <span className="text-[10px] opacity-60 font-mono">反応・ファネル分析</span>
                             </button>
                             <button
@@ -716,16 +716,16 @@ export default function AiDashboard() {
                                         : 'text-slate-300 hover:bg-slate-800/80'
                                 }`}
                             >
-                                <span>🎨 Instagram担当</span>
+                                <span>🎨 Instagram クリエイター</span>
                                 <span className="text-[10px] opacity-60 font-mono">カルーセル・原稿作成</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* 🐦 X (Twitter) 運営（アナリスト ＆ 制作担当） */}
+                    {/* 🐦 X 運営（アナリスト ＆ 制作担当） */}
                     <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                         <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-sky-300">
-                            <span className="flex items-center gap-1.5"><span>🐦</span> X (Twitter) 運営</span>
+                            <span className="flex items-center gap-1.5"><span>🐦</span> X 運営</span>
                             <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-mono font-bold">2名</span>
                         </div>
                         <div className="mt-1 space-y-1">
@@ -1391,7 +1391,7 @@ export default function AiDashboard() {
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">📸</span>
                                             <div>
-                                                <h2 className="text-lg font-bold text-white">Instagram担当専用デスク</h2>
+                                                <h2 className="text-lg font-bold text-white">Instagram 担当専用デスク</h2>
                                                 <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション[cite: 1]</p>
                                             </div>
                                         </div>
@@ -1591,7 +1591,7 @@ export default function AiDashboard() {
                                             {aiActiveDesk.startsWith('desk_arbitrage') && `アービトラージアナリスト(${activeArbitrageRegion.toUpperCase()})との個別チャット`}
                                             {aiActiveDesk === 'desk_account' && 'IGアナリストとの個別チャット'}
                                             {aiActiveDesk === 'desk_x_account' && 'Xアナリストとの個別チャット'}
-                                            {aiActiveDesk === 'desk_sns' && 'Instagram担当との個別チャット'}
+                                            {aiActiveDesk === 'desk_sns' && 'Instagram 担当との個別チャット'}
                                             {aiActiveDesk === 'desk_x' && 'X (Twitter) 担当との個別チャット'}
                                             {aiActiveDesk === 'desk_sales' && '有料コミュニティ担当との個別チャット'}
                                         </span>
