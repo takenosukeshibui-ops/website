@@ -91,7 +91,11 @@ app/
         invoice/
           route.ts
     ai/
+      chat/
+        route.ts
       intelligence/
+        route.ts
+      knowledge/
         route.ts
       publish/
         route.ts
@@ -135,6 +139,7 @@ lib/
     server.ts
   calculator.ts
   dictionaries.ts
+  instagram.ts
   paypal.ts
   tracking.ts
   wise.ts
@@ -201,6 +206,28 @@ const handleSelectRarity = (e: React.ChangeEvent<HTMLSelectElement>) =>
 onChange=
 ⋮----
 onClick=
+</file>
+
+<file path="app/[lang]/calculator/page.tsx">
+import { useState, use } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import CountryCombobox from "@/components/CountryCombobox";
+import { countries } from "@/components/countries";
+⋮----
+const handleCountryChange = (newCountry: string) =>
+⋮----
+const handleCalculate = async () =>
+⋮----
+onChange=
+⋮----
+{/* 日本郵便の表示 */}
+⋮----
+{/* FedExの全適用プラン表示 */}
+⋮----
+{/* 内訳アコーディオン */}
+⋮----
+{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
 </file>
 
 <file path="app/[lang]/dashboard/settings/page.tsx">
@@ -337,6 +364,24 @@ import Link from 'next/link'
 ⋮----
 import { useActionState } from 'react'
 import { updatePassword } from '@/app/actions/auth'
+</file>
+
+<file path="app/[lang]/layout.tsx">
+// app/[lang]/layout.tsx
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+⋮----
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+⋮----
+icon: "/icon.png", // 🌟 app/icon.png を指定
+⋮----
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ lang: string }>;
+})
 </file>
 
 <file path="app/[lang]/page.tsx">
@@ -1376,15 +1421,6 @@ let isNewOrder = false // ロールバック制御用のフラグ
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
 </file>
 
-<file path="app/api/ai/publish/route.ts">
-// app/api/ai/publish/route.ts
-import { NextResponse } from 'next/server';
-⋮----
-export async function POST(req: Request)
-⋮----
-// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
-</file>
-
 <file path="app/api/cron/intelligence/route.ts">
 // app/api/cron/intelligence/route.ts
 import { NextResponse } from 'next/server';
@@ -1550,6 +1586,91 @@ export async function GET(req: Request)
 }
 </file>
 
+<file path="lib/calculator.ts">
+export interface CalculationResult {
+    shippingFeeJp: number;
+    shippingFeeFedex: number;
+    jpSellPrice: number;
+    jpProfit: number;
+    fedexSellPrice: number;
+    fedexProfit: number;
+}
+⋮----
+export interface FedexCredentials {
+    apiKey?: string;
+    secretKey?: string;
+    accountNumber?: string;
+}
+⋮----
+export interface CalculateShippingFeesParams {
+    destination: string;
+    postalCode?: string;
+    weight: number;
+    targetCurrency?: string;
+    isEstimate?: boolean;
+    fedexCredentials?: FedexCredentials;
+}
+⋮----
+// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
+export function getJapanPostZone(countryCode?: string): number
+⋮----
+if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
+⋮----
+// 第1地帯（中国・韓国・台湾）
+⋮----
+// 第4地帯（米国・米領）
+⋮----
+// 第2地帯（アジア全般）
+⋮----
+// 第5地帯（中南米・アフリカ）
+⋮----
+// 第3地帯（オセアニア・カナダ・中近東・欧州など）
+⋮----
+/**
+ * 配送方法と重量から概算送料を算出する共通関数
+ */
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number
+⋮----
+case 1: // 第1地帯
+⋮----
+case 2: // 第2地帯
+⋮----
+case 3: // 第3地帯
+⋮----
+case 4: // 第4地帯
+⋮----
+case 5: // 第5地帯
+⋮----
+// 基本料金＋追加重量分＋書留料金(460円)
+⋮----
+/**
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
+ */
+export function calculateJapanPostSeaFee(weightKg: number, destination?: string)
+⋮----
+/**
+ * FedEx API 認証トークン取得
+ */
+async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
+⋮----
+/**
+ * FedEx 運賃試算 API 呼び出し
+ */
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+)
+⋮----
+// 🌟 プラン毎の標準配達日数を設定
+⋮----
+// 🌟 First も Priority と同じ 1-3日に設定
+⋮----
+export async function calculateShippingFees(params: CalculateShippingFeesParams)
+</file>
+
 <file path="next.config.ts">
 import type { NextConfig } from "next";
 ⋮----
@@ -1607,24 +1728,6 @@ import type { NextConfig } from "next";
 }
 </file>
 
-<file path="app/[lang]/layout.tsx">
-// app/[lang]/layout.tsx
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-⋮----
-import LanguageSwitcher from "@/components/LanguageSwitcher";
-⋮----
-icon: "/icon.png", // 🌟 app/icon.png を指定
-⋮----
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ lang: string }>;
-})
-</file>
-
 <file path="app/actions/items.ts">
 // app/actions/items.ts
 ⋮----
@@ -1652,6 +1755,44 @@ revalidateAll() // [UPDATED]
 export async function replyToAdminNote(itemId: string, remarks: string)
 ⋮----
 revalidateAll() // [UPDATED]
+</file>
+
+<file path="app/api/ai/knowledge/route.ts">
+// app/api/ai/knowledge/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+⋮----
+// 🌟 1. ナレッジ一覧取得 (GET)
+export async function GET(req: Request)
+⋮----
+// 🌟 2. ナレッジ登録 (POST)
+export async function POST(req: Request)
+⋮----
+// 🌟 3. ナレッジ削除 (DELETE)
+export async function DELETE(req: Request)
+</file>
+
+<file path="app/api/ai/publish/route.ts">
+// app/api/ai/publish/route.ts
+import { NextResponse } from 'next/server';
+⋮----
+export async function POST(req: Request)
+⋮----
+// ==========================================
+// 1. Discord への送信
+// ==========================================
+⋮----
+// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
+⋮----
+// ==========================================
+// 2. Instagram への自動投稿 (Graph API)
+// ==========================================
+⋮----
+// ステップA: メディアコンテナ (Media Container) の作成
+⋮----
+// ステップB: Meta側の画像処理を待機 (4秒)
+⋮----
+// ステップC: 投稿 (Media Publish) の実行
 </file>
 
 <file path="app/[lang]/admin/inventory/page.tsx">
@@ -1692,6 +1833,52 @@ userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタ�
 {/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
 </file>
 
+<file path="app/[lang]/estimate/page.tsx">
+import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import CountryCombobox from '@/components/CountryCombobox'
+⋮----
+// 対応する通貨のリスト
+⋮----
+// 1. ユーザー入力用の State
+⋮----
+// ▼ 追加：為替レートと表示通貨用のState
+⋮----
+// 2. 計算結果の State
+⋮----
+// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
+⋮----
+// 入力された文字列から数字のみを抽出してStateにセットする共通関数
+const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
+⋮----
+// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
+⋮----
+// 配送先国または重量が変わったときに送料を再計算
+⋮----
+const fetchShipping = async () =>
+⋮----
+// --- 最終計算ロジック ---
+⋮----
+// ▼ 追加：日本円から指定通貨へのフォーマット関数
+const formatConverted = (jpyAmount: number) =>
+⋮----
+{/* 左カラム：入力エリア */}
+⋮----
+{/* 重量の自動計算と注意事項の案内 */}
+⋮----
+{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
+⋮----
+/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
+⋮----
+{/* 右カラム：結果表示エリア */}
+⋮----
+{/* ▼ 追加：表示通貨の切り替えプルダウン */}
+⋮----
+{/* ▼ 追加：お支払い総額の換算表示 */}
+⋮----
+{/* よくある質問 (FAQ) セクション */}
+</file>
+
 <file path="app/[lang]/inventory/AddToCartForm.tsx">
 import React, { useState } from 'react'
 import { addToCart } from '@/app/actions/items'
@@ -1705,6 +1892,78 @@ const handleAction = async (formData: FormData) =>
 <input type="hidden" name="url" value={`inhouse://${product.id}`} />
 ⋮----
 {/* トースト通知 (画面右下に固定表示) */}
+</file>
+
+<file path="lib/instagram.ts">
+// lib/instagram.ts
+⋮----
+interface InstagramPostParams {
+  caption: string;
+  imageUrl?: string;
+}
+⋮----
+interface InstagramPostResult {
+  success: boolean;
+  postId?: string;
+  error?: string;
+}
+⋮----
+/**
+ * Instagram Graph API を使って画像をフィード投稿する
+ */
+export async function publishToInstagram({
+  caption,
+  imageUrl,
+}: InstagramPostParams): Promise<InstagramPostResult>
+⋮----
+// 1. メディアコンテナ (Media Container) の作成
+⋮----
+// 2. メディア処理待機 (Meta サーバー側で画像のダウンロードと最適化が行われるため数秒待機)
+⋮----
+// 3. 投稿 (Publish) の実行
+⋮----
+/**
+ * 自社Instagramアカウントの過去投稿とエンゲージメント（いいね・コメント数）を取得する
+ * @param limit 取得する過去の投稿数（デフォルト10件）
+ */
+// lib/instagram.ts
+⋮----
+export async function getInstagramInsights(limit: number = 5)
+⋮----
+// 1. 環境変数が設定されていない場合は即座に安全終了
+⋮----
+// 2. 4秒以上応答がなければ強制キャンセルする（Vercelのタイムアウト防止）
+⋮----
+// キャッシュさせずに最新を取得
+⋮----
+// トークン切れ等の場合もエラーを投げずに空配列で安全に落とす
+⋮----
+// タイムアウトやネットワーク切断時もパイプラインを止めない
+</file>
+
+<file path="app/api/ai/chat/route.ts">
+// app/api/ai/chat/route.ts
+⋮----
+import { NextResponse } from 'next/server';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server'; // Supabase追加
+⋮----
+async function getAgentReply(agentKey: string, userMessage: string, contextData: any, supabase: any)
+⋮----
+// 🌟 1. このAI専用の過去ナレッジをDBから取得（Step3: RAG実装）
+⋮----
+export async function POST(req: Request)
+⋮----
+// 🌟 2. ユーザーの送信メッセージをDBに保存（Step1）
+⋮----
+// 各AIの回答を生成
+⋮----
+// 🌟 3. AIの回答をDBに保存（Step1）
+⋮----
+// 🌟 4. デスク切り替え時に過去のチャット履歴を取得するエンドポイント
+export async function GET(req: Request)
+⋮----
+.limit(50); // 直近50件を取得
 </file>
 
 <file path="app/actions/admin.ts">
@@ -1914,111 +2173,6 @@ export async function updateProduct(id: string | number, updates: Partial<Produc
 export async function uploadProductImage(formData: FormData)
 </file>
 
-<file path="app/api/ai/intelligence/route.ts">
-// app/api/ai/intelligence/route.ts
-import { NextResponse } from 'next/server';
-import { StateGraph, START, END, Annotation } from '@langchain/langgraph';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server';
-⋮----
-// ---------------------------------------------------------
-// 1. State（共有ノート）の定義
-// ---------------------------------------------------------
-⋮----
-// ---------------------------------------------------------
-// 2. 各AIエージェント
-// ---------------------------------------------------------
-async function marketTrendAgent(state: typeof GraphState.State)
-⋮----
-async function sayaAnalysisAgent(state: typeof GraphState.State)
-⋮----
-async function snsPostAgent(state: typeof GraphState.State)
-⋮----
-async function salesDMAgent(state: typeof GraphState.State)
-⋮----
-// ---------------------------------------------------------
-// 3. GET: 最新の保存データと履歴を取得
-// ---------------------------------------------------------
-export async function GET()
-⋮----
-// ---------------------------------------------------------
-// 4. POST: AIパイプライン実行 & Supabase保存
-// ---------------------------------------------------------
-export async function POST(req: Request)
-⋮----
-// ボディがない場合は manual
-⋮----
-// 💡 Supabaseへ保存
-</file>
-
-<file path="app/[lang]/calculator/page.tsx">
-import { useState, use } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import CountryCombobox from "@/components/CountryCombobox";
-import { countries } from "@/components/countries";
-⋮----
-const handleCountryChange = (newCountry: string) =>
-⋮----
-const handleCalculate = async () =>
-⋮----
-onChange=
-⋮----
-{/* 日本郵便の表示 */}
-⋮----
-{/* FedExの全適用プラン表示 */}
-⋮----
-{/* 内訳アコーディオン */}
-⋮----
-{/* 🌟 言語フラグによって英語名と日本語名を出し分け */}
-</file>
-
-<file path="app/[lang]/estimate/page.tsx">
-import React, { useState, useEffect, use } from 'react'
-import Link from 'next/link'
-import CountryCombobox from '@/components/CountryCombobox'
-⋮----
-// 対応する通貨のリスト
-⋮----
-// 1. ユーザー入力用の State
-⋮----
-// ▼ 追加：為替レートと表示通貨用のState
-⋮----
-// 2. 計算結果の State
-⋮----
-// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
-⋮----
-// 入力された文字列から数字のみを抽出してStateにセットする共通関数
-const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
-⋮----
-// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
-⋮----
-// 配送先国または重量が変わったときに送料を再計算
-⋮----
-const fetchShipping = async () =>
-⋮----
-// --- 最終計算ロジック ---
-⋮----
-// ▼ 追加：日本円から指定通貨へのフォーマット関数
-const formatConverted = (jpyAmount: number) =>
-⋮----
-{/* 左カラム：入力エリア */}
-⋮----
-{/* 重量の自動計算と注意事項の案内 */}
-⋮----
-{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
-⋮----
-/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
-⋮----
-{/* 右カラム：結果表示エリア */}
-⋮----
-{/* ▼ 追加：表示通貨の切り替えプルダウン */}
-⋮----
-{/* ▼ 追加：お支払い総額の換算表示 */}
-⋮----
-{/* よくある質問 (FAQ) セクション */}
-</file>
-
 <file path="app/[lang]/dashboard/page.tsx">
 import { getDictionary } from "@/lib/dictionaries";
 import React from 'react';
@@ -2072,259 +2226,6 @@ import Link from 'next/link'
 {/* 重量にカンマ適用 */}
 ⋮----
 {/* 在庫数にカンマ適用 */}
-</file>
-
-<file path="lib/calculator.ts">
-export interface CalculationResult {
-    shippingFeeJp: number;
-    shippingFeeFedex: number;
-    jpSellPrice: number;
-    jpProfit: number;
-    fedexSellPrice: number;
-    fedexProfit: number;
-}
-⋮----
-export interface FedexCredentials {
-    apiKey?: string;
-    secretKey?: string;
-    accountNumber?: string;
-}
-⋮----
-export interface CalculateShippingFeesParams {
-    destination: string;
-    postalCode?: string;
-    weight: number;
-    targetCurrency?: string;
-    isEstimate?: boolean;
-    fedexCredentials?: FedexCredentials;
-}
-⋮----
-// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
-export function getJapanPostZone(countryCode?: string): number
-⋮----
-if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
-⋮----
-// 第1地帯（中国・韓国・台湾）
-⋮----
-// 第4地帯（米国・米領）
-⋮----
-// 第2地帯（アジア全般）
-⋮----
-// 第5地帯（中南米・アフリカ）
-⋮----
-// 第3地帯（オセアニア・カナダ・中近東・欧州など）
-⋮----
-/**
- * 配送方法と重量から概算送料を算出する共通関数
- */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number
-⋮----
-case 1: // 第1地帯
-⋮----
-case 2: // 第2地帯
-⋮----
-case 3: // 第3地帯
-⋮----
-case 4: // 第4地帯
-⋮----
-case 5: // 第5地帯
-⋮----
-// 基本料金＋追加重量分＋書留料金(460円)
-⋮----
-/**
- * 日本郵便（船便・APIなしのため固定概算テーブル計算）
- */
-export function calculateJapanPostSeaFee(weightKg: number, destination?: string)
-⋮----
-/**
- * FedEx API 認証トークン取得
- */
-async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
-⋮----
-/**
- * FedEx 運賃試算 API 呼び出し
- */
-export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
-    credentials?: FedexCredentials
-)
-⋮----
-// 🌟 プラン毎の標準配達日数を設定
-⋮----
-// 🌟 First も Priority と同じ 1-3日に設定
-⋮----
-export async function calculateShippingFees(params: CalculateShippingFeesParams)
-</file>
-
-<file path="app/[lang]/admin/ClientAdminPage.tsx">
-// app/[lang]/admin/ClientAdminPage.tsx
-⋮----
-import React, { useState, useEffect, useTransition } from 'react'
-import { useFormStatus } from 'react-dom'
-import { StatusBadge } from '@/components/StatusBadge'
-import ItemStatusSelect from '@/components/ItemStatusSelect'
-import {
-    sendInvoice,
-    deleteInvoice,
-    shipOrder,
-    deleteShip,
-    cancelShip,
-    updateItemQuantity,
-    updateItemPrice,
-    updateItemTitle,
-    updateTrackingNumber,
-    updateAdminNote,
-    cancelAdminNote,
-    updateOrderStatusToPaymentRequired,
-    cancelPaymentRequired,
-    updateItemStatus,
-    sendPayPalInvoice,
-    addAdminAdjustmentItem,
-    updateAllOrderItemsStatus
-} from '@/app/actions/admin'
-⋮----
-// ==========================================
-// AIインテリジェンス用の型定義
-// ==========================================
-interface ProfitableCard {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    reason: string;
-}
-⋮----
-interface SnsPosts {
-    trendPost: string;
-    arbitragePost: string;
-    hybridPost: string;
-}
-⋮----
-interface IntelligenceData {
-    trendInsights: string[];
-    profitableCards: ProfitableCard[];
-    snsPosts: SnsPosts;
-    salesDM: string;
-}
-⋮----
-// ==========================================
-// 既存の補助コンポーネント群
-// ==========================================
-function ActionStateButton(
-⋮----
-const formattedDisplay = () =>
-⋮----
-setIsFocused(true)
-⋮----
-setTimeout(()
-⋮----
-onChange=
-⋮----
-setIsFocused(false)
-const val = Number(e.target.value)
-⋮----
-<form action=
-⋮----
-// ==========================================
-// メインコンポーネント (タブ機能統合)
-// ==========================================
-⋮----
-// タブ切り替え用のState
-⋮----
-// AIインテリジェンス用のState
-⋮----
-// Discord送信用のローディングState
-⋮----
-// AIパイプラインを実行する
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 実行後に最新履歴一覧を再取得してセレクターを最新化
-⋮----
-// コピー機能
-const handleCopy = (text: string, key: string) =>
-⋮----
-// 💡 Discord直接送信ハンドラー
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-const fetchLatestHistory = async () =>
-⋮----
-const fetchWiseQuote = async (orderId: string, amount: number) =>
-⋮----
-const calculateFeesForOrders = async () =>
-⋮----
-const toggleOrder = (orderId: string) =>
-⋮----
-const handleWeightChange = (orderId: string, value: string) =>
-⋮----
-const handleItemStatusUpdated = async (orderId: string, itemId: string, newStatus: string) =>
-⋮----
-const handleBulkStatusUpdate = async (orderId: string, newStatus: string) =>
-⋮----
-const handleNoteSubmit = async (orderId: string, itemId: string, note: string) =>
-⋮----
-const handleCancelNote = async (orderId: string, itemId: string) =>
-⋮----
-const handleGenerateFedExLabel = async (orderId: string) =>
-⋮----
-const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) =>
-⋮----
-const handleMarkAsPaymentRequiredWithWise = async (order: any, amount: number) =>
-⋮----
-const handleSendInvoiceByPaymentMethod = async (order: any, amount: number) =>
-⋮----
-const handleCancelPaymentRequired = async (order: any) =>
-⋮----
-const handleMarkAsShipped = async (order: any) =>
-⋮----
-const handleCancelShip = async (orderId: string) =>
-⋮----
-const handlePriceChange = async (itemId: string, newPrice: number) =>
-⋮----
-const handleQuantityChange = async (itemId: string, newQuantity: number) =>
-⋮----
-const handleTitleChange = async (itemId: string, newTitle: string) =>
-⋮----
-{/* タブ切り替えボタン */}
-⋮----
-onClick=
-⋮----
-{/* ========================================================= */}
-{/* 1. AI市場インテリジェンス タブの内容 */}
-{/* ========================================================= */}
-⋮----
-{/* 過去履歴セレクターバー */}
-⋮----
-{/* 左カラム：情報収集＆サヤ発掘結果 */}
-⋮----
-{/* トレンドインサイト */}
-⋮----
-{/* サヤ抜きカード発掘 */}
-⋮----
-{/* 右カラム：SNS＆DMコンテンツ */}
-⋮----
-{/* SNS投稿（3パターン） */}
-⋮----
-{/* ハイブリッド */}
-⋮----
-{/* サヤ特化 */}
-⋮----
-{/* トレンド特化 */}
-⋮----
-{/* 営業DM */}
-⋮----
-{/* 💡 Discord直接送信ボタン */}
-⋮----
-{/* ========================================================= */}
-{/* 2. 既存の注文管理テーブル タブの内容 */}
-{/* ========================================================= */}
-⋮----
-setOrderInputs(prev => (
-setEditingWeight(prev
-⋮----
-{/* モーダル表示 */}
 </file>
 
 <file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
@@ -2392,6 +2293,363 @@ onClick=
 {/* 仕入先希望価格の簡易追加バー */}
 ⋮----
 {/* モーダルフッター */}
+</file>
+
+<file path="app/api/ai/intelligence/route.ts">
+// app/api/ai/intelligence/route.ts
+⋮----
+import { NextResponse } from 'next/server';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
+import { getInstagramInsights } from '@/lib/instagram';
+⋮----
+function parseAIJson(content: string)
+⋮----
+// ---------------------------------------------------------
+// 1. 市場アナリスト（1本の包括的市場レポート）
+// ---------------------------------------------------------
+async function runMarketTrend()
+⋮----
+// ---------------------------------------------------------
+// 2. アービトラージアナリスト（1本のサヤ抜き査定レポート）
+// ---------------------------------------------------------
+async function runSayaAnalysis()
+⋮----
+// ---------------------------------------------------------
+// 3. IGアナリスト（1本のアカウント診断レポート）
+// ---------------------------------------------------------
+async function runAccountAnalysis()
+⋮----
+// ---------------------------------------------------------
+// 4. インスタ担当（無料集客用投稿パッケージ）
+// ---------------------------------------------------------
+async function runSnsPosts(trends: any, cards: any, accountReport: any)
+⋮----
+// ---------------------------------------------------------
+// 5. 有料コミュニティ担当（Discord限定オファー）
+// ---------------------------------------------------------
+async function runSalesDM(trends: any, cards: any)
+⋮----
+// ---------------------------------------------------------
+// GET / POST エンドポイント
+// ---------------------------------------------------------
+export async function GET()
+⋮----
+export async function POST(req: Request)
+⋮----
+// === 単体実行モード ===
+⋮----
+// === 一括実行モード ===
+</file>
+
+<file path="app/[lang]/admin/ClientAdminPage.tsx">
+import React, { useState, useEffect, useTransition } from 'react'
+import { useFormStatus } from 'react-dom'
+import { StatusBadge } from '@/components/StatusBadge'
+import ItemStatusSelect from '@/components/ItemStatusSelect'
+import {
+    sendInvoice,
+    deleteInvoice,
+    shipOrder,
+    deleteShip,
+    cancelShip,
+    updateItemQuantity,
+    updateItemPrice,
+    updateItemTitle,
+    updateTrackingNumber,
+    updateAdminNote,
+    cancelAdminNote,
+    updateOrderStatusToPaymentRequired,
+    cancelPaymentRequired,
+    updateItemStatus,
+    sendPayPalInvoice,
+    addAdminAdjustmentItem,
+    updateAllOrderItemsStatus
+} from '@/app/actions/admin'
+⋮----
+// ==========================================
+// AIインテリジェンス用の型定義（6項目レポート対応）
+// ==========================================
+export interface FactItem {
+    label: string;
+    value: string;
+}
+⋮----
+export interface RiskAndMitigation {
+    risk: string;
+    mitigation: string;
+}
+⋮----
+export interface StrategicReport {
+    title: string;
+    claim: string;
+    reasons: string[];
+    facts: FactItem[];
+    soWhat: string;
+    riskAndMitigation: RiskAndMitigation;
+    verificationChecklist: string[];
+}
+⋮----
+export interface ProfitableCardReport extends StrategicReport {
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    imageUrl?: string;
+}
+⋮----
+export interface SnsPostsData {
+    theme: string;
+    recommendedTiming: string;
+    visualGuideline: {
+        coverSlide: string;
+        carouselSlides: string[];
+    };
+    posts: {
+        hybridPost: string;
+        arbitragePost: string;
+        trendPost: string;
+    };
+    discordCTA: string;
+}
+⋮----
+export interface SalesDMData {
+    targetSegment: string;
+    offerSummary: string;
+    discordMessage: string;
+    commercialTerms: {
+        minimumOrderQty: string;
+        shippingMethod: string;
+        paymentMethod: string;
+    };
+    negotiationTip: string;
+}
+⋮----
+export interface IntelligenceData {
+    trendInsights: StrategicReport | null;
+    profitableCards: StrategicReport | null;
+    accountInsights: StrategicReport | null;
+    snsPosts: SnsPostsData | null;
+    salesDM: SalesDMData | null;
+}
+⋮----
+// ==========================================
+// 1本のドキュメント（報告書）を表示するコンポーネント
+// ==========================================
+⋮----
+// ==========================================
+// 既存の補助コンポーネント群
+// ==========================================
+⋮----
+setIsFocused(true)
+⋮----
+setTimeout(()
+⋮----
+onChange=
+⋮----
+setIsFocused(false)
+const val = Number(e.target.value)
+⋮----
+<form action=
+⋮----
+// ==========================================
+// メインコンポーネント (タブ機能統合)
+// ==========================================
+⋮----
+// 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
+⋮----
+// 🌟 チャット用のメッセージ履歴型
+interface ChatMessage {
+        id: string;
+        sender: string;
+        avatar: string;
+        text: string;
+        isUser: boolean;
+        timestamp: string;
+    }
+⋮----
+// 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
+⋮----
+// 🌟 登録済みナレッジ用 State
+interface KnowledgeItem {
+        id: string;
+        agent_key: string;
+        content: string;
+        created_at: string;
+    }
+⋮----
+// デスクに対応する agentKey を取得するヘルパー
+const getActiveAgentKey = (desk: string): string | null =>
+⋮----
+// ナレッジ一覧の取得関数
+const fetchKnowledge = async () =>
+⋮----
+// ナレッジ削除ハンドラー
+const handleDeleteKnowledge = async (id: string) =>
+⋮----
+// 🌟 ナレッジ登録処理（AI発言・ユーザー発言双方に対応）
+const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
+⋮----
+// ユーザーの発言の場合は、現在開いている個別デスクのAIを対象にする
+⋮----
+fetchKnowledge(); // 登録後に一覧を即時更新
+⋮----
+// 🌟 チャット送信処理ハンドラー
+const handleSendChatMessage = async (e: React.FormEvent) =>
+⋮----
+// 1. ユーザーの発言を画面に即時反映
+⋮----
+// 2. AIからの返信をチャットログに追加
+⋮----
+// 🌟 デスク切り替え時にチャット履歴をDBから取得
+⋮----
+const fetchChatLogs = async () =>
+⋮----
+// AIインテリジェンス用のState
+⋮----
+const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
+⋮----
+// Discord送信用のローディングState
+⋮----
+// 🌟 Instagram送信用のローディングState
+⋮----
+// 🌟 単体AIの個別実行ハンドラー
+⋮----
+const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') =>
+⋮----
+// JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示
+⋮----
+// AIパイプライン（一括）を実行する
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 実行後に最新履歴一覧を再取得してセレクターを最新化
+⋮----
+// コピー機能
+const handleCopy = (text: string, key: string) =>
+⋮----
+// 💡 Discord直接送信ハンドラー
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+// 🌟 Instagram直接投稿ハンドラー
+const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) =>
+⋮----
+const fetchLatestHistory = async () =>
+⋮----
+const fetchWiseQuote = async (orderId: string, amount: number) =>
+⋮----
+const calculateFeesForOrders = async () =>
+⋮----
+const toggleOrder = (orderId: string) =>
+⋮----
+const handleWeightChange = (orderId: string, value: string) =>
+⋮----
+const handleItemStatusUpdated = async (orderId: string, itemId: string, newStatus: string) =>
+⋮----
+const handleBulkStatusUpdate = async (orderId: string, newStatus: string) =>
+⋮----
+const handleNoteSubmit = async (orderId: string, itemId: string, note: string) =>
+⋮----
+const handleCancelNote = async (orderId: string, itemId: string) =>
+⋮----
+const handleGenerateFedExLabel = async (orderId: string) =>
+⋮----
+const handleInvoiceSubmit = async (orderId: string, currentShippingFee: number, currentTotalAmount: number, currentShippingMethod: string, formData: FormData) =>
+⋮----
+const handleMarkAsPaymentRequiredWithWise = async (order: any, amount: number) =>
+⋮----
+const handleSendInvoiceByPaymentMethod = async (order: any, amount: number) =>
+⋮----
+const handleCancelPaymentRequired = async (order: any) =>
+⋮----
+const handleMarkAsShipped = async (order: any) =>
+⋮----
+const handleCancelShip = async (orderId: string) =>
+⋮----
+const handlePriceChange = async (itemId: string, newPrice: number) =>
+⋮----
+const handleQuantityChange = async (itemId: string, newQuantity: number) =>
+⋮----
+const handleTitleChange = async (itemId: string, newTitle: string) =>
+⋮----
+{/* タブ切り替えボタン */}
+⋮----
+onClick=
+⋮----
+{/* ========================================================= */}
+{/* 1. AI STAFF OFFICE ダッシュボード */}
+{/* ========================================================= */}
+⋮----
+{/* ① 左サイドバー: ACTIVE TEAM（クリックで個別デスク展開） */}
+⋮----
+{/* 1. アナリスト */}
+⋮----
+{/* 3. IG分析ディレクター */}
+⋮----
+{/* 4. SNS担当 */}
+⋮----
+{/* 5. 有料コミュニティ担当 */}
+⋮----
+{/* 過去履歴セレクター */}
+⋮----
+{/* ② 右メインエリア */}
+⋮----
+{/* 上部ヘッダー（2チーム切り替えタブ ＋ 一括実行ボタン） */}
+⋮----
+{/* メインコンテンツ領域 */}
+⋮----
+{/* 1. 分析チーム ビュー（市場アナリスト + アービトラージアナリスト + IGアナリスト） */}
+{/* 1. 分析チーム ビュー */}
+⋮----
+{/* 市場アナリスト */}
+⋮----
+<button onClick=
+⋮----
+{/* アービトラージアナリスト */}
+⋮----
+{/* IGアナリスト */}
+⋮----
+{/* 2. 実行チーム ビュー（SNS投稿ディレクター + 営業DM） */}
+⋮----
+{/* SNSディレクター */}
+⋮----
+{/* 有料コミュニティ担当 */}
+⋮----
+{/* 3. 個別デスク ビュー群 */}
+⋮----
+{/* 🌟 カルーセル画像指示 & 投稿タイミング */}
+⋮----
+{/* 3パターンキャプション */}
+⋮----
+{/* ハイブリッド */}
+⋮----
+{/* サヤ特化 */}
+⋮----
+{/* トレンド特化 */}
+⋮----
+{/* 🌟 商条件 ＆ 交渉対策 */}
+⋮----
+{/* Discord投稿用メッセージ */}
+⋮----
+{/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
+⋮----
+{/* 🌟 ナレッジ管理アコーディオン切り替えボタン */}
+⋮----
+{/* 🌟 ナレッジ一覧管理パネル（展開時） */}
+⋮----
+{/* チャットふきだし一覧 */}
+⋮----
+{/* 🌟 ユーザーのメッセージの場合：直接ルール化ボタン（個別デスク時のみ） */}
+⋮----
+{/* 下部コマンドバー（全画面共通） */}
+⋮----
+{/* ========================================================= */}
+{/* 2. 既存の注文管理テーブル タブの内容 */}
+{/* ========================================================= */}
+⋮----
+setOrderInputs(prev => (
+setEditingWeight(prev
+⋮----
+{/* モーダル表示 */}
 </file>
 
 </files>
