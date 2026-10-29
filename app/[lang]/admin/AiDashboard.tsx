@@ -704,7 +704,7 @@ export default function AiDashboard() {
                                         : 'text-slate-300 hover:bg-slate-800/80'
                                 }`}
                             >
-                                <span>📊 Instagram アナリスト</span>
+                                <span>📊 IG アナリスト</span>
                                 <span className="text-[10px] opacity-60 font-mono">反応・ファネル分析</span>
                             </button>
                             <button
@@ -716,7 +716,7 @@ export default function AiDashboard() {
                                         : 'text-slate-300 hover:bg-slate-800/80'
                                 }`}
                             >
-                                <span>🎨 Instagram クリエイター</span>
+                                <span>🎨 IG クリエイター</span>
                                 <span className="text-[10px] opacity-60 font-mono">カルーセル・原稿作成</span>
                             </button>
                         </div>
@@ -750,7 +750,7 @@ export default function AiDashboard() {
                                         : 'text-slate-300 hover:bg-slate-800/80'
                                 }`}
                             >
-                                <span>✍️ X (Twitter) 担当</span>
+                                <span>✍️ X クリエイター</span>
                                 <span className="text-[10px] opacity-60 font-mono">140字・スレッド</span>
                             </button>
                         </div>
@@ -1206,7 +1206,7 @@ export default function AiDashboard() {
                                             </div>
                                         </div>
 
-                                        {/* X (Twitter) 担当 */}
+                                        {/* X クリエイター */}
                                         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 flex flex-col justify-between">
                                             <div>
                                                 <div className="flex justify-between items-center mb-2">
@@ -1274,7 +1274,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">🔮</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">
-                                                    市場トレンドアナリスト ({activeTrendRegion === 'us' ? '🇺🇸 北米' : activeTrendRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
+                                                    市場トレンドアナリスト ({activeTrendRegion === 'us' ? '北米' : activeTrendRegion === 'eu' ? '欧州' : 'アジア'})
                                                 </h2>
                                                 <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）[cite: 1]</p>
                                             </div>
@@ -1290,7 +1290,7 @@ export default function AiDashboard() {
                                                         }}
                                                         className={`px-3 py-1 text-xs font-bold rounded transition ${activeTrendRegion === reg ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'}`}
                                                     >
-                                                        {reg === 'us' ? '🇺🇸 北米' : reg === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'}
+                                                        {reg === 'us' ? '北米' : reg === 'eu' ? '欧州' : 'アジア'}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1314,7 +1314,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">💎</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">
-                                                    アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '🇺🇸 北米' : activeArbitrageRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
+                                                    アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '北米' : activeArbitrageRegion === 'eu' ? '欧州' : 'アジア'})
                                                 </h2>
                                                 <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）[cite: 1]</p>
                                             </div>
@@ -1330,7 +1330,7 @@ export default function AiDashboard() {
                                                         }}
                                                         className={`px-3 py-1 text-xs font-bold rounded transition ${activeArbitrageRegion === reg ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}
                                                     >
-                                                        {reg === 'us' ? '🇺🇸 北米' : reg === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'}
+                                                        {reg === 'us' ? '北米' : reg === 'eu' ? '欧州' : 'アジア'}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1456,14 +1456,14 @@ export default function AiDashboard() {
                                 </div>
                             )}
 
-                            {/* 🐦 X (Twitter) 担当専用デスク ビュー */}
+                            {/* 🐦 X クリエイター専用デスク ビュー */}
                             {aiActiveDesk === 'desk_x' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">🐦</span>
                                             <div>
-                                                <h2 className="text-lg font-bold text-white">X (Twitter) 担当専用デスク</h2>
+                                                <h2 className="text-lg font-bold text-white">X クリエイター専用デスク</h2>
                                                 <p className="text-xs text-slate-400">140字フック ＆ スレッド考察ツリー展開[cite: 1]</p>
                                             </div>
                                         </div>
@@ -1592,7 +1592,7 @@ export default function AiDashboard() {
                                             {aiActiveDesk === 'desk_account' && 'IGアナリストとの個別チャット'}
                                             {aiActiveDesk === 'desk_x_account' && 'Xアナリストとの個別チャット'}
                                             {aiActiveDesk === 'desk_sns' && 'Instagram 担当との個別チャット'}
-                                            {aiActiveDesk === 'desk_x' && 'X (Twitter) 担当との個別チャット'}
+                                            {aiActiveDesk === 'desk_x' && 'X クリエイターとの個別チャット'}
                                             {aiActiveDesk === 'desk_sales' && '有料コミュニティ担当との個別チャット'}
                                         </span>
                                     </h3>
@@ -1751,7 +1751,7 @@ export default function AiDashboard() {
                                     aiActiveDesk === 'desk_chief' ? '👑 チーフマネージャーに戦略選定の指示や方針を伝える...' :
                                         aiActiveDesk === 'execution_team' ? '実行チーム全員に質問・指示を出す...' :
                                             aiActiveDesk === 'desk_x_account' ? '📈 Xアナリストにアルゴリズムや戦術の質問をする...' :
-                                                aiActiveDesk === 'desk_x' ? '🐦 X (Twitter) 担当に投稿のトーンやフックの指示を出す...' :
+                                                aiActiveDesk === 'desk_x' ? '🐦 X クリエイターに投稿のトーンやフックの指示を出す...' :
                                                     'この担当AIにチャットを送る...'
                             }
                             className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl pl-4 pr-16 py-3.5 focus:outline-none focus:border-blue-500 shadow-inner disabled:opacity-60"
