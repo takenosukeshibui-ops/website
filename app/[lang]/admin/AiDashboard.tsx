@@ -44,6 +44,22 @@ export interface ChiefPackageData {
     };
 }
 
+export interface ProofPackageData {
+    cardName: string;
+    predictedDate: string;
+    predictedPrice: string;
+    currentPrice: string;
+    growthRate: string;
+    hitReasonPattern: string;
+    proofPost: string;
+    visualGuideline: {
+        beforeImageDesc: string;
+        afterImageDesc: string;
+        comparisonLayout: string;
+    };
+    discordCTA: string;
+}
+
 export interface SnsPostsData {
     theme: string;
     recommendedTiming: string;
@@ -83,6 +99,7 @@ export interface IntelligenceData {
     trendInsights: RegionalContainer<StrategicReport> | null;
     profitableCards: RegionalContainer<StrategicReport> | null;
     chiefPackage: ChiefPackageData | null;
+    proofPackage?: ProofPackageData | null;
     accountInsights: StrategicReport | null;
     snsPosts: SnsPostsData | null;
     salesDM: SalesDMData | null;
@@ -109,7 +126,7 @@ function DocumentReportView({
 
     return (
         <div className="bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl overflow-hidden font-sans">
-            <div className={`p-4 border-b border-slate-700/80 flex items-center gap-3 bg-slate-950/50`}>
+            <div className="p-4 border-b border-slate-700/80 flex items-center gap-3 bg-slate-950/50">
                 <span className="text-3xl">{icon}</span>
                 <div>
                     <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-0.5">Strategic Intelligence Report</span>
@@ -361,7 +378,7 @@ export default function AiDashboard() {
     const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false);
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
 
-    const runSingleAi = async (action: 'trend' | 'arbitrage' | 'chief' | 'account' | 'sns' | 'dm', region?: RegionKey) => {
+    const runSingleAi = async (action: 'trend' | 'arbitrage' | 'chief' | 'account' | 'sns' | 'dm' | 'proof', region?: RegionKey) => {
         const actionKey = region ? `${action}_${region}` : action;
         setRunningAction(actionKey);
         try {
@@ -389,6 +406,7 @@ export default function AiDashboard() {
                 trendInsights: prev?.trendInsights || { us: null, eu: null, asia: null },
                 profitableCards: prev?.profitableCards || { us: null, eu: null, asia: null },
                 chiefPackage: prev?.chiefPackage || null,
+                proofPackage: prev?.proofPackage || null,
                 snsPosts: prev?.snsPosts || {
                     theme: '',
                     recommendedTiming: '',
@@ -505,6 +523,7 @@ export default function AiDashboard() {
                         trendInsights: latest.trend_insights || { us: null, eu: null, asia: null },
                         profitableCards: latest.profitable_cards || { us: null, eu: null, asia: null },
                         chiefPackage: latest.chief_package || null,
+                        proofPackage: latest.proof_package || null,
                         snsPosts: latest.sns_posts,
                         salesDM: latest.sales_dm,
                         accountInsights: latest.account_insights || null,
@@ -685,6 +704,7 @@ export default function AiDashboard() {
                                     trendInsights: target.trend_insights || { us: null, eu: null, asia: null },
                                     profitableCards: target.profitable_cards || { us: null, eu: null, asia: null },
                                     chiefPackage: target.chief_package || null,
+                                    proofPackage: target.proof_package || null,
                                     snsPosts: target.sns_posts,
                                     salesDM: target.sales_dm,
                                     accountInsights: target.account_insights,
@@ -757,13 +777,13 @@ export default function AiDashboard() {
                         <>
                             {/* 👑 チーフマネージャー専用デスク ビュー */}
                             {aiActiveDesk === 'desk_chief' && (
-                                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">👑</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">チーフマネージャー戦略デスク</h2>
-                                                <p className="text-xs text-slate-400">6地域レポートから最優秀撒き餌案件を審査・ディレクション指示発行</p>
+                                                <p className="text-xs text-slate-400">6地域レポートから最優秀撒き餌案件を審査・ディレクション指示発行[cite: 1]</p>
                                             </div>
                                         </div>
                                         <button
@@ -775,6 +795,7 @@ export default function AiDashboard() {
                                         </button>
                                     </div>
 
+                                    {/* 最優秀選定パッケージ */}
                                     {aiData?.chiefPackage ? (
                                         <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-5 space-y-5 shadow-xl">
                                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -787,7 +808,7 @@ export default function AiDashboard() {
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
-                                                        {aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}
+                                                        {aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}[cite: 1]
                                                     </span>
                                                     <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-1 rounded-lg font-bold uppercase">
                                                         対象地域: {aiData.chiefPackage.winningRegion}
@@ -803,11 +824,11 @@ export default function AiDashboard() {
                                             </div>
 
                                             <div>
-                                                <h4 className="text-xs font-bold text-amber-400 mb-1.5">🎯 無料SNS用『撒き餌』フック（Fact & Result）</h4>
+                                                <h4 className="text-xs font-bold text-amber-400 mb-1.5">🎯 無料SNS用『撒き餌』フック（Fact & Result）[cite: 1]</h4>
                                                 <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-xs text-amber-200 leading-relaxed">
                                                     {aiData.chiefPackage.coreHookFact}
                                                 </div>
-                                                <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します。</span>
+                                                <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します[cite: 1]。</span>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -822,10 +843,87 @@ export default function AiDashboard() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-center py-12 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">
+                                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">
                                             まだチーフの選定が行われていません。「全AIに一斉調査・戦略立案を指示」または「案件を再審査・選定」を実行してください。
                                         </div>
                                     )}
+
+                                    {/* 🌟 タイプC: 的中実績・証明投稿カード */}
+                                    <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-5 space-y-4 shadow-xl">
+                                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-bold block mb-1">
+                                                    Type C: Social Proof Lead Magnet[cite: 1]
+                                                </span>
+                                                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                                    <span>🎯</span>
+                                                    <span>的中実績証明パッケージ（社会的証明・権威性構築）[cite: 1]</span>
+                                                </h3>
+                                            </div>
+                                            <button
+                                                onClick={() => runSingleAi('proof')}
+                                                disabled={runningAction === 'proof'}
+                                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition"
+                                            >
+                                                {runningAction === 'proof' ? '過去ログ照合中...' : '🔄 的中実績を自動発掘・生成'}
+                                            </button>
+                                        </div>
+
+                                        {aiData?.proofPackage ? (
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                                        <span className="text-[10px] text-slate-400 block">的中銘柄</span>
+                                                        <span className="text-white font-bold text-xs truncate block">{aiData.proofPackage.cardName}</span>
+                                                    </div>
+                                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                                        <span className="text-[10px] text-slate-400 block">予測時期相場 ({aiData.proofPackage.predictedDate})</span>
+                                                        <span className="text-slate-300 font-mono text-xs">{aiData.proofPackage.predictedPrice}</span>
+                                                    </div>
+                                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                                        <span className="text-[10px] text-slate-400 block">現在の海外実成約</span>
+                                                        <span className="text-emerald-400 font-mono font-bold text-xs">{aiData.proofPackage.currentPrice}</span>
+                                                    </div>
+                                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-emerald-500/30">
+                                                        <span className="text-[10px] text-emerald-400 block">急騰上昇率</span>
+                                                        <span className="text-emerald-300 font-mono font-bold text-sm">{aiData.proofPackage.growthRate}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                                    <span className="text-[11px] font-bold text-amber-300 block mb-1">🖼️ ビフォーアフター比較画像指示[cite: 1]</span>
+                                                    <p className="text-xs text-slate-300 mb-0.5">左(当時): {aiData.proofPackage.visualGuideline?.beforeImageDesc}</p>
+                                                    <p className="text-xs text-slate-300">右(現在): {aiData.proofPackage.visualGuideline?.afterImageDesc}</p>
+                                                </div>
+
+                                                <div>
+                                                    <span className="text-xs font-bold text-slate-300 block mb-1">📝 タイプC 投稿キャプション（VIP Discord誘導主軸）[cite: 1]</span>
+                                                    <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">
+                                                        {aiData.proofPackage.proofPost}
+                                                    </pre>
+                                                </div>
+
+                                                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                                                    <button
+                                                        onClick={() => handleCopy(aiData.proofPackage?.proofPost || '', 'proof')}
+                                                        className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300"
+                                                    >
+                                                        {copiedKey === 'proof' ? '✓ コピー完了' : 'コピー'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handlePublishToInstagram(aiData.proofPackage?.proofPost || '', 'proof')}
+                                                        className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        📸 Instagramへ投稿
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 text-slate-500 text-xs bg-slate-950/60 border border-slate-800 rounded-lg">
+                                                過去ログを照合して的中銘柄を抽出するには「🔄 的中実績を自動発掘・生成」をクリックしてください[cite: 1]。
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
@@ -958,7 +1056,7 @@ export default function AiDashboard() {
                                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                                 <span>⚡</span> コンテンツ実行チーム（Execution Team）
                                             </h2>
-                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、SNS投稿と大口バイヤー営業DMを作成・配信</p>
+                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、SNS投稿と大口バイヤー営業DMを作成・配信[cite: 1]</p>
                                         </div>
                                         {aiData.chiefPackage && (
                                             <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-lg">
@@ -1037,7 +1135,7 @@ export default function AiDashboard() {
                                                 <h2 className="text-lg font-bold text-white">
                                                     市場トレンドアナリスト ({activeTrendRegion === 'us' ? '🇺🇸 北米' : activeTrendRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
                                                 </h2>
-                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）</p>
+                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）[cite: 1]</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1077,7 +1175,7 @@ export default function AiDashboard() {
                                                 <h2 className="text-lg font-bold text-white">
                                                     アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '🇺🇸 北米' : activeArbitrageRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
                                                 </h2>
-                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）</p>
+                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）[cite: 1]</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1115,7 +1213,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">📊</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">IGアナリスト専用デスク</h2>
-                                                <p className="text-xs text-slate-400">自社アカウント反応分析・ファネル改善レポート</p>
+                                                <p className="text-xs text-slate-400">自社アカウント反応分析・ファネル改善レポート[cite: 1]</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('account')} disabled={runningAction === 'account'} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
@@ -1133,7 +1231,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">📸</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">SNS担当専用デスク</h2>
-                                                <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション</p>
+                                                <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション[cite: 1]</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold">
@@ -1204,7 +1302,7 @@ export default function AiDashboard() {
                                             <span className="text-3xl">✉️</span>
                                             <div>
                                                 <h2 className="text-lg font-bold text-white">有料コミュニティ担当専用デスク</h2>
-                                                <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）</p>
+                                                <p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）[cite: 1]</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">
