@@ -1,19 +1,25 @@
+// app/api/ai/intelligence/agents/contentCreator.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../helpers';
+import { parseAIJson, getAgentRules } from '../helpers';
 
 // 6. Instagramクリエイター
 export async function runSnsPosts(chiefPackage: any, accountReport: any) {
+    const rules = await getAgentRules('sns');
     const model = new ChatGoogleGenerativeAI({
         model: "gemini-3.1-flash-lite",
         temperature: 0.3,
     });
 
     const prompt = `あなたはInstagram専任のSNS投稿クリエイターです。
-チーフマネージャーからの指示書:
+【チーフマネージャーからの指示書】:
 ${JSON.stringify(chiefPackage)}
 
-IGアナリスト指示:
+【IGアナリスト指示】:
 ${JSON.stringify(accountReport)}
+
+【必須発信ルール】:
+- 答えを教えない撒き餌設計（Fact/Resultを提示し、具体的なAction/Reasonは伏せる）
+${rules}
 
 以下のJSON形式のみを出力してください:
 {
@@ -39,19 +45,25 @@ ${JSON.stringify(accountReport)}
     return parseAIJson(res.content.toString());
 }
 
-// 7. Xクリエイター
+// 7. X (Twitter) クリエイター
 export async function runXPosts(chiefPackage: any, xAccountReport?: any) {
+    const rules = await getAgentRules('sns');
     const model = new ChatGoogleGenerativeAI({
         model: "gemini-3.1-flash-lite",
         temperature: 0.3,
     });
 
     const prompt = `あなたはX (Twitter) 専任のクリエイターです。
-チーフマネージャーからの指示書:
+【チーフマネージャーからの指示書】:
 ${JSON.stringify(chiefPackage)}
 
-Xアナリストの戦術指示:
+【Xアナリストの戦術指示】:
 ${JSON.stringify(xAccountReport || {})}
+
+【必須発信ルール】:
+- 1ポスト目は140字以内、フック＋画像添付案内＋スレッド誘導
+- 1ポスト目に外部リンクを置かず、スレッド最後またはリプ欄に配置
+${rules}
 
 以下のJSON形式のみを出力してください:
 {
