@@ -50,6 +50,7 @@ app/
         page.tsx
       profit/
         page.tsx
+      AiDashboard.tsx
       ClientAdminPage.tsx
       page.tsx
     calculator/
@@ -1370,6 +1371,228 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="app/[lang]/admin/AiDashboard.tsx">
+import React, { useState, useEffect } from 'react';
+⋮----
+// ==========================================
+// AIインテリジェンス用の型定義（6項目レポート対応）
+// ==========================================
+export interface FactItem {
+    label: string;
+    value: string;
+}
+⋮----
+export interface RiskAndMitigation {
+    risk: string;
+    mitigation: string;
+}
+⋮----
+export interface StrategicReport {
+    title: string;
+    claim: string;
+    reasons: string[];
+    facts: FactItem[];
+    soWhat: string;
+    riskAndMitigation: RiskAndMitigation;
+    verificationChecklist: string[];
+}
+⋮----
+export interface ProfitableCardReport extends StrategicReport {
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    imageUrl?: string;
+}
+⋮----
+export interface SnsPostsData {
+    theme: string;
+    recommendedTiming: string;
+    visualGuideline: {
+        coverSlide: string;
+        carouselSlides: string[];
+    };
+    posts: {
+        hybridPost: string;
+        arbitragePost: string;
+        trendPost: string;
+    };
+    discordCTA: string;
+}
+⋮----
+export interface SalesDMData {
+    targetSegment: string;
+    offerSummary: string;
+    discordMessage: string;
+    commercialTerms: {
+        minimumOrderQty: string;
+        shippingMethod: string;
+        paymentMethod: string;
+    };
+    negotiationTip: string;
+}
+⋮----
+export interface IntelligenceData {
+    trendInsights: StrategicReport | null;
+    profitableCards: StrategicReport | null;
+    accountInsights: StrategicReport | null;
+    snsPosts: SnsPostsData | null;
+    salesDM: SalesDMData | null;
+}
+⋮----
+// ==========================================
+// 1本のドキュメント（報告書）を表示するコンポーネント
+// ==========================================
+⋮----
+// ==========================================
+// // AI専用ダッシュボード コンポーネント
+// ==========================================
+⋮----
+// 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
+⋮----
+// 🌟 チャット用のメッセージ履歴型
+interface ChatMessage {
+        id: string;
+        sender: string;
+        avatar: string;
+        text: string;
+        isUser: boolean;
+        timestamp: string;
+    }
+⋮----
+// 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
+⋮----
+// 🌟 登録済みナレッジ用 State
+interface KnowledgeItem {
+        id: string;
+        agent_key: string;
+        content: string;
+        created_at: string;
+    }
+⋮----
+// デスクに対応する agentKey を取得するヘルパー
+const getActiveAgentKey = (desk: string): string | null =>
+⋮----
+// ナレッジ一覧の取得関数
+const fetchKnowledge = async () =>
+⋮----
+// ナレッジ削除ハンドラー
+const handleDeleteKnowledge = async (id: string) =>
+⋮----
+// 🌟 ナレッジ登録処理（AI発言・ユーザー発言双方に対応）
+const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
+⋮----
+// ユーザーの発言の場合は、現在開いている個別デスクのAIを対象にする
+⋮----
+fetchKnowledge(); // 登録後に一覧を即時更新
+⋮----
+// 🌟 チャット送信処理ハンドラー
+const handleSendChatMessage = async (e: React.FormEvent) =>
+⋮----
+// 1. ユーザーの発言を画面に即時反映
+⋮----
+// 2. AIからの返信をチャットログに追加
+⋮----
+// 🌟 デスク切り替え時にチャット履歴をDBから取得
+⋮----
+const fetchChatLogs = async () =>
+⋮----
+// AIインテリジェンス用のState
+⋮----
+const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
+⋮----
+// Discord送信用のローディングState
+⋮----
+// 🌟 Instagram送信用のローディングState
+⋮----
+// 🌟 単体AIの個別実行ハンドラー
+⋮----
+const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') =>
+⋮----
+// JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示
+⋮----
+// AIパイプライン（一括）を実行する
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 実行後に最新履歴一覧を再取得してセレクターを最新化
+⋮----
+// コピー機能
+const handleCopy = (text: string, key: string) =>
+⋮----
+// 💡 Discord直接送信ハンドラー
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+// 🌟 Instagram直接投稿ハンドラー
+const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) =>
+⋮----
+const fetchLatestHistory = async () =>
+⋮----
+{/* ① 左サイドバー: ACTIVE TEAM（クリックで個別デスク展開） */}
+⋮----
+{/* 1. アナリスト */}
+⋮----
+onClick=
+⋮----
+{/* 3. IG分析ディレクター */}
+⋮----
+{/* 4. SNS担当 */}
+⋮----
+{/* 5. 有料コミュニティ担当 */}
+⋮----
+{/* 過去履歴セレクター */}
+⋮----
+{/* ② 右メインエリア */}
+⋮----
+{/* 上部ヘッダー（2チーム切り替えタブ ＋ 一括実行ボタン） */}
+⋮----
+{/* メインコンテンツ領域 */}
+⋮----
+{/* 1. 分析チーム ビュー（市場アナリスト + アービトラージアナリスト + IGアナリスト） */}
+{/* 1. 分析チーム ビュー */}
+⋮----
+{/* 市場アナリスト */}
+⋮----
+<button onClick=
+⋮----
+{/* アービトラージアナリスト */}
+⋮----
+{/* IGアナリスト */}
+⋮----
+{/* 2. 実行チーム ビュー（SNS投稿ディレクター + 営業DM） */}
+⋮----
+{/* SNSディレクター */}
+⋮----
+{/* 有料コミュニティ担当 */}
+⋮----
+{/* 3. 個別デスク ビュー群 */}
+⋮----
+{/* 🌟 カルーセル画像指示 & 投稿タイミング */}
+⋮----
+{/* 3パターンキャプション */}
+⋮----
+{/* ハイブリッド */}
+⋮----
+{/* サヤ特化 */}
+⋮----
+{/* トレンド特化 */}
+⋮----
+{/* 🌟 商条件 ＆ 交渉対策 */}
+⋮----
+{/* Discord投稿用メッセージ */}
+⋮----
+{/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
+⋮----
+{/* 🌟 ナレッジ管理アコーディオン切り替えボタン */}
+⋮----
+{/* 🌟 ナレッジ一覧管理パネル（展開時） */}
+⋮----
+{/* チャットふきだし一覧 */}
+⋮----
+{/* 🌟 ユーザーのメッセージの場合：直接ルール化ボタン（個別デスク時のみ） */}
+⋮----
+{/* 下部コマンドバー（全画面共通） */}
+</file>
+
 <file path="app/actions/cart.ts">
 // app/actions/cart.ts
 ⋮----
@@ -2366,80 +2589,14 @@ import {
     addAdminAdjustmentItem,
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
-⋮----
-// ==========================================
-// AIインテリジェンス用の型定義（6項目レポート対応）
-// ==========================================
-export interface FactItem {
-    label: string;
-    value: string;
-}
-⋮----
-export interface RiskAndMitigation {
-    risk: string;
-    mitigation: string;
-}
-⋮----
-export interface StrategicReport {
-    title: string;
-    claim: string;
-    reasons: string[];
-    facts: FactItem[];
-    soWhat: string;
-    riskAndMitigation: RiskAndMitigation;
-    verificationChecklist: string[];
-}
-⋮----
-export interface ProfitableCardReport extends StrategicReport {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    imageUrl?: string;
-}
-⋮----
-export interface SnsPostsData {
-    theme: string;
-    recommendedTiming: string;
-    visualGuideline: {
-        coverSlide: string;
-        carouselSlides: string[];
-    };
-    posts: {
-        hybridPost: string;
-        arbitragePost: string;
-        trendPost: string;
-    };
-    discordCTA: string;
-}
-⋮----
-export interface SalesDMData {
-    targetSegment: string;
-    offerSummary: string;
-    discordMessage: string;
-    commercialTerms: {
-        minimumOrderQty: string;
-        shippingMethod: string;
-        paymentMethod: string;
-    };
-    negotiationTip: string;
-}
-⋮----
-export interface IntelligenceData {
-    trendInsights: StrategicReport | null;
-    profitableCards: StrategicReport | null;
-    accountInsights: StrategicReport | null;
-    snsPosts: SnsPostsData | null;
-    salesDM: SalesDMData | null;
-}
-⋮----
-// ==========================================
-// 1本のドキュメント（報告書）を表示するコンポーネント
-// ==========================================
+import AiDashboard from './AiDashboard';
 ⋮----
 // ==========================================
 // 既存の補助コンポーネント群
 // ==========================================
+function ActionStateButton(
+⋮----
+const formattedDisplay = () =>
 ⋮----
 setIsFocused(true)
 ⋮----
@@ -2451,89 +2608,6 @@ setIsFocused(false)
 const val = Number(e.target.value)
 ⋮----
 <form action=
-⋮----
-// ==========================================
-// メインコンポーネント (タブ機能統合)
-// ==========================================
-⋮----
-// 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
-⋮----
-// 🌟 チャット用のメッセージ履歴型
-interface ChatMessage {
-        id: string;
-        sender: string;
-        avatar: string;
-        text: string;
-        isUser: boolean;
-        timestamp: string;
-    }
-⋮----
-// 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
-⋮----
-// 🌟 登録済みナレッジ用 State
-interface KnowledgeItem {
-        id: string;
-        agent_key: string;
-        content: string;
-        created_at: string;
-    }
-⋮----
-// デスクに対応する agentKey を取得するヘルパー
-const getActiveAgentKey = (desk: string): string | null =>
-⋮----
-// ナレッジ一覧の取得関数
-const fetchKnowledge = async () =>
-⋮----
-// ナレッジ削除ハンドラー
-const handleDeleteKnowledge = async (id: string) =>
-⋮----
-// 🌟 ナレッジ登録処理（AI発言・ユーザー発言双方に対応）
-const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
-⋮----
-// ユーザーの発言の場合は、現在開いている個別デスクのAIを対象にする
-⋮----
-fetchKnowledge(); // 登録後に一覧を即時更新
-⋮----
-// 🌟 チャット送信処理ハンドラー
-const handleSendChatMessage = async (e: React.FormEvent) =>
-⋮----
-// 1. ユーザーの発言を画面に即時反映
-⋮----
-// 2. AIからの返信をチャットログに追加
-⋮----
-// 🌟 デスク切り替え時にチャット履歴をDBから取得
-⋮----
-const fetchChatLogs = async () =>
-⋮----
-// AIインテリジェンス用のState
-⋮----
-const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
-⋮----
-// Discord送信用のローディングState
-⋮----
-// 🌟 Instagram送信用のローディングState
-⋮----
-// 🌟 単体AIの個別実行ハンドラー
-⋮----
-const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') =>
-⋮----
-// JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示
-⋮----
-// AIパイプライン（一括）を実行する
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 実行後に最新履歴一覧を再取得してセレクターを最新化
-⋮----
-// コピー機能
-const handleCopy = (text: string, key: string) =>
-⋮----
-// 💡 Discord直接送信ハンドラー
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-// 🌟 Instagram直接投稿ハンドラー
-const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) =>
-⋮----
-const fetchLatestHistory = async () =>
 ⋮----
 const fetchWiseQuote = async (orderId: string, amount: number) =>
 ⋮----
@@ -2578,69 +2652,6 @@ onClick=
 {/* ========================================================= */}
 {/* 1. AI STAFF OFFICE ダッシュボード */}
 {/* ========================================================= */}
-⋮----
-{/* ① 左サイドバー: ACTIVE TEAM（クリックで個別デスク展開） */}
-⋮----
-{/* 1. アナリスト */}
-⋮----
-{/* 3. IG分析ディレクター */}
-⋮----
-{/* 4. SNS担当 */}
-⋮----
-{/* 5. 有料コミュニティ担当 */}
-⋮----
-{/* 過去履歴セレクター */}
-⋮----
-{/* ② 右メインエリア */}
-⋮----
-{/* 上部ヘッダー（2チーム切り替えタブ ＋ 一括実行ボタン） */}
-⋮----
-{/* メインコンテンツ領域 */}
-⋮----
-{/* 1. 分析チーム ビュー（市場アナリスト + アービトラージアナリスト + IGアナリスト） */}
-{/* 1. 分析チーム ビュー */}
-⋮----
-{/* 市場アナリスト */}
-⋮----
-<button onClick=
-⋮----
-{/* アービトラージアナリスト */}
-⋮----
-{/* IGアナリスト */}
-⋮----
-{/* 2. 実行チーム ビュー（SNS投稿ディレクター + 営業DM） */}
-⋮----
-{/* SNSディレクター */}
-⋮----
-{/* 有料コミュニティ担当 */}
-⋮----
-{/* 3. 個別デスク ビュー群 */}
-⋮----
-{/* 🌟 カルーセル画像指示 & 投稿タイミング */}
-⋮----
-{/* 3パターンキャプション */}
-⋮----
-{/* ハイブリッド */}
-⋮----
-{/* サヤ特化 */}
-⋮----
-{/* トレンド特化 */}
-⋮----
-{/* 🌟 商条件 ＆ 交渉対策 */}
-⋮----
-{/* Discord投稿用メッセージ */}
-⋮----
-{/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
-⋮----
-{/* 🌟 ナレッジ管理アコーディオン切り替えボタン */}
-⋮----
-{/* 🌟 ナレッジ一覧管理パネル（展開時） */}
-⋮----
-{/* チャットふきだし一覧 */}
-⋮----
-{/* 🌟 ユーザーのメッセージの場合：直接ルール化ボタン（個別デスク時のみ） */}
-⋮----
-{/* 下部コマンドバー（全画面共通） */}
 ⋮----
 {/* ========================================================= */}
 {/* 2. 既存の注文管理テーブル タブの内容 */}
