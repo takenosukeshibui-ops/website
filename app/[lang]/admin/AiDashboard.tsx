@@ -196,6 +196,8 @@ export default function AiDashboard() {
     const [showKnowledgePanel, setShowKnowledgePanel] = useState<boolean>(false);
 
     const getActiveAgentKey = (desk: string): string | null => {
+        if (desk.startsWith('desk_trend_')) return 'trend';
+        if (desk.startsWith('desk_arbitrage_')) return 'arbitrage';
         if (desk.startsWith('desk_')) return desk.replace('desk_', '');
         return null;
     };
@@ -528,7 +530,7 @@ export default function AiDashboard() {
                     <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">階層型 9 Agents</span>
                 </div>
 
-                <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+                <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
                     <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
                         Command & Desks
                     </h2>
@@ -551,40 +553,71 @@ export default function AiDashboard() {
                         </div>
                     </div>
 
-                    <div
-                        onClick={() => setAiActiveDesk('desk_trend')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_trend'
-                            ? 'bg-amber-500/10 border-amber-500/60 shadow-sm'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">🔮</div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <p className="text-xs font-bold text-slate-200 truncate">市場トレンドアナリスト</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-medium">3名(米欧亜)</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 truncate">海外市場トレンド先行兆候調査</p>
+                    {/* 🔮 市場トレンドアナリスト（米・欧・亜 展開選択） */}
+                    <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
+                        <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-amber-300">
+                            <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドアナリスト</span>
+                            <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                            {([
+                                { key: 'us', label: '🇺🇸 北米担当', desc: 'eBay / TCGPlayer' },
+                                { key: 'eu', label: '🇪🇺 欧州担当', desc: 'Cardmarket / EU' },
+                                { key: 'asia', label: '🌏 アジア担当', desc: 'Shopee / アジア圏' }
+                            ] as const).map(item => (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveTrendRegion(item.key);
+                                        setAiActiveDesk(`desk_trend_${item.key}`);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex justify-between items-center transition ${
+                                        aiActiveDesk === `desk_trend_${item.key}`
+                                            ? 'bg-amber-600 text-white font-bold shadow'
+                                            : 'text-slate-300 hover:bg-slate-800/80'
+                                    }`}
+                                >
+                                    <span>{item.label}</span>
+                                    <span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    <div
-                        onClick={() => setAiActiveDesk('desk_arbitrage')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_arbitrage'
-                            ? 'bg-emerald-500/10 border-emerald-500/60 shadow-sm'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">💎</div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <p className="text-xs font-bold text-slate-200 truncate">アービトラージアナリスト</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-medium">3名(米欧亜)</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 truncate">実質純利益・サヤ抜き銘柄査定</p>
+                    {/* 💎 アービトラージアナリスト（米・欧・亜 展開選択） */}
+                    <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
+                        <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-emerald-300">
+                            <span className="flex items-center gap-1.5"><span>💎</span> アービトラージアナリスト</span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                            {([
+                                { key: 'us', label: '🇺🇸 北米サヤ', desc: '日米・eBay・FedEx' },
+                                { key: 'eu', label: '🇪🇺 欧州サヤ', desc: '日欧・Cardmarket' },
+                                { key: 'asia', label: '🌏 アジアサヤ', desc: '日亜・Shopee' }
+                            ] as const).map(item => (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveArbitrageRegion(item.key);
+                                        setAiActiveDesk(`desk_arbitrage_${item.key}`);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex justify-between items-center transition ${
+                                        aiActiveDesk === `desk_arbitrage_${item.key}`
+                                            ? 'bg-emerald-600 text-white font-bold shadow'
+                                            : 'text-slate-300 hover:bg-slate-800/80'
+                                    }`}
+                                >
+                                    <span>{item.label}</span>
+                                    <span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
 
+                    {/* IGアナリスト */}
                     <div
                         onClick={() => setAiActiveDesk('desk_account')}
                         className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_account'
@@ -602,6 +635,7 @@ export default function AiDashboard() {
                         </div>
                     </div>
 
+                    {/* SNS担当 */}
                     <div
                         onClick={() => setAiActiveDesk('desk_sns')}
                         className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
@@ -619,6 +653,7 @@ export default function AiDashboard() {
                         </div>
                     </div>
 
+                    {/* 有料コミュニティ担当 */}
                     <div
                         onClick={() => setAiActiveDesk('desk_sales')}
                         className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
@@ -841,7 +876,7 @@ export default function AiDashboard() {
                                                     ) : <span className="text-slate-600 italic">該当地域のデータなし</span>}
                                                 </div>
                                             </div>
-                                            <button onClick={() => setAiActiveDesk('desk_trend')} className="mt-4 text-[11px] text-amber-400 hover:underline text-left block">
+                                            <button onClick={() => setAiActiveDesk(`desk_trend_${activeTrendRegion}`)} className="mt-4 text-[11px] text-amber-400 hover:underline text-left block">
                                                 ➔ トレンドデスクを開く
                                             </button>
                                         </div>
@@ -881,7 +916,7 @@ export default function AiDashboard() {
                                                     ) : <span className="text-slate-600 italic">該当地域のデータなし</span>}
                                                 </div>
                                             </div>
-                                            <button onClick={() => setAiActiveDesk('desk_arbitrage')} className="mt-4 text-[11px] text-emerald-400 hover:underline text-left block">
+                                            <button onClick={() => setAiActiveDesk(`desk_arbitrage_${activeArbitrageRegion}`)} className="mt-4 text-[11px] text-emerald-400 hover:underline text-left block">
                                                 ➔ アービトラージデスクを開く
                                             </button>
                                         </div>
@@ -992,14 +1027,16 @@ export default function AiDashboard() {
                             )}
 
                             {/* 3. 個別デスク ビュー群 */}
-                            {aiActiveDesk === 'desk_trend' && aiData && (
+                            {aiActiveDesk.startsWith('desk_trend') && aiData && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">🔮</span>
                                             <div>
-                                                <h2 className="text-lg font-bold text-white">市場トレンドアナリスト専用デスク</h2>
-                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任制）[cite: 1]</p>
+                                                <h2 className="text-lg font-bold text-white">
+                                                    市場トレンドアナリスト ({activeTrendRegion === 'us' ? '🇺🇸 北米' : activeTrendRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
+                                                </h2>
+                                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）[cite: 1]</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1007,7 +1044,10 @@ export default function AiDashboard() {
                                                 {(['us', 'eu', 'asia'] as const).map(reg => (
                                                     <button
                                                         key={reg}
-                                                        onClick={() => setActiveTrendRegion(reg)}
+                                                        onClick={() => {
+                                                            setActiveTrendRegion(reg);
+                                                            setAiActiveDesk(`desk_trend_${reg}`);
+                                                        }}
                                                         className={`px-3 py-1 text-xs font-bold rounded transition ${activeTrendRegion === reg ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'}`}
                                                     >
                                                         {reg === 'us' ? '🇺🇸 北米' : reg === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'}
@@ -1027,14 +1067,16 @@ export default function AiDashboard() {
                                 </div>
                             )}
 
-                            {aiActiveDesk === 'desk_arbitrage' && aiData && (
+                            {aiActiveDesk.startsWith('desk_arbitrage') && aiData && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">💎</span>
                                             <div>
-                                                <h2 className="text-lg font-bold text-white">アービトラージアナリスト専用デスク</h2>
-                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任制）[cite: 1]</p>
+                                                <h2 className="text-lg font-bold text-white">
+                                                    アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '🇺🇸 北米' : activeArbitrageRegion === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'})
+                                                </h2>
+                                                <p className="text-xs text-slate-400">実質純利益（Net ROI）査定レポート（地域専任）[cite: 1]</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
@@ -1042,7 +1084,10 @@ export default function AiDashboard() {
                                                 {(['us', 'eu', 'asia'] as const).map(reg => (
                                                     <button
                                                         key={reg}
-                                                        onClick={() => setActiveArbitrageRegion(reg)}
+                                                        onClick={() => {
+                                                            setActiveArbitrageRegion(reg);
+                                                            setAiActiveDesk(`desk_arbitrage_${reg}`);
+                                                        }}
                                                         className={`px-3 py-1 text-xs font-bold rounded transition ${activeArbitrageRegion === reg ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}
                                                     >
                                                         {reg === 'us' ? '🇺🇸 北米' : reg === 'eu' ? '🇪🇺 欧州' : '🌏 アジア'}
@@ -1208,8 +1253,8 @@ export default function AiDashboard() {
                                             {aiActiveDesk === 'analysis_team' && '分析チーム（7名）とのチャット'}
                                             {aiActiveDesk === 'desk_chief' && '👑 チーフマネージャーとの戦略チャット'}
                                             {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
-                                            {aiActiveDesk === 'desk_trend' && `市場アナリスト(${activeTrendRegion.toUpperCase()})との個別チャット`}
-                                            {aiActiveDesk === 'desk_arbitrage' && `アービトラージアナリスト(${activeArbitrageRegion.toUpperCase()})との個別チャット`}
+                                            {aiActiveDesk.startsWith('desk_trend') && `市場アナリスト(${activeTrendRegion.toUpperCase()})との個別チャット`}
+                                            {aiActiveDesk.startsWith('desk_arbitrage') && `アービトラージアナリスト(${activeArbitrageRegion.toUpperCase()})との個別チャット`}
                                             {aiActiveDesk === 'desk_account' && 'IGアナリストとの個別チャット'}
                                             {aiActiveDesk === 'desk_sns' && 'SNS担当との個別チャット'}
                                             {aiActiveDesk === 'desk_sales' && '有料コミュニティ担当との個別チャット'}
