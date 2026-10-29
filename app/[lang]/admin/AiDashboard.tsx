@@ -748,12 +748,13 @@ export default function AiDashboard() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                    {!aiData && !aiLoading ? (
-                        <div className="text-center py-24 text-slate-500 text-sm border border-dashed border-slate-800 rounded-2xl">
-                            右上の「全AIに一斉調査・戦略立案を指示」をクリックすると、リサーチからチーフ審査、投稿制作まで自動で実行されます。
-                        </div>
-                    ) : (
-                        <>
+                            {/* チーム全体ビューでデータがまだない場合のみ初期案内を表示 */}
+                            {!aiData && !aiLoading && (aiActiveDesk === 'analysis_team' || aiActiveDesk === 'execution_team') ? (
+                                <div className="text-center py-24 text-slate-500 text-sm border border-dashed border-slate-800 rounded-2xl">
+                                    右上の「全AIに一斉調査・戦略立案を指示」をクリックするか、左サイドバーから各担当デスクを開いて個別調査を実行してください。
+                                </div>
+                            ) : (
+                                <>
                             {/* 👑 チーフマネージャー専用デスク ビュー */}
                             {aiActiveDesk === 'desk_chief' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
