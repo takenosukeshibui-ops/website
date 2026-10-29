@@ -1,3 +1,4 @@
+// app/api/ai/intelligence/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runMarketTrend } from './agents/marketTrend';
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 
         // 1. 市場トレンドアナリスト単体実行
         if (action === 'trend') {
-            const report = await runMarketTrend(targetRegion, category);
+            const report = await runMarketTrend(targetRegion);
             const currentTrends = currentData?.trendInsights || { us: null, eu: null, asia: null };
             return NextResponse.json({
                 success: true,
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
 
         // 2. アービトラージアナリスト単体実行
         if (action === 'arbitrage') {
-            const report = await runSayaAnalysis(targetRegion, category);
+            const report = await runSayaAnalysis(targetRegion);
             const currentProfits = currentData?.profitableCards || { us: null, eu: null, asia: null };
             return NextResponse.json({
                 success: true,
@@ -155,12 +156,12 @@ export async function POST(req: Request) {
                 xAccountReport,
                 proofPackage
             ] = await Promise.all([
-                runMarketTrend('us', category),
-                runMarketTrend('eu', category),
-                runMarketTrend('asia', category),
-                runSayaAnalysis('us', category),
-                runSayaAnalysis('eu', category),
-                runSayaAnalysis('asia', category),
+                runMarketTrend('us'),
+                runMarketTrend('eu'),
+                runMarketTrend('asia'),
+                runSayaAnalysis('us'),
+                runSayaAnalysis('eu'),
+                runSayaAnalysis('asia'),
                 runAccountAnalysis(),
                 runXAccountAnalysis(),
                 runHitProofEngine(pastLogs || [])

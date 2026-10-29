@@ -2,7 +2,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getAgentRules } from '../helpers';
 
-export async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us') {
+export async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us', _category: string = 'pokemon') {
     const rules = await getAgentRules('trend');
 
     const regionContexts = {
