@@ -22,7 +22,7 @@ import {
     addAdminAdjustmentItem,
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
-import AiDashboard from './AiDashboard';
+import AiDashboard from '@/app/AiDashboard';
 
 
 
