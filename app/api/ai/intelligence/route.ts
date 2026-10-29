@@ -39,7 +39,7 @@ async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us') {
 
     const cur = regionContexts[region];
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
     });
 
@@ -92,7 +92,7 @@ async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us') {
 
     const cur = regionContexts[region];
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.1,
     });
 
@@ -136,7 +136,7 @@ async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us') {
 // ---------------------------------------------------------
 async function runChiefManager(trends: any, profits: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
     });
 
@@ -163,7 +163,8 @@ ${JSON.stringify(profits)}
   "selectionReason": "6案件の中からこの銘柄を選定した戦略的判断理由（ROI・話題性・成約確率）",
   "coreHookFact": "無料SNSで提示する『事実（Fact）』と『結果（Result）』の核心フック（※国内仕入れルートや具体的手順などのAction/Reasonは伏せる）",
   "creativeDirective": {
-    "instagramAngle": "Instagramクリエイターに対するカルーセル構成・画像レイアウト・トーン指示",
+    "instagramAngle": "Instagramクリエイターに対するカルーセル構成・画像レイアウト指示",
+    "xTwitterAngle": "Xクリエイターに対する140字フック・画像4枚・ツリー展開の指示",
     "discordOfferAngle": "有料コミュニティ担当に対するロット数・直送手配オファーの落とし込み指示"
   }
 }`;
@@ -178,7 +179,7 @@ ${JSON.stringify(profits)}
 async function runAccountAnalysis() {
     const rawInsights = await getInstagramInsights(5);
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
     });
 
@@ -218,15 +219,15 @@ async function runAccountAnalysis() {
 }
 
 // ---------------------------------------------------------
-// 5. SNSクリエイター（チーフ指示書に基づく撒き餌作成）
+// 5. Instagramクリエイター（撒き餌作成）
 // ---------------------------------------------------------
 async function runSnsPosts(chiefPackage: any, accountReport: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.3,
     });
 
-    const prompt = `あなたはSNS投稿クリエイターです。
+    const prompt = `あなたはInstagram専任のSNS投稿クリエイターです。
 チーフマネージャーからの指示書:
 ${JSON.stringify(chiefPackage)}
 
@@ -263,11 +264,55 @@ ${JSON.stringify(accountReport)}
 }
 
 // ---------------------------------------------------------
-// 6. 有料コミュニティ担当（チーフ指示書に基づく実務オファー）
+// 6. X (Twitter) クリエイター（短文・ツリー・画像4枚構成）
+// ---------------------------------------------------------
+async function runXPosts(chiefPackage: any) {
+    const model = new ChatGoogleGenerativeAI({
+        model: "gemini-2.5-flash",
+        temperature: 0.3,
+    });
+
+    const prompt = `あなたはX (Twitter) 専任のクリエイターです。
+チーフマネージャーからの指示書:
+${JSON.stringify(chiefPackage)}
+
+選定案件: ${chiefPackage?.chosenCardOrItem || '選定案件'}
+チーフのX指示: ${chiefPackage?.creativeDirective?.xTwitterAngle || '拡散重視'}
+
+【X (Twitter) 特化ルール】
+1. 1ポスト目は140文字以内で完結する強烈な「Fact & Result」のフック（数字と差額を全面に）。
+2. リポスト・ブックマークを促すスレッド（ツリー）形式の長文考察展開。
+3. 添付画像は最大4枚のグリッド構成を想定した指示書。
+4. ツリー末尾に「詳細分析はVIP Discord、即時直送手配はプロフィールURL（自社サイト）」の導線を配置。
+
+以下のJSON形式のみを出力してください:
+{
+  "theme": "X用拡散フックテーマ",
+  "mainPost": "1ポスト目（140字以内、フック＋画像添付案内＋スレッド誘導）",
+  "threadPosts": [
+    "ツリー2ポスト目: 国内相場と海外成約相場の事実比較",
+    "ツリー3ポスト目: なぜ今この価格差が生じているのか（背景の示唆のみ）",
+    "ツリー4ポスト目（CTA）: VIP Discord（詳細データ）＆ 自社サイト（直送依頼）への誘導文"
+  ],
+  "imageGuideline": [
+    "画像1: 日本国内フリマ相場（メルカリ/スニダン等）の画面",
+    "画像2: 海外実成約価格（eBay Sold等）の画面",
+    "画像3: 実質利幅の内訳インフォグラフィック",
+    "画像4: サービス概要・直送フロー図"
+  ],
+  "xCallToAction": "固定ポストまたはリプ欄に貼る誘導テキスト"
+}`;
+
+    const res = await model.invoke(prompt);
+    return parseAIJson(res.content.toString());
+}
+
+// ---------------------------------------------------------
+// 7. 有料コミュニティ担当（チーフ指示書に基づく実務オファー）
 // ---------------------------------------------------------
 async function runSalesDM(chiefPackage: any) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
     });
 
@@ -295,11 +340,11 @@ ${JSON.stringify(chiefPackage)}
 }
 
 // ---------------------------------------------------------
-// 7. 的中実績・証明投稿エンジン（タイプC：社会的証明・権威性構築）
+// 8. 的中実績・証明投稿エンジン（タイプC：社会的証明）
 // ---------------------------------------------------------
 async function runHitProofEngine(pastLogs: any[]) {
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
     });
 
@@ -309,17 +354,17 @@ async function runHitProofEngine(pastLogs: any[]) {
         chiefPackage: log.chief_package
     })).filter(p => Boolean(p.trends || p.chiefPackage));
 
-    const prompt = `あなたは越境トレカ代理購入組織のチーフ直下に組み込まれた【的中実績・証明投稿エンジン】です[cite: 1]。
+    const prompt = `あなたは越境トレカ代理購入組織のチーフ直下に組み込まれた【的中実績・証明投稿エンジン】です。
 設計書第5章に基づき、過去に蓄積されたトレンド予測履歴と現在の海外市場実相場を照合し、
-実際に高騰が的中したキラー実績を1件特定して「タイプC（的中実績・証明投稿）」パッケージを作成してください[cite: 1]。
+実際に高騰が的中したキラー実績を1件特定して「タイプC（的中実績・証明投稿）」パッケージを作成してください。
 
 【過去の予測ストック履歴】:
 ${JSON.stringify(pastPredictions).slice(0, 3000)}
 
-【設計書ルール（タイプC）】[cite: 1]:
-1. 内容: 過去に予測した銘柄の「当時の予測画面・当時の価格」と「現在の高騰した海外相場」を比較対比させる[cite: 1]。
-2. 目的: 「この組織の予測は本当に当たる」という圧倒的な社会的証明（Social Proof）と権威性を確立する[cite: 1]。
-3. 誘導フック: 「次の波に乗り遅れたくない方、本当に当たる一次情報を受け取りたい方は有料VIP Discordへ」を主軸とする[cite: 1]。
+【設計書ルール（タイプC）】:
+1. 内容: 過去に予測した銘柄の「当時の予測画面・当時の価格」と「現在の高騰した海外相場」を比較対比させる。
+2. 目的: 「この組織の予測は本当に当たる」という圧倒的な社会的証明（Social Proof）と権威性を確立する。
+3. 誘導フック: 「次の波に乗り遅れたくない方、本当に当たる一次情報を受け取りたい方は有料VIP Discordへ」を主軸とする。
 
 必ず以下のJSON形式のみを出力してください:
 {
@@ -328,14 +373,14 @@ ${JSON.stringify(pastPredictions).slice(0, 3000)}
   "predictedPrice": "当時の相場 ($XXX / ¥XX,XXX)",
   "currentPrice": "現在の海外成約相場 ($XXX / ¥XX,XXX)",
   "growthRate": "急騰上昇率 (例: +45.8%)",
-  "hitReasonPattern": "的中要因 (先行需要 / コレクター波及 / 日本限定希少性)[cite: 1]",
-  "proofPost": "タイプC投稿キャプション全文（当時の予測事実と現在の急騰結果を並べ、圧倒的な証拠を提示するテキスト。ハッシュタグ含む）[cite: 1]",
+  "hitReasonPattern": "的中要因 (先行需要 / コレクター波及 / 日本限定希少性)",
+  "proofPost": "タイプC投稿キャプション全文（当時の予測事実と現在の急騰結果を並べ、圧倒的な証拠を提示するテキスト。ハッシュタグ含む）",
   "visualGuideline": {
     "beforeImageDesc": "左側/1枚目: 当時の予測レポート画面のキャプチャ指示",
     "afterImageDesc": "右側/2枚目: 現在の海外実成約（Sold Listings）急騰画面のスクショ指示",
     "comparisonLayout": "ビフォーアフター対比レイアウト指示"
   },
-  "discordCTA": "今後の先行一次情報を受け取るためのVIP Discord誘導文"[cite: 1]
+  "discordCTA": "今後の先行一次情報を受け取るためのVIP Discord誘導文"
 }`;
 
     const res = await model.invoke(prompt);
@@ -410,7 +455,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 5. SNS原稿単体実行
+        // 5. Instagram原稿単体実行
         if (action === 'sns') {
             const snsPosts = await runSnsPosts(
                 currentData?.chiefPackage,
@@ -422,7 +467,16 @@ export async function POST(req: Request) {
             });
         }
 
-        // 6. 有料コミュニティ営業文単体実行
+        // 6. X (Twitter) 原稿単体実行
+        if (action === 'x') {
+            const xPosts = await runXPosts(currentData?.chiefPackage);
+            return NextResponse.json({
+                success: true,
+                data: { xPosts }
+            });
+        }
+
+        // 7. 有料コミュニティ営業文単体実行
         if (action === 'dm') {
             const salesDM = await runSalesDM(currentData?.chiefPackage);
             return NextResponse.json({
@@ -431,7 +485,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 7. 的中実績・証明投稿（タイプC）単体生成
+        // 8. 的中実績・証明投稿（タイプC）単体生成
         if (action === 'proof') {
             const supabase = await createClient();
             const { data: pastLogs } = await supabase
@@ -447,7 +501,7 @@ export async function POST(req: Request) {
             });
         }
 
-        // 8. 全AI一斉調査（階層型パイプライン実行）
+        // 9. 全AI一斉調査（階層型フルパイプライン実行）
         if (action === 'all') {
             const supabase = await createClient();
             const { data: pastLogs } = await supabase
@@ -456,7 +510,6 @@ export async function POST(req: Request) {
                 .order('created_at', { ascending: false })
                 .limit(15);
 
-            // [Step 1] 6名のリサーチャー ＋ IGアナリスト ＋ 的中実績エンジンを並行実行[cite: 1]
             const [
                 trendUS, trendEU, trendAsia,
                 sayaUS, sayaEU, sayaAsia,
@@ -476,12 +529,11 @@ export async function POST(req: Request) {
             const trendInsights = { us: trendUS, eu: trendEU, asia: trendAsia };
             const profitableCards = { us: sayaUS, eu: sayaEU, asia: sayaAsia };
 
-            // [Step 2] チーフマネージャーが最優秀案件を審査・パッケージ化[cite: 1]
             const chiefPackage = await runChiefManager(trendInsights, profitableCards);
 
-            // [Step 3] チーフ指示書に基づきSNS担当と営業担当が作成[cite: 1]
-            const [snsPosts, salesDM] = await Promise.all([
+            const [snsPosts, xPosts, salesDM] = await Promise.all([
                 runSnsPosts(chiefPackage, accountReport),
+                runXPosts(chiefPackage),
                 runSalesDM(chiefPackage)
             ]);
 
@@ -492,6 +544,7 @@ export async function POST(req: Request) {
                 proofPackage,
                 accountInsights: accountReport,
                 snsPosts,
+                xPosts,
                 salesDM
             };
 
@@ -503,6 +556,7 @@ export async function POST(req: Request) {
                     chief_package: chiefPackage,
                     account_insights: accountReport,
                     sns_posts: snsPosts,
+                    x_posts: xPosts,
                     sales_dm: salesDM,
                     trigger_type: body.triggerType || 'manual'
                 })

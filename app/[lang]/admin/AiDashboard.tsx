@@ -40,6 +40,7 @@ export interface ChiefPackageData {
     coreHookFact: string;
     creativeDirective: {
         instagramAngle: string;
+        xTwitterAngle?: string;
         discordOfferAngle: string;
     };
 }
@@ -75,6 +76,14 @@ export interface SnsPostsData {
     discordCTA: string;
 }
 
+export interface XPostsData {
+    theme: string;
+    mainPost: string;
+    threadPosts: string[];
+    imageGuideline: string[];
+    xCallToAction: string;
+}
+
 export interface SalesDMData {
     targetSegment: string;
     offerSummary: string;
@@ -102,6 +111,7 @@ export interface IntelligenceData {
     proofPackage?: ProofPackageData | null;
     accountInsights: StrategicReport | null;
     snsPosts: SnsPostsData | null;
+    xPosts?: XPostsData | null;
     salesDM: SalesDMData | null;
 }
 
@@ -251,6 +261,7 @@ export default function AiDashboard() {
             'アービトラージアナリスト': 'arbitrage',
             'IGアナリスト': 'account',
             'インスタ担当': 'sns',
+            'X担当': 'x',
             '有料コミュニティ担当': 'sales'
         };
 
@@ -378,7 +389,7 @@ export default function AiDashboard() {
     const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false);
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
 
-    const runSingleAi = async (action: 'trend' | 'arbitrage' | 'chief' | 'account' | 'sns' | 'dm' | 'proof', region?: RegionKey) => {
+    const runSingleAi = async (action: 'trend' | 'arbitrage' | 'chief' | 'account' | 'sns' | 'x' | 'dm' | 'proof', region?: RegionKey) => {
         const actionKey = region ? `${action}_${region}` : action;
         setRunningAction(actionKey);
         try {
@@ -413,6 +424,13 @@ export default function AiDashboard() {
                     visualGuideline: { coverSlide: '', carouselSlides: [] },
                     posts: { trendPost: '', arbitragePost: '', hybridPost: '' },
                     discordCTA: ''
+                },
+                xPosts: prev?.xPosts || {
+                    theme: '',
+                    mainPost: '',
+                    threadPosts: [],
+                    imageGuideline: [],
+                    xCallToAction: ''
                 },
                 salesDM: prev?.salesDM || {
                     targetSegment: '',
@@ -525,6 +543,7 @@ export default function AiDashboard() {
                         chiefPackage: latest.chief_package || null,
                         proofPackage: latest.proof_package || null,
                         snsPosts: latest.sns_posts,
+                        xPosts: latest.x_posts,
                         salesDM: latest.sales_dm,
                         accountInsights: latest.account_insights || null,
                     });
@@ -546,43 +565,43 @@ export default function AiDashboard() {
                         <span className="text-2xl">🤖</span>
                         <h1 className="text-base font-bold tracking-wider text-slate-100">AI STAFF OFFICE</h1>
                     </div>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">階層型 9 Agents</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">10 Agents</span>
                 </div>
 
-                <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
-                    <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">
+                <div className="flex-1 p-3 space-y-2 overflow-y-auto">
+                    <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">
                         Command & Desks
                     </h2>
 
                     {/* 👑 チーフマネージャーデスク */}
                     <div
                         onClick={() => setAiActiveDesk('desk_chief')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_chief'
+                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_chief'
                             ? 'bg-amber-500/20 border-amber-500 shadow-md ring-1 ring-amber-500/40'
                             : 'bg-slate-800/60 border-amber-500/30 hover:bg-slate-800/90'
                         }`}
                     >
-                        <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center text-xl shrink-0 border border-amber-500/40 text-amber-300">👑</div>
+                        <div className="h-9 w-9 rounded-full bg-amber-500/20 flex items-center justify-center text-lg shrink-0 border border-amber-500/40 text-amber-300">👑</div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
+                            <div className="flex items-center justify-between">
                                 <p className="text-xs font-bold text-amber-200 truncate">チーフマネージャー</p>
                                 <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold">統括</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 truncate">6レポート審査・最優秀案件選定</p>
+                            <p className="text-[10px] text-slate-400 truncate">6レポート審査・最優秀選定</p>
                         </div>
                     </div>
 
-                    {/* 🔮 市場トレンドアナリスト（米・欧・亜 展開選択） */}
+                    {/* 🔮 市場トレンドアナリスト */}
                     <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
-                        <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-amber-300">
+                        <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-amber-300">
                             <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドアナリスト</span>
                             <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                         </div>
-                        <div className="mt-1.5 space-y-1">
+                        <div className="mt-1 space-y-1">
                             {([
-                                { key: 'us', label: '🇺🇸 北米担当', desc: 'eBay / TCGPlayer' },
-                                { key: 'eu', label: '🇪🇺 欧州担当', desc: 'Cardmarket / EU' },
-                                { key: 'asia', label: '🌏 アジア担当', desc: 'Shopee / アジア圏' }
+                                { key: 'us', label: '🇺🇸 北米担当', desc: 'eBay / TCG' },
+                                { key: 'eu', label: '🇪🇺 欧州担当', desc: 'Cardmarket' },
+                                { key: 'asia', label: '🌏 アジア担当', desc: 'Shopee' }
                             ] as const).map(item => (
                                 <button
                                     key={item.key}
@@ -591,7 +610,7 @@ export default function AiDashboard() {
                                         setActiveTrendRegion(item.key);
                                         setAiActiveDesk(`desk_trend_${item.key}`);
                                     }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex justify-between items-center transition ${
+                                    className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
                                         aiActiveDesk === `desk_trend_${item.key}`
                                             ? 'bg-amber-600 text-white font-bold shadow'
                                             : 'text-slate-300 hover:bg-slate-800/80'
@@ -604,16 +623,16 @@ export default function AiDashboard() {
                         </div>
                     </div>
 
-                    {/* 💎 アービトラージアナリスト（米・欧・亜 展開選択） */}
+                    {/* 💎 アービトラージアナリスト */}
                     <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
-                        <div className="flex items-center justify-between px-2 py-1 text-xs font-bold text-emerald-300">
+                        <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-emerald-300">
                             <span className="flex items-center gap-1.5"><span>💎</span> アービトラージアナリスト</span>
                             <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                         </div>
-                        <div className="mt-1.5 space-y-1">
+                        <div className="mt-1 space-y-1">
                             {([
-                                { key: 'us', label: '🇺🇸 北米サヤ', desc: '日米・eBay・FedEx' },
-                                { key: 'eu', label: '🇪🇺 欧州サヤ', desc: '日欧・Cardmarket' },
+                                { key: 'us', label: '🇺🇸 北米サヤ', desc: '日米・FedEx' },
+                                { key: 'eu', label: '🇪🇺 欧州サヤ', desc: '日欧・EMS' },
                                 { key: 'asia', label: '🌏 アジアサヤ', desc: '日亜・Shopee' }
                             ] as const).map(item => (
                                 <button
@@ -623,7 +642,7 @@ export default function AiDashboard() {
                                         setActiveArbitrageRegion(item.key);
                                         setAiActiveDesk(`desk_arbitrage_${item.key}`);
                                     }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex justify-between items-center transition ${
+                                    className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
                                         aiActiveDesk === `desk_arbitrage_${item.key}`
                                             ? 'bg-emerald-600 text-white font-bold shadow'
                                             : 'text-slate-300 hover:bg-slate-800/80'
@@ -639,60 +658,69 @@ export default function AiDashboard() {
                     {/* IGアナリスト */}
                     <div
                         onClick={() => setAiActiveDesk('desk_account')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_account'
+                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_account'
                             ? 'bg-pink-500/10 border-pink-500/60 shadow-sm'
                             : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
                         }`}
                     >
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📊</div>
+                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">📊</div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <p className="text-xs font-bold text-slate-200 truncate">IGアナリスト</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 font-medium">分析</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 truncate">自社アカウント反応分析</p>
+                            <p className="text-xs font-bold text-slate-200 truncate">IGアナリスト</p>
+                            <p className="text-[10px] text-slate-400 truncate">自社アカウント反応分析</p>
                         </div>
                     </div>
 
-                    {/* SNS担当 */}
+                    {/* Instagram担当 */}
                     <div
                         onClick={() => setAiActiveDesk('desk_sns')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
+                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
                             ? 'bg-sky-500/10 border-sky-500/60 shadow-sm'
                             : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
                         }`}
                     >
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">📸</div>
+                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">📸</div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <p className="text-xs font-bold text-slate-200 truncate">SNS担当</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-medium">実行</span>
+                            <p className="text-xs font-bold text-slate-200 truncate">Instagram担当</p>
+                            <p className="text-[10px] text-slate-400 truncate">カルーセル画像・投稿作成</p>
+                        </div>
+                    </div>
+
+                    {/* 🌟 🐦 X (Twitter) 担当 */}
+                    <div
+                        onClick={() => setAiActiveDesk('desk_x')}
+                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_x'
+                            ? 'bg-sky-400/20 border-sky-400 shadow-md ring-1 ring-sky-400/40'
+                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
+                        }`}
+                    >
+                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700 text-sky-400">🐦</div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-slate-200 truncate">X (Twitter) 担当</p>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-bold">拡散</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 truncate">Instagram原稿＆自動投稿</p>
+                            <p className="text-[10px] text-slate-400 truncate">140字フック ＆ スレッド考察</p>
                         </div>
                     </div>
 
                     {/* 有料コミュニティ担当 */}
                     <div
                         onClick={() => setAiActiveDesk('desk_sales')}
-                        className={`border rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
+                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
                             ? 'bg-purple-500/10 border-purple-500/60 shadow-sm'
                             : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
                         }`}
                     >
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-700">✉️</div>
+                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">✉️</div>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                                <p className="text-xs font-bold text-slate-200 truncate">有料コミュニティ担当</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-medium">実行</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 truncate">Discord有料コミュニティ投稿</p>
+                            <p className="text-xs font-bold text-slate-200 truncate">有料コミュニティ担当</p>
+                            <p className="text-[10px] text-slate-400 truncate">Discord大口オファー投稿</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-3.5 border-t border-slate-800 bg-slate-900">
-                    <span className="text-[10px] text-slate-400 mb-1.5 block font-bold">📅 過去のオフィス記録</span>
+                <div className="p-3 border-t border-slate-800 bg-slate-900">
+                    <span className="text-[10px] text-slate-400 mb-1 block font-bold">📅 過去のオフィス記録</span>
                     <select
                         value={selectedRecordId || ''}
                         disabled={aiLoading || Boolean(runningAction)}
@@ -706,12 +734,13 @@ export default function AiDashboard() {
                                     chiefPackage: target.chief_package || null,
                                     proofPackage: target.proof_package || null,
                                     snsPosts: target.sns_posts,
+                                    xPosts: target.x_posts,
                                     salesDM: target.sales_dm,
                                     accountInsights: target.account_insights,
                                 });
                             }
                         }}
-                        className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-500"
+                        className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-blue-500"
                     >
                         {history.map((h) => (
                             <option key={h.id} value={h.id}>
@@ -754,7 +783,7 @@ export default function AiDashboard() {
                             }`}
                         >
                             <span>⚡ 実行チーム</span>
-                            <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">2名</span>
+                            <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">3名</span>
                         </button>
                     </div>
 
@@ -763,15 +792,14 @@ export default function AiDashboard() {
                         disabled={aiLoading || Boolean(runningAction)}
                         className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 disabled:opacity-50 transition active:scale-95"
                     >
-                        {aiLoading ? '🔄 階層型パイプライン稼働中...' : '🚀 全AIに一斉調査・戦略立案を指示'}
+                        {aiLoading ? '🔄 全10AI一斉稼働中...' : '🚀 全10AIに一斉調査・発信制作を指示'}
                     </button>
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                    {/* チーム全体ビューでデータがまだない場合のみ初期案内を表示 */}
                     {!aiData && !aiLoading && (aiActiveDesk === 'analysis_team' || aiActiveDesk === 'execution_team') ? (
                         <div className="text-center py-24 text-slate-500 text-sm border border-dashed border-slate-800 rounded-2xl">
-                            右上の「全AIに一斉調査・戦略立案を指示」をクリックするか、左サイドバーから各担当デスクを開いて個別調査を実行してください。
+                            右上の「全10AIに一斉調査・発信制作を指示」をクリックするか、左サイドバーから各担当デスクを開いて個別調査を実行してください。
                         </div>
                     ) : (
                         <>
@@ -831,24 +859,28 @@ export default function AiDashboard() {
                                                 <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します[cite: 1]。</span>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                                <div className="bg-slate-950 p-3 rounded-lg border border-pink-500/30">
+                                                    <h5 className="text-xs font-bold text-pink-400 mb-1">📸 Instagram指示</h5>
+                                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.instagramAngle}</p>
+                                                </div>
                                                 <div className="bg-slate-950 p-3 rounded-lg border border-sky-500/30">
-                                                    <h5 className="text-xs font-bold text-sky-400 mb-1">📸 SNSクリエイターへの指示</h5>
-                                                    <p className="text-xs text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.instagramAngle}</p>
+                                                    <h5 className="text-xs font-bold text-sky-400 mb-1">🐦 X (Twitter) 指示</h5>
+                                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.xTwitterAngle || '短文フック＋スレッド展開'}</p>
                                                 </div>
                                                 <div className="bg-slate-950 p-3 rounded-lg border border-purple-500/30">
-                                                    <h5 className="text-xs font-bold text-purple-400 mb-1">✉️ 有料コミュニティ担当への指示</h5>
-                                                    <p className="text-xs text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.discordOfferAngle}</p>
+                                                    <h5 className="text-xs font-bold text-purple-400 mb-1">✉️ Discord担当指示</h5>
+                                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.discordOfferAngle}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">
-                                            まだチーフの選定が行われていません。「全AIに一斉調査・戦略立案を指示」または「案件を再審査・選定」を実行してください。
+                                            まだチーフの選定が行われていません。「全10AIに一斉調査・発信制作を指示」または「案件を再審査・選定」を実行してください。
                                         </div>
                                     )}
 
-                                    {/* 🌟 タイプC: 的中実績・証明投稿カード */}
+                                    {/* タイプC: 的中実績・証明投稿カード */}
                                     <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-5 space-y-4 shadow-xl">
                                         <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                                             <div>
@@ -1054,9 +1086,9 @@ export default function AiDashboard() {
                                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                                         <div>
                                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                                <span>⚡</span> コンテンツ実行チーム（Execution Team）
+                                                <span>⚡</span> コンテンツ実行チーム（Instagram / X / Discord）
                                             </h2>
-                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、SNS投稿と大口バイヤー営業DMを作成・配信[cite: 1]</p>
+                                            <p className="text-xs text-slate-400 mt-1">チーフマネージャーの指示書に基づき、各SNS・コミュニティ用原稿を並行作成[cite: 1]</p>
                                         </div>
                                         {aiData.chiefPackage && (
                                             <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-lg">
@@ -1065,59 +1097,89 @@ export default function AiDashboard() {
                                         )}
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* SNSディレクター */}
-                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-                                                    <span>📸</span> Instagram投稿（推奨ハイブリッド）
-                                                </h3>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-300">
-                                                        {runningAction === 'sns' ? '生成中...' : '🔄 原稿リライト'}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                        {/* Instagramディレクター */}
+                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <h3 className="text-xs font-bold text-pink-400 flex items-center gap-1.5">
+                                                        <span>📸</span> Instagram
+                                                    </h3>
+                                                    <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                                                        {runningAction === 'sns' ? '...' : '🔄 生成'}
                                                     </button>
                                                 </div>
+                                                <pre className="p-2.5 bg-slate-950 rounded-lg text-[11px] text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-48 overflow-y-auto leading-relaxed">
+                                                    {aiData.snsPosts?.posts?.hybridPost || 'データなし'}
+                                                </pre>
                                             </div>
-                                            <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
-                                                {aiData.snsPosts?.posts?.hybridPost}
-                                            </pre>
-                                            <div className="flex justify-between items-center pt-2 border-t border-slate-800">
-                                                <button onClick={() => setAiActiveDesk('desk_sns')} className="text-[11px] text-sky-400 hover:underline">
-                                                    他2パターンを確認 ➔
+                                            <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
+                                                <button onClick={() => setAiActiveDesk('desk_sns')} className="text-[11px] text-pink-400 hover:underline">
+                                                    デスク詳細 ➔
                                                 </button>
                                                 <button
                                                     onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')}
                                                     disabled={Boolean(isPublishingInstagram)}
-                                                    className="px-3 py-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    className="px-2.5 py-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white rounded-lg text-xs font-bold"
                                                 >
-                                                    {isPublishingInstagram === 'hybrid' ? '投稿中...' : '📸 承認してInstagram投稿'}
+                                                    投稿
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* 🌟 🐦 X (Twitter) 担当 */}
+                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <h3 className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                                                        <span>🐦</span> X (Twitter)
+                                                    </h3>
+                                                    <button onClick={() => runSingleAi('x')} disabled={runningAction === 'x'} className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                                                        {runningAction === 'x' ? '...' : '🔄 生成'}
+                                                    </button>
+                                                </div>
+                                                <pre className="p-2.5 bg-slate-950 rounded-lg text-[11px] text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-48 overflow-y-auto leading-relaxed">
+                                                    {aiData.xPosts?.mainPost || 'データなし'}
+                                                </pre>
+                                            </div>
+                                            <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
+                                                <button onClick={() => setAiActiveDesk('desk_x')} className="text-[11px] text-sky-400 hover:underline">
+                                                    スレッド確認 ➔
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCopy(aiData.xPosts?.mainPost || '', 'x_main')}
+                                                    className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold"
+                                                >
+                                                    コピー
                                                 </button>
                                             </div>
                                         </div>
 
                                         {/* 有料コミュニティ担当 */}
-                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                                                    <span>✉️</span> Discord 有料コミュニティ投稿
-                                                </h3>
-                                                <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-300">
-                                                    {runningAction === 'dm' ? '生成中...' : '🔄 DMリライト'}
-                                                </button>
+                                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <h3 className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                                                        <span>✉️</span> Discord
+                                                    </h3>
+                                                    <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                                                        {runningAction === 'dm' ? '...' : '🔄 生成'}
+                                                    </button>
+                                                </div>
+                                                <pre className="p-2.5 bg-slate-950 rounded-lg text-[11px] text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-48 overflow-y-auto leading-relaxed">
+                                                    {aiData.salesDM?.discordMessage || 'データなし'}
+                                                </pre>
                                             </div>
-                                            <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
-                                                {aiData.salesDM?.discordMessage}
-                                            </pre>
-                                            <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+                                            <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                                                 <button onClick={() => setAiActiveDesk('desk_sales')} className="text-[11px] text-purple-400 hover:underline">
-                                                    営業デスク詳細 ➔
+                                                    商条件確認 ➔
                                                 </button>
                                                 <button
                                                     onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')}
                                                     disabled={isPublishingDiscord}
-                                                    className="px-3 py-1.5 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                    className="px-2.5 py-1 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-xs font-bold"
                                                 >
-                                                    {isPublishingDiscord ? '送信中...' : '💬 承認してDiscord送信'}
+                                                    送信
                                                 </button>
                                             </div>
                                         </div>
@@ -1230,8 +1292,8 @@ export default function AiDashboard() {
                                         <div className="flex items-center gap-3">
                                             <span className="text-3xl">📸</span>
                                             <div>
-                                                <h2 className="text-lg font-bold text-white">SNS担当専用デスク</h2>
-                                                <p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション[cite: 1]</p>
+                                                <h2 className="text-lg font-bold text-white">Instagram担当専用デスク</h2>
+                                                <p className="text-xs text-slate-400">カルーセル構成 ＆ 導線キャプション[cite: 1]</p>
                                             </div>
                                         </div>
                                         <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold">
@@ -1295,6 +1357,80 @@ export default function AiDashboard() {
                                 </div>
                             )}
 
+                            {/* 🌟 🐦 X (Twitter) 担当専用デスク ビュー */}
+                            {aiActiveDesk === 'desk_x' && (
+                                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-3xl">🐦</span>
+                                            <div>
+                                                <h2 className="text-lg font-bold text-white">X (Twitter) 担当専用デスク</h2>
+                                                <p className="text-xs text-slate-400">140字フック ＆ スレッド考察ツリー展開[cite: 1]</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => runSingleAi('x')} disabled={runningAction === 'x'} className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold shadow-md">
+                                            {runningAction === 'x' ? '作成中...' : '🔄 X投稿文を生成'}
+                                        </button>
+                                    </div>
+
+                                    {/* 1ポスト目（フック） */}
+                                    <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-5 space-y-3 shadow-lg">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                                                <span>📌</span> 1ポスト目（140文字フック）
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-mono">
+                                                {aiData?.xPosts?.mainPost?.length || 0} 文字
+                                            </span>
+                                        </div>
+                                        <pre className="p-3.5 bg-slate-950 rounded-lg text-xs text-slate-200 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">
+                                            {aiData?.xPosts?.mainPost || 'データがありません。'}
+                                        </pre>
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={() => handleCopy(aiData?.xPosts?.mainPost || '', 'x_main')}
+                                                className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300"
+                                            >
+                                                {copiedKey === 'x_main' ? '✓ コピー完了' : '本文をコピー'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 画像4枚指示 */}
+                                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                                        <h4 className="text-xs font-bold text-slate-300">🖼️ 添付画像 4枚グリッド指示[cite: 1]</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                            {aiData?.xPosts?.imageGuideline?.map((desc, i) => (
+                                                <div key={i} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-400">
+                                                    <span className="text-sky-400 font-mono font-bold mr-1.5">#{i + 1}</span> {desc}
+                                                </div>
+                                            )) || <div className="text-slate-600 text-xs italic">画像指示データがありません</div>}
+                                        </div>
+                                    </div>
+
+                                    {/* スレッド（ツリー）展開 */}
+                                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                                        <h4 className="text-xs font-bold text-slate-300">🧵 考察スレッド（ツリー投稿）[cite: 1]</h4>
+                                        <div className="space-y-2.5">
+                                            {aiData?.xPosts?.threadPosts?.map((post, i) => (
+                                                <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-slate-300 relative group">
+                                                    <div className="flex justify-between items-center mb-1 text-[10px] text-slate-500 font-mono">
+                                                        <span>ツリー #{i + 2}</span>
+                                                        <button
+                                                            onClick={() => handleCopy(post, `x_thread_${i}`)}
+                                                            className="text-slate-400 hover:text-white"
+                                                        >
+                                                            {copiedKey === `x_thread_${i}` ? '✓ コピー済' : 'コピー'}
+                                                        </button>
+                                                    </div>
+                                                    <p className="whitespace-pre-wrap leading-relaxed">{post}</p>
+                                                </div>
+                                            )) || <div className="text-slate-600 text-xs italic">スレッドデータがありません</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {aiActiveDesk === 'desk_sales' && (
                                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1351,11 +1487,12 @@ export default function AiDashboard() {
                                         <span>
                                             {aiActiveDesk === 'analysis_team' && '分析チーム（7名）とのチャット'}
                                             {aiActiveDesk === 'desk_chief' && '👑 チーフマネージャーとの戦略チャット'}
-                                            {aiActiveDesk === 'execution_team' && '実行チーム（2名）とのチャット'}
+                                            {aiActiveDesk === 'execution_team' && '実行チーム（3名）とのチャット'}
                                             {aiActiveDesk.startsWith('desk_trend') && `市場アナリスト(${activeTrendRegion.toUpperCase()})との個別チャット`}
                                             {aiActiveDesk.startsWith('desk_arbitrage') && `アービトラージアナリスト(${activeArbitrageRegion.toUpperCase()})との個別チャット`}
                                             {aiActiveDesk === 'desk_account' && 'IGアナリストとの個別チャット'}
-                                            {aiActiveDesk === 'desk_sns' && 'SNS担当との個別チャット'}
+                                            {aiActiveDesk === 'desk_sns' && 'Instagram担当との個別チャット'}
+                                            {aiActiveDesk === 'desk_x' && 'X (Twitter) 担当との個別チャット'}
                                             {aiActiveDesk === 'desk_sales' && '有料コミュニティ担当との個別チャット'}
                                         </span>
                                     </h3>
@@ -1482,7 +1619,8 @@ export default function AiDashboard() {
                                 aiActiveDesk === 'analysis_team' ? '分析チーム全員に質問・指示を出す...' :
                                     aiActiveDesk === 'desk_chief' ? '👑 チーフマネージャーに戦略選定の指示や方針を伝える...' :
                                         aiActiveDesk === 'execution_team' ? '実行チーム全員に質問・指示を出す...' :
-                                            'この担当AIにチャットを送る...'
+                                            aiActiveDesk === 'desk_x' ? '🐦 X (Twitter) 担当に投稿のトーンやフックの指示を出す...' :
+                                                'この担当AIにチャットを送る...'
                             }
                             className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl pl-4 pr-16 py-3.5 focus:outline-none focus:border-blue-500 shadow-inner disabled:opacity-60"
                         />
