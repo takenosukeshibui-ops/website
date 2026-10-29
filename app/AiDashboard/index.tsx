@@ -132,7 +132,7 @@ export default function AiDashboard() {
     }, [activeCategory]); 
 
     return (
-        <div className="flex h-[820px] bg-slate-950 text-slate-50 overflow-hidden font-sans rounded-xl border border-slate-800 shadow-2xl animate-fadeIn">
+        <div className="flex h-full min-h-[820px] bg-slate-950 text-slate-50 overflow-hidden font-sans rounded-xl border border-slate-800 shadow-2xl animate-fadeIn">
             <Sidebar
                 activeCategory={activeCategory} setActiveCategory={setActiveCategory}
                 aiActiveDesk={aiActiveDesk} setAiActiveDesk={setAiActiveDesk}
