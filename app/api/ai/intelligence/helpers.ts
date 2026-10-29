@@ -11,6 +11,17 @@ export function parseAIJson(content: string) {
     }
 }
 
+// カテゴリ表示名変換（chiefManager や 各エージェントで使用）
+export function getCategoryName(category: string = 'pokemon'): string {
+    const categoryNames: Record<string, string> = {
+        pokemon: 'ポケモンカード',
+        onepiece: 'ワンピースカード',
+        yugioh: '遊戯王OCG',
+        figure: 'スケールフィギュア・ホビー'
+    };
+    return categoryNames[category] || 'トレカ・ホビー';
+}
+
 // RSI学習ルールの取得ヘルパー（直近3件をプロンプトに注入）
 export async function getAgentRules(agentKey: string): Promise<string> {
     try {
