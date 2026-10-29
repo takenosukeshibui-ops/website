@@ -272,9 +272,9 @@ export default function AiDashboard() {
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
             setKnowledgeList(prev => prev.filter(k => k.id !== id));
-            alert('🗑️ ナレッジを削除しました');
+            alert('ナレッジを削除しました');
         } catch (err: any) {
-            alert(`⚠️ 削除エラー: ${err.message}`);
+            alert(`削除エラー: ${err.message}`);
         }
     };
 
@@ -315,10 +315,10 @@ export default function AiDashboard() {
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
-            alert('📌 ナレッジとして学習・登録しました！次回からこのルールを参考にして回答します。');
+            alert('ナレッジとして学習・登録しました！次回からこのルールを参考にして回答します。');
             fetchKnowledge();
         } catch (err: any) {
-            alert(`⚠️ エラー: ${err.message}`);
+            alert(`エラー: ${err.message}`);
         }
     };
 
@@ -374,7 +374,7 @@ export default function AiDashboard() {
                 [currentTarget]: [...(prev[currentTarget] || []), ...incomingReplies]
             }));
         } catch (err: any) {
-            alert(`⚠️ チャットエラー: ${err.message}`);
+            alert(`チャットエラー: ${err.message}`);
         } finally {
             setIsChatSubmitting(false);
         }
@@ -470,13 +470,12 @@ export default function AiDashboard() {
                 ...json.data
             }));
 
-            // RSI実行後は自動生成されたナレッジ一覧を再取得
             if (action === 'rsi') {
                 fetchKnowledge();
-                alert('✅ RSI（再帰的自己改善）が完了しました。新たな自律進化ルールがナレッジDBへ反映されました。');
+                alert('RSI（再帰的自己改善）が完了しました。新たな自律進化ルールがナレッジDBへ反映されました。');
             }
         } catch (err: any) {
-            alert(`⚠️ 実行エラー: ${err.message}`);
+            alert(`実行エラー: ${err.message}`);
         } finally {
             setRunningAction(null);
         }
@@ -532,9 +531,9 @@ export default function AiDashboard() {
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
 
-            alert(`✅ ${json.message}`);
+            alert(`完了: ${json.message}`);
         } catch (err: any) {
-            alert(`⚠️ 送信エラー: ${err.message}`);
+            alert(`送信エラー: ${err.message}`);
         } finally {
             setIsPublishingDiscord(false);
         }
@@ -554,9 +553,9 @@ export default function AiDashboard() {
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
 
-            alert(`✅ ${json.message}`);
+            alert(`完了: ${json.message}`);
         } catch (err: any) {
-            alert(`⚠️ Instagram投稿エラー: ${err.message}`);
+            alert(`Instagram投稿エラー: ${err.message}`);
         } finally {
             setIsPublishingInstagram(null);
         }
@@ -689,70 +688,75 @@ export default function AiDashboard() {
                         </div>
                     </div>
 
-                    {/* 📊 IGアナリスト */}
-                    <div
-                        onClick={() => setAiActiveDesk('desk_account')}
-                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_account'
-                            ? 'bg-pink-500/10 border-pink-500/60 shadow-sm'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">📊</div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-200 truncate">IGアナリスト</p>
-                            <p className="text-[10px] text-slate-400 truncate">Instagram反応・ファネル分析</p>
+                    {/* 📸 Instagram運営（アナリスト ＆ 制作担当） */}
+                    <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
+                        <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-pink-300">
+                            <span className="flex items-center gap-1.5"><span>📸</span> Instagram運営</span>
+                            <span className="text-[9px] bg-pink-500/20 text-pink-300 px-1.5 py-0.2 rounded font-mono font-bold">2名</span>
+                        </div>
+                        <div className="mt-1 space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => setAiActiveDesk('desk_account')}
+                                className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
+                                    aiActiveDesk === 'desk_account'
+                                        ? 'bg-pink-600 text-white font-bold shadow'
+                                        : 'text-slate-300 hover:bg-slate-800/80'
+                                }`}
+                            >
+                                <span>📊 IGアナリスト</span>
+                                <span className="text-[10px] opacity-60 font-mono">反応・ファネル分析</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAiActiveDesk('desk_sns')}
+                                className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
+                                    aiActiveDesk === 'desk_sns'
+                                        ? 'bg-pink-600 text-white font-bold shadow'
+                                        : 'text-slate-300 hover:bg-slate-800/80'
+                                }`}
+                            >
+                                <span>🎨 Instagram担当</span>
+                                <span className="text-[10px] opacity-60 font-mono">カルーセル・原稿作成</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* 📊 Xアナリスト */}
-                    <div
-                        onClick={() => setAiActiveDesk('desk_x_account')}
-                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_x_account'
-                            ? 'bg-sky-500/20 border-sky-400 shadow-md ring-1 ring-sky-400/40'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700 text-sky-400">📈</div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs font-bold text-slate-200 truncate">Xアナリスト</p>
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-bold">分析</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 truncate">Xアルゴリズム・拡散戦術分析</p>
+                    {/* 🐦 X (Twitter) 運営（アナリスト ＆ 制作担当） */}
+                    <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
+                        <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-sky-300">
+                            <span className="flex items-center gap-1.5"><span>🐦</span> X (Twitter) 運営</span>
+                            <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-mono font-bold">2名</span>
+                        </div>
+                        <div className="mt-1 space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => setAiActiveDesk('desk_x_account')}
+                                className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
+                                    aiActiveDesk === 'desk_x_account'
+                                        ? 'bg-sky-500 text-white font-bold shadow'
+                                        : 'text-slate-300 hover:bg-slate-800/80'
+                                }`}
+                            >
+                                <span>📈 Xアナリスト</span>
+                                <span className="text-[10px] opacity-60 font-mono">アルゴリズム分析</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAiActiveDesk('desk_x')}
+                                className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${
+                                    aiActiveDesk === 'desk_x'
+                                        ? 'bg-sky-500 text-white font-bold shadow'
+                                        : 'text-slate-300 hover:bg-slate-800/80'
+                                }`}
+                            >
+                                <span>✍️ X (Twitter) 担当</span>
+                                <span className="text-[10px] opacity-60 font-mono">140字・スレッド</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Instagramクリエイター */}
-                    <div
-                        onClick={() => setAiActiveDesk('desk_sns')}
-                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sns'
-                            ? 'bg-sky-500/10 border-sky-500/60 shadow-sm'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">📸</div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-200 truncate">Instagram担当</p>
-                            <p className="text-[10px] text-slate-400 truncate">カルーセル画像・投稿作成</p>
-                        </div>
-                    </div>
-
-                    {/* Xクリエイター */}
-                    <div
-                        onClick={() => setAiActiveDesk('desk_x')}
-                        className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_x'
-                            ? 'bg-sky-400/20 border-sky-400 shadow-md ring-1 ring-sky-400/40'
-                            : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'
-                        }`}
-                    >
-                        <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700 text-sky-400">🐦</div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-200 truncate">X (Twitter) 担当</p>
-                            <p className="text-[10px] text-slate-400 truncate">140字フック ＆ スレッド考察</p>
-                        </div>
-                    </div>
-
-                    {/* 有料コミュニティ担当 */}
+                    {/* ✉️ 有料コミュニティ担当 */}
                     <div
                         onClick={() => setAiActiveDesk('desk_sales')}
                         className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales'
@@ -1127,7 +1131,7 @@ export default function AiDashboard() {
                                             </button>
                                         </div>
 
-                                        {/* 📊 Xアナリスト */}
+                                        {/* Xアナリスト */}
                                         <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
                                             <div>
                                                 <div className="flex justify-between items-center mb-1.5">
@@ -1612,12 +1616,12 @@ export default function AiDashboard() {
                                     </div>
                                 </div>
 
-                                {/* 🌟 ナレッジ管理パネル ＋ RSI自律改善モニタリング */}
+                                {/* ナレッジ管理パネル ＋ RSI自律改善モニタリング */}
                                 {showKnowledgePanel && (
                                     <div className="mb-4 bg-slate-900 border border-amber-500/40 rounded-xl p-4 animate-fadeIn shadow-lg space-y-3">
                                         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
                                             <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                                <span>🧠</span> 学習済み社内ルール一覧（Geminiプロンプトへ自動注入中）[cite: 3]
+                                                <span>🧠</span> 学習済み社内ルール一覧（Geminiプロンプトへ自動注入中）
                                             </span>
                                             <div className="flex items-center gap-2">
                                                 <button
@@ -1653,7 +1657,7 @@ export default function AiDashboard() {
                                         )}
 
                                         {knowledgeList.length === 0 ? (
-                                            <p className="text-xs text-slate-500 py-3 text-center">まだ登録されたルールはありません。チャットから「📌 ルールとして学習」を押すか、「🔄 RSIを実行」で蓄積されます[cite: 3]。</p>
+                                            <p className="text-xs text-slate-500 py-3 text-center">まだ登録されたルールはありません。チャットから「📌 ルールとして学習」を押すか、「🔄 RSIを実行」で蓄積されます。</p>
                                         ) : (
                                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                                                 {knowledgeList.map((item) => (
