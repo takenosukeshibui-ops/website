@@ -60,9 +60,8 @@ export default function DocumentReportView({
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
                             <div className="flex items-center gap-2">
                                 <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                                    <span>🗂️</span> 日本語版調達マトリクス（日本調達 ➔ 現地販売）
+                                    <span>🗂️</span> アービトラージレポート
                                 </h4>
-                                <span className="text-[10px] text-slate-500 hidden sm:inline">| 日本市場から現地への高マージン輸入候補</span>
                             </div>
                             {hasArbitrageTiers && (
                                 <div className="flex flex-wrap gap-1">
