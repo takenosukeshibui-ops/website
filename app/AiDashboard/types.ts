@@ -297,3 +297,43 @@ export interface KnowledgeItem {
     content: string;
     created_at: string;
 }
+
+// ==========================================
+// 🌟 パイプライン進捗・監査役ステータス型定義
+// ==========================================
+export type PipelinePhase =
+  | 'initialized'
+  | 'researching'
+  | 'curating'
+  | 'gate1_auditing'
+  | 'generating_content'
+  | 'gate2_auditing'
+  | 'ready_to_publish'
+  | 'partially_failed'
+  | 'completed';
+
+export interface Gate1AuditItem {
+  id: string;
+  card: string;
+  slot: string;
+  region: string;
+  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
+  checks?: any;
+  feedback?: string | null;
+}
+
+export interface Gate2AuditItem {
+  id: string;
+  platform: string;
+  day: string;
+  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
+  checks?: any;
+  feedback?: string | null;
+}
+
+export interface PipelineProgressState {
+  cycleId: string | null;
+  status: PipelinePhase | null;
+  gate1Audits: Gate1AuditItem[];
+  gate2Audits: Gate2AuditItem[];
+}
