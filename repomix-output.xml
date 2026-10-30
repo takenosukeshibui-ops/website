@@ -432,6 +432,22 @@ const handleAction = async (formData: FormData) =>
 {/* トースト通知 (画面右下に固定表示) */}
 </file>
 
+<file path="app/[lang]/inventory/page.tsx">
+import React from 'react'
+import { getProducts } from '@/app/actions/inventory'
+import { createClient } from '@/lib/supabase/server'
+import { AddToCartForm } from './AddToCartForm'
+import Link from 'next/link'
+⋮----
+// 🌟 データのキャッシュを無効化し、常に最新のDBデータを反映させる設定
+⋮----
+// ログイン状態の確認
+⋮----
+{/* 重量にカンマ適用 */}
+⋮----
+{/* 在庫数にカンマ適用 */}
+</file>
+
 <file path="app/[lang]/login/page.tsx">
 // app/[lang]/login/page.tsx
 ⋮----
@@ -492,6 +508,152 @@ const dict = await getDictionary(lang); // [NEW] URLパラメータから現在�
 {/* [UPDATED] 万が一辞書が空の場合でもクラッシュしないようガード */}
 ⋮----
 {/* [NEW] 総合料金シミュレーターへのリンクを追加 */}
+</file>
+
+<file path="app/actions/admin.ts">
+// app/actions/admin.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { cookies, headers } from 'next/headers'
+⋮----
+/**
+ * 1. 商品名の更新
+ */
+export async function updateItemTitle(itemId: string, title: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 2. 商品ステータスの更新
+ */
+export async function updateItemStatus(itemId: string, status: string, orderId?: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 3. 確定数量の更新
+ */
+export async function updateItemQuantity(itemId: string, adminQuantity: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 4. 購入価格の更新
+ */
+export async function updateItemPrice(itemId: string, price: number)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
+ */
+export async function updateAdminNote(itemId: string, note: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
+ */
+export async function cancelAdminNote(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+⋮----
+/**
+ * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
+ */
+export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
+⋮----
+// [UPDATED] 確定した配送方法もDBに保存するよう追加
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 8. 請求金額データの削除（クリア） [UPDATED]
+ */
+export async function deleteInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
+ */
+export async function updateOrderStatusToPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 10. 「決済待ち」の取り消し [UPDATED]
+ */
+export async function cancelPaymentRequired(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
+ */
+export async function sendPayPalInvoice(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+⋮----
+/**
+ * 12. 追跡番号の更新・保存 [UPDATED]
+ */
+export async function updateTrackingNumber(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 13. 発送完了処理 [UPDATED]
+ */
+export async function shipOrder(orderId: string, trackingNumber: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 14. 追跡番号のクリア（削除） [UPDATED]
+ */
+export async function deleteShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 15. 発送済みの取り消し [UPDATED]
+ */
+export async function cancelShip(orderId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 16. 注文内商品の削除 [UPDATED]
+ */
+export async function deleteAdminItem(itemId: string)
+⋮----
+revalidatePath('/dashboard') // [UPDATED]
+⋮----
+/**
+ * 17. 注文への調整項目（値引き・追加料金等）の追加
+ */
+export async function addAdminAdjustmentItem(orderId: string, userId: string, title: string, price: number)
+⋮----
+// 管理者権限のチェック
+⋮----
+// 1. 調整用アイテムの作成 (url に inhouse:// プレフィックスを付けて代理手数料対象外にする)
+⋮----
+status: 'purchased' // 確定済みとして作成
+⋮----
+// 2. 注文 (order_items) への紐付け
+⋮----
+/**
+ * 18. 注文内すべての商品のステータスを一括更新
+ */
+export async function updateAllOrderItemsStatus(orderId: string, status: string)
+⋮----
+// 管理者権限チェック
+⋮----
+// 1. 対象 order に紐づく item_id 一覧を取得
+⋮----
+// 2. 該当アイテムのステータスを一括更新
 </file>
 
 <file path="app/actions/auth.ts">
@@ -1070,6 +1232,160 @@ onClick={(e) => e.stopPropagation()} // [NEW] クライアントコンポーネ�
 }
 </file>
 
+<file path="dictionaries/ja.json">
+{
+  "home": {
+    "title": "私たちのサービスへようこそ",
+    "description": "効率的な管理ツールを提供します。",
+    "login": "ログイン",
+    "signup": "新規登録",
+    "calculator": "送料シミュレーター",
+    "inventory": "📦 自社商品",
+    "estimate": "💰 総合料金シミュレーター"
+  },
+  "dashboard": {
+    "title": "マイページ",
+    "logout": "ログアウト",
+    "accountSettings": "⚙️ アカウント設定",
+    "shippingCalculator": "✈️ 送料シミュレーター ↗",
+    "orderHistory": "依頼済みの注文一覧",
+    "noOrders": "依頼済みの注文はありません。",
+    "itemCount": "商品数:",
+    "status": {
+      "shipping": "配送:",
+      "payment": "決済:",
+      "tracking": "追跡:",
+      "attention": "要確認（ユーザー対応待ち）"
+    },
+    "invoice": {
+      "title": "■ 請求明細",
+      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
+      "productTotal": "商品価格合計",
+      "proxyFee": "代理手数料 (5%)",
+      "shipping": "送料",
+      "paymentFee": "決済手数料",
+      "grandTotal": "お支払い金額"
+    },
+    "form": {
+      "urlPlaceholder": "商品URL",
+      "titlePlaceholder": "商品名",
+      "pricePlaceholder": "希望価格(任意)",
+      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
+      "addButton": "カートに追加",
+      "addingButton": "追加中...",
+      "replyButton": "回答を送信",
+      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
+      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
+    },
+    "bookmarklet": {
+      "title": "ブックマークレット",
+      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
+      "addButton": "カートに追加"
+    },
+    "cart": {
+      "title": "カート内の商品",
+      "noItems": "カートに商品はありません。",
+      "name": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "quantity": "数量",
+      "desiredPrice": "希望価格",
+      "action": "操作",
+      "delete": "削除",
+      "shippingMethod": "配送方法:",
+      "paymentMethod": "決済方法:",
+      "submitButton": "購入依頼を送信する",
+      "submittingButton": "送信中..."
+    },
+    "table": {
+      "order": "注文",
+      "item": "商品名",
+      "url": "URL",
+      "remarks": "備考(サイズ等)",
+      "requestedQuantity": "依頼数量",
+      "confirmedQuantity": "確定数量",
+      "desiredPrice": "希望価格",
+      "price": "購入価格(確定)",
+      "subtotal": "小計",
+      "status": "ステータス"
+    },
+    "badge": {
+      "status": {
+        "ordered": "依頼済み",
+        "purchased": "買い付け完了",
+        "shipping_prep": "国際発送準備中",
+        "payment_waiting": "決済待ち",
+        "shipped": "国際発送済み",
+        "cancelled": "キャンセル"
+      },
+      "item": {
+        "cart": "カート",
+        "ordered": "依頼済み",
+        "out_of_stock": "在庫切れ",
+        "purchased": "購入完了",
+        "warehouse_arrival": "倉庫到着",
+        "cancelled": "キャンセル",
+        "info_required": "要確認"
+      }
+    }
+  },
+  "settings": {
+    "loginSecurity": "ログイン情報・セキュリティ",
+    "loginEmail": "ログイン用メールアドレス",
+    "emailNote": "※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。",
+    "passwordSettings": "パスワード設定",
+    "changePassword": "パスワードの変更",
+    "cancel": "キャンセル",
+    "newPassword": "新しいパスワード (6文字以上)",
+    "confirmPassword": "新しいパスワード (確認用)",
+    "changing": "変更中...",
+    "change": "変更",
+    "basicInfo": "基本情報",
+    "fullName": "担当者名 (Full Name)",
+    "companyName": "会社名 (Company Name)",
+    "phone": "電話番号 (Phone)",
+    "contactEmail": "連絡用メールアドレス (Contact Email)",
+    "sameAsLogin": "ログイン用と同じ",
+    "country": "国 (Country)",
+    "fedexAccount": "FedEx アカウント番号",
+    "fedexNote": "※ 航空便利用時の関税支払い手続きに必須となります。",
+    "zipCode": "郵便番号 (Zip Code)",
+    "taxId": "納税番号 (Tax ID)",
+    "city": "都市名 (City)",
+    "stateProvince": "州または省 (State/Province)",
+    "addressLine1": "住所1 (Address Line 1)",
+    "addressLine2": "住所2 (Address Line 2)",
+    "addressLine3": "住所3 (Address Line 3)",
+    "addressType": "お届け先の種類 (Residential or Commercial)",
+    "residential": "個人宅 (Residential)",
+    "commercial": "事業所・会社 (Commercial)",
+    "addressNote": "※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。",
+    "paymentAccount": "お支払いアカウント情報",
+    "paypalLink": "PayPal アカウント連携",
+    "paypalLinked": "連携済み",
+    "paypalRelink": "PayPalアカウントを再連携",
+    "paypalDoLink": "PayPalと連携する",
+    "wiseEmail": "Wise用 メールアドレス",
+    "defaultOrderSettings": "デフォルトの注文設定",
+    "defaultOrderNote": "カートで依頼を送信する際の初期選択になります。",
+    "shippingMethod": "配送方法",
+    "paymentMethod": "決済方法",
+    "save": "保存",
+    "saving": "保存中...",
+    "backToMyPage": "← マイページへ戻る"
+  },
+  "forgotPassword": {
+    "title": "パスワードの再設定",
+    "description": "ご登録のメールアドレスを入力してください。パスワード再設定用のリンクをお送りします。",
+    "sentSuccess": "✅ メールを送信しました。",
+    "sentInstruction": "受信トレイをご確認いただき、メール内のリンクから再設定を行ってください。",
+    "backToLogin": "ログイン画面へ戻る",
+    "submitButton": "送信する",
+    "submittingButton": "送信中..."
+  }
+}
+</file>
+
 <file path="lib/supabase/client.ts">
 import { createBrowserClient } from '@supabase/ssr'
 </file>
@@ -1517,6 +1833,14 @@ export function middleware(request: NextRequest)
 // プレフィックスがない場合はデフォルト言語を付与してリダイレクト
 </file>
 
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+⋮----
+/* 既存の設定項目があればここに記述 */
+⋮----
+// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
+</file>
+
 <file path="postcss.config.mjs">
 
 </file>
@@ -1605,6 +1929,35 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="app/[lang]/admin/page.tsx">
+// app/[lang]/admin/page.tsx
+// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import ClientAdminPage from './ClientAdminPage'
+⋮----
+export default async function AdminPage(props:
+⋮----
+// URLから言語(lang)を取得
+⋮----
+// --- 💡 ここから追加・変更：ユーザーごとの連番を計算する ---
+⋮----
+// 古い注文（配列の末尾）から新しい注文に向かって、ユーザーごとの連番を振る
+⋮----
+const uid = order.user_id // どのユーザーの注文か
+⋮----
+userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタート
+⋮----
+// 割り出した連番を order に直接セットする (ClientAdminPage 側で読み取られます)
+⋮----
+// --- 💡 追加ここまで ---
+⋮----
+{/* ... ヘッダー部分はそのまま ... */}
+⋮----
+{/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
+</file>
+
 <file path="app/actions/cart.ts">
 // app/actions/cart.ts
 ⋮----
@@ -1656,6 +2009,35 @@ let isNewOrder = false // ロールバック制御用のフラグ
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
 </file>
 
+<file path="app/actions/inventory.ts">
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  supplier_name?: string
+  supplier_price?: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
+⋮----
+// 1. 全商品取得
+export async function getProducts(isAdmin = false)
+⋮----
+// 2. 新規追加
+export async function addProduct(product: ProductInput)
+⋮----
+// 3. 商品更新
+export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+⋮----
+// 4. 画像アップロード
+export async function uploadProductImage(formData: FormData)
+</file>
+
 <file path="app/api/ai/intelligence/agents/proofEngine.ts">
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson } from '../helpers';
@@ -1672,160 +2054,6 @@ export async function GET(req: Request)
 // Vercel Cronからの正規アクセスか検証（CRON_SECRETを設定している場合）
 ⋮----
 // 既存のAIインテリジェンスAPIを triggerType='cron' で呼び出す
-</file>
-
-<file path="dictionaries/ja.json">
-{
-  "home": {
-    "title": "私たちのサービスへようこそ",
-    "description": "効率的な管理ツールを提供します。",
-    "login": "ログイン",
-    "signup": "新規登録",
-    "calculator": "送料シミュレーター",
-    "inventory": "📦 自社商品",
-    "estimate": "💰 総合料金シミュレーター"
-  },
-  "dashboard": {
-    "title": "マイページ",
-    "logout": "ログアウト",
-    "accountSettings": "⚙️ アカウント設定",
-    "shippingCalculator": "✈️ 送料シミュレーター ↗",
-    "orderHistory": "依頼済みの注文一覧",
-    "noOrders": "依頼済みの注文はありません。",
-    "itemCount": "商品数:",
-    "status": {
-      "shipping": "配送:",
-      "payment": "決済:",
-      "tracking": "追跡:",
-      "attention": "要確認（ユーザー対応待ち）"
-    },
-    "invoice": {
-      "title": "■ 請求明細",
-      "shippingNote": "※ユーザー選択方法＆重量に基づき試算中",
-      "productTotal": "商品価格合計",
-      "proxyFee": "代理手数料 (5%)",
-      "shipping": "送料",
-      "paymentFee": "決済手数料",
-      "grandTotal": "お支払い金額"
-    },
-    "form": {
-      "urlPlaceholder": "商品URL",
-      "titlePlaceholder": "商品名",
-      "pricePlaceholder": "希望価格(任意)",
-      "remarksPlaceholder": "サイズ・カラー・状態などの指定があれば入力してください(任意)",
-      "addButton": "カートに追加",
-      "addingButton": "追加中...",
-      "replyButton": "回答を送信",
-      "replyPlaceholder": "指定内容（サイズ・色など）を記入して返信",
-      "adminNoteLabel": "⚠️ 管理者からの確認事項:"
-    },
-    "bookmarklet": {
-      "title": "ブックマークレット",
-      "description": "以下のボタンをお気に入りバーにドラッグ＆ドロップしてください。",
-      "addButton": "カートに追加"
-    },
-    "cart": {
-      "title": "カート内の商品",
-      "noItems": "カートに商品はありません。",
-      "name": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "quantity": "数量",
-      "desiredPrice": "希望価格",
-      "action": "操作",
-      "delete": "削除",
-      "shippingMethod": "配送方法:",
-      "paymentMethod": "決済方法:",
-      "submitButton": "購入依頼を送信する",
-      "submittingButton": "送信中..."
-    },
-    "table": {
-      "order": "注文",
-      "item": "商品名",
-      "url": "URL",
-      "remarks": "備考(サイズ等)",
-      "requestedQuantity": "依頼数量",
-      "confirmedQuantity": "確定数量",
-      "desiredPrice": "希望価格",
-      "price": "購入価格(確定)",
-      "subtotal": "小計",
-      "status": "ステータス"
-    },
-    "badge": {
-      "status": {
-        "ordered": "依頼済み",
-        "purchased": "買い付け完了",
-        "shipping_prep": "国際発送準備中",
-        "payment_waiting": "決済待ち",
-        "shipped": "国際発送済み",
-        "cancelled": "キャンセル"
-      },
-      "item": {
-        "cart": "カート",
-        "ordered": "依頼済み",
-        "out_of_stock": "在庫切れ",
-        "purchased": "購入完了",
-        "warehouse_arrival": "倉庫到着",
-        "cancelled": "キャンセル",
-        "info_required": "要確認"
-      }
-    }
-  },
-  "settings": {
-    "loginSecurity": "ログイン情報・セキュリティ",
-    "loginEmail": "ログイン用メールアドレス",
-    "emailNote": "※変更ボタンを押すと確認メールが送信されます。メール内のリンクをクリックするまで実際のアドレスは変更されません。",
-    "passwordSettings": "パスワード設定",
-    "changePassword": "パスワードの変更",
-    "cancel": "キャンセル",
-    "newPassword": "新しいパスワード (6文字以上)",
-    "confirmPassword": "新しいパスワード (確認用)",
-    "changing": "変更中...",
-    "change": "変更",
-    "basicInfo": "基本情報",
-    "fullName": "担当者名 (Full Name)",
-    "companyName": "会社名 (Company Name)",
-    "phone": "電話番号 (Phone)",
-    "contactEmail": "連絡用メールアドレス (Contact Email)",
-    "sameAsLogin": "ログイン用と同じ",
-    "country": "国 (Country)",
-    "fedexAccount": "FedEx アカウント番号",
-    "fedexNote": "※ 航空便利用時の関税支払い手続きに必須となります。",
-    "zipCode": "郵便番号 (Zip Code)",
-    "taxId": "納税番号 (Tax ID)",
-    "city": "都市名 (City)",
-    "stateProvince": "州または省 (State/Province)",
-    "addressLine1": "住所1 (Address Line 1)",
-    "addressLine2": "住所2 (Address Line 2)",
-    "addressLine3": "住所3 (Address Line 3)",
-    "addressType": "お届け先の種類 (Residential or Commercial)",
-    "residential": "個人宅 (Residential)",
-    "commercial": "事業所・会社 (Commercial)",
-    "addressNote": "※ クーリエ配送の際、個人宅への配達には追加料金がかかる場合があります。正しい種類を選択してください。",
-    "paymentAccount": "お支払いアカウント情報",
-    "paypalLink": "PayPal アカウント連携",
-    "paypalLinked": "連携済み",
-    "paypalRelink": "PayPalアカウントを再連携",
-    "paypalDoLink": "PayPalと連携する",
-    "wiseEmail": "Wise用 メールアドレス",
-    "defaultOrderSettings": "デフォルトの注文設定",
-    "defaultOrderNote": "カートで依頼を送信する際の初期選択になります。",
-    "shippingMethod": "配送方法",
-    "paymentMethod": "決済方法",
-    "save": "保存",
-    "saving": "保存中...",
-    "backToMyPage": "← マイページへ戻る"
-  },
-  "forgotPassword": {
-    "title": "パスワードの再設定",
-    "description": "ご登録のメールアドレスを入力してください。パスワード再設定用のリンクをお送りします。",
-    "sentSuccess": "✅ メールを送信しました。",
-    "sentInstruction": "受信トレイをご確認いただき、メール内のリンクから再設定を行ってください。",
-    "backToLogin": "ログイン画面へ戻る",
-    "submitButton": "送信する",
-    "submittingButton": "送信中..."
-  }
-}
 </file>
 
 <file path="lib/twitter.ts">
@@ -1856,14 +2084,6 @@ export async function publishThreadToX({
 // tweetThread API で親ポストから順番にリプライ連鎖として自動投稿
 </file>
 
-<file path="next.config.ts">
-import type { NextConfig } from "next";
-⋮----
-/* 既存の設定項目があればここに記述 */
-⋮----
-// Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
-</file>
-
 <file path="vercel.json">
 {
   "crons": [
@@ -1875,56 +2095,43 @@ import type { NextConfig } from "next";
 }
 </file>
 
-<file path="app/[lang]/admin/page.tsx">
-// app/[lang]/admin/page.tsx
-// [UPDATED] 当社在庫管理ボタンの遷移先を /admin/inventory へ変更し、langパラメータを付与
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import ClientAdminPage from './ClientAdminPage'
+<file path="app/[lang]/dashboard/page.tsx">
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
 ⋮----
-export default async function AdminPage(props:
+function getTrackingUrl(trackingNumber: string): string
 ⋮----
-// URLから言語(lang)を取得
+function calculateUserInvoiceDetails(order: any)
 ⋮----
-// --- 💡 ここから追加・変更：ユーザーごとの連番を計算する ---
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
 ⋮----
-// 古い注文（配列の末尾）から新しい注文に向かって、ユーザーごとの連番を振る
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
 ⋮----
-const uid = order.user_id // どのユーザーの注文か
+// 🌟 修正：order_number を user_order_seq に変更
 ⋮----
-userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタート
+const getTranslatedShippingMethod = (method: string) =>
 ⋮----
-// 割り出した連番を order に直接セットする (ClientAdminPage 側で読み取られます)
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
 ⋮----
-// --- 💡 追加ここまで ---
+<form action=
 ⋮----
-{/* ... ヘッダー部分はそのまま ... */}
+{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
 ⋮----
-{/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
-</file>
-
-<file path="app/[lang]/inventory/page.tsx">
-import React from 'react'
-import { getProducts } from '@/app/actions/inventory'
-import { createClient } from '@/lib/supabase/server'
-import { AddToCartForm } from './AddToCartForm'
-import Link from 'next/link'
+{/* 請求明細パネル */}
 ⋮----
-// 🌟 データのキャッシュを無効化し、常に最新のDBデータを反映させる設定
+{/* 注文商品テーブル */}
 ⋮----
-// ログイン状態の確認
-⋮----
-{/* 重量にカンマ適用 */}
-⋮----
-{/* 在庫数にカンマ適用 */}
-</file>
-
-<file path="app/api/ai/intelligence/agents/chiefManager.ts">
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getCategoryName } from '../helpers';
-⋮----
-export async function runChiefManager(trends: any, profits: any, category: string = 'pokemon')
+if (replyRemarks)
 </file>
 
 <file path="app/api/ai/intelligence/agents/salesDM.ts">
@@ -2001,45 +2208,6 @@ export async function DELETE(req: Request)
 }
 </file>
 
-<file path="app/[lang]/dashboard/page.tsx">
-import { getDictionary } from "@/lib/dictionaries";
-import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
-⋮----
-function getTrackingUrl(trackingNumber: string): string
-⋮----
-function calculateUserInvoiceDetails(order: any)
-⋮----
-let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
-⋮----
-// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
-⋮----
-// 🌟 修正：order_number を user_order_seq に変更
-⋮----
-const getTranslatedShippingMethod = (method: string) =>
-⋮----
-{/* ▼ 追加: 取扱商品へのリンクボタン */}
-⋮----
-<form action=
-⋮----
-{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
-⋮----
-{/* 請求明細パネル */}
-⋮----
-{/* 注文商品テーブル */}
-⋮----
-if (replyRemarks)
-</file>
-
 <file path="app/AiDashboard/components/ChatPanel.tsx">
 import React, { useState, useEffect, useRef } from 'react';
 import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
@@ -2106,6 +2274,14 @@ const handlePublishToInstagram = async (content: string, typeKey: string, imageU
 const handlePublishToX = async (mainPost: string, threadPosts: string[] = []) =>
 ⋮----
 const fetchLatestHistory = async () =>
+</file>
+
+<file path="app/api/ai/intelligence/agents/chiefManager.ts">
+// app/api/ai/intelligence/agents/chief.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getCategoryName } from '../helpers';
+⋮----
+export async function runChiefManager(trends: any, profits: any, category: string = 'pokemon')
 </file>
 
 <file path="app/api/ai/intelligence/agents/rsiOptimizer.ts">
@@ -2208,268 +2384,71 @@ export async function getInstagramInsights(limit: number = 5)
 // タイムアウトやネットワーク切断時もパイプラインを止めない
 </file>
 
-<file path="app/actions/inventory.ts">
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
+<file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
+import React, { useState, useMemo, useTransition } from 'react'
+import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
 ⋮----
-export type ProductInput = {
-  name: string
-  price: number
-  cost_price: number
-  supplier_name?: string
-  supplier_price?: number
-  weight: number
-  stock: number
-  image_url?: string
-  is_active?: boolean
+// 仕入先別の希望価格管理用型定義
+interface SupplierItem {
+  id: string
+  supplierName: string
+  productName: string
+  desiredPrice: number
+  note?: string
 }
 ⋮----
-// 1. 全商品取得
-export async function getProducts(isAdmin = false)
-⋮----
-// 2. 新規追加
-export async function addProduct(product: ProductInput)
+// 「仕入先情報一覧」モーダルの開閉状態
 ⋮----
-// 3. 商品更新
-export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+// 商品とは独立した仕入先・希望価格データリスト
 ⋮----
-// 4. 画像アップロード
-export async function uploadProductImage(formData: FormData)
-</file>
-
-<file path="app/api/ai/intelligence/agents/contentCreator.ts">
-// app/api/ai/intelligence/agents/contentCreator.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
+// 仕入先追加用の簡易フォームState
 ⋮----
-// 6. Instagram専任投稿クリエイター（2股転換・カルーセル特化）
-export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
+// 自社在庫商品の入力フォーム (元のシンプルな構成を保持)
 ⋮----
-// 7. X (Twitter) 専任クリエイター
-export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
-</file>
-
-<file path="app/api/ai/intelligence/agents/marketTrend.ts">
-// app/api/ai/intelligence/agents/marketTrend.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getAgentRules } from '../helpers';
+// 仕入先名ごとにグループ化
 ⋮----
-export async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us', _category: string = 'pokemon')
-</file>
-
-<file path="app/actions/admin.ts">
-// app/actions/admin.ts
+const handlePriceChange = (val: number) =>
 ⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-import { cookies, headers } from 'next/headers'
+const calculateAutoPrice = (cost: number, marginPercent: number): number =>
 ⋮----
-/**
- * 1. 商品名の更新
- */
-export async function updateItemTitle(itemId: string, title: string)
+const handleCostPriceChange = (val: number) =>
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+const handleMarginChange = (val: string) =>
 ⋮----
-/**
- * 2. 商品ステータスの更新
- */
-export async function updateItemStatus(itemId: string, status: string, orderId?: string)
+const handleStockChange = (valStr: string) =>
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+const handleEdit = (product: any) =>
 ⋮----
-/**
- * 3. 確定数量の更新
- */
-export async function updateItemQuantity(itemId: string, adminQuantity: number)
+const handleCancel = () =>
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+const handleSubmit = (e: React.FormEvent) =>
 ⋮----
-/**
- * 4. 購入価格の更新
- */
-export async function updateItemPrice(itemId: string, price: number)
+// 仕入先希望価格の追加ハンドラー (小数点第2位まで受け付け)
+const handleAddSupplierItem = (e: React.FormEvent) =>
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+const handleDeleteSupplierItem = (id: string) =>
 ⋮----
-/**
- * 5. 管理者連絡欄の保存・送信（ステータスを info_required に変更）
- */
-export async function updateAdminNote(itemId: string, note: string)
+{/* 自社商品登録フォーム */}
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+onChange=
 ⋮----
-/**
- * 6. 管理者連絡欄の取り消し（ステータスを pending に復元）
- */
-export async function cancelAdminNote(itemId: string)
+<input type="file" accept="image/*" onChange=
 ⋮----
-revalidatePath('/dashboard') // [NEW] ユーザー画面のキャッシュ再検証を追加
+<input type="checkbox" checked=
 ⋮----
-/**
- * 7. 請求金額・送料の保存 (ステータス変更なし) [UPDATED]
- */
-export async function sendInvoice(orderId: string, shippingFee: number, totalAmount: number, shippingMethod?: string)
+{/* 一覧セクション */}
 ⋮----
-// [UPDATED] 確定した配送方法もDBに保存するよう追加
+{/* 仕入先情報一覧を開くボタン */}
 ⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+onClick=
 ⋮----
-/**
- * 8. 請求金額データの削除（クリア） [UPDATED]
- */
-export async function deleteInvoice(orderId: string)
+{/* 仕入先別情報一覧モーダル */}
 ⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
+{/* モーダルヘッダー */}
 ⋮----
-/**
- * 9. 「決済待ち (payment_required)」へ切り替え（Wise等） [UPDATED]
- */
-export async function updateOrderStatusToPaymentRequired(orderId: string)
+{/* 仕入先希望価格の簡易追加バー */}
 ⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 10. 「決済待ち」の取り消し [UPDATED]
- */
-export async function cancelPaymentRequired(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 11. PayPal API を使用した請求書の作成と自動送信 [UPDATED]
- */
-export async function sendPayPalInvoice(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED] ユーザー側ダッシュボードのキャッシュを即時更新
-⋮----
-/**
- * 12. 追跡番号の更新・保存 [UPDATED]
- */
-export async function updateTrackingNumber(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 13. 発送完了処理 [UPDATED]
- */
-export async function shipOrder(orderId: string, trackingNumber: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 14. 追跡番号のクリア（削除） [UPDATED]
- */
-export async function deleteShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 15. 発送済みの取り消し [UPDATED]
- */
-export async function cancelShip(orderId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 16. 注文内商品の削除 [UPDATED]
- */
-export async function deleteAdminItem(itemId: string)
-⋮----
-revalidatePath('/dashboard') // [UPDATED]
-⋮----
-/**
- * 17. 注文への調整項目（値引き・追加料金等）の追加
- */
-export async function addAdminAdjustmentItem(orderId: string, userId: string, title: string, price: number)
-⋮----
-// 管理者権限のチェック
-⋮----
-// 1. 調整用アイテムの作成 (url に inhouse:// プレフィックスを付けて代理手数料対象外にする)
-⋮----
-status: 'purchased' // 確定済みとして作成
-⋮----
-// 2. 注文 (order_items) への紐付け
-⋮----
-/**
- * 18. 注文内すべての商品のステータスを一括更新
- */
-export async function updateAllOrderItemsStatus(orderId: string, status: string)
-⋮----
-// 管理者権限チェック
-⋮----
-// 1. 対象 order に紐づく item_id 一覧を取得
-⋮----
-// 2. 該当アイテムのステータスを一括更新
-</file>
-
-<file path="app/AiDashboard/components/DeskViews.tsx">
-// app/AiDashboard/components/DeskViews.tsx
-import React from 'react';
-import { IntelligenceData, RegionKey } from '../types';
-import DocumentReportView from './DocumentReport';
-⋮----
-interface DeskViewsProps {
-    aiActiveDesk: string;
-    activeTrendRegion: RegionKey;
-    activeArbitrageRegion: RegionKey;
-    aiData: IntelligenceData | null;
-    runningAction: string | null;
-    runSingleAi: (action: string, region?: RegionKey) => void;
-    handleCopy: (text: string, key: string) => void;
-    copiedKey: string | null;
-    handlePublishToInstagram: (content: string, typeKey: string, imageUrl?: string) => void;
-    isPublishingInstagram: string | null;
-    handlePublishToDiscord: (content: string) => void;
-    isPublishingDiscord: boolean;
-    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
-    isPublishingX: boolean; // 🌟 X投稿ローディングState
-}
-⋮----
-handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
-isPublishingX: boolean; // 🌟 X投稿ローディングState
-⋮----
-{/* ========================================================= */}
-{/* 👑 チーフマネージャー戦略デスク */}
-{/* ========================================================= */}
-⋮----
-<button onClick=
-⋮----
-{/* 🌟 3地域横断マトリクス */}
-⋮----
-{/* 🌟 7日分週間コンテンツカレンダー */}
-⋮----
-{/* 的中実績証明パッケージ */}
-⋮----
-{/* ========================================================= */}
-{/* 🔮 市場トレンドアナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 💎 アービトラージアナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 📊 自社Instagramアナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 🐦 自社X (Twitter) アナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 🎨 Instagram専任 投稿クリエイター */}
-{/* ========================================================= */}
-⋮----
-{/* 🌟 推奨ハッシュタグ表示＆一括コピー枠 */}
-⋮----
-{/* ========================================================= */}
-{/* 🐦 X (Twitter) 専任 投稿クリエイター */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 💬 コミュニティ営業AIデスク (Discord) */}
-{/* ========================================================= */}
+{/* モーダルフッター */}
 </file>
 
 <file path="app/AiDashboard/components/Sidebar.tsx">
@@ -2527,7 +2506,90 @@ export async function POST(req: Request)
 export async function GET(req: Request)
 </file>
 
+<file path="app/api/ai/intelligence/agents/contentCreator.ts">
+// app/api/ai/intelligence/agents/contentCreator.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
+⋮----
+// 6. Instagram専任投稿クリエイター（2股転換・カルーセル特化）
+export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
+⋮----
+// 7. X (Twitter) 専任クリエイター
+export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
+</file>
+
+<file path="app/AiDashboard/components/DeskViews.tsx">
+// app/AiDashboard/components/DeskViews.tsx
+import React from 'react';
+import { IntelligenceData, RegionKey } from '../types';
+import DocumentReportView from './DocumentReport';
+⋮----
+interface DeskViewsProps {
+    aiActiveDesk: string;
+    activeTrendRegion: RegionKey;
+    activeArbitrageRegion: RegionKey;
+    aiData: IntelligenceData | null;
+    runningAction: string | null;
+    runSingleAi: (action: string, region?: RegionKey) => void;
+    handleCopy: (text: string, key: string) => void;
+    copiedKey: string | null;
+    handlePublishToInstagram: (content: string, typeKey: string, imageUrl?: string) => void;
+    isPublishingInstagram: string | null;
+    handlePublishToDiscord: (content: string) => void;
+    isPublishingDiscord: boolean;
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
+    isPublishingX: boolean; // 🌟 X投稿ローディングState
+}
+⋮----
+handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
+isPublishingX: boolean; // 🌟 X投稿ローディングState
+⋮----
+{/* ========================================================= */}
+{/* 👑 チーフマネージャー戦略デスク */}
+{/* ========================================================= */}
+⋮----
+<button onClick=
+⋮----
+{/* 🌟 3地域横断マトリクス */}
+⋮----
+{/* 🌟 7日分週間コンテンツカレンダー */}
+⋮----
+{/* 的中実績証明パッケージ */}
+⋮----
+{/* ========================================================= */}
+{/* 🔮 市場トレンドアナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 💎 アービトラージアナリスト（🌟 横幅を w-full に解放） */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 📊 自社Instagramアナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 🐦 自社X (Twitter) アナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 🎨 Instagram専任 投稿クリエイター */}
+{/* ========================================================= */}
+⋮----
+{/* 🌟 推奨ハッシュタグ表示＆一括コピー枠 */}
+⋮----
+{/* ========================================================= */}
+{/* 🐦 X (Twitter) 専任 投稿クリエイター */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 💬 コミュニティ営業AIデスク (Discord) */}
+{/* ========================================================= */}
+</file>
+
 <file path="app/AiDashboard/types.ts">
+// types.ts
+⋮----
 export interface FactItem { label: string; value: string; }
 export interface RiskAndMitigation { risk: string; mitigation: string; }
 export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
@@ -2560,33 +2622,9 @@ export interface StrategicReport {
     verificationChecklist: string[];
 }
 ⋮----
-// 🌟 トレンド：スロット内商品アイテム
-export interface TrendSlotItem {
-    cardName: string;
-    condition?: string;
-    currentJpPriceJPY: string;
-    targetMarketPrice: string;
-    growthRate: string;
-    threePointCheck: string;
-    devilAdvocate: RiskAndMitigation;
-}
-⋮----
-// 🌟 トレンド：1スロットのレポート
-export interface TrendSlotReport {
-    slotKey: ResearchSlotKey;
-    slotLabel: string;
-    macroTrend: string;
-    isSurgeTriggered: boolean;
-    surgeReason?: string;
-    items: TrendSlotItem[];
-}
-⋮----
-// 🌟 トレンド：5スロット統合レポート
-export interface MultiSlotTrendReport extends StrategicReport {
-    slots: TrendSlotReport[];
-}
-⋮----
-// 🌟 アービトラージ：1商品あたりの軽量データ（海外インポーター視点）
+// ==========================================
+// 🌟 アービトラージ（サヤ取り）関連型定義
+// ==========================================
 export interface ArbitrageItemData {
     priceTier?: PriceTierKey;
     priceTierLabel?: string;
@@ -2609,19 +2647,16 @@ spreadROI: string;             // 粗利比率（例: "122%"）
 liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
 insight: string;               // 現地顧客需要・買い付け狙い目メモ
 ⋮----
-// 🌟 アービトラージ：1セル（本命1件 ＋ 代替候補4件）
 export interface ArbitragePriceTierCell {
     priceTier: PriceTierKey;
-    priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
+    priceTierLabel: string;
     mainItem: ArbitrageItemData;   // 👑 本命商品
     subItems: ArbitrageItemData[]; // 🥈 代替候補（4商品）
 }
 ⋮----
-priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
 mainItem: ArbitrageItemData;   // 👑 本命商品
 subItems: ArbitrageItemData[]; // 🥈 代替候補（4商品）
 ⋮----
-// 🌟 アービトラージ：1スロット（5つの価格帯セルを内包）
 export interface ArbitrageSlotReport {
     slotKey: ResearchSlotKey;
     slotLabel: string;
@@ -2629,46 +2664,29 @@ export interface ArbitrageSlotReport {
     items?: ArbitrageItemData[];
 }
 ⋮----
-// 🌟 【海外現地事業者向け】サヤ取り・輸入調達エグゼクティブ・サマリー型
 export interface ArbitrageExecutiveSummary {
-    headline: string; // 今週の輸入調達・現地販売の総括見出し
+    headline: string;
     macroAnalysis: {
-        japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
-        localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
+        japanSourcingClimate: string;
+        localMarketDemand: string;
     };
     microAnalysis: {
-        topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
-        topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
-        conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
+        topImportMarginCard: string;
+        topLocalVelocityCard: string;
+        conditionGradingInsight: string;
     };
     riskAlert: {
-        sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
-        localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
+        sourcingQualityTrap: string;
+        localInventoryRisk: string;
     };
-    actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
+    actionDirectives: string[];
 }
 ⋮----
-headline: string; // 今週の輸入調達・現地販売の総括見出し
-⋮----
-japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
-localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
-⋮----
-topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
-topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
-conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
-⋮----
-sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
-localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
-⋮----
-actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
-⋮----
-// 🌟 アービトラージ：統合レポート
 export interface MultiSlotArbitrageReport {
     title: string;
     claim?: string;
     summary?: ArbitrageExecutiveSummary;
     slots: ArbitrageSlotReport[];
-    // 旧プロパティ互換
     reasons?: string[];
     facts?: FactItem[];
     soWhat?: string;
@@ -2676,17 +2694,108 @@ export interface MultiSlotArbitrageReport {
     verificationChecklist?: string[];
 }
 ⋮----
-// 旧プロパティ互換
+// ==========================================
+// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
+// ==========================================
+export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
+export type CardCondition = 'Raw NM' | 'PSA10';
 ⋮----
-export interface ProfitableCardReport extends StrategicReport {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    imageUrl?: string;
+export interface MarketTrendCardItem {
+    rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
+    cardName: string;           // 実在カード名 (型番 / レアリティ)
+    condition: CardCondition;   // 推奨状態 (Raw NM / PSA10)
+    conviction: ConvictionLevel;// 確信度 (High / Mid / Speculative)
+    jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
+    currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
+    timeframe: string;          // 売り時目安 (例: "【短期】約2週間後（北米大会前）")
+    exitStrategy: string;       // 推奨出口戦略 (例: "入荷後、大会前週末の現地店頭・ECで即出し")
+    impactLogic: string;        // 波及ロジック（なぜ跳ねるのか・日本の相場ラグ理由）
 }
 ⋮----
-// 🌟 週間コンテンツカレンダー
+rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
+cardName: string;           // 実在カード名 (型番 / レアリティ)
+condition: CardCondition;   // 推奨状態 (Raw NM / PSA10)
+conviction: ConvictionLevel;// 確信度 (High / Mid / Speculative)
+jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
+currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
+timeframe: string;          // 売り時目安 (例: "【短期】約2週間後（北米大会前）")
+exitStrategy: string;       // 推奨出口戦略 (例: "入荷後、大会前週末の現地店頭・ECで即出し")
+impactLogic: string;        // 波及ロジック（なぜ跳ねるのか・日本の相場ラグ理由）
+⋮----
+export interface MarketTrendHypothesis {
+    headline: string;           // トレンド核心タイトル (例: "🔥 北米リージョナル大会での〇〇デッキ上位独占")
+    signal: string;             // 検知された客観的シグナル・事実
+    timeframe: string;          // トレンド全体の想定ピーク時期
+    items: MarketTrendCardItem[]; // トレンド合致度上位5銘柄 (Rank 1〜5 固定)
+}
+⋮----
+headline: string;           // トレンド核心タイトル (例: "🔥 北米リージョナル大会での〇〇デッキ上位独占")
+signal: string;             // 検知された客観的シグナル・事実
+timeframe: string;          // トレンド全体の想定ピーク時期
+items: MarketTrendCardItem[]; // トレンド合致度上位5銘柄 (Rank 1〜5 固定)
+⋮----
+export interface MarketTrendReport {
+    title: string;
+    claim: string;
+    createdAt: string;
+    hypotheses: MarketTrendHypothesis[]; // 最大3本
+}
+⋮----
+hypotheses: MarketTrendHypothesis[]; // 最大3本
+⋮----
+// 🌟 市場トレンド：エグゼクティブ・サマリー型
+export interface MarketTrendExecutiveSummary {
+  headline: string; // 今週のトレンド総括見出し
+  trendDynamics: {
+    catalystOverview: string; // 海外の急騰トリガー・資金流入口
+    japanPriceLag: string;    // 日本国内での安値放置理由・相場ラグ
+  };
+  strategicHighlights: {
+    mvpCatalystCard: string;  // 最注目カタリスト銘柄（MVP）
+    optimalExitWindow: string;// 全体的な売り抜け推奨期間・時間軸
+  };
+  riskAlert: {
+    hypeTrapWarning: string;  // 一時的バブル・過熱リスクへの警告
+    gradingVsRawStrategy: string; // 素体NM即売りかPSA10鑑定出しかの指針
+  };
+  actionDirectives: string[]; // 今週の先回り仕込みアクション指針（箇条書き）
+}
+⋮----
+headline: string; // 今週のトレンド総括見出し
+⋮----
+catalystOverview: string; // 海外の急騰トリガー・資金流入口
+japanPriceLag: string;    // 日本国内での安値放置理由・相場ラグ
+⋮----
+mvpCatalystCard: string;  // 最注目カタリスト銘柄（MVP）
+optimalExitWindow: string;// 全体的な売り抜け推奨期間・時間軸
+⋮----
+hypeTrapWarning: string;  // 一時的バブル・過熱リスクへの警告
+gradingVsRawStrategy: string; // 素体NM即売りかPSA10鑑定出しかの指針
+⋮----
+actionDirectives: string[]; // 今週の先回り仕込みアクション指針（箇条書き）
+⋮----
+// 🌟 トレンド：親となるトレンド仮説（最大3本）
+export interface MarketTrendHypothesis {
+  headline: string;
+  signal: string;
+  timeframe: string;
+  items: MarketTrendCardItem[];
+}
+⋮----
+// 🌟 トレンド：統合レポート
+export interface MarketTrendReport {
+  title: string;
+  claim: string;
+  createdAt: string;
+  summary?: MarketTrendExecutiveSummary; // 🌟 サマリーを追加
+  hypotheses: MarketTrendHypothesis[];
+}
+⋮----
+summary?: MarketTrendExecutiveSummary; // 🌟 サマリーを追加
+⋮----
+// ==========================================
+// 🌟 パッケージ・SNS・プロモーション型定義
+// ==========================================
 export interface ContentCalendarItem {
     dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
     dayLabelJa: string;
@@ -2799,8 +2908,9 @@ export interface RegionalContainer<T> {
     asia: T | null;
 }
 ⋮----
+// 🌟 統合インテリジェンスデータ
 export interface IntelligenceData {
-    trendInsights: RegionalContainer<MultiSlotTrendReport | StrategicReport> | null;
+    trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
     profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
     chiefPackage: ChiefPackageData | null;
     proofPackage?: ProofPackageData | null;
@@ -2829,38 +2939,6 @@ export interface KnowledgeItem {
 }
 </file>
 
-<file path="app/AiDashboard/components/DocumentReport.tsx">
-import React, { useState } from 'react';
-⋮----
-const getTierBadgeClass = (tierKey?: string) =>
-⋮----
-const toggleSub = (cellId: string) =>
-⋮----
-// 作成日時の取得
-⋮----
-// 地域タグの抽出（例: 【US】など）
-⋮----
-// 🌟 タイトル: 作成日時 ＋ 地域 ＋ アービトラージレポート
-⋮----
-{/* 🌟 ヘッダー（サブ英語を撤廃し、指定タイトルに統一） */}
-⋮----
-{/* 🌟 価格帯切り替えタブ（タブ横の見出しを撤廃し、タブのみを配置） */}
-⋮----
-{/* 🌟 金額ごとの区分けが選択されている場合：5枚を均等フル幅グリッドで一覧表示 */}
-⋮----
-/* 🌟 「すべて表示」の場合：各価格帯の本命がゆったり並ぶグリッド */
-⋮----
-{/* 🌟 【最下部】海外現地事業者向けエグゼクティブ・サマリー */}
-⋮----
-{/* 1. 🌐 マクロ分析 */}
-⋮----
-{/* 2. 🔍 ミクロ分析 */}
-⋮----
-{/* 3. 🚨 警戒アラート */}
-⋮----
-{/* 4. 🎯 今週のアクション指針 */}
-</file>
-
 <file path="app/api/ai/intelligence/agents/arbitrage.ts">
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -2884,71 +2962,49 @@ const generateExecutiveSummary = async () =>
 // 5スロット並列処理 ＋ サマリー生成を同時に実行
 </file>
 
-<file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
-import React, { useState, useMemo, useTransition } from 'react'
-import { addProduct, updateProduct, uploadProductImage, ProductInput } from '@/app/actions/inventory'
+<file path="app/api/ai/intelligence/agents/marketTrend.ts">
+// app/api/ai/intelligence/agents/marketTrend.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getAgentRules } from '../helpers';
+import { MarketTrendReport } from '@/app/AiDashboard/types';
 ⋮----
-// 仕入先別の希望価格管理用型定義
-interface SupplierItem {
-  id: string
-  supplierName: string
-  productName: string
-  desiredPrice: number
-  note?: string
-}
+export async function runMarketTrend(
+  region: 'us' | 'eu' | 'asia' = 'us',
+  _category: string = 'pokemon'
+): Promise<MarketTrendReport | null>
+</file>
+
+<file path="app/AiDashboard/components/DocumentReport.tsx">
+// app/AiDashboard/components/DocumentReport.tsx
+import React, { useState } from 'react';
 ⋮----
-// 「仕入先情報一覧」モーダルの開閉状態
+const getTierBadgeClass = (tierKey?: string) =>
 ⋮----
-// 商品とは独立した仕入先・希望価格データリスト
+const getConvictionBadgeClass = (conviction?: string) =>
 ⋮----
-// 仕入先追加用の簡易フォームState
+const toggleSub = (cellId: string) =>
 ⋮----
-// 自社在庫商品の入力フォーム (元のシンプルな構成を保持)
+{/* ヘッダー */}
 ⋮----
-// 仕入先名ごとにグループ化
+{/* ========================================================= */}
+{/* 🔥 市場トレンドレポート描画ブロック（カード5枚を最上部に配置） */}
+{/* ========================================================= */}
 ⋮----
-const handlePriceChange = (val: number) =>
+{/* 複数仮説がある場合のみ見分け用のインデックスを表示 */}
 ⋮----
-const calculateAutoPrice = (cost: number, marginPercent: number): number =>
+{/* 子：波及銘柄 上位5枚グリッド */}
 ⋮----
-const handleCostPriceChange = (val: number) =>
+{/* 🌟 上部にあった「仮説・ピーク想定・シグナル」＋ サマリーをここにまとめて配置 */}
 ⋮----
-const handleMarginChange = (val: string) =>
+{/* 仮説タイトル ＆ シグナル文章 */}
 ⋮----
-const handleStockChange = (valStr: string) =>
+{/* エグゼクティブ・サマリー（データがある場合のみ展開） */}
 ⋮----
-const handleEdit = (product: any) =>
+{/* ========================================================= */}
+{/* 💎 アービトラージレポート描画ブロック（既存維持） */}
+{/* ========================================================= */}
 ⋮----
-const handleCancel = () =>
-⋮----
-const handleSubmit = (e: React.FormEvent) =>
-⋮----
-// 仕入先希望価格の追加ハンドラー (小数点第2位まで受け付け)
-const handleAddSupplierItem = (e: React.FormEvent) =>
-⋮----
-const handleDeleteSupplierItem = (id: string) =>
-⋮----
-{/* 自社商品登録フォーム */}
-⋮----
-onChange=
-⋮----
-<input type="file" accept="image/*" onChange=
-⋮----
-<input type="checkbox" checked=
-⋮----
-{/* 一覧セクション */}
-⋮----
-{/* 仕入先情報一覧を開くボタン */}
-⋮----
-onClick=
-⋮----
-{/* 仕入先別情報一覧モーダル */}
-⋮----
-{/* モーダルヘッダー */}
-⋮----
-{/* 仕入先希望価格の簡易追加バー */}
-⋮----
-{/* モーダルフッター */}
+{/* 🌟 アービトラージ版エグゼクティブ・サマリー */}
 </file>
 
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
