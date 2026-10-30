@@ -1,28 +1,34 @@
+// app/api/ai/intelligence/agents/chief.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getCategoryName } from '../helpers';
 
 export async function runChiefManager(trends: any, profits: any, category: string = 'pokemon') {
     const categoryName = getCategoryName(category);
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
+        model: "gemini-2.5-flash",
         temperature: 0.2,
+        maxOutputTokens: 8192,
     });
 
     const prompt = `あなたは越境【${categoryName}】代理購入事業の最高意思決定者である【チーフマネージャー】です。
-あなたの責務は、6名のリサーチャー（米欧亜トレンド3名、米欧亜アービトラージ3名）から提出された5大スロット網羅データ（計30〜60件）を総合審査し、
+あなたの責務は、6名のリサーチャー（米欧亜の市場トレンドアナリスト3名、米欧亜のアービトラージアナリスト3名）から提出されたレポートを総合審査し、
 単一地域や1つの商材に偏ることなく【7日分の週間コンテンツカレンダー（月曜〜日曜）】として日替わりで戦略的に編成し、SNSクリエイターとコミュニティ営業へ発行することです。
 
-【重要：答えを教えない『撒き餌』ディレクション原則】
-無料SNSで拡散させる内容は「事実（Fact）」と「数字・結果（Result）」のみに限定すること。
-- 公開OK: 各地域の確定価格差、実成約相場、海外急騰率、需要の客観的トレンド（Fact / Result）
-- 公開NG（厳重秘匿）: 日本国内の具体的な仕入れ店舗名、仕入れルート、梱包・発送ノウハウ、詳細な高騰背景理由（Action / Reason）
-→ 「情報（Reason）」を求める層を有料VIP Discordへ、「行動（Action: 直送手配）」を求める層を自社ウェブサイトへ確実に導線分離すること。
+【⚠️ 最重要：需要の前提と答えを教えない『撒き餌』ディレクション原則】
+1. 欧米公式大会における日本語版プレイ需要の誤認禁止:
+   - 欧米公式大会では日本語版カードの使用は禁止されています。
+   - したがって、大会メタカードであってもノーマルや汎用パーツではなく、「最高レアリティ（SAR/UR）の鑑賞・記念需要」「日本限定プロモ」「特定作家アート」などのコレクター・資産価値を重視して選定してください。
+2. 情報（Reason）と行動（Action）の秘匿分離:
+   - 無料SNSで拡散させる内容は「事実（Fact）」と「数字・結果（Result）」のみに限定すること。
+   - 公開OK: 各地域の確定価格差、現地実成約相場、客観的シグナル、価格推移（Fact / Result）
+   - 公開NG（厳重秘匿）: 日本国内の具体的な仕入れ店舗名、仕入れルート、検品・PSA鑑定ノウハウ、詳細な高騰波及理由（Action / Reason）
+   - 導線分離: 「詳細理由（Reason）」を求める層を有料VIP Discordへ、「代行調達（Action）」を求める層を自社サイトへ誘導すること。
 
 【リサーチャー提出レポート】
-■ 市場トレンド（米/欧/亜 5スロット）:
+■ 市場トレンド（米/欧/亜 トレンド仮説 ＆ 波及銘柄Rank 1〜5）:
 ${JSON.stringify(trends)}
 
-■ アービトラージ利ざや（米/欧/亜 5スロット）:
+■ アービトラージ利ざや（米/欧/亜 5スロット×5価格帯）:
 ${JSON.stringify(profits)}
 
 【週間カレンダー編成ルール（全7日分を必ず網羅すること）】
@@ -33,9 +39,9 @@ ${JSON.stringify(profits)}
 3. 水曜 (Wednesday): Promo_Focus
    - 日本限定ジムプロモ、ポケセン限定品、映画・企業タイアップ品の海外需要・価格差特集。
 4. 木曜 (Thursday): Modern_Meta_Focus
-   - 最新弾SAR/SR、タイムラグ先行需要、世界大会メタカードの即金性・回転特集。
+   - 最新弾の先行需要、象徴的エースポケモンの最高レアSAR、作家アートの現地回転・需要特集。
 5. 金曜 (Friday): Graded_Sealed_Focus
-   - PSA10/BGS鑑定品プレミアム、POP数希少品、絶版未開封BOXの海外資産需要・大口直送特集。
+   - PSA10鑑定品プレミアム、POP数希少品、絶版未開封BOXの海外資産需要・大口直送特集。
 6. 土曜 (Saturday): Hit_Proof_SocialProof
    - 的中実績・証明投稿（タイプC）。過去の予測データと現在の急騰結果を並べ、情報の確度を誇示する社会的証明。
 7. 日曜 (Sunday): Weekly_Summary_CTA
@@ -50,7 +56,7 @@ ${JSON.stringify(profits)}
     "cardName": "全案件中、最も数字・利ざやインパクトが大きい目玉カード名（状態含む）",
     "region": "us または eu または asia",
     "slotKey": "classic_vintage / neo_vintage / exclusive_promo / modern_meta / graded_sealed",
-    "hookFact": "最も目を引く確定価格差や急騰率（例: 国内仕入れ¥18,000 → 米国実成約$340 / Net ROI 125%）",
+    "hookFact": "最も目を引く確定価格差や現地相場（例: 国内仕入れ¥18,000 → 米国実成約$340 / 差額+¥32,000）",
     "selectionReason": "今週のMVPとして選定した戦略的理由"
   },
   "regionalMatrix": {
@@ -127,12 +133,12 @@ ${JSON.stringify(profits)}
     },
     {
       "dayOfWeek": "Thursday",
-      "dayLabelJa": "木曜: 現行モダン・メタ特化（新弾先行・WCS需要）",
+      "dayLabelJa": "木曜: 最新弾先行・象徴アート特化（新弾先行・最高レアSAR需要）",
       "postType": "Modern_Meta_Focus",
       "targetSlot": "modern_meta",
       "targetRegion": "us",
-      "selectedCardOrTopic": "選定した現行モダンカード名",
-      "hookFact": "海外大会メタ入りや新弾タイムラグの価格差事実",
+      "selectedCardOrTopic": "選定した現行モダン最高レアカード名",
+      "hookFact": "海外での新弾タイムラグ先行成約や初期SARの価格差事実",
       "hiddenActionReason": "発売直後の最安仕入れタイミング等の秘匿指示",
       "directiveForCreator": {
         "instagramAngle": "カルーセル構成指示",
@@ -161,8 +167,8 @@ ${JSON.stringify(profits)}
       "postType": "Hit_Proof_SocialProof",
       "targetSlot": "all",
       "targetRegion": "all",
-      "selectedCardOrTopic": "過去の予測で実際に+30%以上急騰した銘柄",
-      "hookFact": "当時の予測レポート画面と現在の海外成約急騰画面（+XX%）の対比事実",
+      "selectedCardOrTopic": "過去の予測で実際に海外成約が跳ねた的中銘柄",
+      "hookFact": "当時の予測レポート画面と現在の海外成約急騰画面の対比事実",
       "hiddenActionReason": "次の急騰予測シグナルの検知ロジックの秘匿指示",
       "directiveForCreator": {
         "instagramAngle": "ビフォーアフター対比スライド構成",
