@@ -1,3 +1,4 @@
+// app/AiDashboard/components/DocumentReport.tsx
 import React, { useState } from 'react';
 
 export default function DocumentReportView({
@@ -14,6 +15,9 @@ export default function DocumentReportView({
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
+    // 🌟 トレンドレポートかどうかの自動判定
+    const isTrendReport = Boolean(report.hypotheses && Array.isArray(report.hypotheses));
+
     const priceTiers = [
         { key: 'all', label: 'すべて表示' },
         { key: 'under_3k', label: '〜3千円', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
@@ -28,6 +32,19 @@ export default function DocumentReportView({
         return found?.badge || 'bg-slate-800 text-slate-300 border-slate-700';
     };
 
+    const getConvictionBadgeClass = (conviction?: string) => {
+        switch (conviction) {
+            case 'High':
+                return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+            case 'Mid':
+                return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+            case 'Speculative':
+                return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+            default:
+                return 'bg-slate-800 text-slate-300 border-slate-700';
+        }
+    };
+
     const toggleSub = (cellId: string) => {
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
@@ -35,7 +52,6 @@ export default function DocumentReportView({
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
-    // 作成日時の取得
     const formattedCreatedAt = report.createdAt || new Date().toLocaleString('ja-JP', {
         year: 'numeric',
         month: '2-digit',
@@ -44,35 +60,166 @@ export default function DocumentReportView({
         minute: '2-digit'
     });
 
-    // 地域タグの抽出（例: 【北米】など）
     const regionMatch = report.title?.match(/【(.*?)】/);
     const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【北米】';
 
-    // 🌟 タイトル: 作成日時 ＋ 地域 ＋ アービトラージレポート
-    const displayTitle = `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
+    // 🌟 タイトルの動的切り替え（トレンド時は report.title を優先）
+    const displayTitle = isTrendReport
+        ? (report.title || `${formattedCreatedAt} ${regionTag} 市場トレンド先行シグナルレポート`)
+        : `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
-            {/* 🌟 ヘッダー（サブ英語を撤廃し、指定タイトルに統一） */}
+            {/* ヘッダー */}
             <div className="p-4 sm:p-5 border-b border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950/60 gap-3">
                 <div className="flex items-center gap-3">
                     <span className="text-2xl sm:text-3xl shrink-0">{icon}</span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">
-                        {displayTitle}
-                    </h3>
+                    <div>
+                        <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">
+                            {displayTitle}
+                        </h3>
+                        {report.claim && (
+                            <p className="text-xs text-slate-400 mt-1">{report.claim}</p>
+                        )}
+                    </div>
                 </div>
-                {report.slots && report.slots.length > 0 && (
+                {/* バッジ表示 */}
+                {isTrendReport ? (
                     <div className="shrink-0">
-                        <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                            {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
+                        <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
+                            厳選トレンド {report.hypotheses?.length || 0}本 (各5銘柄)
                         </span>
                     </div>
+                ) : (
+                    report.slots && report.slots.length > 0 && (
+                        <div className="shrink-0">
+                            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
+                                {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
+                            </span>
+                        </div>
+                    )
                 )}
             </div>
 
-            <div className="p-4 sm:p-6 space-y-5">
-                {/* 🌟 価格帯切り替えタブ（タブ横の見出しを撤廃し、タブのみを配置） */}
-                {report.slots && report.slots.length > 0 && (
+            <div className="p-4 sm:p-6 space-y-6">
+                {/* ========================================================= */}
+                {/* 🔥 市場トレンドレポート描画ブロック（仮説 ➔ 上位5銘柄） */}
+                {/* ========================================================= */}
+                {isTrendReport && (
+                    <div className="space-y-6">
+                        {report.hypotheses.map((hypo: any, hIdx: number) => (
+                            <div key={hIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-4 shadow-sm">
+                                {/* 親：トレンド仮説ヘッダー */}
+                                <div className="border-b border-slate-800/80 pb-3 space-y-2">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <h4 className="text-base font-bold text-amber-300 leading-snug">
+                                            {hypo.headline}
+                                        </h4>
+                                        {hypo.timeframe && (
+                                            <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                                                {hypo.timeframe}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {hypo.signal && (
+                                        <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
+                                            {hypo.signal}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* 子：波及銘柄 上位5枚グリッド */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                                    {hypo.items?.map((item: any, iIdx: number) => {
+                                        const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
+                                        return (
+                                            <div
+                                                key={iIdx}
+                                                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                                                    isRank1
+                                                        ? 'bg-slate-900 border-amber-500/50 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
+                                                        : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                                                }`}
+                                            >
+                                                <div className="space-y-2.5">
+                                                    {/* バッジ・順位・確信度 */}
+                                                    <div className="flex justify-between items-start gap-1">
+                                                        <span
+                                                            className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                                                                isRank1
+                                                                    ? 'bg-amber-400 text-slate-950 shadow-sm'
+                                                                    : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                                            }`}
+                                                        >
+                                                            {item.rankLabel || `Rank ${iIdx + 1}`}
+                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            {item.conviction && (
+                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getConvictionBadgeClass(item.conviction)}`}>
+                                                                    {item.conviction}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
+                                                                {item.condition || 'Raw NM'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* カード名 */}
+                                                    <div className="min-h-[2.6rem]">
+                                                        <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
+                                                            {item.cardName}
+                                                        </h5>
+                                                    </div>
+
+                                                    {/* 価格表示 */}
+                                                    <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
+                                                        <div className="flex justify-between text-slate-400">
+                                                            <span>🇯🇵 調達:</span>
+                                                            <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-slate-400">
+                                                            <span>現地現在:</span>
+                                                            <span className="text-emerald-400 font-bold">{item.currentLocalPrice}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 出口戦略 & 売り時 */}
+                                                    {(item.timeframe || item.exitStrategy) && (
+                                                        <div className="text-[11px] bg-slate-950/70 p-2 rounded border border-slate-800/80 space-y-1">
+                                                            {item.timeframe && (
+                                                                <div className="text-slate-300 text-[10px] truncate">
+                                                                    <span className="text-amber-400 font-bold mr-1">⏳</span>{item.timeframe}
+                                                                </div>
+                                                            )}
+                                                            {item.exitStrategy && (
+                                                                <div className="text-slate-400 text-[10px] leading-tight">
+                                                                    <span className="text-sky-400 font-bold mr-1">🎯</span>{item.exitStrategy}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* 波及ロジック */}
+                                                {item.impactLogic && (
+                                                    <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/90 p-2 rounded border border-slate-800/60 leading-relaxed">
+                                                        <span className="text-amber-400 font-bold mr-1">💡</span>{item.impactLogic}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* ========================================================= */}
+                {/* 💎 アービトラージレポート描画ブロック（既存維持） */}
+                {/* ========================================================= */}
+                {!isTrendReport && report.slots && report.slots.length > 0 && (
                     <div className="space-y-4">
                         {hasArbitrageTiers && (
                             <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-3">
@@ -93,7 +240,6 @@ export default function DocumentReportView({
                             </div>
                         )}
 
-                        {/* 🌟 金額ごとの区分けが選択されている場合：5枚を均等フル幅グリッドで一覧表示 */}
                         {selectedTier !== 'all' ? (
                             <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
@@ -195,7 +341,6 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」の場合：各価格帯の本命がゆったり並ぶグリッド */
                             <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
                                     const tiers = slot.tiers || slot.items || [];
@@ -305,8 +450,8 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                {/* 🌟 【最下部】海外現地事業者向けエグゼクティブ・サマリー */}
-                {(summary || hasArbitrageTiers) && (
+                {/* 🌟 エグゼクティブ・サマリー（アービトラージ時のみ表示） */}
+                {!isTrendReport && (summary || hasArbitrageTiers) && (
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
@@ -321,7 +466,6 @@ export default function DocumentReportView({
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* 1. 🌐 マクロ分析 */}
                             <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
                                 <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🌐</span> 1. マクロ環境分析（日本調達環境 ＆ 現地需要）
@@ -338,7 +482,6 @@ export default function DocumentReportView({
                                 </div>
                             </div>
 
-                            {/* 2. 🔍 ミクロ分析 */}
                             <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
                                 <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🔍</span> 2. ミクロ分析（突出銘柄 ＆ 状態特性）
@@ -359,7 +502,6 @@ export default function DocumentReportView({
                                 </div>
                             </div>
 
-                            {/* 3. 🚨 警戒アラート */}
                             <div className="bg-slate-900/90 border border-rose-900/40 rounded-xl p-3.5 space-y-2">
                                 <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🚨</span> 3. 警戒アラート（調達品質リスク ＆ 現地在庫リスク）
@@ -376,7 +518,6 @@ export default function DocumentReportView({
                                 </div>
                             </div>
 
-                            {/* 4. 🎯 今週のアクション指針 */}
                             <div className="bg-slate-900/90 border border-emerald-900/40 rounded-xl p-3.5 space-y-2">
                                 <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🎯</span> 4. 今週の輸入調達・現地販売アクション指針
