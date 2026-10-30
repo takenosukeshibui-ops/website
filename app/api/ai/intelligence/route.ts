@@ -92,8 +92,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true, data: { snsPosts } });
         }
 
-        // 7. X原稿単体実行
-        if (action === 'x') {
+        // 7. X原稿単体実行（'x' と 'x_posts' の両方を受け付けるよう修正）
+        if (action === 'x' || action === 'x_posts') {
             const xPosts = await runXPosts(currentData?.chiefPackage, currentData?.xAccountInsights);
             return NextResponse.json({ success: true, data: { xPosts } });
         }

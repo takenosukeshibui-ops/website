@@ -16,8 +16,8 @@ interface DeskViewsProps {
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
-    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 追加
-    isPublishingX: boolean; // 🌟 追加
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void;
+    isPublishingX: boolean;
 }
 
 export default function DeskViews({
@@ -347,7 +347,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">
-                            {runningAction === 'x_posts' ? '制作中...' : '🔄 X投稿原稿を再生成'}
+                            {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 X投稿原稿を再生成'}
                         </button>
                     </div>
                     {aiData?.xPosts ? (
