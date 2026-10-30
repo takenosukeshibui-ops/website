@@ -46,9 +46,6 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
         const slotPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達（Import & Retail）する海外現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
 
-【読者ペルソナ】
-自国（現地）でカードショップやECを運営し、日本（フリマ、カードショップ、スニダン等）から適正価格で日本語版カードを輸入・仕入れて、自国市場の顧客に販売して利益を得ている海外事業者。
-
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
 【調達リサーチ任務】

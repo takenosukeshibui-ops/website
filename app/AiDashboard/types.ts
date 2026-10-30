@@ -1,3 +1,5 @@
+// types.ts
+
 export interface FactItem { label: string; value: string; }
 export interface RiskAndMitigation { risk: string; mitigation: string; }
 export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
@@ -24,33 +26,9 @@ export interface StrategicReport {
     verificationChecklist: string[];
 }
 
-// 🌟 トレンド：スロット内商品アイテム
-export interface TrendSlotItem {
-    cardName: string;
-    condition?: string;
-    currentJpPriceJPY: string;
-    targetMarketPrice: string;
-    growthRate: string;
-    threePointCheck: string;
-    devilAdvocate: RiskAndMitigation;
-}
-
-// 🌟 トレンド：1スロットのレポート
-export interface TrendSlotReport {
-    slotKey: ResearchSlotKey;
-    slotLabel: string;
-    macroTrend: string;
-    isSurgeTriggered: boolean;
-    surgeReason?: string;
-    items: TrendSlotItem[];
-}
-
-// 🌟 トレンド：5スロット統合レポート
-export interface MultiSlotTrendReport extends StrategicReport {
-    slots: TrendSlotReport[];
-}
-
-// 🌟 アービトラージ：1商品あたりの軽量データ（海外インポーター視点）
+// ==========================================
+// 🌟 アービトラージ（サヤ取り）関連型定義
+// ==========================================
 export interface ArbitrageItemData {
     priceTier?: PriceTierKey;
     priceTierLabel?: string;
@@ -64,15 +42,13 @@ export interface ArbitrageItemData {
     insight: string;               // 現地顧客需要・買い付け狙い目メモ
 }
 
-// 🌟 アービトラージ：1セル（本命1件 ＋ 代替候補4件）
 export interface ArbitragePriceTierCell {
     priceTier: PriceTierKey;
-    priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
+    priceTierLabel: string;
     mainItem: ArbitrageItemData;   // 👑 本命商品
     subItems: ArbitrageItemData[]; // 🥈 代替候補（4商品）
 }
 
-// 🌟 アービトラージ：1スロット（5つの価格帯セルを内包）
 export interface ArbitrageSlotReport {
     slotKey: ResearchSlotKey;
     slotLabel: string;
@@ -80,32 +56,29 @@ export interface ArbitrageSlotReport {
     items?: ArbitrageItemData[];
 }
 
-// 🌟 【海外現地事業者向け】サヤ取り・輸入調達エグゼクティブ・サマリー型
 export interface ArbitrageExecutiveSummary {
-    headline: string; // 今週の輸入調達・現地販売の総括見出し
+    headline: string;
     macroAnalysis: {
-        japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
-        localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
+        japanSourcingClimate: string;
+        localMarketDemand: string;
     };
     microAnalysis: {
-        topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
-        topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
-        conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
+        topImportMarginCard: string;
+        topLocalVelocityCard: string;
+        conditionGradingInsight: string;
     };
     riskAlert: {
-        sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
-        localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
+        sourcingQualityTrap: string;
+        localInventoryRisk: string;
     };
-    actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
+    actionDirectives: string[];
 }
 
-// 🌟 アービトラージ：統合レポート
 export interface MultiSlotArbitrageReport {
     title: string;
     claim?: string;
     summary?: ArbitrageExecutiveSummary;
     slots: ArbitrageSlotReport[];
-    // 旧プロパティ互換
     reasons?: string[];
     facts?: FactItem[];
     soWhat?: string;
@@ -113,15 +86,41 @@ export interface MultiSlotArbitrageReport {
     verificationChecklist?: string[];
 }
 
-export interface ProfitableCardReport extends StrategicReport {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    imageUrl?: string;
+// ==========================================
+// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
+// ==========================================
+export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
+export type CardCondition = 'Raw NM' | 'PSA10';
+
+export interface MarketTrendCardItem {
+    rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
+    cardName: string;           // 実在カード名 (型番 / レアリティ)
+    condition: CardCondition;   // 推奨状態 (Raw NM / PSA10)
+    conviction: ConvictionLevel;// 確信度 (High / Mid / Speculative)
+    jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
+    currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
+    timeframe: string;          // 売り時目安 (例: "【短期】約2週間後（北米大会前）")
+    exitStrategy: string;       // 推奨出口戦略 (例: "入荷後、大会前週末の現地店頭・ECで即出し")
+    impactLogic: string;        // 波及ロジック（なぜ跳ねるのか・日本の相場ラグ理由）
 }
 
-// 🌟 週間コンテンツカレンダー
+export interface MarketTrendHypothesis {
+    headline: string;           // トレンド核心タイトル (例: "🔥 北米リージョナル大会での〇〇デッキ上位独占")
+    signal: string;             // 検知された客観的シグナル・事実
+    timeframe: string;          // トレンド全体の想定ピーク時期
+    items: MarketTrendCardItem[]; // トレンド合致度上位5銘柄 (Rank 1〜5 固定)
+}
+
+export interface MarketTrendReport {
+    title: string;
+    claim: string;
+    createdAt: string;
+    hypotheses: MarketTrendHypothesis[]; // 最大3本
+}
+
+// ==========================================
+// 🌟 パッケージ・SNS・プロモーション型定義
+// ==========================================
 export interface ContentCalendarItem {
     dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
     dayLabelJa: string;
@@ -234,8 +233,9 @@ export interface RegionalContainer<T> {
     asia: T | null;
 }
 
+// 🌟 統合インテリジェンスデータ
 export interface IntelligenceData {
-    trendInsights: RegionalContainer<MultiSlotTrendReport | StrategicReport> | null;
+    trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
     profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
     chiefPackage: ChiefPackageData | null;
     proofPackage?: ProofPackageData | null;
