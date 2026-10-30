@@ -33,7 +33,7 @@ export default function DeskViews({
             {/* 👑 チーフマネージャー戦略デスク */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
-                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">👑</span>
@@ -226,7 +226,7 @@ export default function DeskViews({
             {/* 🔮 市場トレンドアナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_trend') && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                <div className="w-full space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🔮</span>
@@ -244,10 +244,10 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 💎 アービトラージアナリスト */}
+            {/* 💎 アービトラージアナリスト（🌟 横幅を w-full に解放） */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_arbitrage') && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                <div className="w-full space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💎</span>
@@ -267,7 +267,7 @@ export default function DeskViews({
             {/* 📊 自社Instagramアナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_account' && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                <div className="w-full space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">📊</span>
@@ -288,7 +288,7 @@ export default function DeskViews({
             {/* 🐦 自社X (Twitter) アナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x_account' && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                <div className="w-full space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🐦</span>
@@ -309,7 +309,7 @@ export default function DeskViews({
             {/* 🎨 Instagram専任 投稿クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
-                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🎨</span>
@@ -380,7 +380,7 @@ export default function DeskViews({
             {/* 🐦 X (Twitter) 専任 投稿クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
-                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🐦</span>
@@ -449,7 +449,7 @@ export default function DeskViews({
             {/* 💬 コミュニティ営業AIデスク (Discord) */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_dm' && (
-                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💬</span>
