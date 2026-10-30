@@ -232,7 +232,6 @@ export default function DeskViews({
                             <span className="text-3xl">🔮</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({activeTrendRegion === 'us' ? '北米' : activeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
-                                <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）</p>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md">

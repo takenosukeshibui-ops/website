@@ -75,7 +75,7 @@ ${rules}
 
 以下の厳格なJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要）:
 {
-  "title": "${formattedCreatedAt} 【${region.toUpperCase()}】市場トレンド先行シグナルレポート",
+  "title": "${formattedCreatedAt} 【${region.toUpperCase()}】市場トレンドレポート",
   "claim": "今週の${cur.name}における急騰先行シグナルと波及銘柄ポートフォリオ",
   "createdAt": "${formattedCreatedAt}",
   "summary": {

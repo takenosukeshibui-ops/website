@@ -63,7 +63,7 @@ export default function DocumentReportView({
     const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【北米】';
 
     const displayTitle = isTrendReport
-        ? (report.title || `${formattedCreatedAt} ${regionTag} 市場トレンド先行シグナルレポート`)
+        ? (report.title || `${formattedCreatedAt} ${regionTag} 市場トレンドレポート`)
         : `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
 
     return (
