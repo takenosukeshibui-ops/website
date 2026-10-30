@@ -59,7 +59,7 @@ export default function Sidebar({
                             <p className="text-xs font-bold text-amber-200 truncate">チーフマネージャー</p>
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 font-bold">統括</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 truncate">6レポート審査・最優秀選定</p>
+                        <p className="text-[10px] text-slate-400 truncate"></p>
                     </div>
                 </div>
 
@@ -127,7 +127,7 @@ export default function Sidebar({
                     <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-base shrink-0 border border-slate-700">✉️</div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-200 truncate">有料コミュニティ担当</p>
-                        <p className="text-[10px] text-slate-400 truncate">Discord大口オファー投稿</p>
+                        <p className="text-[10px] text-slate-400 truncate"></p>
                     </div>
                 </div>
             </div>
