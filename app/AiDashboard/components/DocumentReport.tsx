@@ -1,108 +1,5 @@
 import React, { useState } from 'react';
 
-// 🌟 1セル分（本命1件＋候補4件）を描画するサブコンポーネント
-const TierCell = ({ tier }: { tier: any }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    
-    // データが存在しない、または不完全な場合は非表示
-    if (!tier || !tier.mainItem || !tier.mainItem.cardName) return null;
-
-    const main = tier.mainItem;
-    
-    // 価格帯バッジのスタイル定義
-    const getBadgeClass = (key: string) => {
-        const map: Record<string, string> = {
-            under_3k: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-            under_10k: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-            middle: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-            upper: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-            top_end: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-        };
-        return map[key] || 'bg-slate-800 text-slate-300';
-    };
-
-    return (
-        <div className="bg-slate-900 border border-slate-700/80 rounded-lg overflow-hidden flex flex-col h-full shadow-md">
-            {/* 👑 本命表示エリア */}
-            <div className="p-3 space-y-2.5 relative flex-1">
-                <div className="absolute top-0 right-0 bg-amber-500 text-amber-950 text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg shadow-sm">
-                    本命
-                </div>
-                <div className="flex justify-between items-start gap-1 pr-6">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        {tier.priceTierLabel && (
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getBadgeClass(tier.priceTier)} whitespace-nowrap`}>
-                                {tier.priceTierLabel}
-                            </span>
-                        )}
-                        <span className="text-xs font-bold text-white leading-snug" title={main.cardName}>
-                            {main.cardName}
-                        </span>
-                    </div>
-                </div>
-                
-                {main.conditionGrade && (
-                    <div className="flex justify-start">
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700/50">
-                            {main.conditionGrade}
-                        </span>
-                    </div>
-                )}
-                
-                <div className="flex justify-between items-center text-[11px] font-mono border-t border-slate-800/60 pt-2">
-                    <span className="text-slate-400">仕入: {main.jpBuyPriceJPY}</span>
-                    <span className="text-emerald-400 font-bold">海外: {main.targetSoldPrice}</span>
-                </div>
-                
-                {(main.priceSpreadJPY || main.spreadROI) && (
-                    <div className="flex justify-between items-center text-[11px] font-mono bg-emerald-500/10 px-2 py-1 rounded text-emerald-300 border border-emerald-500/20">
-                        <span>差額: {main.priceSpreadJPY}</span>
-                        <span className="font-bold">ROI: {main.spreadROI}</span>
-                    </div>
-                )}
-                
-                {main.insight && (
-                    <p className="text-[10px] text-slate-400 bg-slate-950/60 p-1.5 rounded border border-slate-800/50 leading-relaxed mt-1">
-                        <span className="text-amber-400 font-bold mr-1">💡</span>{main.insight}
-                    </p>
-                )}
-            </div>
-
-            {/* 🔄 代替候補アコーディオン */}
-            {tier.subItems && tier.subItems.length > 0 && (
-                <div className="border-t border-slate-800 bg-slate-950/50 mt-auto">
-                    <button 
-                        type="button"
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="w-full text-[10px] text-slate-400 font-bold py-1.5 hover:bg-slate-800 transition-colors flex justify-center items-center gap-1"
-                    >
-                        {isOpen ? '▲ 代替候補を閉じる' : `▼ 代替候補 (${tier.subItems.length}件) を見る`}
-                    </button>
-                    
-                    {isOpen && (
-                        <div className="p-2 space-y-2 border-t border-slate-800 bg-slate-950/80">
-                            {tier.subItems.map((sub: any, i: number) => (
-                                <div key={i} className="bg-slate-900/90 p-2 rounded border border-slate-800/80 space-y-1.5">
-                                    <div className="flex justify-between items-start gap-1">
-                                        <span className="text-[10px] font-bold text-slate-200 leading-snug">{sub.cardName}</span>
-                                        <span className="text-[9px] bg-slate-800 text-slate-400 px-1 py-0.5 rounded border border-slate-700/50 whitespace-nowrap shrink-0">
-                                            {sub.conditionGrade}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between text-[10px] font-mono border-t border-slate-800/60 pt-1">
-                                        <span className="text-slate-400">仕入: {sub.jpBuyPriceJPY}</span>
-                                        <span className="text-emerald-400 font-bold">差額: {sub.priceSpreadJPY}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
 export default function DocumentReportView({
     report,
     accentColor = 'amber',
@@ -113,6 +10,7 @@ export default function DocumentReportView({
     icon?: string;
 }) {
     const [selectedTier, setSelectedTier] = useState<string>('all');
+    const [openSubIndex, setOpenSubIndex] = useState<string | null>(null);
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
@@ -126,20 +24,28 @@ export default function DocumentReportView({
 
     const priceTiers = [
         { key: 'all', label: 'すべて表示' },
-        { key: 'under_3k', label: '〜3千円' },
-        { key: 'under_10k', label: '3千〜1万円' },
-        { key: 'middle', label: '1万〜3万円' },
-        { key: 'upper', label: '3万〜8万円' },
-        { key: 'top_end', label: '8万円〜' }
+        { key: 'under_3k', label: '〜3千円', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { key: 'under_10k', label: '3千〜1万円', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+        { key: 'middle', label: '1万〜3万円', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+        { key: 'upper', label: '3万〜8万円', badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
+        { key: 'top_end', label: '8万円〜', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' }
     ];
 
-    // アービトラージマトリクスのデータかどうかを判定（tiers階層があるか）
-    const isArbitrageMatrix = report.slots?.some((s: any) => s.tiers && s.tiers.length > 0);
+    const getTierBadgeClass = (tierKey?: string) => {
+        const found = priceTiers.find(t => t.key === tierKey);
+        return found?.badge || 'bg-slate-800 text-slate-300 border-slate-700';
+    };
+
+    const toggleSub = (cellId: string) => {
+        setOpenSubIndex(prev => prev === cellId ? null : cellId);
+    };
+
+    const hasArbitrageTiers = report.slots?.some((s: any) => s.tiers && s.tiers.length > 0);
+    const hasLegacyItems = report.slots?.some((s: any) => s.items && s.items.length > 0);
 
     return (
         <div className="bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl overflow-hidden font-sans space-y-4">
-            {/* ヘッダー */}
-            <div className={`p-4 border-b border-slate-700/80 flex items-center justify-between bg-slate-950/50`}>
+            <div className="p-4 border-b border-slate-700/80 flex items-center justify-between bg-slate-950/50">
                 <div className="flex items-center gap-3">
                     <span className="text-3xl">{icon}</span>
                     <div>
@@ -147,15 +53,14 @@ export default function DocumentReportView({
                         <h3 className="text-base font-bold text-white leading-tight">{report.title}</h3>
                     </div>
                 </div>
-                {isArbitrageMatrix && (
+                {report.slots && report.slots.length > 0 && (
                     <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                        125銘柄網羅
+                        {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
                     </span>
                 )}
             </div>
 
             <div className="p-5 space-y-5">
-                {/* Claim */}
                 <div className={`p-3 rounded-lg border ${colorClass}`}>
                     <h4 className="text-[10px] font-bold uppercase tracking-widest mb-1.5 opacity-80 flex items-center gap-1">
                         <span>🎯</span> 1. 結論・推奨アクション (Claim)
@@ -163,16 +68,13 @@ export default function DocumentReportView({
                     <p className="text-sm font-bold leading-relaxed">{report.claim}</p>
                 </div>
 
-                {/* 🌟 5スロットマトリクス表示エリア */}
                 {report.slots && report.slots.length > 0 && (
                     <div className="space-y-3 pt-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2 gap-2">
                             <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                                 <span>🗂️</span> マトリクス網羅リスト（本命＋候補）
                             </h4>
-                            
-                            {/* 価格帯切り替えフィルタータブ */}
-                            {isArbitrageMatrix && (
+                            {(hasArbitrageTiers || hasLegacyItems) && (
                                 <div className="flex flex-wrap gap-1">
                                     {priceTiers.map(t => (
                                         <button
@@ -182,7 +84,7 @@ export default function DocumentReportView({
                                             className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
                                                 selectedTier === t.key
                                                     ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                                                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-600'
+                                                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
                                             }`}
                                         >
                                             {t.label}
@@ -192,47 +94,215 @@ export default function DocumentReportView({
                             )}
                         </div>
 
-                        <div className="space-y-4">
-                            {report.slots.map((slot: any, idx: number) => {
-                                // 🌟 新設計（tiers階層がある場合）
-                                if (slot.tiers) {
-                                    const displayedTiers = slot.tiers.filter((tier: any) => 
-                                        selectedTier === 'all' || tier.priceTier === selectedTier
-                                    );
+                        {/* 🌟 金額ごとの区分けが選択されている場合：本命1枚＋代替候補4枚を横並びグリッドで一覧表示 */}
+                        {selectedTier !== 'all' ? (
+                            <div className="space-y-4">
+                                {report.slots.map((slot: any, sIdx: number) => {
+                                    const matchedTier = slot.tiers?.find((t: any) => t.priceTier === selectedTier)
+                                        || slot.items?.find((i: any) => i.priceTier === selectedTier);
 
-                                    if (displayedTiers.length === 0) return null;
+                                    if (!matchedTier) return null;
+
+                                    const mainItem = matchedTier.mainItem || matchedTier;
+                                    const subItems: any[] = matchedTier.subItems || [];
+                                    const allItemsInTier = [
+                                        { ...mainItem, isMain: true, rankLabel: '本命' },
+                                        ...subItems.map((sub, idx) => ({ ...sub, isMain: false, rankLabel: `候補${idx + 2}` }))
+                                    ];
 
                                     return (
-                                        <div key={idx} className="bg-slate-950/80 border border-slate-800 rounded-lg p-3 space-y-3">
-                                            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-2">
-                                                <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
-                                                <span className="text-xs font-bold text-white">{slot.slotLabel}</span>
-                                                <span className="text-[10px] text-slate-500 font-mono ml-auto">
-                                                    {displayedTiers.length}枠表示
-                                                </span>
+                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-lg p-3.5 space-y-3">
+                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
+                                                    <span className="text-xs font-bold text-white">{slot.slotLabel}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierBadgeClass(selectedTier)}`}>
+                                                        {matchedTier.priceTierLabel || priceTiers.find(p => p.key === selectedTier)?.label}
+                                                    </span>
+                                                    <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                                        全{allItemsInTier.length}件 一覧表示
+                                                    </span>
+                                                </div>
                                             </div>
-                                            
-                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-                                                {displayedTiers.map((tier: any, tIdx: number) => (
-                                                    <TierCell key={tIdx} tier={tier} />
+
+                                            {/* 横並びグリッドレイアウト（画面幅に応じて2〜5列で均等配置） */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                                                {allItemsInTier.map((item: any, itemIdx: number) => (
+                                                    <div
+                                                        key={itemIdx}
+                                                        className={`p-3 rounded-lg border flex flex-col justify-between transition-all ${
+                                                            item.isMain
+                                                                ? 'bg-slate-900 border-amber-500/40 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
+                                                                : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                                                        }`}
+                                                    >
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between items-start gap-1">
+                                                                <span
+                                                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                                                                        item.isMain
+                                                                            ? 'bg-amber-400 text-slate-950'
+                                                                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    {item.rankLabel}
+                                                                </span>
+                                                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
+                                                                    {item.conditionGrade || item.condition || 'Raw NM'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="min-h-[2.5rem]">
+                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
+                                                                    {item.cardName}
+                                                                </h5>
+                                                            </div>
+
+                                                            <div className="space-y-1 text-[11px] font-mono border-t border-slate-800 pt-2">
+                                                                <div className="flex justify-between text-slate-400">
+                                                                    <span>国内仕入:</span>
+                                                                    <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-slate-400">
+                                                                    <span>海外成約:</span>
+                                                                    <span className="text-emerald-400 font-bold">{item.targetSoldPrice || item.targetMarketPrice}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded flex justify-between items-center text-[11px] font-mono text-emerald-300">
+                                                                <span>差額: <strong>{item.priceSpreadJPY}</strong></span>
+                                                                <span className="font-bold">ROI: {item.spreadROI}</span>
+                                                            </div>
+
+                                                            {item.liquidity && (
+                                                                <div className="text-[10px] font-mono text-slate-400 flex justify-between">
+                                                                    <span>流動性:</span>
+                                                                    <span className="text-slate-300 font-bold">{item.liquidity}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {item.insight && (
+                                                            <div className="mt-2 text-[10px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
+                                                                <span className="text-amber-400 font-bold mr-1">💡</span>{item.insight}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
                                     );
-                                }
-                                
-                                // 既存設計（items直下・トレンドなどで使用）のフォールバック
-                                return (
-                                    <div key={idx} className="bg-slate-950 border border-slate-800 p-3 rounded">
-                                        <span className="text-xs text-slate-400">レガシー形式のスロットデータ（{slot.slotLabel}）</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                })}
+                            </div>
+                        ) : (
+                            /* 🌟 「すべて表示」の場合：各スロットに各価格帯の本命が並び、アコーディオンでサブを開閉 */
+                            <div className="space-y-3">
+                                {report.slots.map((slot: any, sIdx: number) => {
+                                    const tiers = slot.tiers || slot.items || [];
+                                    return (
+                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-lg p-3.5 space-y-3">
+                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
+                                                    <span className="text-xs font-bold text-white">{slot.slotLabel}</span>
+                                                </div>
+                                                <span className="text-[10px] text-slate-500 font-mono">
+                                                    {tiers.length}価格帯
+                                                </span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+                                                {tiers.map((tierCell: any, cIdx: number) => {
+                                                    const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
+                                                    const isOpen = openSubIndex === cellId;
+                                                    const main = tierCell.mainItem || tierCell;
+                                                    const subs: any[] = tierCell.subItems || [];
+
+                                                    return (
+                                                        <div key={cIdx} className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex flex-col justify-between space-y-2">
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex justify-between items-start gap-1">
+                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getTierBadgeClass(tierCell.priceTier)} whitespace-nowrap`}>
+                                                                        {tierCell.priceTierLabel || priceTiers.find(p => p.key === tierCell.priceTier)?.label}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-400 text-slate-950 rounded font-mono">
+                                                                            本命
+                                                                        </span>
+                                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0">
+                                                                            {main.conditionGrade || main.condition || 'Raw NM'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2rem]" title={main.cardName}>
+                                                                    {main.cardName}
+                                                                </h5>
+
+                                                                <div className="flex justify-between text-[11px] font-mono border-t border-slate-800/60 pt-1">
+                                                                    <span className="text-slate-400">仕入: {main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
+                                                                    <span className="text-emerald-400 font-bold">{main.targetSoldPrice || main.targetMarketPrice}</span>
+                                                                </div>
+
+                                                                {(main.priceSpreadJPY || main.spreadROI) && (
+                                                                    <div className="flex justify-between text-[11px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-300">
+                                                                        <span>差額: {main.priceSpreadJPY}</span>
+                                                                        <span className="font-bold">ROI: {main.spreadROI}</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {main.insight && (
+                                                                    <p className="text-[10px] text-slate-400 bg-slate-950/60 p-1.5 rounded border border-slate-800/50 leading-relaxed line-clamp-3">
+                                                                        <span className="text-amber-400 font-bold mr-1">💡</span>{main.insight}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            {subs.length > 0 && (
+                                                                <div className="border-t border-slate-800 pt-1.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleSub(cellId)}
+                                                                        className="w-full text-[10px] font-mono font-bold py-1 px-2 rounded bg-slate-950 hover:bg-slate-800/80 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1 transition-all"
+                                                                    >
+                                                                        <span>{isOpen ? '▲' : '▼'}</span>
+                                                                        <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
+                                                                    </button>
+
+                                                                    {isOpen && (
+                                                                        <div className="mt-2 space-y-1.5 pt-1.5 border-t border-slate-800/80">
+                                                                            {subs.map((subItem: any, sIdx: number) => (
+                                                                                <div key={sIdx} className="bg-slate-950/90 p-1.5 rounded border border-slate-800/60 text-[10px] space-y-1">
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <span className="font-bold text-white truncate max-w-[120px]" title={subItem.cardName}>
+                                                                                            {subItem.cardName}
+                                                                                        </span>
+                                                                                        <span className="text-slate-400 font-mono text-[9px]">{subItem.conditionGrade || 'Raw NM'}</span>
+                                                                                    </div>
+                                                                                    <div className="flex justify-between font-mono text-slate-400 text-[10px]">
+                                                                                        <span>仕入: {subItem.jpBuyPriceJPY}</span>
+                                                                                        <span className="text-emerald-400 font-bold">差額: {subItem.priceSpreadJPY}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* 以下、戦略レポート全体の表示 */}
                 <div>
                     <h4 className="text-[11px] font-bold text-slate-300 mb-2 border-b border-slate-800 pb-1">💡 2. 戦略的根拠 (Reason)</h4>
                     <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 pl-1">
