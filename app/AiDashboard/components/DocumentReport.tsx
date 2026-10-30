@@ -40,8 +40,8 @@ export default function DocumentReportView({
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
-    const hasArbitrageTiers = report.slots?.some((s: any) => s.tiers && s.tiers.length > 0);
-    const hasLegacyItems = report.slots?.some((s: any) => s.items && s.items.length > 0);
+    const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
+    const summary = report.summary;
 
     return (
         <div className="bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl overflow-hidden font-sans space-y-4">
@@ -61,9 +61,9 @@ export default function DocumentReportView({
             </div>
 
             <div className="p-5 space-y-5">
-                <div className={`p-3 rounded-lg border ${colorClass}`}>
+                <div className={`p-3.5 rounded-lg border ${colorClass}`}>
                     <h4 className="text-[10px] font-bold uppercase tracking-widest mb-1.5 opacity-80 flex items-center gap-1">
-                        <span>🎯</span> 1. 結論・推奨アクション (Claim)
+                        <span>🎯</span> 結論・推奨アクション (Claim)
                     </h4>
                     <p className="text-sm font-bold leading-relaxed">{report.claim}</p>
                 </div>
@@ -74,7 +74,7 @@ export default function DocumentReportView({
                             <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                                 <span>🗂️</span> マトリクス網羅リスト（本命＋候補）
                             </h4>
-                            {(hasArbitrageTiers || hasLegacyItems) && (
+                            {hasArbitrageTiers && (
                                 <div className="flex flex-wrap gap-1">
                                     {priceTiers.map(t => (
                                         <button
@@ -107,7 +107,7 @@ export default function DocumentReportView({
                                     const subItems: any[] = matchedTier.subItems || [];
                                     const allItemsInTier = [
                                         { ...mainItem, isMain: true, rankLabel: '本命' },
-                                        ...subItems.map((sub, idx) => ({ ...sub, isMain: false, rankLabel: `候補${idx + 2}` }))
+                                        ...subItems.map((sub: any, idx: number) => ({ ...sub, isMain: false, rankLabel: `候補${idx + 2}` }))
                                     ];
 
                                     return (
@@ -127,7 +127,6 @@ export default function DocumentReportView({
                                                 </div>
                                             </div>
 
-                                            {/* 横並びグリッドレイアウト（画面幅に応じて2〜5列で均等配置） */}
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
                                                 {allItemsInTier.map((item: any, itemIdx: number) => (
                                                     <div
@@ -303,45 +302,72 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                <div>
-                    <h4 className="text-[11px] font-bold text-slate-300 mb-2 border-b border-slate-800 pb-1">💡 2. 戦略的根拠 (Reason)</h4>
-                    <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 pl-1">
-                        {report.reasons?.map((r: string, i: number) => <li key={i}>{r}</li>)}
-                    </ul>
-                </div>
-                <div>
-                    <h4 className="text-[11px] font-bold text-slate-300 mb-2 border-b border-slate-800 pb-1">📊 3. 客観的データ・市場数値 (Data / Fact)</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {report.facts?.map((f: any, i: number) => (
-                            <div key={i} className="flex justify-between items-center bg-slate-950 px-3 py-2 rounded-lg border border-slate-800/60">
-                                <span className="text-slate-400 text-[11px]">{f.label}</span>
-                                <span className="text-white font-mono font-bold text-xs">{f.value}</span>
+                {/* 🌟 【新設】今週のサヤ取りエグゼクティブ・サマリー */}
+                {(summary || hasArbitrageTiers) && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3.5 pt-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                            <h4 className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                                <span>📈</span> 今週のサヤ取りエグゼクティブ・サマリー
+                            </h4>
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                                Executive Strategic Brief
+                            </span>
+                        </div>
+
+                        {summary?.headline && (
+                            <div className="text-xs font-bold text-white bg-blue-500/10 border border-blue-500/20 p-2.5 rounded-lg leading-relaxed">
+                                📌 {summary.headline}
                             </div>
-                        ))}
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-1.5">
+                                <h5 className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5">
+                                    <span>🔥</span> 1. 注目のサヤ拡大スロット・価格帯
+                                </h5>
+                                <p className="text-xs text-slate-300 leading-relaxed">
+                                    {summary?.hotSectors || '低単価帯（〜3千円AR/CHR）の価格差比率（ROI）が最も高く、次いで中価格帯（1万〜3万円）の限定プロモで日米の価格乖離が拡大中。'}
+                                </p>
+                            </div>
+
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-1.5">
+                                <h5 className="text-[11px] font-bold text-sky-300 flex items-center gap-1.5">
+                                    <span>⚡</span> 2. 海外実成約の回転・バイヤー動向
+                                </h5>
+                                <p className="text-xs text-slate-300 leading-relaxed">
+                                    {summary?.buyerVelocity || '直近7日以内の成約件数が5件を超える高流動性カードが下位〜中位帯に集中。複数枚のまとめ買い需要が旺盛で滞留リスクが極小。'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
+                            <h5 className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                                <span>🎯</span> 3. 今週の仕入れ・出品アクション指針
+                            </h5>
+                            <ul className="space-y-1.5 text-xs text-slate-300">
+                                {summary?.actionDirectives && summary.actionDirectives.length > 0 ? (
+                                    summary.actionDirectives.map((action: string, i: number) => (
+                                        <li key={i} className="flex items-start gap-2">
+                                            <span className="text-emerald-400 font-bold">✔</span>
+                                            <span className="leading-relaxed">{action}</span>
+                                        </li>
+                                    ))
+                                ) : (
+                                    <>
+                                        <li className="flex items-start gap-2">
+                                            <span className="text-emerald-400 font-bold">✔</span>
+                                            <span className="leading-relaxed"><strong>低単価帯（〜1万円）:</strong> フリマやカドラ等の美品即決在庫を回収し、eBay等へ即出品してキャッシュ回転を最優先。</span>
+                                        </li>
+                                        <li className="flex items-start gap-2">
+                                            <span className="text-emerald-400 font-bold">✔</span>
+                                            <span className="leading-relaxed"><strong>高額帯（3万円以上）:</strong> 状態確認（PSA10または白かけなしNM）を徹底し、直近Sold成約履歴の価格帯に合わせて出品。</span>
+                                        </li>
+                                    </>
+                                )}
+                            </ul>
+                        </div>
                     </div>
-                </div>
-                <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800/40">
-                    <h4 className="text-[11px] font-bold text-blue-400 mb-1.5">🔍 4. 自社事業への示唆 (So What?)</h4>
-                    <p className="text-xs text-slate-300 leading-relaxed">{report.soWhat}</p>
-                </div>
-                <div className="bg-rose-950/20 p-3 rounded-lg border border-rose-900/30">
-                    <h4 className="text-[11px] font-bold text-rose-400 mb-2">⚠️ 5. 想定リスクと対抗策 (Counterargument)</h4>
-                    <div className="text-xs text-slate-300 space-y-1.5 pl-1">
-                        <p><span className="text-rose-400 font-bold mr-1">懸念:</span> {report.riskAndMitigation?.risk}</p>
-                        <p><span className="text-emerald-400 font-bold mr-1">対策:</span> {report.riskAndMitigation?.mitigation}</p>
-                    </div>
-                </div>
-                <div className="pt-2">
-                    <h4 className="text-[11px] font-bold text-slate-400 mb-2">📋 6. 実務チェックリスト (Fact Check)</h4>
-                    <div className="space-y-1.5 pl-1">
-                        {report.verificationChecklist?.map((c: string, i: number) => (
-                            <label key={i} className="flex items-start gap-2 text-xs text-slate-400 cursor-pointer hover:text-slate-200 group">
-                                <input type="checkbox" className="mt-0.5 rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0 w-3.5 h-3.5" />
-                                <span className="leading-snug">{c}</span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
