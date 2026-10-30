@@ -14,14 +14,6 @@ export default function DocumentReportView({
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
-    const accentClasses = {
-        amber: 'border-amber-500/30 text-amber-300 bg-amber-500/10',
-        emerald: 'border-emerald-500/30 text-emerald-300 bg-emerald-500/10',
-        pink: 'border-pink-500/30 text-pink-300 bg-pink-500/10',
-        sky: 'border-sky-500/30 text-sky-300 bg-sky-500/10'
-    };
-    const colorClass = accentClasses[accentColor];
-
     const priceTiers = [
         { key: 'all', label: 'すべて表示' },
         { key: 'under_3k', label: '〜3千円', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
@@ -45,11 +37,12 @@ export default function DocumentReportView({
 
     return (
         <div className="bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl overflow-hidden font-sans space-y-4">
+            {/* ヘッダー */}
             <div className="p-4 border-b border-slate-700/80 flex items-center justify-between bg-slate-950/50">
                 <div className="flex items-center gap-3">
                     <span className="text-3xl">{icon}</span>
                     <div>
-                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-0.5">Strategic Intelligence Report</span>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-0.5">Sourcing & Arbitrage Intelligence</span>
                         <h3 className="text-base font-bold text-white leading-tight">{report.title}</h3>
                     </div>
                 </div>
@@ -61,19 +54,16 @@ export default function DocumentReportView({
             </div>
 
             <div className="p-5 space-y-5">
-                <div className={`p-3.5 rounded-lg border ${colorClass}`}>
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest mb-1.5 opacity-80 flex items-center gap-1">
-                        <span>🎯</span> 結論・推奨アクション (Claim)
-                    </h4>
-                    <p className="text-sm font-bold leading-relaxed">{report.claim}</p>
-                </div>
-
+                {/* 🌟 マトリクス網羅リスト（最上部に直結配置・結論枠は撤廃） */}
                 {report.slots && report.slots.length > 0 && (
-                    <div className="space-y-3 pt-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2 gap-2">
-                            <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                                <span>🗂️</span> マトリクス網羅リスト（本命＋候補）
-                            </h4>
+                    <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
+                            <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                                    <span>🗂️</span> 日本語版調達マトリクス（日本調達 ➔ 現地販売）
+                                </h4>
+                                <span className="text-[10px] text-slate-500 hidden sm:inline">| 日本市場から現地への高マージン輸入候補</span>
+                            </div>
                             {hasArbitrageTiers && (
                                 <div className="flex flex-wrap gap-1">
                                     {priceTiers.map(t => (
@@ -107,7 +97,7 @@ export default function DocumentReportView({
                                     const subItems: any[] = matchedTier.subItems || [];
                                     const allItemsInTier = [
                                         { ...mainItem, isMain: true, rankLabel: '本命' },
-                                        ...subItems.map((sub: any, idx: number) => ({ ...sub, isMain: false, rankLabel: `候補${idx + 2}` }))
+                                        ...subItems.map((sub, idx) => ({ ...sub, isMain: false, rankLabel: `候補${idx + 2}` }))
                                     ];
 
                                     return (
@@ -161,23 +151,23 @@ export default function DocumentReportView({
 
                                                             <div className="space-y-1 text-[11px] font-mono border-t border-slate-800 pt-2">
                                                                 <div className="flex justify-between text-slate-400">
-                                                                    <span>国内仕入:</span>
+                                                                    <span>日本調達:</span>
                                                                     <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
                                                                 </div>
                                                                 <div className="flex justify-between text-slate-400">
-                                                                    <span>海外成約:</span>
+                                                                    <span>現地実成約:</span>
                                                                     <span className="text-emerald-400 font-bold">{item.targetSoldPrice || item.targetMarketPrice}</span>
                                                                 </div>
                                                             </div>
 
                                                             <div className="bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded flex justify-between items-center text-[11px] font-mono text-emerald-300">
-                                                                <span>差額: <strong>{item.priceSpreadJPY}</strong></span>
+                                                                <span>利ざや: <strong>{item.priceSpreadJPY}</strong></span>
                                                                 <span className="font-bold">ROI: {item.spreadROI}</span>
                                                             </div>
 
                                                             {item.liquidity && (
                                                                 <div className="text-[10px] font-mono text-slate-400 flex justify-between">
-                                                                    <span>流動性:</span>
+                                                                    <span>現地回転:</span>
                                                                     <span className="text-slate-300 font-bold">{item.liquidity}</span>
                                                                 </div>
                                                             )}
@@ -241,13 +231,13 @@ export default function DocumentReportView({
                                                                 </h5>
 
                                                                 <div className="flex justify-between text-[11px] font-mono border-t border-slate-800/60 pt-1">
-                                                                    <span className="text-slate-400">仕入: {main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
+                                                                    <span className="text-slate-400">日本調達: {main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
                                                                     <span className="text-emerald-400 font-bold">{main.targetSoldPrice || main.targetMarketPrice}</span>
                                                                 </div>
 
                                                                 {(main.priceSpreadJPY || main.spreadROI) && (
                                                                     <div className="flex justify-between text-[11px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-300">
-                                                                        <span>差額: {main.priceSpreadJPY}</span>
+                                                                        <span>利ざや: {main.priceSpreadJPY}</span>
                                                                         <span className="font-bold">ROI: {main.spreadROI}</span>
                                                                     </div>
                                                                 )}
@@ -281,8 +271,8 @@ export default function DocumentReportView({
                                                                                         <span className="text-slate-400 font-mono text-[9px]">{subItem.conditionGrade || 'Raw NM'}</span>
                                                                                     </div>
                                                                                     <div className="flex justify-between font-mono text-slate-400 text-[10px]">
-                                                                                        <span>仕入: {subItem.jpBuyPriceJPY}</span>
-                                                                                        <span className="text-emerald-400 font-bold">差額: {subItem.priceSpreadJPY}</span>
+                                                                                        <span>日本調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                        <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
                                                                                     </div>
                                                                                 </div>
                                                                             ))}
@@ -302,15 +292,15 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                {/* 🌟 【新設】今週のサヤ取りエグゼクティブ・サマリー */}
+                {/* 🌟 【最下部】海外現地事業者向け 日本語版輸入調達エグゼクティブ・サマリー */}
                 {(summary || hasArbitrageTiers) && (
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3.5 pt-4">
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 pt-4 mt-6">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                             <h4 className="text-xs font-bold text-amber-300 flex items-center gap-2">
-                                <span>📈</span> 今週のサヤ取りエグゼクティブ・サマリー
+                                <span>📈</span> 今週の日本語版カード輸入調達・現地販売エグゼクティブ・サマリー
                             </h4>
                             <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                                Executive Strategic Brief
+                                Importer & Retailer Strategic Brief
                             </span>
                         </div>
 
@@ -320,51 +310,89 @@ export default function DocumentReportView({
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-1.5">
-                                <h5 className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5">
-                                    <span>🔥</span> 1. 注目のサヤ拡大スロット・価格帯
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            {/* 1. 🌐 マクロ分析 */}
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
+                                <h5 className="text-[11px] font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                                    <span>🌐</span> 1. マクロ環境分析（日本調達環境 ＆ 現地需要）
                                 </h5>
-                                <p className="text-xs text-slate-300 leading-relaxed">
-                                    {summary?.hotSectors || '低単価帯（〜3千円AR/CHR）の価格差比率（ROI）が最も高く、次いで中価格帯（1万〜3万円）の限定プロモで日米の価格乖離が拡大中。'}
-                                </p>
+                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                                    <p>
+                                        <strong className="text-slate-400">日本調達環境: </strong>
+                                        {summary?.macroAnalysis?.japanSourcingClimate || '為替水準により日本国内の調達コストが優位に推移。フリマや専門店に美品在庫が充実。'}
+                                    </p>
+                                    <p>
+                                        <strong className="text-slate-400">現地市場需要: </strong>
+                                        {summary?.macroAnalysis?.localMarketDemand || '現行モダンAR/CHRの現地人気が極めて高く、手頃な絶版シングルへのコレクション需要も安定。'}
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-1.5">
-                                <h5 className="text-[11px] font-bold text-sky-300 flex items-center gap-1.5">
-                                    <span>⚡</span> 2. 海外実成約の回転・バイヤー動向
+                            {/* 2. 🔍 ミクロ分析 */}
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
+                                <h5 className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                                    <span>🔍</span> 2. ミクロ分析（突出銘柄 ＆ 状態特性）
                                 </h5>
-                                <p className="text-xs text-slate-300 leading-relaxed">
-                                    {summary?.buyerVelocity || '直近7日以内の成約件数が5件を超える高流動性カードが下位〜中位帯に集中。複数枚のまとめ買い需要が旺盛で滞留リスクが極小。'}
-                                </p>
+                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                                    <p>
+                                        <strong className="text-slate-400">最高利ざや銘柄: </strong>
+                                        {summary?.microAnalysis?.topImportMarginCard || '限定プロモ枠および準高額PSA10で30%〜50%超の現地販売マージンを確保可能。'}
+                                    </p>
+                                    <p>
+                                        <strong className="text-slate-400">最高回転銘柄: </strong>
+                                        {summary?.microAnalysis?.topLocalVelocityCard || '現行ARおよび世界大会メタの汎用カードが現地入荷から即売れペースを維持。'}
+                                    </p>
+                                    <p>
+                                        <strong className="text-slate-400">状態特性: </strong>
+                                        {summary?.microAnalysis?.conditionGradingInsight || '日本版は海外顧客から印刷品質が高く評価されており、素体NMでも高い成約率を維持。'}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
-                            <h5 className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
-                                <span>🎯</span> 3. 今週の仕入れ・出品アクション指針
-                            </h5>
-                            <ul className="space-y-1.5 text-xs text-slate-300">
-                                {summary?.actionDirectives && summary.actionDirectives.length > 0 ? (
-                                    summary.actionDirectives.map((action: string, i: number) => (
-                                        <li key={i} className="flex items-start gap-2">
-                                            <span className="text-emerald-400 font-bold">✔</span>
-                                            <span className="leading-relaxed">{action}</span>
-                                        </li>
-                                    ))
-                                ) : (
-                                    <>
-                                        <li className="flex items-start gap-2">
-                                            <span className="text-emerald-400 font-bold">✔</span>
-                                            <span className="leading-relaxed"><strong>低単価帯（〜1万円）:</strong> フリマやカドラ等の美品即決在庫を回収し、eBay等へ即出品してキャッシュ回転を最優先。</span>
-                                        </li>
-                                        <li className="flex items-start gap-2">
-                                            <span className="text-emerald-400 font-bold">✔</span>
-                                            <span className="leading-relaxed"><strong>高額帯（3万円以上）:</strong> 状態確認（PSA10または白かけなしNM）を徹底し、直近Sold成約履歴の価格帯に合わせて出品。</span>
-                                        </li>
-                                    </>
-                                )}
-                            </ul>
+                            {/* 3. 🚨 警戒アラート */}
+                            <div className="bg-slate-900/90 border border-rose-900/40 rounded-lg p-3 space-y-2">
+                                <h5 className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                                    <span>🚨</span> 3. 警戒アラート（調達品質リスク ＆ 現地在庫リスク）
+                                </h5>
+                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                                    <p>
+                                        <strong className="text-rose-400">買い付け品質リスク: </strong>
+                                        {summary?.riskAlert?.sourcingQualityTrap || '日本のフリマ個人間取引における白かけ・初期傷の見落としに警戒。検品体制の敷かれた専門店在庫を優先。'}
+                                    </p>
+                                    <p>
+                                        <strong className="text-rose-400">現地在庫滞留リスク: </strong>
+                                        {summary?.riskAlert?.localInventoryRisk || '新弾再販による国内相場の下落に備え、入荷から現地販売までのリードタイムを最短化すること。'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 4. 🎯 今週の調達・販売アクション指針 */}
+                            <div className="bg-slate-900/90 border border-emerald-900/40 rounded-lg p-3 space-y-2">
+                                <h5 className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                                    <span>🎯</span> 4. 今週の輸入調達・現地販売アクション指針
+                                </h5>
+                                <ul className="space-y-1.5 text-xs text-slate-300">
+                                    {summary?.actionDirectives && summary.actionDirectives.length > 0 ? (
+                                        summary.actionDirectives.map((action: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-emerald-400 font-bold">✔</span>
+                                                <span className="leading-relaxed">{action}</span>
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-emerald-400 font-bold">✔</span>
+                                                <span className="leading-relaxed"><strong>低単価帯（〜1万円）:</strong> 日本のフリマ・ショップから複数枚一括で買い付け、現地店頭/ECで即時回転させてキャッシュ化。</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-emerald-400 font-bold">✔</span>
+                                                <span className="leading-relaxed"><strong>高額帯（3万円以上）:</strong> 状態確認の取れたPSA10または店舗美品を厳選調達し、現地コレクター向けにプレミアム価格で提供。</span>
+                                            </li>
+                                        </>
+                                    )}
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 )}

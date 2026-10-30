@@ -50,18 +50,18 @@ export interface MultiSlotTrendReport extends StrategicReport {
     slots: TrendSlotReport[];
 }
 
-// 🌟 アービトラージ：1商品あたりの軽量データ
+// 🌟 アービトラージ：1商品あたりの軽量データ（海外インポーター視点）
 export interface ArbitrageItemData {
     priceTier?: PriceTierKey;
     priceTierLabel?: string;
     cardName: string;              // 実在カード名・型番
     conditionGrade: string;        // 状態（PSA10, Raw NM等）
-    jpBuyPriceJPY: string;         // 国内仕入想定額（例: "¥2,200"）
-    targetSoldPrice: string;       // 現地実成約額（例: "$32 (約¥4,900)"）
-    priceSpreadJPY: string;        // 単純価格差（例: "¥2,700"）
+    jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+    targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
+    priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
     spreadROI: string;             // 粗利比率（例: "122%"）
-    liquidity: string;             // 成約頻度（例: "直近7日 14件"）
-    insight: string;               // 1行狙い目メモ
+    liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
+    insight: string;               // 現地顧客需要・買い付け狙い目メモ
 }
 
 // 🌟 アービトラージ：1セル（本命1件 ＋ 代替候補4件）
@@ -77,24 +77,35 @@ export interface ArbitrageSlotReport {
     slotKey: ResearchSlotKey;
     slotLabel: string;
     tiers: ArbitragePriceTierCell[];
-    items?: ArbitrageItemData[];   // 旧フォーマット互換用
+    items?: ArbitrageItemData[];
 }
 
-// 🌟 【新設】実務サヤ取りエグゼクティブ・サマリー型
-export interface ArbitrageSummaryData {
-    headline: string;              // 今週の総括見出し
-    hotSectors: string;            // 最もサヤが厚い注目のスロット・価格帯
-    buyerVelocity: string;         // 海外実成約の回転速度・需要動向
-    actionDirectives: string[];    // 今週の仕入れ・出品アクション指針
+// 🌟 【海外現地事業者向け】サヤ取り・輸入調達エグゼクティブ・サマリー型
+export interface ArbitrageExecutiveSummary {
+    headline: string; // 今週の輸入調達・現地販売の総括見出し
+    macroAnalysis: {
+        japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
+        localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
+    };
+    microAnalysis: {
+        topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
+        topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
+        conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
+    };
+    riskAlert: {
+        sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
+        localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
+    };
+    actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
 }
 
 // 🌟 アービトラージ：統合レポート
 export interface MultiSlotArbitrageReport {
     title: string;
-    claim: string;
-    summary?: ArbitrageSummaryData;
+    claim?: string;
+    summary?: ArbitrageExecutiveSummary;
     slots: ArbitrageSlotReport[];
-    // 旧プロパティ（オプショナル）
+    // 旧プロパティ互換
     reasons?: string[];
     facts?: FactItem[];
     soWhat?: string;

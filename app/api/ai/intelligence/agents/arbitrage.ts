@@ -1,7 +1,7 @@
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getAgentRules } from '../helpers';
-import { ResearchSlotKey, PriceTierKey } from '@/app/AiDashboard/types';
+import { ResearchSlotKey } from '@/app/AiDashboard/types';
 
 interface SlotDefinition {
     key: ResearchSlotKey;
@@ -10,9 +10,9 @@ interface SlotDefinition {
 }
 
 const SLOTS: SlotDefinition[] = [
-    { key: 'classic_vintage', label: 'クラシック・ヴィンテージ枠（旧裏〜PCG期）', desc: '旧裏面、eシリーズ、ADV/PCG等の初期絶版' },
+    { key: 'classic_vintage', label: 'クラシック・ヴィンテージ枠（旧裏〜PCG期）', desc: '旧裏面、eシリーズ、ADV/PCG等の初期絶版シングル' },
     { key: 'neo_vintage', label: 'ネオ・ヴィンテージ枠（DP〜XY期）', desc: 'DP/Pt、LEGEND、BW、XY等の絶版シングル・1ED' },
-    { key: 'exclusive_promo', label: '限定プロモ・配布枠', desc: 'ジムプロモ、ポケセン限定、映画付録、イベント配布' },
+    { key: 'exclusive_promo', label: '限定プロモ・配布枠', desc: 'ジムプロモ、ポケセン限定、映画付録、イベント配布品' },
     { key: 'modern_meta', label: '現行モダン・メタ枠', desc: 'SM〜SVのSAR/SR/AR/CHR、直近弾、世界大会メタ' },
     { key: 'graded_sealed', label: '高額鑑定・未開封BOX枠', desc: 'PSA10鑑定品、未開封BOX・未開封パック' }
 ];
@@ -21,9 +21,9 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
     const rules = await getAgentRules('arbitrage');
 
     const regionContexts = {
-        us: { name: '北米市場（日米アービトラージ）', currency: 'USD' },
-        eu: { name: '欧州市場（日欧アービトラージ）', currency: 'EUR' },
-        asia: { name: 'アジア市場（日亜アービトラージ）', currency: 'USD/HKD' }
+        us: { name: '北米市場（現地TCGショップ・リセラー）', currency: 'USD' },
+        eu: { name: '欧州市場（現地Cardmarket/ローカルショップ）', currency: 'EUR' },
+        asia: { name: 'アジア市場（現地リテール・コレクター向け）', currency: 'USD/HKD' }
     };
 
     const cur = regionContexts[region];
@@ -35,26 +35,29 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
 
     // 1つのスロット（5価格帯 × 5商品 ＝ 計25商品）を査定するサブ関数
     const analyzeSingleSlot = async (slot: SlotDefinition) => {
-        const slotPrompt = `あなたは【${cur.name}】専属の日本語版ポケモンカード アービトラージアナリストです。
+        const slotPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達（Import & Retail）する海外現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
+
+【読者ペルソナ】
+自国（現地）でカードショップやECを運営し、日本（フリマ、カードショップ、スニダン等）から適正価格で日本語版カードを輸入・仕入れて、自国市場の顧客に販売して利益を得ている海外事業者。
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
-【任務】
-以下の【5つの価格帯】すべてについて、条件を満たす商品を【本命1商品 ＋ 代替候補4商品（計5商品）】厳選してください。
+【調達リサーチ任務】
+以下の【5つの価格帯】すべてについて、自国への輸入販売に適した日本語版カードを【本命1商品 ＋ 代替候補4商品（計5商品）】厳選してください。
 （このスロット全体で 5価格帯 × 5商品 ＝ 合計25商品）
 
-■ 5つの価格帯と足切り判定ルール:
-1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、直近7日Sold 5件以上
-2. under_10k（¥3,000〜¥10,000）: 最低差額 +¥2,500以上、直近7日Sold 3件以上
-3. middle（¥10,000〜¥30,000）: 最低差額 +¥6,000以上、直近14日Sold 2件以上
-4. upper（¥30,000〜¥80,000）: 最低差額 +¥15,000以上、直近30日Sold 2件以上
-5. top_end（¥80,000以上）: 最低差額 +¥30,000以上、直近30日Sold 1件以上
+■ 5つの価格帯と調達・合格基準:
+1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、現地直近7日成約 5件以上（超高回転・エントリー枠）
+2. under_10k（¥3,000〜¥10,000）: 最低差額 +¥2,500以上、現地直近7日成約 3件以上（手頃な定番コレクション枠）
+3. middle（¥10,000〜¥30,000）: 最低差額 +¥6,000以上、現地直近14日成約 2件以上（中核プロモ・人気SR枠）
+4. upper（¥30,000〜¥80,000）: 最低差額 +¥15,000以上、現地直近30日成約 2件以上（高額鑑定・上位絶版枠）
+5. top_end（¥80,000以上）: 最低差額 +¥30,000以上、現地直近30日成約 1件以上（資産性・未開封BOX枠）
 
 【厳格品質ルール】
 ・実在するカード名、型番または弾名を明記すること（架空カード厳禁）。
-・国内仕入れと海外販売先の状態（PSA10＝PSA10、Raw NM＝Raw NM）を完全一致させること。
-・直近の実成約価格（Sold Listings）を参照し、単純な価格差額とROIを算出すること。
+・日本国内調達と自国現地販売先の状態（PSA10＝PSA10、Raw NM＝Raw NM）を完全一致させること。
+・自国の実成約データ（Sold Listings）を参照し、単純な価格マージン（差額）とROIを算出すること。
 
 以下のJSONのみを出力してください:
 {
@@ -65,14 +68,14 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
       "priceTier": "under_3k",
       "priceTierLabel": "〜3千円",
       "mainItem": {
-        "cardName": "実在カード名 (型番)",
-        "conditionGrade": "Raw NM",
+        "cardName": "実在カード名 (型番/弾名)",
+        "conditionGrade": "Raw NM 等",
         "jpBuyPriceJPY": "¥X,XXX",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
         "liquidity": "直近7日 X件",
-        "insight": "海外需要と狙い目（1行）"
+        "insight": "現地コレクターの需要動向と日本から輸入すべき理由（1行）"
       },
       "subItems": [
         { "cardName": "候補2 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
@@ -97,24 +100,37 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
         }
     };
 
-    // 全体サマリーを生成する関数（オウム返し定型文を廃止し、実務インサイトに特化）
+    // 全体サマリーを生成する関数（海外現地事業者・インポーター視点）
     const generateExecutiveSummary = async () => {
-        const summaryPrompt = `あなたは【${cur.name}】専属の日本語版ポケモンカード アービトラージアナリストです。
-手数料や送料を一旦除外した「単純価格差」と「成約速度」を評価基準としています。
+        const summaryPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達する海外現地事業者専属の調達戦略アナリストです。
 ${rules}
 
-今週の相場環境を踏まえ、仕入れ担当者が即座に判断できる実務的な【今週のサヤ取りエグゼクティブ・サマリー】を作成してください。
+【重要】
+このレポートの読者は「日本から日本語版カードを輸入して自国で販売している海外事業者（ショップオーナー・バイヤー）」です。
+日本国内の輸出セラー向けではなく、海外現地事業者が日本からスマートに輸入・調達し、現地店舗やECで利益を最大化するための【今週の輸入調達・現地販売エグゼクティブ・サマリー】を作成してください。
+
 以下のJSONのみを出力してください:
 {
-  "title": "【${region.toUpperCase()}利ざや】5スロット×5価格帯 125枠網羅マトリクスサヤ取りレポート",
-  "claim": "今週の${cur.name}におけるサヤ取り総括（注力すべきスロットと即売れポートフォリオ）",
+  "title": "【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達・利ざやマトリクスレポート",
+  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（高マージン調達と現地即売れポートフォリオ）",
   "summary": {
-    "headline": "今週のサヤ取り相場核心（例: 低単価ARの急回転と限定プロモの利幅拡大）",
-    "hotSectors": "今週特にサヤが厚い注目のスロット・価格帯とその理由（具体的に1〜2文で記述）",
-    "buyerVelocity": "海外実成約（Sold）の回転速度・バイヤー動向（具体的に1〜2文で記述）",
+    "headline": "今週の日本調達・現地販売戦略の核心（例: 円安基調を活かした低単価ARの大量調達と限定プロモの現地プレ値活用）",
+    "macroAnalysis": {
+      "japanSourcingClimate": "日本市場の調達環境（円相場の有利度、日本のショップ・フリマの流通在庫状況、仕入れやすさの動向）",
+      "localMarketDemand": "自国（現地）市場での日本語版カード需要（現地顧客が今どのスロット・価格帯を熱狂的に求めているか）"
+    },
+    "microAnalysis": {
+      "topImportMarginCard": "今週最も輸入マージン（利ざや）が厚い注目銘柄とその背景",
+      "topLocalVelocityCard": "自国にストックした瞬間即売れする最高流動性銘柄",
+      "conditionGradingInsight": "現地での状態需要特性（PSA10プレミアムの強さ、素体NMの許容度、日本版特有の検品傾向）"
+    },
+    "riskAlert": {
+      "sourcingQualityTrap": "日本からの調達時に警戒すべき品質リスク（フリマ写真の白かけ見落とし、センタリング、偽物・再シュリンク等）",
+      "localInventoryRisk": "自国在庫としての滞留リスク（現地での一時的な投機熱の冷え込み、価格急落リスクへの対策）"
+    },
     "actionDirectives": [
-      "低単価帯（〜3千円・1万円以下）の具体的な仕入れ・出品アクション",
-      "高額帯（3万円以上）の具体的な仕入れ・出品アクション"
+      "低単価帯（〜3千円・1万円以下）の日本調達発注＆現地スピード販売アクション",
+      "中・高額帯（1万〜8万円以上）の日本調達発注＆現地プレミアム販売アクション"
     ]
   }
 }`;
@@ -123,15 +139,26 @@ ${rules}
             return parseAIJson(res.content.toString());
         } catch {
             return {
-                title: `【${region.toUpperCase()}利ざや】5スロット×5価格帯 125枠網羅マトリクスサヤ取りレポート`,
-                claim: `今週の${cur.name}におけるサヤ取り総括`,
+                title: `【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達・利ざやマトリクスレポート`,
+                claim: `今週の${cur.name}向け日本語版カード輸入調達戦略`,
                 summary: {
-                    headline: "低単価帯の高回転と中位プロモの利幅拡大",
-                    hotSectors: "現行モダン〜3千円枠および限定プロモ1万〜3万円枠で日米価格差が拡大中",
-                    buyerVelocity: "直近7日成約5件以上の高回転銘柄が低単価帯に集中",
+                    headline: "円安環境を活かした高回転ARの日本一括調達と限定プロモの現地マージン確保",
+                    macroAnalysis: {
+                        japanSourcingClimate: "為替レートの恩恵により日本国内の調達原価が割安に推移。フリマ・専門店に良品在庫が豊富。",
+                        localMarketDemand: "現行モダンAR/CHRの現地コレクター需要が極めて高く、絶版プロモの希少性評価が定着。"
+                    },
+                    microAnalysis: {
+                        topImportMarginCard: "限定プロモ枠および準高額PSA10で30%〜50%以上の純利ざやを確保可能",
+                        topLocalVelocityCard: "現行ARおよび世界大会メタの汎用カードが自国入荷から数日以内で回転",
+                        conditionGradingInsight: "海外顧客は日本版の印刷品質に高い信頼を寄せており、Raw NMでも高値成約が持続"
+                    },
+                    riskAlert: {
+                        sourcingQualityTrap: "日本のフリマ個人出品における白かけ・初期傷の見落としに注意。店舗美品またはPSA10を優先調達推奨。",
+                        localInventoryRisk: "新弾の供給過多による一時的な現地価格調整に備え、入荷後即時の在庫回転を徹底。"
+                    },
                     actionDirectives: [
-                        "低単価帯は国内フリマで即時仕入れし、即出品でキャッシュを高速回転",
-                        "高額帯は直近Sold実績と状態NMを確認した上で慎重に調達"
+                        "低単価帯は日本のフリマ・専門店からまとめ買い調達し、現地ショップ/ECで即時回転",
+                        "高額帯は現地コレクターからのバックオーダー（予約注文）またはPSA10確実品のみを輸入"
                     ]
                 }
             };
@@ -147,8 +174,8 @@ ${rules}
     const validSlots = slotResults.filter(Boolean);
 
     return {
-        title: summaryResult?.title || `【${region.toUpperCase()}利ざや】125枠網羅サヤ取りレポート`,
-        claim: summaryResult?.claim || "全年代・全予算帯を網羅したサヤ取りポートフォリオ",
+        title: summaryResult?.title || `【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達マトリクス`,
+        claim: summaryResult?.claim || "海外現地事業者向け 日本語版カード輸入調達ポートフォリオ",
         summary: summaryResult?.summary,
         slots: validSlots
     };
