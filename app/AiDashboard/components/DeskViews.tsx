@@ -43,27 +43,117 @@ export default function DeskViews({
                         <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-5 space-y-5 shadow-xl">
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                                 <div>
-                                    <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold block mb-1">Winning Lead Magnet Package</span>
+                                    <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold block mb-1">
+                                        {aiData.chiefPackage.leadMagnetTitle || "Winning Lead Magnet Package"}
+                                    </span>
                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                        <span>🏆</span><span>{aiData.chiefPackage.chosenCardOrItem}</span>
+                                        <span>🏆</span><span>{aiData.chiefPackage.mvpHighlight?.cardName || aiData.chiefPackage.chosenCardOrItem}</span>
                                     </h3>
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
-                                        {aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}
+                                        {aiData.chiefPackage.selectedLeadMagnetType === 'GlobalCatalog' ? '世界3大市場カタログ' : aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}
                                     </span>
                                     <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-1 rounded-lg font-bold uppercase">
                                         対象地域: {aiData.chiefPackage.winningRegion}
                                     </span>
                                 </div>
                             </div>
+
+                            {/* 🌟 3地域横断マトリクス（存在する場合） */}
+                            {aiData.chiefPackage.regionalMatrix && (
+                                <div>
+                                    <h4 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                                        <span>🌐</span> 世界3大市場（米・欧・亜）インテリジェンス・マトリクス
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
+                                                <span className="text-xs font-bold text-blue-400">🇺🇸 北米 (US)</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.us?.topArbitrage}</p>
+                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.us?.topTrend}</p>
+                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.us?.summary}</p>
+                                        </div>
+                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
+                                                <span className="text-xs font-bold text-emerald-400">🇪🇺 欧州 (EU)</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.eu?.topArbitrage}</p>
+                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.eu?.topTrend}</p>
+                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.eu?.summary}</p>
+                                        </div>
+                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
+                                                <span className="text-xs font-bold text-purple-400">🌏 アジア (Asia)</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.asia?.topArbitrage}</p>
+                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.asia?.topTrend}</p>
+                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.asia?.summary}</p>
+                                        </div>
+                                    </div>
+                                    {aiData.chiefPackage.globalInsight && (
+                                        <p className="text-xs text-slate-300 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/60 mt-2 leading-relaxed">
+                                            <span className="text-amber-300 font-bold mr-1">🔍 グローバル示唆:</span>
+                                            {aiData.chiefPackage.globalInsight}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 🌟 7日分週間コンテンツカレンダー */}
+                            {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-1.5">
+                                        <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                            <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分の日替わり投稿プラン）
+                                        </h4>
+                                        <span className="text-[10px] text-slate-400">SNS投稿ネタ切れ完全防止</span>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        {aiData.chiefPackage.contentCalendar.map((item: any, cIdx: number) => (
+                                            <div key={cIdx} className="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 space-y-2 hover:border-amber-500/40 transition">
+                                                <div className="flex justify-between items-center border-b border-slate-800/60 pb-1.5">
+                                                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                                        <span className="text-amber-400">📌</span> {item.dayLabelJa}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60">
+                                                        {item.postType}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                                                        <span className="text-[10px] text-emerald-400 font-bold block mb-0.5">📢 無料SNS用フック (Fact & Result)</span>
+                                                        <p className="text-[11px] text-slate-300 leading-snug">{item.hookFact}</p>
+                                                    </div>
+                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                                                        <span className="text-[10px] text-rose-400 font-bold block mb-0.5">🔒 秘匿指示 (Action & Reason)</span>
+                                                        <p className="text-[11px] text-slate-400 leading-snug">{item.hiddenActionReason}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/40">
+                                                    <span className="text-pink-400 font-bold">IG:</span>
+                                                    <span className="truncate flex-1">{item.directiveForCreator?.instagramAngle}</span>
+                                                    <span className="text-sky-400 font-bold">X:</span>
+                                                    <span className="truncate flex-1">{item.directiveForCreator?.xTwitterAngle}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ チーフの選定理由（戦略的根拠）</h4>
-                                <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">{aiData.chiefPackage.selectionReason}</p>
+                                <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                    {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason}
+                                </p>
                             </div>
                             <div>
-                                <h4 className="text-xs font-bold text-amber-400 mb-1.5">🎯 無料SNS用『撒き餌』フック（Fact & Result）</h4>
-                                <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-xs text-amber-200 leading-relaxed">{aiData.chiefPackage.coreHookFact}</div>
+                                <h4 className="text-xs font-bold text-amber-400 mb-1.5">🎯 看板投稿用『撒き餌』フック（Fact & Result）</h4>
+                                <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-xs text-amber-200 leading-relaxed">
+                                    {aiData.chiefPackage.mvpHighlight?.hookFact || aiData.chiefPackage.coreHookFact}
+                                </div>
                                 <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します。</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
@@ -133,7 +223,6 @@ export default function DeskViews({
                                 <p className="text-xs text-slate-400">海外市場トレンド先行兆候調査（地域専任）</p>
                             </div>
                         </div>
-                        {/* 地域切り替えタブは削除、個別指示ボタンのみ */}
                         <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md">
                             {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : `🔄 ${activeTrendRegion.toUpperCase()}担当に調査指示`}
                         </button>
@@ -163,8 +252,16 @@ export default function DeskViews({
             {aiActiveDesk === 'desk_account' && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3"><span className="text-3xl">📊</span><div><h2 className="text-lg font-bold text-white">IGアナリスト専用デスク</h2><p className="text-xs text-slate-400">自社Instagram反応分析・ファネル改善レポート</p></div></div>
-                        <button onClick={() => runSingleAi('account')} disabled={runningAction === 'account'} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">{runningAction === 'account' ? '分析中...' : '🔄 アカウント再分析'}</button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">📊</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">自社Instagramアナリスト</h2>
+                                <p className="text-xs text-slate-400">アカウントエンゲージメント・ファネル診断</p>
+                            </div>
+                        </div>
+                        <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
+                            {runningAction === 'account' ? '分析中...' : '🔄 アカウント診断を実行'}
+                        </button>
                     </div>
                     <DocumentReportView report={aiData?.accountInsights || null} accentColor="pink" icon="📱" />
                 </div>
@@ -173,98 +270,180 @@ export default function DeskViews({
             {aiActiveDesk === 'desk_x_account' && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3"><span className="text-3xl">📈</span><div><h2 className="text-lg font-bold text-white">Xアナリスト専用デスク</h2><p className="text-xs text-slate-400">Xアルゴリズム・拡散ルール・インプレッション最大化診断</p></div></div>
-                        <button onClick={() => runSingleAi('x_account')} disabled={runningAction === 'x_account'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">{runningAction === 'x_account' ? '診断中...' : '🔄 Xアカウント・戦術診断'}</button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🐦</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">自社X (Twitter) アナリスト</h2>
+                                <p className="text-xs text-slate-400">Xアルゴリズム・エンゲージメント診断（140字・画像4枚・スレッド最適化）</p>
+                            </div>
+                        </div>
+                        <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">
+                            {runningAction === 'x_account' ? '分析中...' : '🔄 Xアカウント診断を実行'}
+                        </button>
                     </div>
                     <DocumentReportView report={aiData?.xAccountInsights || null} accentColor="sky" icon="🐦" />
                 </div>
             )}
 
             {aiActiveDesk === 'desk_sns' && (
-                <div className="max-w-5xl mx-auto space-y-5 animate-fadeIn">
+                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3"><span className="text-3xl">📸</span><div><h2 className="text-lg font-bold text-white">Instagram 担当専用デスク</h2><p className="text-xs text-slate-400">Instagramカルーセル構成 ＆ 誘導キャプション</p></div></div>
-                        <button onClick={() => runSingleAi('sns')} disabled={runningAction === 'sns'} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold">{runningAction === 'sns' ? '作成中...' : '🔄 全パターン再生成'}</button>
-                    </div>
-                    <div className="bg-slate-900 border border-sky-500/30 rounded-xl p-4 text-xs space-y-2">
-                        <div className="flex justify-between items-center border-b border-slate-800 pb-2"><span className="font-bold text-sky-300">🎨 推奨カルーセルスライド構成</span><span className="font-mono text-slate-400">⏰ {aiData?.snsPosts?.recommendedTiming || '未設定'}</span></div>
-                        <p className="text-slate-300 font-medium">1枚目(カバー): {aiData?.snsPosts?.visualGuideline?.coverSlide || '未生成'}</p>
-                        <ul className="list-disc list-inside text-slate-400 space-y-0.5 pl-2">{aiData?.snsPosts?.visualGuideline?.carouselSlides?.map((slide, i) => <li key={i}>{slide}</li>) || <li className="italic text-slate-600">スライド指示なし</li>}</ul>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-4 flex flex-col justify-between">
-                            <div><span className="text-xs font-bold text-amber-400 block mb-2">★ 推奨: トレンド×サヤ</span><pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">{aiData?.snsPosts?.posts?.hybridPost || 'データがありません。'}</pre></div>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🎨</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">Instagram専任 投稿クリエイター</h2>
+                                <p className="text-xs text-slate-400">答えを教えない撒き餌設計（Fact/Result提示、Action/Reason秘匿）に基づくカルーセル・キャプション作成</p>
                             </div>
                         </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                            <div><span className="text-xs font-bold text-emerald-400 block mb-2">利益・価格差重視</span><pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">{aiData?.snsPosts?.posts?.arbitragePost || 'データがありません。'}</pre></div>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.arbitragePost || '', 'arbitrage')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                            <div><span className="text-xs font-bold text-sky-400 block mb-2">考察・トレンド重視</span><pre className="text-xs text-slate-300 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto mb-3 bg-slate-950 p-2.5 rounded border border-slate-800">{aiData?.snsPosts?.posts?.trendPost || 'データがありません。'}</pre></div>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleCopy(aiData?.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">コピー</button>
-                                <button onClick={() => handlePublishToInstagram(aiData?.snsPosts?.posts?.trendPost || '', 'trend')} className="text-xs bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-1 rounded flex-1">IG投稿</button>
-                            </div>
-                        </div>
+                        <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
+                            {runningAction === 'sns' ? '制作中...' : '🔄 投稿原稿を再生成'}
+                        </button>
                     </div>
+                    {aiData?.snsPosts ? (
+                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
+                            <div className="border-b border-slate-800 pb-3">
+                                <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">Weekly Lead Magnet Theme</span>
+                                <h3 className="text-lg font-bold text-white">{aiData.snsPosts.theme}</h3>
+                                <p className="text-xs text-slate-400 mt-1">推奨投稿時間: {aiData.snsPosts.recommendedTiming}</p>
+                            </div>
+                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ カルーセル画像スライド構成指示</h4>
+                                <div className="space-y-1.5 text-xs text-slate-300">
+                                    <p><span className="text-pink-400 font-bold">1枚目(表紙):</span> {aiData.snsPosts.visualGuideline?.coverSlide}</p>
+                                    {aiData.snsPosts.visualGuideline?.carouselSlides?.map((s, i) => (
+                                        <p key={i}><span className="text-slate-400 font-bold">{i + 2}枚目:</span> {s}</p>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-white">📝 投稿キャプション (ハイブリッド推奨版)</h4>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleCopy(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}</button>
+                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg">📸 IGへ投稿</button>
+                                    </div>
+                                </div>
+                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData.snsPosts.posts?.hybridPost}</pre>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだInstagram投稿が生成されていません。「🔄 投稿原稿を再生成」を実行してください。</div>
+                    )}
                 </div>
             )}
 
             {aiActiveDesk === 'desk_x' && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3"><span className="text-3xl">🐦</span><div><h2 className="text-lg font-bold text-white">X クリエイター専用デスク</h2><p className="text-xs text-slate-400">140字フック ＆ スレッド考察ツリー展開</p></div></div>
-                        <button onClick={() => runSingleAi('x')} disabled={runningAction === 'x'} className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-lg text-xs font-bold shadow-md">{runningAction === 'x' ? '作成中...' : '🔄 X投稿文を生成'}</button>
-                    </div>
-                    <div className="bg-slate-900 border border-sky-500/40 rounded-xl p-5 space-y-3 shadow-lg">
-                        <div className="flex justify-between items-center"><span className="text-xs font-bold text-sky-300 flex items-center gap-1.5"><span>📌</span> 1ポスト目（140文字フック）</span><span className="text-[10px] text-slate-400 font-mono">{aiData?.xPosts?.mainPost?.length || 0} 文字</span></div>
-                        <pre className="p-3.5 bg-slate-950 rounded-lg text-xs text-slate-200 whitespace-pre-wrap font-sans border border-slate-800 leading-relaxed">{aiData?.xPosts?.mainPost || 'データがありません。'}</pre>
-                        <div className="flex justify-end"><button onClick={() => handleCopy(aiData?.xPosts?.mainPost || '', 'x_main')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">{copiedKey === 'x_main' ? '✓ コピー完了' : '本文をコピー'}</button></div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
-                        <h4 className="text-xs font-bold text-slate-300">🖼️ 添付画像 4枚グリッド指示</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                            {aiData?.xPosts?.imageGuideline?.map((desc, i) => (
-                                <div key={i} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-slate-400"><span className="text-sky-400 font-mono font-bold mr-1.5">#{i + 1}</span> {desc}</div>
-                            )) || <div className="text-slate-600 text-xs italic">画像指示データがありません</div>}
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🐦</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">X (Twitter) 専任 投稿クリエイター</h2>
+                                <p className="text-xs text-slate-400">140字フック＋画像4枚＋スレッド展開によるインプレッション最大化と2股導線誘導</p>
+                            </div>
                         </div>
+                        <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">
+                            {runningAction === 'x_posts' ? '制作中...' : '🔄 X投稿原稿を再生成'}
+                        </button>
                     </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
-                        <h4 className="text-xs font-bold text-slate-300">🧵 考察スレッド（ツリー投稿）</h4>
-                        <div className="space-y-2.5">
-                            {aiData?.xPosts?.threadPosts?.map((post, i) => (
-                                <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-slate-300 relative group">
-                                    <div className="flex justify-between items-center mb-1 text-[10px] text-slate-500 font-mono"><span>ツリー #{i + 2}</span><button onClick={() => handleCopy(post, `x_thread_${i}`)} className="text-slate-400 hover:text-white">{copiedKey === `x_thread_${i}` ? '✓ コピー済' : 'コピー'}</button></div>
-                                    <p className="whitespace-pre-wrap leading-relaxed">{post}</p>
+                    {aiData?.xPosts ? (
+                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
+                            <div className="border-b border-slate-800 pb-3">
+                                <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">X Viral Thread Package</span>
+                                <h3 className="text-lg font-bold text-white">{aiData.xPosts.theme}</h3>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-sky-300">📌 1ポスト目（140字以内フック ＋ 画像添付案内）</h4>
+                                    <button onClick={() => handleCopy(aiData.xPosts?.mainPost || '', 'x_main')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'x_main' ? '✓ コピー完了' : 'コピー'}</button>
                                 </div>
-                            )) || <div className="text-slate-600 text-xs italic">スレッドデータがありません</div>}
+                                <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">{aiData.xPosts.mainPost}</div>
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
+                                {aiData.xPosts.threadPosts?.map((tp, idx) => (
+                                    <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
+                                        <div className="flex justify-between items-center text-[10px] text-slate-400">
+                                            <span>Post {idx + 2}</span>
+                                            <button onClick={() => handleCopy(tp, `x_thread_${idx}`)} className="hover:text-white">{copiedKey === `x_thread_${idx}` ? '✓ コピー' : 'コピー'}</button>
+                                        </div>
+                                        <p className="leading-relaxed">{tp}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ 添付画像4枚の指示</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+                                    {aiData.xPosts.imageGuideline?.map((ig, i) => (
+                                        <div key={i} className="bg-slate-900 px-3 py-2 rounded border border-slate-800/80">
+                                            <span className="text-amber-400 font-bold block mb-0.5">画像 {i + 1}</span>
+                                            <span className="text-[11px] text-slate-400">{ig}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだX投稿が生成されていません。「🔄 X投稿原稿を再生成」を実行してください。</div>
+                    )}
                 </div>
             )}
 
-            {aiActiveDesk === 'desk_sales' && (
-                <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
+            {aiActiveDesk === 'desk_dm' && (
+                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3"><span className="text-3xl">✉️</span><div><h2 className="text-lg font-bold text-white">有料コミュニティ担当専用デスク</h2><p className="text-xs text-slate-400">大口バイヤー向け実務商談オファー（MOQ・商条件付き）</p></div></div>
-                        <button onClick={() => runSingleAi('dm')} disabled={runningAction === 'dm'} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold">{runningAction === 'dm' ? '作成中...' : '🔄 営業文再生成'}</button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">💬</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">コミュニティ営業AIデスク (Discord)</h2>
+                                <p className="text-xs text-slate-400">VIPコミュニティ（大口バイヤー向けチャンネル）直送ロットオファー</p>
+                            </div>
+                        </div>
+                        <button onClick={() => runSingleAi('dm')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md">
+                            {runningAction === 'dm' ? '作成中...' : '🔄 Discordオファーを再作成'}
+                        </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div className="bg-slate-900 border border-indigo-500/30 rounded-xl p-3 space-y-1"><span className="font-bold text-indigo-300 block mb-1">📦 取引条件 (Commercial Terms)</span><p className="text-slate-300">最低ロット: <span className="text-white font-mono">{aiData?.salesDM?.commercialTerms?.minimumOrderQty || '-'}</span></p><p className="text-slate-300">配送便: <span className="text-white">{aiData?.salesDM?.commercialTerms?.shippingMethod || '-'}</span></p><p className="text-slate-300">決済方法: <span className="text-white">{aiData?.salesDM?.commercialTerms?.paymentMethod || '-'}</span></p></div>
-                        <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-3 space-y-1"><span className="font-bold text-amber-300 block mb-1">🤝 価格交渉対策 (Negotiation Tip)</span><p className="text-slate-300 leading-relaxed text-[11px]">{aiData?.salesDM?.negotiationTip || '未設定'}</p></div>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-                        <div className="flex justify-between items-center text-xs"><span className="font-bold text-white">{aiData?.salesDM?.offerSummary || 'オファー未生成'}</span><span className="text-slate-400 font-mono text-[10px]">Target: {aiData?.salesDM?.targetSegment || '-'}</span></div>
-                        <pre className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{aiData?.salesDM?.discordMessage || 'データがありません。'}</pre>
-                        <div className="flex justify-end gap-2"><button onClick={() => handleCopy(aiData?.salesDM?.discordMessage || '', 'dm')} className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button><button onClick={() => handlePublishToDiscord(aiData?.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs font-bold px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg flex items-center gap-1.5 shadow-sm">{isPublishingDiscord ? '送信中...' : '💬 Discord有料コミュニティへ送信'}</button></div>
-                    </div>
+                    {aiData?.salesDM ? (
+                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
+                            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                                <div>
+                                    <span className="text-[10px] uppercase font-mono tracking-widest text-purple-400 font-bold block mb-1">VIP Community Wholesale Offer</span>
+                                    <h3 className="text-base font-bold text-white">{aiData.salesDM.offerSummary}</h3>
+                                </div>
+                                <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2.5 py-1 rounded-lg font-bold">対象: {aiData.salesDM.targetSegment}</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                    <span className="text-[10px] text-slate-400 block mb-1">最低ロット条件</span>
+                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.minimumOrderQty}</span>
+                                </div>
+                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                    <span className="text-[10px] text-slate-400 block mb-1">推奨配送便</span>
+                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.shippingMethod}</span>
+                                </div>
+                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                    <span className="text-[10px] text-slate-400 block mb-1">推奨決済方法</span>
+                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.paymentMethod}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-white">✉️ Discord投稿メッセージ全文</h4>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleCopy(aiData.salesDM?.discordMessage || '', 'dm')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button>
+                                        <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
+                                    </div>
+                                </div>
+                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData.salesDM.discordMessage}</pre>
+                            </div>
+                            <div className="bg-purple-950/20 p-3 rounded-lg border border-purple-900/30">
+                                <h4 className="text-xs font-bold text-purple-300 mb-1">💡 商談・交渉ガイダンス</h4>
+                                <p className="text-xs text-slate-300 leading-relaxed">{aiData.salesDM.negotiationTip}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだDiscordオファーが生成されていません。「🔄 Discordオファーを再作成」を実行してください。</div>
+                    )}
                 </div>
             )}
         </>

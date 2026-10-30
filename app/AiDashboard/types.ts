@@ -3,6 +3,14 @@ export interface RiskAndMitigation { risk: string; mitigation: string; }
 export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure'; // 🌟 今後の拡張用カテゴリー
 export type RegionKey = 'us' | 'eu' | 'asia';
 
+// 🌟 5スロット（全時代・全ジャンル網羅）
+export type ResearchSlotKey =
+    | 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
+    | 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
+    | 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
+    | 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
+    | 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
+
 export interface StrategicReport {
     title: string;
     claim: string;
@@ -13,6 +21,60 @@ export interface StrategicReport {
     verificationChecklist: string[];
 }
 
+// 🌟 トレンド：スロット内商品アイテム（1〜2件）
+export interface TrendSlotItem {
+    cardName: string;
+    condition?: string;
+    currentJpPriceJPY: string;
+    targetMarketPrice: string;
+    growthRate: string;
+    threePointCheck: string; // 3点観測（先行・限定、アート・コレクター、ソーシャル熱量）
+    devilAdvocate: RiskAndMitigation; // 自己反証（悪魔の代弁者）
+}
+
+// 🌟 トレンド：1スロットのレポート
+export interface TrendSlotReport {
+    slotKey: ResearchSlotKey;
+    slotLabel: string;
+    macroTrend: string;
+    isSurgeTriggered: boolean;
+    surgeReason?: string;
+    items: TrendSlotItem[];
+}
+
+// 🌟 トレンド：5スロット統合レポート（StrategicReport互換）
+export interface MultiSlotTrendReport extends StrategicReport {
+    slots: TrendSlotReport[];
+}
+
+// 🌟 アービトラージ：スロット内商品アイテム（1〜2件）
+export interface ArbitrageSlotItem {
+    cardName: string;
+    conditionGrade: string; // 状態完全一致（PSA10, Raw NM等）
+    jpBuyPriceJPY: string;
+    targetSoldPrice: string;
+    deductedCostsJPY: string; // 手数料+送料+為替バッファ内訳
+    netProfitJPY: string;
+    netROI: string;
+    liquidity: string; // 直近7日成約頻度
+    riskAndMitigation: RiskAndMitigation;
+    verificationDetail: string;
+}
+
+// 🌟 アービトラージ：1スロットのレポート
+export interface ArbitrageSlotReport {
+    slotKey: ResearchSlotKey;
+    slotLabel: string;
+    isHighRoiTriggered: boolean;
+    triggerReason?: string;
+    items: ArbitrageSlotItem[];
+}
+
+// 🌟 アービトラージ：5スロット統合レポート（StrategicReport互換）
+export interface MultiSlotArbitrageReport extends StrategicReport {
+    slots: ArbitrageSlotReport[];
+}
+
 export interface ProfitableCardReport extends StrategicReport {
     cardName: string;
     jpPriceJPY: number;
@@ -21,13 +83,46 @@ export interface ProfitableCardReport extends StrategicReport {
     imageUrl?: string;
 }
 
+// 🌟 週間コンテンツカレンダー（7日分の日替わり投稿指示）
+export interface ContentCalendarItem {
+    dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+    dayLabelJa: string; // 例: "月曜: 世界3大市場サヤ比較まとめ"
+    postType: 'Flagship_GlobalCatalog' | 'Vintage_Focus' | 'Promo_Focus' | 'Modern_Meta_Focus' | 'Graded_Sealed_Focus' | 'Hit_Proof_SocialProof' | 'Weekly_Summary_CTA';
+    targetSlot?: ResearchSlotKey | 'all';
+    targetRegion?: RegionKey | 'all';
+    selectedCardOrTopic: string;
+    hookFact: string; // 無料SNSで開示する数字・事実（Fact/Result）
+    hiddenActionReason: string; // 無料SNSでは伏せるべき仕入れルート・詳細理由（Action/Reason）
+    directiveForCreator: {
+        instagramAngle: string;
+        xTwitterAngle: string;
+        discordOfferAngle: string;
+    };
+}
+
 export interface ChiefPackageData {
-    selectedLeadMagnetType: 'TypeA_Arbitrage' | 'TypeB_Trend';
-    winningRegion: 'us' | 'eu' | 'asia';
-    chosenCardOrItem: string;
-    selectionReason: string;
-    coreHookFact: string;
-    creativeDirective: {
+    selectedLeadMagnetType: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
+    winningRegion: 'us' | 'eu' | 'asia' | 'global';
+    leadMagnetTitle?: string;
+    chosenCardOrItem?: string; // 🌟 過去データ互換用フォールバック
+    mvpHighlight?: {
+        cardName: string;
+        region: RegionKey;
+        slotKey: ResearchSlotKey;
+        hookFact: string;
+        selectionReason: string;
+    };
+    regionalMatrix?: {
+        us: { topArbitrage: string; topTrend: string; summary: string; };
+        eu: { topArbitrage: string; topTrend: string; summary: string; };
+        asia: { topArbitrage: string; topTrend: string; summary: string; };
+    };
+    globalInsight?: string;
+    contentCalendar?: ContentCalendarItem[]; // 🌟 7日分の日替わりカレンダー
+    nextWeekResearchBias?: string;
+    selectionReason?: string;
+    coreHookFact?: string;
+    creativeDirective?: {
         instagramAngle: string;
         xTwitterAngle?: string;
         discordOfferAngle: string;
@@ -52,6 +147,11 @@ export interface SnsPostsData {
     visualGuideline: { coverSlide: string; carouselSlides: string[]; };
     posts: { hybridPost: string; arbitragePost: string; trendPost: string; };
     discordCTA: string;
+    dailyPosts?: {
+        day: string;
+        caption: string;
+        slides: string[];
+    }[];
 }
 
 export interface XPostsData {
@@ -60,6 +160,11 @@ export interface XPostsData {
     threadPosts: string[];
     imageGuideline: string[];
     xCallToAction: string;
+    dailyThreads?: {
+        day: string;
+        mainPost: string;
+        threadPosts: string[];
+    }[];
 }
 
 export interface SalesDMData {
@@ -87,8 +192,8 @@ export interface RegionalContainer<T> {
 }
 
 export interface IntelligenceData {
-    trendInsights: RegionalContainer<StrategicReport> | null;
-    profitableCards: RegionalContainer<StrategicReport> | null;
+    trendInsights: RegionalContainer<MultiSlotTrendReport | StrategicReport> | null;
+    profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
     chiefPackage: ChiefPackageData | null;
     proofPackage?: ProofPackageData | null;
     accountInsights: StrategicReport | null;
