@@ -1,3 +1,4 @@
+// app/AiDashboard/components/DeskViews.tsx
 import React from 'react';
 import { IntelligenceData, RegionKey } from '../types';
 import DocumentReportView from './DocumentReport';
@@ -15,13 +16,16 @@ interface DeskViewsProps {
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 追加
+    isPublishingX: boolean; // 🌟 追加
 }
 
 export default function DeskViews({
     aiActiveDesk, activeTrendRegion, activeArbitrageRegion, aiData,
     runningAction, runSingleAi, handleCopy, copiedKey,
     handlePublishToInstagram, isPublishingInstagram,
-    handlePublishToDiscord, isPublishingDiscord
+    handlePublishToDiscord, isPublishingDiscord,
+    handlePublishToX, isPublishingX
 }: DeskViewsProps) {
     return (
         <>
@@ -355,7 +359,16 @@ export default function DeskViews({
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-sky-300">📌 1ポスト目（140字以内フック ＋ 画像添付案内）</h4>
-                                    <button onClick={() => handleCopy(aiData.xPosts?.mainPost || '', 'x_main')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'x_main' ? '✓ コピー完了' : 'コピー'}</button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleCopy(aiData.xPosts?.mainPost || '', 'x_main')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'x_main' ? '✓ コピー完了' : 'コピー'}</button>
+                                        <button 
+                                            onClick={() => handlePublishToX(aiData.xPosts?.mainPost || '', aiData.xPosts?.threadPosts || [])} 
+                                            disabled={isPublishingX}
+                                            className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
+                                        >
+                                            {isPublishingX ? '投稿中...' : '🐦 Xへスレッド投稿'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">{aiData.xPosts.mainPost}</div>
                             </div>

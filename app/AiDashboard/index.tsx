@@ -1,3 +1,4 @@
+// app/AiDashboard/index.tsx
 'use client'
 import React, { useState, useEffect } from 'react';
 import { IntelligenceData, RegionKey, CategoryKey } from './types';
@@ -18,6 +19,7 @@ export default function AiDashboard() {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false);
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
+    const [isPublishingX, setIsPublishingX] = useState<boolean>(false); // 🌟 X投稿ローディングState
 
     const handleSelectHistory = (target: any) => {
         setSelectedRecordId(target.id);
@@ -114,6 +116,26 @@ export default function AiDashboard() {
         } catch (err: any) { alert(`投稿エラー: ${err.message}`); } finally { setIsPublishingInstagram(null); }
     };
 
+    // 🌟 X (Twitter) 直接スレッド自動投稿ハンドラー
+    const handlePublishToX = async (mainPost: string, threadPosts: string[] = []) => {
+        if (!window.confirm('X (Twitter) 公式アカウントへスレッドを自動投稿しますか？')) return;
+        setIsPublishingX(true);
+        try {
+            const res = await fetch('/api/ai/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: 'x', mainPost, threadPosts })
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error);
+            alert(`完了: ${json.message}`);
+        } catch (err: any) {
+            alert(`X投稿エラー: ${err.message}`);
+        } finally {
+            setIsPublishingX(false);
+        }
+    };
+
     useEffect(() => {
         const fetchLatestHistory = async () => {
             try {
@@ -156,6 +178,7 @@ export default function AiDashboard() {
                         handleCopy={handleCopy} copiedKey={copiedKey}
                         handlePublishToInstagram={handlePublishToInstagram} isPublishingInstagram={isPublishingInstagram}
                         handlePublishToDiscord={handlePublishToDiscord} isPublishingDiscord={isPublishingDiscord}
+                        handlePublishToX={handlePublishToX} isPublishingX={isPublishingX}
                     />
                     <ChatPanel 
                         aiActiveDesk={aiActiveDesk} activeTrendRegion={activeTrendRegion} activeArbitrageRegion={activeArbitrageRegion}

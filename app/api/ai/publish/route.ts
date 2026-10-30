@@ -1,11 +1,13 @@
 // app/api/ai/publish/route.ts
 import { NextResponse } from 'next/server';
+import { publishThreadToX } from '@/lib/twitter';
 
 export async function POST(req: Request) {
   try {
-    const { platform, content, imageUrl } = await req.json();
+    const body = await req.json();
+    const { platform, content, imageUrl, mainPost, threadPosts } = body;
 
-    if (!content || !platform) {
+    if (!platform || (!content && !mainPost)) {
       return NextResponse.json(
         { success: false, error: '送信内容またはプラットフォームが指定されていません' },
         { status: 400 }
@@ -111,6 +113,39 @@ export async function POST(req: Request) {
         success: true,
         message: 'Instagram (worldwidejapan2023) への投稿が完了しました！',
         postId: publishData.id,
+      });
+    }
+
+    // ==========================================
+    // 3. X (Twitter) へのスレッド自動投稿
+    // ==========================================
+    if (platform === 'x') {
+      const targetMainPost = mainPost || content;
+      const targetThreadPosts = Array.isArray(threadPosts) ? threadPosts : [];
+
+      if (!targetMainPost) {
+        return NextResponse.json(
+          { success: false, error: '1ポスト目の本文が指定されていません' },
+          { status: 400 }
+        );
+      }
+
+      const result = await publishThreadToX({
+        mainPost: targetMainPost,
+        threadPosts: targetThreadPosts,
+      });
+
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'X (Twitter) へのスレッド投稿が完了しました！',
+        tweetId: result.firstTweetId,
       });
     }
 
