@@ -100,30 +100,25 @@ export default function DocumentReportView({
 
             <div className="p-4 sm:p-6 space-y-6">
                 {/* ========================================================= */}
-                {/* 🔥 市場トレンドレポート描画ブロック（仮説 ➔ 上位5銘柄） */}
+                {/* 🔥 市場トレンドレポート描画ブロック（カード5枚を最上部に配置） */}
                 {/* ========================================================= */}
                 {isTrendReport && (
                     <div className="space-y-6">
                         {report.hypotheses.map((hypo: any, hIdx: number) => (
-                            <div key={hIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-5 space-y-4 shadow-sm">
-                                <div className="border-b border-slate-800/80 pb-3 space-y-2">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                        <h4 className="text-base font-bold text-amber-300 leading-snug">
+                            <div key={hIdx} className="space-y-3">
+                                {/* 複数仮説がある場合のみ見分け用のインデックスを表示 */}
+                                {report.hypotheses.length > 1 && (
+                                    <div className="flex items-center gap-2 px-1">
+                                        <span className="text-xs font-bold text-amber-400 font-mono">
+                                            [トレンド {hIdx + 1}]
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-300 truncate">
                                             {hypo.headline}
-                                        </h4>
-                                        {hypo.timeframe && (
-                                            <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
-                                                {hypo.timeframe}
-                                            </span>
-                                        )}
+                                        </span>
                                     </div>
-                                    {hypo.signal && (
-                                        <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
-                                            {hypo.signal}
-                                        </p>
-                                    )}
-                                </div>
+                                )}
 
+                                {/* 子：波及銘柄 上位5枚グリッド */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                     {hypo.items?.map((item: any, iIdx: number) => {
                                         const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
@@ -167,7 +162,7 @@ export default function DocumentReportView({
 
                                                     <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
                                                         <div className="flex justify-between text-slate-400">
-                                                            <span>🇯🇵 調達:</span>
+                                                            <span>JP 調達:</span>
                                                             <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
                                                         </div>
                                                         <div className="flex justify-between text-slate-400">
@@ -203,92 +198,87 @@ export default function DocumentReportView({
                                 </div>
                             </div>
                         ))}
-                    </div>
-                )}
 
-                {/* ========================================================= */}
-                {/* 📈 トレンド版エグゼクティブ・サマリー */}
-                {/* ========================================================= */}
-                {isTrendReport && summary && (
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                <span>📈</span> 今週のトレンド先行・先回り調達エグゼクティブ・サマリー
-                            </h4>
-                        </div>
-
-                        {summary.headline && (
-                            <div className="text-sm font-bold text-white bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg leading-relaxed">
-                                📌 {summary.headline}
+                        {/* 🌟 上部にあった「仮説・ピーク想定・シグナル」＋ サマリーをここにまとめて配置 */}
+                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-6 shadow-lg">
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                                    <span>📈</span> トレンド分析 ＆ 先行シグナルサマリー
+                                </h4>
                             </div>
-                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* 1. 潮流・資金動向分析 */}
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🌐</span> 1. 潮流・資金動向分析（急騰トリガー ＆ 国内相場ラグ）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-slate-400">急騰トリガー: </strong>
-                                        {summary.trendDynamics?.catalystOverview}
-                                    </p>
-                                    <p>
-                                        <strong className="text-slate-400">国内相場ラグ: </strong>
-                                        {summary.trendDynamics?.japanPriceLag}
-                                    </p>
+                            {/* 仮説タイトル ＆ シグナル文章 */}
+                            <div className="space-y-3">
+                                {report.hypotheses?.map((hypo: any, hIdx: number) => (
+                                    <div key={hIdx} className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                                            <span className="text-sm font-bold text-white leading-snug">
+                                                {hypo.headline}
+                                            </span>
+                                            {hypo.timeframe && (
+                                                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30 shrink-0 self-start sm:self-auto">
+                                                    ⏳ {hypo.timeframe}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {hypo.signal && (
+                                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
+                                                <span className="text-sky-400 font-bold mr-1.5">🔍 検知シグナル:</span>
+                                                {hypo.signal}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* エグゼクティブ・サマリー（データがある場合のみ展開） */}
+                            {summary && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                                        <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                            <span>🌐</span> 1. 潮流・資金動向分析
+                                        </h5>
+                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
+                                            <p><strong className="text-slate-400">急騰トリガー: </strong>{summary.trendDynamics?.catalystOverview}</p>
+                                            <p><strong className="text-slate-400">国内相場ラグ: </strong>{summary.trendDynamics?.japanPriceLag}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                                        <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                            <span>🔍</span> 2. 突出セクター ＆ 時間軸
+                                        </h5>
+                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
+                                            <p><strong className="text-slate-400">最注目カタリスト: </strong>{summary.strategicHighlights?.mvpCatalystCard}</p>
+                                            <p><strong className="text-slate-400">売り時ウィンドウ: </strong>{summary.strategicHighlights?.optimalExitWindow}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-rose-900/30 rounded-xl p-3.5 space-y-2">
+                                        <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                            <span>🚨</span> 3. トレンド警戒アラート
+                                        </h5>
+                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
+                                            <p><strong className="text-rose-400">バブル・再販警戒: </strong>{summary.riskAlert?.hypeTrapWarning}</p>
+                                            <p><strong className="text-rose-400">状態・鑑定指針: </strong>{summary.riskAlert?.gradingVsRawStrategy}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-900/80 border border-emerald-900/30 rounded-xl p-3.5 space-y-2">
+                                        <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                            <span>🎯</span> 4. 今週の先回り仕込みアクション指針
+                                        </h5>
+                                        <ul className="space-y-1.5 text-xs text-slate-300">
+                                            {summary.actionDirectives?.map((action: string, i: number) => (
+                                                <li key={i} className="flex items-start gap-2">
+                                                    <span className="text-emerald-400 font-bold">✔</span>
+                                                    <span className="leading-relaxed">{action}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 </div>
-                            </div>
-
-                            {/* 2. 突出セクター & 時間軸 */}
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🔍</span> 2. 突出セクター ＆ 時間軸（最注目カタリスト ＆ 売り時）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-slate-400">最注目カタリスト: </strong>
-                                        {summary.strategicHighlights?.mvpCatalystCard}
-                                    </p>
-                                    <p>
-                                        <strong className="text-slate-400">売り時ウィンドウ: </strong>
-                                        {summary.strategicHighlights?.optimalExitWindow}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* 3. トレンド警戒アラート */}
-                            <div className="bg-slate-900/90 border border-rose-900/40 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🚨</span> 3. トレンド警戒アラート（バブル警戒 ＆ 状態指針）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-rose-400">バブル・再販警戒: </strong>
-                                        {summary.riskAlert?.hypeTrapWarning}
-                                    </p>
-                                    <p>
-                                        <strong className="text-rose-400">状態・鑑定指針: </strong>
-                                        {summary.riskAlert?.gradingVsRawStrategy}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* 4. 今週の先回り仕込みアクション指針 */}
-                            <div className="bg-slate-900/90 border border-emerald-900/40 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🎯</span> 4. 今週の先回り仕込みアクション指針
-                                </h5>
-                                <ul className="space-y-1.5 text-xs text-slate-300">
-                                    {summary.actionDirectives?.map((action: string, i: number) => (
-                                        <li key={i} className="flex items-start gap-2">
-                                            <span className="text-emerald-400 font-bold">✔</span>
-                                            <span className="leading-relaxed">{action}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                            )}
                         </div>
                     </div>
                 )}
