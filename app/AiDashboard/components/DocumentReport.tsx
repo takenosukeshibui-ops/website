@@ -94,11 +94,11 @@ export default function DocumentReportView({
                                                     <span className="text-slate-400">仕入: {item.currentJpPriceJPY || item.jpBuyPriceJPY}</span>
                                                     <span className="text-emerald-400 font-bold">海外: {item.targetMarketPrice || item.targetSoldPrice}</span>
                                                 </div>
-                                                {/* サヤの場合の純利とROI */}
-                                                {(item.netProfitJPY || item.netROI) && (
+                                                {/* サヤの場合の価格差とROI */}
+                                                {(item.priceSpreadJPY || item.spreadROI) && (
                                                     <div className="flex justify-between text-[11px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-300">
-                                                        <span>純利: {item.netProfitJPY}</span>
-                                                        <span className="font-bold">ROI: {item.netROI}</span>
+                                                        <span>差額: {item.priceSpreadJPY}</span>
+                                                        <span className="font-bold">ROI: {item.spreadROI}</span>
                                                     </div>
                                                 )}
                                                 {/* トレンドの場合の上昇率 */}
@@ -111,11 +111,6 @@ export default function DocumentReportView({
                                                 {item.threePointCheck && (
                                                     <p className="text-[10px] text-slate-400 line-clamp-2">
                                                         <span className="text-slate-500 font-bold">3点観測:</span> {item.threePointCheck}
-                                                    </p>
-                                                )}
-                                                {item.deductedCostsJPY && (
-                                                    <p className="text-[10px] text-slate-400">
-                                                        <span className="text-slate-500 font-bold">経費内訳:</span> {item.deductedCostsJPY}
                                                     </p>
                                                 )}
                                             </div>

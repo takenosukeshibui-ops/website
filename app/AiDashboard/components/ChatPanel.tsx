@@ -269,8 +269,8 @@ export default function ChatPanel({
                                     <p className="text-slate-400">{aiData.rsiReport.trendWeightAdjustments?.rationale}</p>
                                 </div>
                                 <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                                    <span className="text-emerald-400 font-bold block mb-0.5">💎 サヤ経費バッファ補正</span>
-                                    <p className="text-slate-400">{aiData.rsiReport.arbitrageBufferCorrections?.rationale}</p>
+                                    <span className="text-emerald-400 font-bold block mb-0.5">💎 サヤスプレッド監査</span>
+                                    <p className="text-slate-400">{aiData.rsiReport.arbitrageSpreadAudits?.rationale}</p>
                                 </div>
                             </div>
                         </div>
@@ -283,7 +283,7 @@ export default function ChatPanel({
                             {knowledgeList.map((item) => (
                                 <div key={item.id} className="bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex justify-between items-start gap-3">
                                     <div className="text-xs text-slate-300 flex-1 whitespace-pre-wrap leading-relaxed">
-                                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono mr-2">{item.agent_key}</span>{item.content}
+                                        <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono mr-2">{item.agent_key}</span>{item.content}
                                     </div>
                                     <button
                                         type="button"
@@ -354,7 +354,7 @@ export default function ChatPanel({
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* 🌟 復旧：メッセージ入力・送信フォーム */}
+            {/* メッセージ入力・送信フォーム */}
             <form onSubmit={handleSendChatMessage} className="mt-3 flex gap-2">
                 <input
                     type="text"
