@@ -65,11 +65,11 @@ export default function Sidebar({
 
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-amber-300">
-                        <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドアナリスト</span>
+                        <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドリサーチチーム</span>
                         <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                     </div>
                     <div className="mt-1 space-y-1">
-                        {([{ key: 'us', label: '北米担当', desc: 'eBay / TCG' }, { key: 'eu', label: '欧州担当', desc: 'Cardmarket' }, { key: 'asia', label: 'アジア担当', desc: 'Shopee' }] as const).map(item => (
+                        {([{ key: 'us', label: '北米担当アナリスト', desc: 'eBay / TCG' }, { key: 'eu', label: '欧州担当アナリスト', desc: 'Cardmarket' }, { key: 'asia', label: 'アジア担当アナリスト', desc: 'Shopee' }] as const).map(item => (
                             <button key={item.key} type="button" onClick={() => { setActiveTrendRegion(item.key); setAiActiveDesk(`desk_trend_${item.key}`); }} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === `desk_trend_${item.key}` ? 'bg-amber-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                                 <span>{item.label}</span><span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
                             </button>
@@ -79,11 +79,11 @@ export default function Sidebar({
 
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-emerald-300">
-                        <span className="flex items-center gap-1.5"><span>💎</span> アービトラージアナリスト</span>
+                        <span className="flex items-center gap-1.5"><span>💎</span> アービトラージリサーチチーム</span>
                         <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                     </div>
                     <div className="mt-1 space-y-1">
-                        {([{ key: 'us', label: '北米担当', desc: '日米・FedEx' }, { key: 'eu', label: '欧州担当', desc: '日欧・EMS' }, { key: 'asia', label: 'アジア担当', desc: '日亜・Shopee' }] as const).map(item => (
+                        {([{ key: 'us', label: '北米担当アナリスト', desc: '日米・FedEx' }, { key: 'eu', label: '欧州担当アナリスト', desc: '日欧・EMS' }, { key: 'asia', label: 'アジア担当アナリスト', desc: '日亜・Shopee' }] as const).map(item => (
                             <button key={item.key} type="button" onClick={() => { setActiveArbitrageRegion(item.key); setAiActiveDesk(`desk_arbitrage_${item.key}`); }} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === `desk_arbitrage_${item.key}` ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                                 <span>{item.label}</span><span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
                             </button>
@@ -94,7 +94,7 @@ export default function Sidebar({
                 {/* Instagram運営グループ */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-pink-300">
-                        <span className="flex items-center gap-1.5"><span>📸</span> Instagram運営</span>
+                        <span className="flex items-center gap-1.5"><span>📸</span> Instagram運営チーム</span>
                         <span className="text-[9px] bg-pink-500/20 text-pink-300 px-1.5 py-0.2 rounded font-mono font-bold">2名</span>
                     </div>
                     <div className="mt-1 space-y-1">
@@ -110,7 +110,7 @@ export default function Sidebar({
                 {/* X (Twitter) 運営グループ */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-sky-300">
-                        <span className="flex items-center gap-1.5"><span>🐦</span> X 運営</span>
+                        <span className="flex items-center gap-1.5"><span>🐦</span> X運営チーム</span>
                         <span className="text-[9px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-mono font-bold">2名</span>
                     </div>
                     <div className="mt-1 space-y-1">
