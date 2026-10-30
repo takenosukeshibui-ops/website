@@ -3,7 +3,7 @@ export interface RiskAndMitigation { risk: string; mitigation: string; }
 export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
 export type RegionKey = 'us' | 'eu' | 'asia';
 
-// 🌟 5スロット（全時代・全ジャンル網羅）
+// 🌟 5大スロット（全時代・全ジャンル網羅）
 export type ResearchSlotKey =
     | 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
     | 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
@@ -21,7 +21,9 @@ export interface StrategicReport {
     verificationChecklist: string[];
 }
 
-// 🌟 トレンド：スロット内商品アイテム（1〜2件）
+// ----------------------------------------------------
+// トレンド分析用の型定義（既存機能）
+// ----------------------------------------------------
 export interface TrendSlotItem {
     cardName: string;
     condition?: string;
@@ -32,7 +34,6 @@ export interface TrendSlotItem {
     devilAdvocate: RiskAndMitigation;
 }
 
-// 🌟 トレンド：1スロットのレポート
 export interface TrendSlotReport {
     slotKey: ResearchSlotKey;
     slotLabel: string;
@@ -42,38 +43,50 @@ export interface TrendSlotReport {
     items: TrendSlotItem[];
 }
 
-// 🌟 トレンド：5スロット統合レポート（StrategicReport互換）
 export interface MultiSlotTrendReport extends StrategicReport {
     slots: TrendSlotReport[];
 }
 
-// 🌟 アービトラージ：スロット内商品アイテム（1〜2件）
-export interface ArbitrageSlotItem {
-    cardName: string;
-    conditionGrade: string;
-    jpBuyPriceJPY: string;
-    targetSoldPrice: string;
-    priceSpreadJPY: string;  // 国内外の単純価格差
-    spreadROI: string;       // 価格差比率・粗利倍率
-    liquidity: string;
-    riskAndMitigation: RiskAndMitigation;
-    verificationDetail: string;
+// ----------------------------------------------------
+// 🌟 アービトラージ（サヤ取り）用の型定義（抜本改修版）
+// ----------------------------------------------------
+export type PriceTierKey = 'under_3k' | 'under_10k' | 'middle' | 'upper' | 'top_end';
+
+// 1商品あたりの軽量データ（トークン節約型）
+export interface ArbitrageItemData {
+    cardName: string;              // 実在カード名・型番
+    conditionGrade: string;        // 状態完全一致（PSA10, Raw NM等）
+    jpBuyPriceJPY: string;         // 国内仕入れ想定額
+    targetSoldPrice: string;       // 現地実成約額
+    priceSpreadJPY: string;        // 単純価格差
+    spreadROI: string;             // 価格差比率・粗利倍率
+    liquidity: string;             // 直近成約頻度（例: "直近7日 14件"）
+    insight: string;               // 1行要約・狙い目ポイント（本命用）
 }
 
-// 🌟 アービトラージ：1スロットのレポート
+// 1枠（セル）：本命1件 ＋ 代替候補4件を格納
+export interface ArbitragePriceTierCell {
+    priceTier: PriceTierKey;
+    priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
+    mainItem: ArbitrageItemData;   // 👑 本命商品（第1候補）
+    subItems: ArbitrageItemData[]; // 🥈 代替候補（最大4商品）
+}
+
+// 1スロット：5つの価格帯セルを内包
 export interface ArbitrageSlotReport {
-    slotKey: ResearchSlotKey;
+    slotKey: string;
     slotLabel: string;
-    isHighRoiTriggered: boolean;
-    triggerReason?: string;
-    items: ArbitrageSlotItem[];
+    tiers: ArbitragePriceTierCell[];
 }
 
-// 🌟 アービトラージ：5スロット統合レポート（StrategicReport互換）
+// サヤ取りレポート全体（5スロット × 5価格帯 × 5候補 ＝ 計125品）
 export interface MultiSlotArbitrageReport extends StrategicReport {
     slots: ArbitrageSlotReport[];
 }
 
+// ----------------------------------------------------
+// その他の既存機能の型定義
+// ----------------------------------------------------
 export interface ProfitableCardReport extends StrategicReport {
     cardName: string;
     jpPriceJPY: number;
@@ -82,11 +95,10 @@ export interface ProfitableCardReport extends StrategicReport {
     imageUrl?: string;
 }
 
-// 🌟 週間コンテンツカレンダー（7日分の日替わり投稿指示）
 export interface ContentCalendarItem {
     dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
     dayLabelJa: string;
-    postType: 'Flagship_GlobalCatalog' | 'Vintage_Focus' | 'Promo_Focus' | 'Modern_Meta_Focus' | 'Graded_Sealed_Focus' | 'Hit_Proof_SocialProof' | 'Weekly_Summary_CTA';
+    postType: string;
     targetSlot?: ResearchSlotKey | 'all';
     targetRegion?: RegionKey | 'all';
     selectedCardOrTopic: string;
@@ -111,21 +123,13 @@ export interface ChiefPackageData {
         hookFact: string;
         selectionReason: string;
     };
-    regionalMatrix?: {
-        us: { topArbitrage: string; topTrend: string; summary: string; };
-        eu: { topArbitrage: string; topTrend: string; summary: string; };
-        asia: { topArbitrage: string; topTrend: string; summary: string; };
-    };
+    regionalMatrix?: any;
     globalInsight?: string;
     contentCalendar?: ContentCalendarItem[];
     nextWeekResearchBias?: string;
     selectionReason?: string;
     coreHookFact?: string;
-    creativeDirective?: {
-        instagramAngle: string;
-        xTwitterAngle?: string;
-        discordOfferAngle: string;
-    };
+    creativeDirective?: any;
 }
 
 export interface ProofPackageData {
@@ -147,11 +151,7 @@ export interface SnsPostsData {
     visualGuideline: { coverSlide: string; carouselSlides: string[]; };
     posts: { hybridPost: string; arbitragePost: string; trendPost: string; };
     discordCTA: string;
-    dailyPosts?: {
-        day: string;
-        caption: string;
-        slides: string[];
-    }[];
+    dailyPosts?: any[];
 }
 
 export interface XPostsData {
@@ -160,18 +160,14 @@ export interface XPostsData {
     threadPosts: string[];
     imageGuideline: string[];
     xCallToAction: string;
-    dailyThreads?: {
-        day: string;
-        mainPost: string;
-        threadPosts: string[];
-    }[];
+    dailyThreads?: any[];
 }
 
 export interface SalesDMData {
     targetSegment: string;
     offerSummary: string;
     discordMessage: string;
-    commercialTerms: { minimumOrderQty: string; shippingMethod: string; paymentMethod: string; };
+    commercialTerms: any;
     negotiationTip: string;
 }
 
@@ -181,11 +177,7 @@ export interface RSIReportData {
     overallEvaluation: string;
     accuracyScore: number;
     trendWeightAdjustments: { recommendedPattern: string; rationale: string; };
-    arbitrageSpreadAudits: {
-        spreadReliabilityScore: string;
-        recommendedMinimumSpread: string;
-        rationale: string;
-    };
+    arbitrageSpreadAudits: any;
     autoGeneratedRules: RSIAutoRule[];
 }
 
