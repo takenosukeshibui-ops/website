@@ -115,7 +115,7 @@ export default function Sidebar({
                     </div>
                     <div className="mt-1 space-y-1">
                         <button type="button" onClick={() => setAiActiveDesk('desk_x_account')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x_account' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>📈 Xアナリスト</span><span className="text-[10px] opacity-60 font-mono">アルゴリズム分析</span>
+                            <span>📈 X アナリスト</span><span className="text-[10px] opacity-60 font-mono">アルゴリズム分析</span>
                         </button>
                         <button type="button" onClick={() => setAiActiveDesk('desk_x')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                             <span>✍️ X クリエイター</span><span className="text-[10px] opacity-60 font-mono">140字・スレッド</span>
