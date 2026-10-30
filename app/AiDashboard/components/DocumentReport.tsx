@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 export default function DocumentReportView({
     report,
     accentColor = 'amber',
-    icon = '📄'
+    icon = '⚖️'
 }: {
     report: any | null;
     accentColor?: 'amber' | 'emerald' | 'pink' | 'sky';
@@ -35,55 +35,65 @@ export default function DocumentReportView({
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
+    // 作成日時の取得
+    const formattedCreatedAt = report.createdAt || new Date().toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    // 地域タグの抽出（例: 【US】など）
+    const regionMatch = report.title?.match(/【(.*?)】/);
+    const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【US】';
+
+    // 🌟 タイトル: 作成日時 ＋ 地域 ＋ アービトラージレポート
+    const displayTitle = `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
+
     return (
-        <div className="bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl overflow-hidden font-sans space-y-4">
-            {/* ヘッダー */}
-            <div className="p-4 border-b border-slate-700/80 flex items-center justify-between bg-slate-950/50">
+        <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
+            {/* 🌟 ヘッダー（サブ英語を撤廃し、指定タイトルに統一） */}
+            <div className="p-4 sm:p-5 border-b border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950/60 gap-3">
                 <div className="flex items-center gap-3">
-                    <span className="text-3xl">{icon}</span>
-                    <div>
-                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-0.5">Sourcing & Arbitrage Intelligence</span>
-                        <h3 className="text-base font-bold text-white leading-tight">{report.title}</h3>
-                    </div>
+                    <span className="text-2xl sm:text-3xl shrink-0">{icon}</span>
+                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">
+                        {displayTitle}
+                    </h3>
                 </div>
                 {report.slots && report.slots.length > 0 && (
-                    <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                        {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
-                    </span>
+                    <div className="shrink-0">
+                        <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
+                            {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
+                        </span>
+                    </div>
                 )}
             </div>
 
-            <div className="p-5 space-y-5">
-                {/* 🌟 マトリクス網羅リスト（最上部に直結配置・結論枠は撤廃） */}
+            <div className="p-4 sm:p-6 space-y-5">
+                {/* 🌟 価格帯切り替えタブ（タブ横の見出しを撤廃し、タブのみを配置） */}
                 {report.slots && report.slots.length > 0 && (
-                    <div className="space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
-                            <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                                    <span>🗂️</span> アービトラージレポート
-                                </h4>
+                    <div className="space-y-4">
+                        {hasArbitrageTiers && (
+                            <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-3">
+                                {priceTiers.map(t => (
+                                    <button
+                                        key={t.key}
+                                        type="button"
+                                        onClick={() => setSelectedTier(t.key)}
+                                        className={`text-xs font-bold px-3.5 py-1.5 rounded-full border transition-all ${
+                                            selectedTier === t.key
+                                                ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-1 ring-blue-400/30'
+                                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                                        }`}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
                             </div>
-                            {hasArbitrageTiers && (
-                                <div className="flex flex-wrap gap-1">
-                                    {priceTiers.map(t => (
-                                        <button
-                                            key={t.key}
-                                            type="button"
-                                            onClick={() => setSelectedTier(t.key)}
-                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${
-                                                selectedTier === t.key
-                                                    ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                                                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
-                                            }`}
-                                        >
-                                            {t.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        )}
 
-                        {/* 🌟 金額ごとの区分けが選択されている場合：本命1枚＋代替候補4枚を横並びグリッドで一覧表示 */}
+                        {/* 🌟 金額ごとの区分けが選択されている場合：5枚を均等フル幅グリッドで一覧表示 */}
                         {selectedTier !== 'all' ? (
                             <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
@@ -100,38 +110,38 @@ export default function DocumentReportView({
                                     ];
 
                                     return (
-                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-lg p-3.5 space-y-3">
-                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
+                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
-                                                    <span className="text-xs font-bold text-white">{slot.slotLabel}</span>
+                                                    <span className="text-sm font-bold text-white">{slot.slotLabel}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierBadgeClass(selectedTier)}`}>
+                                                    <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded border ${getTierBadgeClass(selectedTier)}`}>
                                                         {matchedTier.priceTierLabel || priceTiers.find(p => p.key === selectedTier)?.label}
                                                     </span>
-                                                    <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                                    <span className="text-[11px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
                                                         全{allItemsInTier.length}件 一覧表示
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                                 {allItemsInTier.map((item: any, itemIdx: number) => (
                                                     <div
                                                         key={itemIdx}
-                                                        className={`p-3 rounded-lg border flex flex-col justify-between transition-all ${
+                                                        className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
                                                             item.isMain
                                                                 ? 'bg-slate-900 border-amber-500/40 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
-                                                                : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                                                                : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
                                                         }`}
                                                     >
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-2.5">
                                                             <div className="flex justify-between items-start gap-1">
                                                                 <span
-                                                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                                                                    className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
                                                                         item.isMain
-                                                                            ? 'bg-amber-400 text-slate-950'
+                                                                            ? 'bg-amber-400 text-slate-950 shadow-sm'
                                                                             : 'bg-slate-800 text-slate-300 border border-slate-700'
                                                                     }`}
                                                                 >
@@ -142,13 +152,13 @@ export default function DocumentReportView({
                                                                 </span>
                                                             </div>
 
-                                                            <div className="min-h-[2.5rem]">
+                                                            <div className="min-h-[2.8rem]">
                                                                 <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
                                                                     {item.cardName}
                                                                 </h5>
                                                             </div>
 
-                                                            <div className="space-y-1 text-[11px] font-mono border-t border-slate-800 pt-2">
+                                                            <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
                                                                 <div className="flex justify-between text-slate-400">
                                                                     <span>日本調達:</span>
                                                                     <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
@@ -159,13 +169,13 @@ export default function DocumentReportView({
                                                                 </div>
                                                             </div>
 
-                                                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-1.5 rounded flex justify-between items-center text-[11px] font-mono text-emerald-300">
+                                                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded flex justify-between items-center text-xs font-mono text-emerald-300">
                                                                 <span>利ざや: <strong>{item.priceSpreadJPY}</strong></span>
                                                                 <span className="font-bold">ROI: {item.spreadROI}</span>
                                                             </div>
 
                                                             {item.liquidity && (
-                                                                <div className="text-[10px] font-mono text-slate-400 flex justify-between">
+                                                                <div className="text-[11px] font-mono text-slate-400 flex justify-between">
                                                                     <span>現地回転:</span>
                                                                     <span className="text-slate-300 font-bold">{item.liquidity}</span>
                                                                 </div>
@@ -173,7 +183,7 @@ export default function DocumentReportView({
                                                         </div>
 
                                                         {item.insight && (
-                                                            <div className="mt-2 text-[10px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
+                                                            <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
                                                                 <span className="text-amber-400 font-bold mr-1">💡</span>{item.insight}
                                                             </div>
                                                         )}
@@ -185,23 +195,23 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」の場合：各スロットに各価格帯の本命が並び、アコーディオンでサブを開閉 */
-                            <div className="space-y-3">
+                            /* 🌟 「すべて表示」の場合：各価格帯の本命がゆったり並ぶグリッド */
+                            <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
                                     const tiers = slot.tiers || slot.items || [];
                                     return (
-                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-lg p-3.5 space-y-3">
-                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                        <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
+                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
-                                                    <span className="text-xs font-bold text-white">{slot.slotLabel}</span>
+                                                    <span className="text-sm font-bold text-white">{slot.slotLabel}</span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-500 font-mono">
+                                                <span className="text-xs text-slate-500 font-mono">
                                                     {tiers.length}価格帯
                                                 </span>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                                 {tiers.map((tierCell: any, cIdx: number) => {
                                                     const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
                                                     const isOpen = openSubIndex === cellId;
@@ -209,68 +219,72 @@ export default function DocumentReportView({
                                                     const subs: any[] = tierCell.subItems || [];
 
                                                     return (
-                                                        <div key={cIdx} className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex flex-col justify-between space-y-2">
-                                                            <div className="space-y-1.5">
+                                                        <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
+                                                            <div className="space-y-2">
                                                                 <div className="flex justify-between items-start gap-1">
-                                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getTierBadgeClass(tierCell.priceTier)} whitespace-nowrap`}>
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierBadgeClass(tierCell.priceTier)} whitespace-nowrap`}>
                                                                         {tierCell.priceTierLabel || priceTiers.find(p => p.key === tierCell.priceTier)?.label}
                                                                     </span>
                                                                     <div className="flex items-center gap-1">
-                                                                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-400 text-slate-950 rounded font-mono">
+                                                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded font-mono shadow-sm">
                                                                             本命
                                                                         </span>
-                                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0">
+                                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
                                                                             {main.conditionGrade || main.condition || 'Raw NM'}
                                                                         </span>
                                                                     </div>
                                                                 </div>
 
-                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2rem]" title={main.cardName}>
+                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2.5rem]" title={main.cardName}>
                                                                     {main.cardName}
                                                                 </h5>
 
-                                                                <div className="flex justify-between text-[11px] font-mono border-t border-slate-800/60 pt-1">
-                                                                    <span className="text-slate-400">日本調達: {main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
+                                                                <div className="flex justify-between text-xs font-mono border-t border-slate-800/60 pt-1.5">
+                                                                    <span className="text-slate-400">日本調達:</span>
+                                                                    <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-xs font-mono">
+                                                                    <span className="text-slate-400">現地実成約:</span>
                                                                     <span className="text-emerald-400 font-bold">{main.targetSoldPrice || main.targetMarketPrice}</span>
                                                                 </div>
 
                                                                 {(main.priceSpreadJPY || main.spreadROI) && (
-                                                                    <div className="flex justify-between text-[11px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded text-emerald-300">
-                                                                        <span>利ざや: {main.priceSpreadJPY}</span>
+                                                                    <div className="flex justify-between text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-emerald-300">
+                                                                        <span>利ざや: <strong>{main.priceSpreadJPY}</strong></span>
                                                                         <span className="font-bold">ROI: {main.spreadROI}</span>
                                                                     </div>
                                                                 )}
 
                                                                 {main.insight && (
-                                                                    <p className="text-[10px] text-slate-400 bg-slate-950/60 p-1.5 rounded border border-slate-800/50 leading-relaxed line-clamp-3">
+                                                                    <p className="text-[10px] text-slate-400 bg-slate-950/60 p-2 rounded border border-slate-800/50 leading-relaxed line-clamp-3">
                                                                         <span className="text-amber-400 font-bold mr-1">💡</span>{main.insight}
                                                                     </p>
                                                                 )}
                                                             </div>
 
                                                             {subs.length > 0 && (
-                                                                <div className="border-t border-slate-800 pt-1.5">
+                                                                <div className="border-t border-slate-800 pt-2">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => toggleSub(cellId)}
-                                                                        className="w-full text-[10px] font-mono font-bold py-1 px-2 rounded bg-slate-950 hover:bg-slate-800/80 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1 transition-all"
+                                                                        className="w-full text-xs font-mono font-bold py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1.5 transition-all"
                                                                     >
                                                                         <span>{isOpen ? '▲' : '▼'}</span>
                                                                         <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
                                                                     </button>
 
                                                                     {isOpen && (
-                                                                        <div className="mt-2 space-y-1.5 pt-1.5 border-t border-slate-800/80">
+                                                                        <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
                                                                             {subs.map((subItem: any, sIdx: number) => (
-                                                                                <div key={sIdx} className="bg-slate-950/90 p-1.5 rounded border border-slate-800/60 text-[10px] space-y-1">
+                                                                                <div key={sIdx} className="bg-slate-950/90 p-2 rounded-lg border border-slate-800/60 text-[11px] space-y-1">
                                                                                     <div className="flex justify-between items-center">
-                                                                                        <span className="font-bold text-white truncate max-w-[120px]" title={subItem.cardName}>
+                                                                                        <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
                                                                                             {subItem.cardName}
                                                                                         </span>
-                                                                                        <span className="text-slate-400 font-mono text-[9px]">{subItem.conditionGrade || 'Raw NM'}</span>
+                                                                                        <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
                                                                                     </div>
-                                                                                    <div className="flex justify-between font-mono text-slate-400 text-[10px]">
-                                                                                        <span>日本調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                    <div className="flex justify-between font-mono text-slate-400">
+                                                                                        <span>調達: {subItem.jpBuyPriceJPY}</span>
                                                                                         <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
                                                                                     </div>
                                                                                 </div>
@@ -291,28 +305,25 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                {/* 🌟 【最下部】海外現地事業者向け 日本語版輸入調達エグゼクティブ・サマリー */}
+                {/* 🌟 【最下部】海外現地事業者向けエグゼクティブ・サマリー */}
                 {(summary || hasArbitrageTiers) && (
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 pt-4 mt-6">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                            <h4 className="text-xs font-bold text-amber-300 flex items-center gap-2">
-                                <span>📈</span> 今週の日本語版カード輸入調達・現地販売エグゼクティブ・サマリー
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                                <span>📈</span> 今週の調達・販売エグゼクティブ・サマリー
                             </h4>
-                            <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                                Importer & Retailer Strategic Brief
-                            </span>
                         </div>
 
                         {summary?.headline && (
-                            <div className="text-xs font-bold text-white bg-blue-500/10 border border-blue-500/20 p-2.5 rounded-lg leading-relaxed">
+                            <div className="text-sm font-bold text-white bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg leading-relaxed">
                                 📌 {summary.headline}
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* 1. 🌐 マクロ分析 */}
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
-                                <h5 className="text-[11px] font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
+                                <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🌐</span> 1. マクロ環境分析（日本調達環境 ＆ 現地需要）
                                 </h5>
                                 <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
@@ -328,8 +339,8 @@ export default function DocumentReportView({
                             </div>
 
                             {/* 2. 🔍 ミクロ分析 */}
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-lg p-3 space-y-2">
-                                <h5 className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
+                                <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🔍</span> 2. ミクロ分析（突出銘柄 ＆ 状態特性）
                                 </h5>
                                 <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
@@ -349,8 +360,8 @@ export default function DocumentReportView({
                             </div>
 
                             {/* 3. 🚨 警戒アラート */}
-                            <div className="bg-slate-900/90 border border-rose-900/40 rounded-lg p-3 space-y-2">
-                                <h5 className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                            <div className="bg-slate-900/90 border border-rose-900/40 rounded-xl p-3.5 space-y-2">
+                                <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🚨</span> 3. 警戒アラート（調達品質リスク ＆ 現地在庫リスク）
                                 </h5>
                                 <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
@@ -365,9 +376,9 @@ export default function DocumentReportView({
                                 </div>
                             </div>
 
-                            {/* 4. 🎯 今週の調達・販売アクション指針 */}
-                            <div className="bg-slate-900/90 border border-emerald-900/40 rounded-lg p-3 space-y-2">
-                                <h5 className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                            {/* 4. 🎯 今週のアクション指針 */}
+                            <div className="bg-slate-900/90 border border-emerald-900/40 rounded-xl p-3.5 space-y-2">
+                                <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
                                     <span>🎯</span> 4. 今週の輸入調達・現地販売アクション指針
                                 </h5>
                                 <ul className="space-y-1.5 text-xs text-slate-300">
@@ -382,7 +393,7 @@ export default function DocumentReportView({
                                         <>
                                             <li className="flex items-start gap-2">
                                                 <span className="text-emerald-400 font-bold">✔</span>
-                                                <span className="leading-relaxed"><strong>低単価帯（〜1万円）:</strong> 日本のフリマ・ショップから複数枚一括で買い付け、現地店頭/ECで即時回転させてキャッシュ化。</span>
+                                                <span className="leading-relaxed"><strong>低単価帯（〜1万円）:</strong> 日本のフリマ・ショップからまとめ買い調達し、現地店頭/ECで即時回転させてキャッシュ化。</span>
                                             </li>
                                             <li className="flex items-start gap-2">
                                                 <span className="text-emerald-400 font-bold">✔</span>

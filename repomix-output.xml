@@ -50,7 +50,6 @@ app/
         page.tsx
       profit/
         page.tsx
-      AiDashboard.tsx
       ClientAdminPage.tsx
       page.tsx
     calculator/
@@ -83,6 +82,14 @@ app/
     items.ts
     profile.ts
     wise.ts
+  AiDashboard/
+    components/
+      ChatPanel.tsx
+      DeskViews.tsx
+      DocumentReport.tsx
+      Sidebar.tsx
+    index.tsx
+    types.ts
   api/
     admin/
       fedex/
@@ -95,6 +102,16 @@ app/
       chat/
         route.ts
       intelligence/
+        agents/
+          arbitrage.ts
+          chiefManager.ts
+          contentCreator.ts
+          marketTrend.ts
+          proofEngine.ts
+          rsiOptimizer.ts
+          salesDM.ts
+          snsAccount.ts
+        helpers.ts
         route.ts
       knowledge/
         route.ts
@@ -143,6 +160,7 @@ lib/
   instagram.ts
   paypal.ts
   tracking.ts
+  twitter.ts
   wise.ts
 public/
   file.svg
@@ -176,6 +194,15 @@ vercel.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/[lang]/admin/inventory/page.tsx">
+import { getProducts } from '@/app/actions/inventory'
+import AdminInventoryClient from './AdminInventoryClient'
+⋮----
+export default async function AdminInventoryPage()
+⋮----
+// 管理者権限として全ての商品(非公開含む)を取得
+</file>
 
 <file path="app/[lang]/admin/profit/page.tsx">
 // app/admin/profit/page.tsx
@@ -327,6 +354,52 @@ setContactEmail(e.target.value)
 setWiseEmail(e.target.value)
 </file>
 
+<file path="app/[lang]/estimate/page.tsx">
+import React, { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import CountryCombobox from '@/components/CountryCombobox'
+⋮----
+// 対応する通貨のリスト
+⋮----
+// 1. ユーザー入力用の State
+⋮----
+// ▼ 追加：為替レートと表示通貨用のState
+⋮----
+// 2. 計算結果の State
+⋮----
+// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
+⋮----
+// 入力された文字列から数字のみを抽出してStateにセットする共通関数
+const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
+⋮----
+// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
+⋮----
+// 配送先国または重量が変わったときに送料を再計算
+⋮----
+const fetchShipping = async () =>
+⋮----
+// --- 最終計算ロジック ---
+⋮----
+// ▼ 追加：日本円から指定通貨へのフォーマット関数
+const formatConverted = (jpyAmount: number) =>
+⋮----
+{/* 左カラム：入力エリア */}
+⋮----
+{/* 重量の自動計算と注意事項の案内 */}
+⋮----
+{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
+⋮----
+/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
+⋮----
+{/* 右カラム：結果表示エリア */}
+⋮----
+{/* ▼ 追加：表示通貨の切り替えプルダウン */}
+⋮----
+{/* ▼ 追加：お支払い総額の換算表示 */}
+⋮----
+{/* よくある質問 (FAQ) セクション */}
+</file>
+
 <file path="app/[lang]/forgot-password/page.tsx">
 // app/[lang]/forgot-password/page.tsx
 ⋮----
@@ -342,6 +415,21 @@ import { getDictionary } from '@/lib/dictionaries'
 {/* 「メールアドレス」のラベルは辞書にないのでここで直接切り替え */}
 ⋮----
 {/* 3. 戻るリンクも、現在の言語(lang)を引き継ぐように修正 */}
+</file>
+
+<file path="app/[lang]/inventory/AddToCartForm.tsx">
+import React, { useState } from 'react'
+import { addToCart } from '@/app/actions/items'
+⋮----
+const handleAction = async (formData: FormData) =>
+⋮----
+// 成功時にトーストを表示し、3秒後に消す
+⋮----
+// 未ログイン時のボタン非活性化表示
+⋮----
+<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+⋮----
+{/* トースト通知 (画面右下に固定表示) */}
 </file>
 
 <file path="app/[lang]/login/page.tsx">
@@ -439,6 +527,35 @@ export async function changePassword(prevState: any, formData: FormData)
 ⋮----
 // ▼ ログイン中ユーザーのメールアドレス変更処理
 export async function changeEmail(prevState: any, formData: FormData)
+</file>
+
+<file path="app/actions/items.ts">
+// app/actions/items.ts
+⋮----
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+⋮----
+// [NEW] 共通キャッシュ破棄関数
+function revalidateAll()
+⋮----
+export async function addToCart(formData: FormData)
+⋮----
+status: 'draft' // カート内商品は draft として追加
+⋮----
+revalidateAll() // [UPDATED] 全ページへ反映
+⋮----
+export async function deleteItem(itemId: string)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
+⋮----
+revalidateAll() // [UPDATED]
+⋮----
+// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
+export async function replyToAdminNote(itemId: string, remarks: string)
+⋮----
+revalidateAll() // [UPDATED]
 </file>
 
 <file path="app/actions/profile.ts">
@@ -639,6 +756,38 @@ const handleKeyDown = (e: KeyboardEvent) =>
 {/* ここに生のHTML要素（aタグ）が挿入されます */}
 ⋮----
 onClick=
+</file>
+
+<file path="components/CartManager.tsx">
+// components/CartManager.tsx
+⋮----
+import { useState, useEffect } from 'react'
+import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
+import { updateCartItem } from '@/app/actions/items'
+⋮----
+// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
+⋮----
+const filterCartItems = (items: any[]) =>
+⋮----
+const sanitizeShipping = (val?: string) =>
+⋮----
+const handleCheckout = async () =>
+⋮----
+// 確実な言語判定でダイアログを表示
+⋮----
+// 成功したらローカルのカート見た目を即座に空にする
+⋮----
+const handleDelete = async (itemId: string) =>
+⋮----
+{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
+⋮----
+const val = e.target.value.trim()
+⋮----
+{/* ▼ 変更: 数量 (Quantity) */}
+⋮----
+onBlur=
+⋮----
+{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
 </file>
 
 <file path="components/countries.ts">
@@ -937,6 +1086,91 @@ setAll(cookiesToSet)
 // The `setAll` method was called from a Server Component.
 // This can be ignored if you have middleware refreshing
 // user sessions.
+</file>
+
+<file path="lib/calculator.ts">
+export interface CalculationResult {
+    shippingFeeJp: number;
+    shippingFeeFedex: number;
+    jpSellPrice: number;
+    jpProfit: number;
+    fedexSellPrice: number;
+    fedexProfit: number;
+}
+⋮----
+export interface FedexCredentials {
+    apiKey?: string;
+    secretKey?: string;
+    accountNumber?: string;
+}
+⋮----
+export interface CalculateShippingFeesParams {
+    destination: string;
+    postalCode?: string;
+    weight: number;
+    targetCurrency?: string;
+    isEstimate?: boolean;
+    fedexCredentials?: FedexCredentials;
+}
+⋮----
+// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
+export function getJapanPostZone(countryCode?: string): number
+⋮----
+if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
+⋮----
+// 第1地帯（中国・韓国・台湾）
+⋮----
+// 第4地帯（米国・米領）
+⋮----
+// 第2地帯（アジア全般）
+⋮----
+// 第5地帯（中南米・アフリカ）
+⋮----
+// 第3地帯（オセアニア・カナダ・中近東・欧州など）
+⋮----
+/**
+ * 配送方法と重量から概算送料を算出する共通関数
+ */
+export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number
+⋮----
+case 1: // 第1地帯
+⋮----
+case 2: // 第2地帯
+⋮----
+case 3: // 第3地帯
+⋮----
+case 4: // 第4地帯
+⋮----
+case 5: // 第5地帯
+⋮----
+// 基本料金＋追加重量分＋書留料金(460円)
+⋮----
+/**
+ * 日本郵便（船便・APIなしのため固定概算テーブル計算）
+ */
+export function calculateJapanPostSeaFee(weightKg: number, destination?: string)
+⋮----
+/**
+ * FedEx API 認証トークン取得
+ */
+async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
+⋮----
+/**
+ * FedEx 運賃試算 API 呼び出し
+ */
+export async function calculateFedexRates(
+    destination: string, 
+    postalCode: string | undefined, 
+    weightKg: number, 
+    isEstimate: boolean, 
+    credentials?: FedexCredentials
+)
+⋮----
+// 🌟 プラン毎の標準配達日数を設定
+⋮----
+// 🌟 First も Priority と同じ 1-3日に設定
+⋮----
+export async function calculateShippingFees(params: CalculateShippingFeesParams)
 </file>
 
 <file path="lib/dictionaries.ts">
@@ -1371,228 +1605,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/[lang]/admin/AiDashboard.tsx">
-import React, { useState, useEffect } from 'react';
-⋮----
-// ==========================================
-// AIインテリジェンス用の型定義（6項目レポート対応）
-// ==========================================
-export interface FactItem {
-    label: string;
-    value: string;
-}
-⋮----
-export interface RiskAndMitigation {
-    risk: string;
-    mitigation: string;
-}
-⋮----
-export interface StrategicReport {
-    title: string;
-    claim: string;
-    reasons: string[];
-    facts: FactItem[];
-    soWhat: string;
-    riskAndMitigation: RiskAndMitigation;
-    verificationChecklist: string[];
-}
-⋮----
-export interface ProfitableCardReport extends StrategicReport {
-    cardName: string;
-    jpPriceJPY: number;
-    usPriceUSD: number;
-    estimatedProfitUSD: number;
-    imageUrl?: string;
-}
-⋮----
-export interface SnsPostsData {
-    theme: string;
-    recommendedTiming: string;
-    visualGuideline: {
-        coverSlide: string;
-        carouselSlides: string[];
-    };
-    posts: {
-        hybridPost: string;
-        arbitragePost: string;
-        trendPost: string;
-    };
-    discordCTA: string;
-}
-⋮----
-export interface SalesDMData {
-    targetSegment: string;
-    offerSummary: string;
-    discordMessage: string;
-    commercialTerms: {
-        minimumOrderQty: string;
-        shippingMethod: string;
-        paymentMethod: string;
-    };
-    negotiationTip: string;
-}
-⋮----
-export interface IntelligenceData {
-    trendInsights: StrategicReport | null;
-    profitableCards: StrategicReport | null;
-    accountInsights: StrategicReport | null;
-    snsPosts: SnsPostsData | null;
-    salesDM: SalesDMData | null;
-}
-⋮----
-// ==========================================
-// 1本のドキュメント（報告書）を表示するコンポーネント
-// ==========================================
-⋮----
-// ==========================================
-// // AI専用ダッシュボード コンポーネント
-// ==========================================
-⋮----
-// 🌟 AI Office 用のState（タイムライン / デスク切り替え、チャット入力）
-⋮----
-// 🌟 チャット用のメッセージ履歴型
-interface ChatMessage {
-        id: string;
-        sender: string;
-        avatar: string;
-        text: string;
-        isUser: boolean;
-        timestamp: string;
-    }
-⋮----
-// 🌟 デスク・チームごとのメッセージ履歴 State（初期値は空）
-⋮----
-// 🌟 登録済みナレッジ用 State
-interface KnowledgeItem {
-        id: string;
-        agent_key: string;
-        content: string;
-        created_at: string;
-    }
-⋮----
-// デスクに対応する agentKey を取得するヘルパー
-const getActiveAgentKey = (desk: string): string | null =>
-⋮----
-// ナレッジ一覧の取得関数
-const fetchKnowledge = async () =>
-⋮----
-// ナレッジ削除ハンドラー
-const handleDeleteKnowledge = async (id: string) =>
-⋮----
-// 🌟 ナレッジ登録処理（AI発言・ユーザー発言双方に対応）
-const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
-⋮----
-// ユーザーの発言の場合は、現在開いている個別デスクのAIを対象にする
-⋮----
-fetchKnowledge(); // 登録後に一覧を即時更新
-⋮----
-// 🌟 チャット送信処理ハンドラー
-const handleSendChatMessage = async (e: React.FormEvent) =>
-⋮----
-// 1. ユーザーの発言を画面に即時反映
-⋮----
-// 2. AIからの返信をチャットログに追加
-⋮----
-// 🌟 デスク切り替え時にチャット履歴をDBから取得
-⋮----
-const fetchChatLogs = async () =>
-⋮----
-// AIインテリジェンス用のState
-⋮----
-const [runningAction, setRunningAction] = useState<string | null>(null) // 🌟 個別実行中キー
-⋮----
-// Discord送信用のローディングState
-⋮----
-// 🌟 Instagram送信用のローディングState
-⋮----
-// 🌟 単体AIの個別実行ハンドラー
-⋮----
-const runSingleAi = async (action: 'trend' | 'arbitrage' | 'account' | 'sns' | 'dm') =>
-⋮----
-// JSON以外のエラー（500/HTMLテキスト等）を検知してメッセージ表示
-⋮----
-// AIパイプライン（一括）を実行する
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 実行後に最新履歴一覧を再取得してセレクターを最新化
-⋮----
-// コピー機能
-const handleCopy = (text: string, key: string) =>
-⋮----
-// 💡 Discord直接送信ハンドラー
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-// 🌟 Instagram直接投稿ハンドラー
-const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) =>
-⋮----
-const fetchLatestHistory = async () =>
-⋮----
-{/* ① 左サイドバー: ACTIVE TEAM（クリックで個別デスク展開） */}
-⋮----
-{/* 1. アナリスト */}
-⋮----
-onClick=
-⋮----
-{/* 3. IG分析ディレクター */}
-⋮----
-{/* 4. SNS担当 */}
-⋮----
-{/* 5. 有料コミュニティ担当 */}
-⋮----
-{/* 過去履歴セレクター */}
-⋮----
-{/* ② 右メインエリア */}
-⋮----
-{/* 上部ヘッダー（2チーム切り替えタブ ＋ 一括実行ボタン） */}
-⋮----
-{/* メインコンテンツ領域 */}
-⋮----
-{/* 1. 分析チーム ビュー（市場アナリスト + アービトラージアナリスト + IGアナリスト） */}
-{/* 1. 分析チーム ビュー */}
-⋮----
-{/* 市場アナリスト */}
-⋮----
-<button onClick=
-⋮----
-{/* アービトラージアナリスト */}
-⋮----
-{/* IGアナリスト */}
-⋮----
-{/* 2. 実行チーム ビュー（SNS投稿ディレクター + 営業DM） */}
-⋮----
-{/* SNSディレクター */}
-⋮----
-{/* 有料コミュニティ担当 */}
-⋮----
-{/* 3. 個別デスク ビュー群 */}
-⋮----
-{/* 🌟 カルーセル画像指示 & 投稿タイミング */}
-⋮----
-{/* 3パターンキャプション */}
-⋮----
-{/* ハイブリッド */}
-⋮----
-{/* サヤ特化 */}
-⋮----
-{/* トレンド特化 */}
-⋮----
-{/* 🌟 商条件 ＆ 交渉対策 */}
-⋮----
-{/* Discord投稿用メッセージ */}
-⋮----
-{/* 🌟 チーム・デスク共通のチャットスレッド表示 */}
-⋮----
-{/* 🌟 ナレッジ管理アコーディオン切り替えボタン */}
-⋮----
-{/* 🌟 ナレッジ一覧管理パネル（展開時） */}
-⋮----
-{/* チャットふきだし一覧 */}
-⋮----
-{/* 🌟 ユーザーのメッセージの場合：直接ルール化ボタン（個別デスク時のみ） */}
-⋮----
-{/* 下部コマンドバー（全画面共通） */}
-</file>
-
 <file path="app/actions/cart.ts">
 // app/actions/cart.ts
 ⋮----
@@ -1642,6 +1654,13 @@ let isNewOrder = false // ロールバック制御用のフラグ
 // 💡 変更: 新規作成した注文の場合のみロールバック（削除）する
 ⋮----
 // 5. 画面キャッシュの再検証（多言語化の全ルートに対応）
+</file>
+
+<file path="app/api/ai/intelligence/agents/proofEngine.ts">
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson } from '../helpers';
+⋮----
+export async function runHitProofEngine(pastLogs: any[])
 </file>
 
 <file path="app/api/cron/intelligence/route.ts">
@@ -1809,89 +1828,32 @@ export async function GET(req: Request)
 }
 </file>
 
-<file path="lib/calculator.ts">
-export interface CalculationResult {
-    shippingFeeJp: number;
-    shippingFeeFedex: number;
-    jpSellPrice: number;
-    jpProfit: number;
-    fedexSellPrice: number;
-    fedexProfit: number;
+<file path="lib/twitter.ts">
+// lib/twitter.ts
+import { TwitterApi } from 'twitter-api-v2';
+⋮----
+interface PublishXThreadParams {
+  mainPost: string;
+  threadPosts?: string[];
 }
 ⋮----
-export interface FedexCredentials {
-    apiKey?: string;
-    secretKey?: string;
-    accountNumber?: string;
+interface PublishXResult {
+  success: boolean;
+  firstTweetId?: string;
+  error?: string;
 }
 ⋮----
-export interface CalculateShippingFeesParams {
-    destination: string;
-    postalCode?: string;
-    weight: number;
-    targetCurrency?: string;
-    isEstimate?: boolean;
-    fedexCredentials?: FedexCredentials;
-}
-⋮----
-// 国コード(ISO 2文字)から日本郵便の地帯(1〜5)を取得するヘルパー関数
-export function getJapanPostZone(countryCode?: string): number
-⋮----
-if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
-⋮----
-// 第1地帯（中国・韓国・台湾）
-⋮----
-// 第4地帯（米国・米領）
-⋮----
-// 第2地帯（アジア全般）
-⋮----
-// 第5地帯（中南米・アフリカ）
-⋮----
-// 第3地帯（オセアニア・カナダ・中近東・欧州など）
-⋮----
 /**
- * 配送方法と重量から概算送料を算出する共通関数
+ * X (Twitter) API v2 を使用して1ポスト目およびスレッドツリーを投稿する
  */
-export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: number, zone: number = 4): number
+export async function publishThreadToX({
+  mainPost,
+  threadPosts = [],
+}: PublishXThreadParams): Promise<PublishXResult>
 ⋮----
-case 1: // 第1地帯
+// 1ポスト目 ＋ 2ポスト目以降のツリー配列を結合
 ⋮----
-case 2: // 第2地帯
-⋮----
-case 3: // 第3地帯
-⋮----
-case 4: // 第4地帯
-⋮----
-case 5: // 第5地帯
-⋮----
-// 基本料金＋追加重量分＋書留料金(460円)
-⋮----
-/**
- * 日本郵便（船便・APIなしのため固定概算テーブル計算）
- */
-export function calculateJapanPostSeaFee(weightKg: number, destination?: string)
-⋮----
-/**
- * FedEx API 認証トークン取得
- */
-async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string>
-⋮----
-/**
- * FedEx 運賃試算 API 呼び出し
- */
-export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
-    credentials?: FedexCredentials
-)
-⋮----
-// 🌟 プラン毎の標準配達日数を設定
-⋮----
-// 🌟 First も Priority と同じ 1-3日に設定
-⋮----
-export async function calculateShippingFees(params: CalculateShippingFeesParams)
+// tweetThread API で親ポストから順番にリプライ連鎖として自動投稿
 </file>
 
 <file path="next.config.ts">
@@ -1900,44 +1862,6 @@ import type { NextConfig } from "next";
 /* 既存の設定項目があればここに記述 */
 ⋮----
 // Server Actions で受け取るリクエストボディの上限サイズを拡張 (例: 10MB)
-</file>
-
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@langchain/core": "^1.3.1",
-    "@langchain/google-genai": "^2.3.4",
-    "@langchain/langgraph": "^1.5.3",
-    "@langchain/openai": "^1.8.0",
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
 </file>
 
 <file path="vercel.json">
@@ -1949,82 +1873,6 @@ import type { NextConfig } from "next";
     }
   ]
 }
-</file>
-
-<file path="app/actions/items.ts">
-// app/actions/items.ts
-⋮----
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-// [NEW] 共通キャッシュ破棄関数
-function revalidateAll()
-⋮----
-export async function addToCart(formData: FormData)
-⋮----
-status: 'draft' // カート内商品は draft として追加
-⋮----
-revalidateAll() // [UPDATED] 全ページへ反映
-⋮----
-export async function deleteItem(itemId: string)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-export async function updateCartItem(itemId: string, quantity: number, desiredPrice?: number | null, remarks?: string | null)
-⋮----
-revalidateAll() // [UPDATED]
-⋮----
-// ユーザーが管理者への返信（備考更新）を行い、ステータスを pending に戻す
-export async function replyToAdminNote(itemId: string, remarks: string)
-⋮----
-revalidateAll() // [UPDATED]
-</file>
-
-<file path="app/api/ai/knowledge/route.ts">
-// app/api/ai/knowledge/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-⋮----
-// 🌟 1. ナレッジ一覧取得 (GET)
-export async function GET(req: Request)
-⋮----
-// 🌟 2. ナレッジ登録 (POST)
-export async function POST(req: Request)
-⋮----
-// 🌟 3. ナレッジ削除 (DELETE)
-export async function DELETE(req: Request)
-</file>
-
-<file path="app/api/ai/publish/route.ts">
-// app/api/ai/publish/route.ts
-import { NextResponse } from 'next/server';
-⋮----
-export async function POST(req: Request)
-⋮----
-// ==========================================
-// 1. Discord への送信
-// ==========================================
-⋮----
-// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
-⋮----
-// ==========================================
-// 2. Instagram への自動投稿 (Graph API)
-// ==========================================
-⋮----
-// ステップA: メディアコンテナ (Media Container) の作成
-⋮----
-// ステップB: Meta側の画像処理を待機 (4秒)
-⋮----
-// ステップC: 投稿 (Media Publish) の実行
-</file>
-
-<file path="app/[lang]/admin/inventory/page.tsx">
-import { getProducts } from '@/app/actions/inventory'
-import AdminInventoryClient from './AdminInventoryClient'
-⋮----
-export default async function AdminInventoryPage()
-⋮----
-// 管理者権限として全ての商品(非公開含む)を取得
 </file>
 
 <file path="app/[lang]/admin/page.tsx">
@@ -2056,65 +1904,261 @@ userSeqTracker[uid] = 0 // 初めて出現したユーザーなら0からスタ�
 {/* 💡 変更：orders の代わりに、連番を付与した processedOrders を渡す */}
 </file>
 
-<file path="app/[lang]/estimate/page.tsx">
-import React, { useState, useEffect, use } from 'react'
+<file path="app/[lang]/inventory/page.tsx">
+import React from 'react'
+import { getProducts } from '@/app/actions/inventory'
+import { createClient } from '@/lib/supabase/server'
+import { AddToCartForm } from './AddToCartForm'
 import Link from 'next/link'
-import CountryCombobox from '@/components/CountryCombobox'
 ⋮----
-// 対応する通貨のリスト
+// 🌟 データのキャッシュを無効化し、常に最新のDBデータを反映させる設定
 ⋮----
-// 1. ユーザー入力用の State
+// ログイン状態の確認
 ⋮----
-// ▼ 追加：為替レートと表示通貨用のState
+{/* 重量にカンマ適用 */}
 ⋮----
-// 2. 計算結果の State
-⋮----
-// ▼ 追加：為替レートの取得 (マウント時および通貨変更時に実行)
-⋮----
-// 入力された文字列から数字のみを抽出してStateにセットする共通関数
-const handleNumberInput = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<number>>) =>
-⋮----
-// 重量の自動計算 (ノーマル 1.6g / キラ 1.8g) を kg に変換
-⋮----
-// 配送先国または重量が変わったときに送料を再計算
-⋮----
-const fetchShipping = async () =>
-⋮----
-// --- 最終計算ロジック ---
-⋮----
-// ▼ 追加：日本円から指定通貨へのフォーマット関数
-const formatConverted = (jpyAmount: number) =>
-⋮----
-{/* 左カラム：入力エリア */}
-⋮----
-{/* 重量の自動計算と注意事項の案内 */}
-⋮----
-{/* ▼ 変更：ProxyとInventoryの定義を明確化 */}
-⋮----
-/* ↑ ▼ 変更：日本円での入力を強調するプレースホルダー */
-⋮----
-{/* 右カラム：結果表示エリア */}
-⋮----
-{/* ▼ 追加：表示通貨の切り替えプルダウン */}
-⋮----
-{/* ▼ 追加：お支払い総額の換算表示 */}
-⋮----
-{/* よくある質問 (FAQ) セクション */}
+{/* 在庫数にカンマ適用 */}
 </file>
 
-<file path="app/[lang]/inventory/AddToCartForm.tsx">
-import React, { useState } from 'react'
-import { addToCart } from '@/app/actions/items'
+<file path="app/api/ai/intelligence/agents/chiefManager.ts">
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getCategoryName } from '../helpers';
 ⋮----
-const handleAction = async (formData: FormData) =>
+export async function runChiefManager(trends: any, profits: any, category: string = 'pokemon')
+</file>
+
+<file path="app/api/ai/intelligence/agents/salesDM.ts">
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson } from '../helpers';
 ⋮----
-// 成功時にトーストを表示し、3秒後に消す
+export async function runSalesDM(chiefPackage: any)
+</file>
+
+<file path="app/api/ai/intelligence/agents/snsAccount.ts">
+// app/api/ai/intelligence/agents/snsAccount.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { getInstagramInsights } from '@/lib/instagram';
+import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
 ⋮----
-// 未ログイン時のボタン非活性化表示
+// 4. IGアナリスト（自社Instagramグロース＆2股ファネル転換アナリスト）
+export async function runAccountAnalysis(category: string = 'pokemon')
 ⋮----
-<input type="hidden" name="url" value={`inhouse://${product.id}`} />
+// 5. Xアナリスト
+export async function runXAccountAnalysis()
+</file>
+
+<file path="app/api/ai/knowledge/route.ts">
+// app/api/ai/knowledge/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 ⋮----
-{/* トースト通知 (画面右下に固定表示) */}
+// 🌟 1. ナレッジ一覧取得 (GET)
+export async function GET(req: Request)
+⋮----
+// 🌟 2. ナレッジ登録 (POST)
+export async function POST(req: Request)
+⋮----
+// 🌟 3. ナレッジ削除 (DELETE)
+export async function DELETE(req: Request)
+</file>
+
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.3.1",
+    "@langchain/google-genai": "^2.3.4",
+    "@langchain/langgraph": "^1.5.3",
+    "@langchain/openai": "^1.8.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "twitter-api-v2": "^1.31.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="app/[lang]/dashboard/page.tsx">
+import { getDictionary } from "@/lib/dictionaries";
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import BookmarkletGenerator from '@/components/BookmarkletGenerator';
+import { SubmitButton } from '@/components/SubmitButtons';
+import CartManager from '@/components/CartManager';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ItemStatusBadge } from '@/components/ItemStatusBadge';
+import { TrackingLink } from '@/components/TrackingLink';
+import { addToCart, replyToAdminNote } from '@/app/actions/items';
+⋮----
+function getTrackingUrl(trackingNumber: string): string
+⋮----
+function calculateUserInvoiceDetails(order: any)
+⋮----
+let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+⋮----
+// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+⋮----
+// 🌟 修正：order_number を user_order_seq に変更
+⋮----
+const getTranslatedShippingMethod = (method: string) =>
+⋮----
+{/* ▼ 追加: 取扱商品へのリンクボタン */}
+⋮----
+<form action=
+⋮----
+{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
+⋮----
+{/* 請求明細パネル */}
+⋮----
+{/* 注文商品テーブル */}
+⋮----
+if (replyRemarks)
+</file>
+
+<file path="app/AiDashboard/components/ChatPanel.tsx">
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
+⋮----
+interface ChatPanelProps {
+    activeCategory: CategoryKey;
+    aiActiveDesk: string;
+    activeTrendRegion: RegionKey;
+    activeArbitrageRegion: RegionKey;
+    aiData: IntelligenceData | null;
+    runSingleAi: (action: string, region?: RegionKey) => void;
+    runningAction: string | null;
+}
+⋮----
+const scrollToBottom = () =>
+⋮----
+const getActiveAgentKey = (desk: string): string | null =>
+⋮----
+const getDeskTitle = (desk: string): string =>
+⋮----
+const fetchKnowledge = async () =>
+⋮----
+const handleDeleteKnowledge = async (id: string) =>
+⋮----
+const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
+⋮----
+const handleSendChatMessage = async (e: React.FormEvent) =>
+⋮----
+const fetchChatLogs = async () =>
+⋮----
+{/* チャット履歴表示エリア */}
+⋮----
+{/* メッセージ入力・送信フォーム */}
+⋮----
+onChange=
+</file>
+
+<file path="app/AiDashboard/index.tsx">
+// app/AiDashboard/index.tsx
+⋮----
+import React, { useState, useEffect } from 'react';
+import { IntelligenceData, RegionKey, CategoryKey } from './types';
+import Sidebar from './components/Sidebar';
+import DeskViews from './components/DeskViews';
+import ChatPanel from './components/ChatPanel';
+⋮----
+export default function AiDashboard()
+⋮----
+const [isPublishingX, setIsPublishingX] = useState<boolean>(false); // 🌟 X投稿ローディングState
+⋮----
+const handleSelectHistory = (target: any) =>
+⋮----
+const runSingleAi = async (action: string, region?: RegionKey) =>
+⋮----
+const runIntelligenceAnalysis = async () =>
+⋮----
+const handleCopy = (text: string, key: string) =>
+⋮----
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) =>
+⋮----
+// 🌟 X (Twitter) 直接スレッド自動投稿ハンドラー
+const handlePublishToX = async (mainPost: string, threadPosts: string[] = []) =>
+⋮----
+const fetchLatestHistory = async () =>
+</file>
+
+<file path="app/api/ai/intelligence/agents/rsiOptimizer.ts">
+// app/api/ai/intelligence/agents/rsiOptimizer.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson } from '../helpers';
+⋮----
+export async function runRSIOptimization(pastLogs: any[])
+⋮----
+// 🌟 1. 過去ログの事前ダイジェスト集計
+⋮----
+const extractSlotSummary = (container: any) =>
+</file>
+
+<file path="app/api/ai/intelligence/helpers.ts">
+// app/api/ai/intelligence/helpers.ts
+import { createClient } from '@/lib/supabase/server';
+⋮----
+export function parseAIJson(content: string)
+⋮----
+// カテゴリ表示名変換（chiefManager や 各エージェントで使用）
+export function getCategoryName(category: string = 'pokemon'): string
+⋮----
+// RSI学習ルールの取得ヘルパー（直近3件をプロンプトに注入）
+export async function getAgentRules(agentKey: string): Promise<string>
+</file>
+
+<file path="app/api/ai/publish/route.ts">
+// app/api/ai/publish/route.ts
+import { NextResponse } from 'next/server';
+import { publishThreadToX } from '@/lib/twitter';
+⋮----
+export async function POST(req: Request)
+⋮----
+// ==========================================
+// 1. Discord への送信
+// ==========================================
+⋮----
+// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
+⋮----
+// ==========================================
+// 2. Instagram への自動投稿 (Graph API)
+// ==========================================
+⋮----
+// ステップA: メディアコンテナ (Media Container) の作成
+⋮----
+// ステップB: Meta側の画像処理を待機 (4秒)
+⋮----
+// ステップC: 投稿 (Media Publish) の実行
+⋮----
+// ==========================================
+// 3. X (Twitter) へのスレッド自動投稿
+// ==========================================
 </file>
 
 <file path="lib/instagram.ts">
@@ -2164,29 +2208,53 @@ export async function getInstagramInsights(limit: number = 5)
 // タイムアウトやネットワーク切断時もパイプラインを止めない
 </file>
 
-<file path="app/api/ai/chat/route.ts">
-// app/api/ai/chat/route.ts
+<file path="app/actions/inventory.ts">
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 ⋮----
-import { NextResponse } from 'next/server';
+export type ProductInput = {
+  name: string
+  price: number
+  cost_price: number
+  supplier_name?: string
+  supplier_price?: number
+  weight: number
+  stock: number
+  image_url?: string
+  is_active?: boolean
+}
+⋮----
+// 1. 全商品取得
+export async function getProducts(isAdmin = false)
+⋮----
+// 2. 新規追加
+export async function addProduct(product: ProductInput)
+⋮----
+// 3. 商品更新
+export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+⋮----
+// 4. 画像アップロード
+export async function uploadProductImage(formData: FormData)
+</file>
+
+<file path="app/api/ai/intelligence/agents/contentCreator.ts">
+// app/api/ai/intelligence/agents/contentCreator.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server'; // Supabase追加
+import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
 ⋮----
-async function getAgentReply(agentKey: string, userMessage: string, contextData: any, supabase: any)
+// 6. Instagram専任投稿クリエイター（2股転換・カルーセル特化）
+export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
 ⋮----
-// 🌟 1. このAI専用の過去ナレッジをDBから取得（Step3: RAG実装）
+// 7. X (Twitter) 専任クリエイター
+export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
+</file>
+
+<file path="app/api/ai/intelligence/agents/marketTrend.ts">
+// app/api/ai/intelligence/agents/marketTrend.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getAgentRules } from '../helpers';
 ⋮----
-export async function POST(req: Request)
-⋮----
-// 🌟 2. ユーザーの送信メッセージをDBに保存（Step1）
-⋮----
-// 各AIの回答を生成
-⋮----
-// 🌟 3. AIの回答をDBに保存（Step1）
-⋮----
-// 🌟 4. デスク切り替え時に過去のチャット履歴を取得するエンドポイント
-export async function GET(req: Request)
-⋮----
-.limit(50); // 直近50件を取得
+export async function runMarketTrend(region: 'us' | 'eu' | 'asia' = 'us', _category: string = 'pokemon')
 </file>
 
 <file path="app/actions/admin.ts">
@@ -2335,120 +2403,485 @@ export async function updateAllOrderItemsStatus(orderId: string, status: string)
 // 2. 該当アイテムのステータスを一括更新
 </file>
 
-<file path="components/CartManager.tsx">
-// components/CartManager.tsx
+<file path="app/AiDashboard/components/DeskViews.tsx">
+// app/AiDashboard/components/DeskViews.tsx
+import React from 'react';
+import { IntelligenceData, RegionKey } from '../types';
+import DocumentReportView from './DocumentReport';
 ⋮----
-import { useState, useEffect } from 'react'
-import { createOrderFromCart, deleteCartItem } from '@/app/actions/cart'
-import { updateCartItem } from '@/app/actions/items'
-⋮----
-// URLのパス、または辞書から英語かどうかを確実に判定するフォールバック
-⋮----
-const filterCartItems = (items: any[]) =>
-⋮----
-const sanitizeShipping = (val?: string) =>
-⋮----
-const handleCheckout = async () =>
-⋮----
-// 確実な言語判定でダイアログを表示
-⋮----
-// 成功したらローカルのカート見た目を即座に空にする
-⋮----
-const handleDelete = async (itemId: string) =>
-⋮----
-{/* ▼ 変更: 備考 (Remarks) を入力可能に */}
-⋮----
-const val = e.target.value.trim()
-⋮----
-{/* ▼ 変更: 数量 (Quantity) */}
-⋮----
-onBlur=
-⋮----
-{/* ▼ 変更: 希望価格 (Desired Price) を入力可能に */}
-</file>
-
-<file path="app/actions/inventory.ts">
-import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
-⋮----
-export type ProductInput = {
-  name: string
-  price: number
-  cost_price: number
-  supplier_name?: string
-  supplier_price?: number
-  weight: number
-  stock: number
-  image_url?: string
-  is_active?: boolean
+interface DeskViewsProps {
+    aiActiveDesk: string;
+    activeTrendRegion: RegionKey;
+    activeArbitrageRegion: RegionKey;
+    aiData: IntelligenceData | null;
+    runningAction: string | null;
+    runSingleAi: (action: string, region?: RegionKey) => void;
+    handleCopy: (text: string, key: string) => void;
+    copiedKey: string | null;
+    handlePublishToInstagram: (content: string, typeKey: string, imageUrl?: string) => void;
+    isPublishingInstagram: string | null;
+    handlePublishToDiscord: (content: string) => void;
+    isPublishingDiscord: boolean;
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
+    isPublishingX: boolean; // 🌟 X投稿ローディングState
 }
 ⋮----
-// 1. 全商品取得
-export async function getProducts(isAdmin = false)
+handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
+isPublishingX: boolean; // 🌟 X投稿ローディングState
 ⋮----
-// 2. 新規追加
-export async function addProduct(product: ProductInput)
+{/* ========================================================= */}
+{/* 👑 チーフマネージャー戦略デスク */}
+{/* ========================================================= */}
 ⋮----
-// 3. 商品更新
-export async function updateProduct(id: string | number, updates: Partial<ProductInput>)
+<button onClick=
 ⋮----
-// 4. 画像アップロード
-export async function uploadProductImage(formData: FormData)
+{/* 🌟 3地域横断マトリクス */}
+⋮----
+{/* 🌟 7日分週間コンテンツカレンダー */}
+⋮----
+{/* 的中実績証明パッケージ */}
+⋮----
+{/* ========================================================= */}
+{/* 🔮 市場トレンドアナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 💎 アービトラージアナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 📊 自社Instagramアナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 🐦 自社X (Twitter) アナリスト */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 🎨 Instagram専任 投稿クリエイター */}
+{/* ========================================================= */}
+⋮----
+{/* 🌟 推奨ハッシュタグ表示＆一括コピー枠 */}
+⋮----
+{/* ========================================================= */}
+{/* 🐦 X (Twitter) 専任 投稿クリエイター */}
+{/* ========================================================= */}
+⋮----
+{/* ========================================================= */}
+{/* 💬 コミュニティ営業AIデスク (Discord) */}
+{/* ========================================================= */}
 </file>
 
-<file path="app/[lang]/dashboard/page.tsx">
-import { getDictionary } from "@/lib/dictionaries";
+<file path="app/AiDashboard/components/Sidebar.tsx">
 import React from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import BookmarkletGenerator from '@/components/BookmarkletGenerator';
-import { SubmitButton } from '@/components/SubmitButtons';
-import CartManager from '@/components/CartManager';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ItemStatusBadge } from '@/components/ItemStatusBadge';
-import { TrackingLink } from '@/components/TrackingLink';
-import { addToCart, replyToAdminNote } from '@/app/actions/items';
+import { RegionKey, CategoryKey } from '../types';
 ⋮----
-function getTrackingUrl(trackingNumber: string): string
+interface SidebarProps {
+    activeCategory: CategoryKey;
+    setActiveCategory: (category: CategoryKey) => void;
+    aiActiveDesk: string;
+    setAiActiveDesk: (desk: string) => void;
+    activeTrendRegion: RegionKey;
+    setActiveTrendRegion: (region: RegionKey) => void;
+    activeArbitrageRegion: RegionKey;
+    setActiveArbitrageRegion: (region: RegionKey) => void;
+    history: any[];
+    selectedRecordId: string | null;
+    onSelectHistory: (target: any) => void;
+    aiLoading: boolean;
+    runningAction: string | null;
+}
 ⋮----
-function calculateUserInvoiceDetails(order: any)
+{/* 🌟 商材カテゴリー切り替え */}
 ⋮----
-let proxyFeeTargetTotal = 0; // 自社在庫以外を集計する変数
+{/* Instagram運営グループ */}
 ⋮----
-// 自社取扱商品（URLが inhouse:// で始まらない商品）のみ手数料計算の対象に加算
+{/* X (Twitter) 運営グループ */}
 ⋮----
-// 🌟 修正：order_number を user_order_seq に変更
-⋮----
-const getTranslatedShippingMethod = (method: string) =>
-⋮----
-{/* ▼ 追加: 取扱商品へのリンクボタン */}
-⋮----
-<form action=
-⋮----
-{/* 配列の長さとインデックスから逆順で連番を計算 (例: 3件あれば上から #3, #2, #1) */}
-⋮----
-{/* 請求明細パネル */}
-⋮----
-{/* 注文商品テーブル */}
-⋮----
-if (replyRemarks)
+<div onClick=
 </file>
 
-<file path="app/[lang]/inventory/page.tsx">
-import React from 'react'
-import { getProducts } from '@/app/actions/inventory'
-import { createClient } from '@/lib/supabase/server'
-import { AddToCartForm } from './AddToCartForm'
-import Link from 'next/link'
+<file path="app/api/ai/chat/route.ts">
+// app/api/ai/chat/route.ts
 ⋮----
-// 🌟 データのキャッシュを無効化し、常に最新のDBデータを反映させる設定
+import { NextResponse } from 'next/server';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
+import { getCategoryName } from '../intelligence/helpers';
 ⋮----
-// ログイン状態の確認
+// 🌟 全エージェントのプロファイルを完全網羅
 ⋮----
-{/* 重量にカンマ適用 */}
+async function getAgentReply(agentKey: string, userMessage: string, contextData: any, category: string, region: string | undefined, supabase: any)
 ⋮----
-{/* 在庫数にカンマ適用 */}
+export async function POST(req: Request)
+⋮----
+// ユーザーメッセージをDBに安全に保存
+⋮----
+// ターゲットの柔軟なマッピング
+⋮----
+// 各AIの回答を生成
+⋮----
+// AIの回答をDBに安全に保存
+⋮----
+// 過去のチャット履歴を取得するエンドポイント
+export async function GET(req: Request)
+</file>
+
+<file path="app/AiDashboard/types.ts">
+export interface FactItem { label: string; value: string; }
+export interface RiskAndMitigation { risk: string; mitigation: string; }
+export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
+export type RegionKey = 'us' | 'eu' | 'asia';
+⋮----
+// 🌟 5スロット（全時代・全ジャンル網羅）
+export type ResearchSlotKey =
+    | 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
+    | 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
+    | 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
+    | 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
+    | 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
+⋮----
+| 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
+| 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
+| 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
+| 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
+| 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
+⋮----
+// 🌟 案B：5段階価格帯キー
+export type PriceTierKey = 'under_3k' | 'under_10k' | 'middle' | 'upper' | 'top_end';
+⋮----
+export interface StrategicReport {
+    title: string;
+    claim: string;
+    reasons: string[];
+    facts: FactItem[];
+    soWhat: string;
+    riskAndMitigation: RiskAndMitigation;
+    verificationChecklist: string[];
+}
+⋮----
+// 🌟 トレンド：スロット内商品アイテム
+export interface TrendSlotItem {
+    cardName: string;
+    condition?: string;
+    currentJpPriceJPY: string;
+    targetMarketPrice: string;
+    growthRate: string;
+    threePointCheck: string;
+    devilAdvocate: RiskAndMitigation;
+}
+⋮----
+// 🌟 トレンド：1スロットのレポート
+export interface TrendSlotReport {
+    slotKey: ResearchSlotKey;
+    slotLabel: string;
+    macroTrend: string;
+    isSurgeTriggered: boolean;
+    surgeReason?: string;
+    items: TrendSlotItem[];
+}
+⋮----
+// 🌟 トレンド：5スロット統合レポート
+export interface MultiSlotTrendReport extends StrategicReport {
+    slots: TrendSlotReport[];
+}
+⋮----
+// 🌟 アービトラージ：1商品あたりの軽量データ（海外インポーター視点）
+export interface ArbitrageItemData {
+    priceTier?: PriceTierKey;
+    priceTierLabel?: string;
+    cardName: string;              // 実在カード名・型番
+    conditionGrade: string;        // 状態（PSA10, Raw NM等）
+    jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+    targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
+    priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
+    spreadROI: string;             // 粗利比率（例: "122%"）
+    liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
+    insight: string;               // 現地顧客需要・買い付け狙い目メモ
+}
+⋮----
+cardName: string;              // 実在カード名・型番
+conditionGrade: string;        // 状態（PSA10, Raw NM等）
+jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
+priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
+spreadROI: string;             // 粗利比率（例: "122%"）
+liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
+insight: string;               // 現地顧客需要・買い付け狙い目メモ
+⋮----
+// 🌟 アービトラージ：1セル（本命1件 ＋ 代替候補4件）
+export interface ArbitragePriceTierCell {
+    priceTier: PriceTierKey;
+    priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
+    mainItem: ArbitrageItemData;   // 👑 本命商品
+    subItems: ArbitrageItemData[]; // 🥈 代替候補（4商品）
+}
+⋮----
+priceTierLabel: string;        // "〜3千円", "3千〜1万円" 等
+mainItem: ArbitrageItemData;   // 👑 本命商品
+subItems: ArbitrageItemData[]; // 🥈 代替候補（4商品）
+⋮----
+// 🌟 アービトラージ：1スロット（5つの価格帯セルを内包）
+export interface ArbitrageSlotReport {
+    slotKey: ResearchSlotKey;
+    slotLabel: string;
+    tiers: ArbitragePriceTierCell[];
+    items?: ArbitrageItemData[];
+}
+⋮----
+// 🌟 【海外現地事業者向け】サヤ取り・輸入調達エグゼクティブ・サマリー型
+export interface ArbitrageExecutiveSummary {
+    headline: string; // 今週の輸入調達・現地販売の総括見出し
+    macroAnalysis: {
+        japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
+        localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
+    };
+    microAnalysis: {
+        topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
+        topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
+        conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
+    };
+    riskAlert: {
+        sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
+        localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
+    };
+    actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
+}
+⋮----
+headline: string; // 今週の輸入調達・現地販売の総括見出し
+⋮----
+japanSourcingClimate: string; // 日本市場の調達環境（円相場・流通在庫・国内相場動向）
+localMarketDemand: string;    // 自国（現地）市場での需要集中セクター・価格帯
+⋮----
+topImportMarginCard: string;  // 最大利ざや・高マージン輸入推奨銘柄
+topLocalVelocityCard: string; // 現地で最速回転する高流動性銘柄
+conditionGradingInsight: string; // 状態・鑑定品（PSA10 vs 素体NM）の現地需要差
+⋮----
+sourcingQualityTrap: string;  // 日本からの買い付け時の状態不良・偽物・検品リスク
+localInventoryRisk: string;   // 現地在庫の滞留・相場下落・投機バブルリスク
+⋮----
+actionDirectives: string[];       // 今週の日本調達発注＆現地販売アクション指針
+⋮----
+// 🌟 アービトラージ：統合レポート
+export interface MultiSlotArbitrageReport {
+    title: string;
+    claim?: string;
+    summary?: ArbitrageExecutiveSummary;
+    slots: ArbitrageSlotReport[];
+    // 旧プロパティ互換
+    reasons?: string[];
+    facts?: FactItem[];
+    soWhat?: string;
+    riskAndMitigation?: RiskAndMitigation;
+    verificationChecklist?: string[];
+}
+⋮----
+// 旧プロパティ互換
+⋮----
+export interface ProfitableCardReport extends StrategicReport {
+    cardName: string;
+    jpPriceJPY: number;
+    usPriceUSD: number;
+    estimatedProfitUSD: number;
+    imageUrl?: string;
+}
+⋮----
+// 🌟 週間コンテンツカレンダー
+export interface ContentCalendarItem {
+    dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+    dayLabelJa: string;
+    postType: 'Flagship_GlobalCatalog' | 'Vintage_Focus' | 'Promo_Focus' | 'Modern_Meta_Focus' | 'Graded_Sealed_Focus' | 'Hit_Proof_SocialProof' | 'Weekly_Summary_CTA';
+    targetSlot?: ResearchSlotKey | 'all';
+    targetRegion?: RegionKey | 'all';
+    selectedCardOrTopic: string;
+    hookFact: string;
+    hiddenActionReason: string;
+    directiveForCreator: {
+        instagramAngle: string;
+        xTwitterAngle: string;
+        discordOfferAngle: string;
+    };
+}
+⋮----
+export interface ChiefPackageData {
+    selectedLeadMagnetType: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
+    winningRegion: 'us' | 'eu' | 'asia' | 'global';
+    leadMagnetTitle?: string;
+    chosenCardOrItem?: string;
+    mvpHighlight?: {
+        cardName: string;
+        region: RegionKey;
+        slotKey: ResearchSlotKey;
+        hookFact: string;
+        selectionReason: string;
+    };
+    regionalMatrix?: {
+        us: { topArbitrage: string; topTrend: string; summary: string; };
+        eu: { topArbitrage: string; topTrend: string; summary: string; };
+        asia: { topArbitrage: string; topTrend: string; summary: string; };
+    };
+    globalInsight?: string;
+    contentCalendar?: ContentCalendarItem[];
+    nextWeekResearchBias?: string;
+    selectionReason?: string;
+    coreHookFact?: string;
+    creativeDirective?: {
+        instagramAngle: string;
+        xTwitterAngle?: string;
+        discordOfferAngle: string;
+    };
+}
+⋮----
+export interface ProofPackageData {
+    cardName: string;
+    predictedDate: string;
+    predictedPrice: string;
+    currentPrice: string;
+    growthRate: string;
+    hitReasonPattern: string;
+    proofPost: string;
+    visualGuideline: { beforeImageDesc: string; afterImageDesc: string; comparisonLayout: string; };
+    discordCTA: string;
+}
+⋮----
+export interface SnsPostsData {
+    theme: string;
+    recommendedTiming: string;
+    hashtags?: string[];
+    visualGuideline: { coverSlide: string; carouselSlides: string[]; };
+    posts: { hybridPost: string; arbitragePost: string; trendPost: string; };
+    discordCTA: string;
+    dailyPosts?: {
+        day: string;
+        caption: string;
+        slides: string[];
+    }[];
+}
+⋮----
+export interface XPostsData {
+    theme: string;
+    mainPost: string;
+    threadPosts: string[];
+    imageGuideline: string[];
+    xCallToAction: string;
+    dailyThreads?: {
+        day: string;
+        mainPost: string;
+        threadPosts: string[];
+    }[];
+}
+⋮----
+export interface SalesDMData {
+    targetSegment: string;
+    offerSummary: string;
+    discordMessage: string;
+    commercialTerms: { minimumOrderQty: string; shippingMethod: string; paymentMethod: string; };
+    negotiationTip: string;
+}
+⋮----
+export interface RSIAutoRule { targetAgent: string; ruleText: string; }
+⋮----
+export interface RSIReportData {
+    overallEvaluation: string;
+    accuracyScore: number;
+    trendWeightAdjustments: { recommendedPattern: string; rationale: string; };
+    arbitrageSpreadAudits: {
+        spreadReliabilityScore: string;
+        recommendedMinimumSpread: string;
+        rationale: string;
+    };
+    autoGeneratedRules: RSIAutoRule[];
+}
+⋮----
+export interface RegionalContainer<T> {
+    us: T | null;
+    eu: T | null;
+    asia: T | null;
+}
+⋮----
+export interface IntelligenceData {
+    trendInsights: RegionalContainer<MultiSlotTrendReport | StrategicReport> | null;
+    profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
+    chiefPackage: ChiefPackageData | null;
+    proofPackage?: ProofPackageData | null;
+    accountInsights: StrategicReport | null;
+    xAccountInsights?: StrategicReport | null;
+    snsPosts: SnsPostsData | null;
+    xPosts?: XPostsData | null;
+    salesDM: SalesDMData | null;
+    rsiReport?: RSIReportData | null;
+}
+⋮----
+export interface ChatMessage {
+    id: string;
+    sender: string;
+    avatar: string;
+    text: string;
+    isUser: boolean;
+    timestamp: string;
+}
+⋮----
+export interface KnowledgeItem {
+    id: string;
+    agent_key: string;
+    content: string;
+    created_at: string;
+}
+</file>
+
+<file path="app/AiDashboard/components/DocumentReport.tsx">
+import React, { useState } from 'react';
+⋮----
+const getTierBadgeClass = (tierKey?: string) =>
+⋮----
+const toggleSub = (cellId: string) =>
+⋮----
+// 作成日時の取得
+⋮----
+// 地域タグの抽出（例: 【US】など）
+⋮----
+// 🌟 タイトル: 作成日時 ＋ 地域 ＋ アービトラージレポート
+⋮----
+{/* 🌟 ヘッダー（サブ英語を撤廃し、指定タイトルに統一） */}
+⋮----
+{/* 🌟 価格帯切り替えタブ（タブ横の見出しを撤廃し、タブのみを配置） */}
+⋮----
+{/* 🌟 金額ごとの区分けが選択されている場合：5枚を均等フル幅グリッドで一覧表示 */}
+⋮----
+/* 🌟 「すべて表示」の場合：各価格帯の本命がゆったり並ぶグリッド */
+⋮----
+{/* 🌟 【最下部】海外現地事業者向けエグゼクティブ・サマリー */}
+⋮----
+{/* 1. 🌐 マクロ分析 */}
+⋮----
+{/* 2. 🔍 ミクロ分析 */}
+⋮----
+{/* 3. 🚨 警戒アラート */}
+⋮----
+{/* 4. 🎯 今週のアクション指針 */}
+</file>
+
+<file path="app/api/ai/intelligence/agents/arbitrage.ts">
+// app/api/ai/intelligence/agents/arbitrage.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getAgentRules } from '../helpers';
+import { ResearchSlotKey } from '@/app/AiDashboard/types';
+⋮----
+interface SlotDefinition {
+    key: ResearchSlotKey;
+    label: string;
+    desc: string;
+}
+⋮----
+export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _category: string = 'pokemon')
+⋮----
+// 1つのスロット（5価格帯 × 5商品 ＝ 計25商品）を査定するサブ関数
+const analyzeSingleSlot = async (slot: SlotDefinition) =>
+⋮----
+// 全体サマリーを生成する関数（海外現地事業者・インポーター視点）
+const generateExecutiveSummary = async () =>
+⋮----
+// 5スロット並列処理 ＋ サマリー生成を同時に実行
 </file>
 
 <file path="app/[lang]/admin/inventory/AdminInventoryClient.tsx">
@@ -2518,53 +2951,6 @@ onClick=
 {/* モーダルフッター */}
 </file>
 
-<file path="app/api/ai/intelligence/route.ts">
-// app/api/ai/intelligence/route.ts
-⋮----
-import { NextResponse } from 'next/server';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server';
-import { getInstagramInsights } from '@/lib/instagram';
-⋮----
-function parseAIJson(content: string)
-⋮----
-// ---------------------------------------------------------
-// 1. 市場アナリスト（1本の包括的市場レポート）
-// ---------------------------------------------------------
-async function runMarketTrend()
-⋮----
-// ---------------------------------------------------------
-// 2. アービトラージアナリスト（1本のサヤ抜き査定レポート）
-// ---------------------------------------------------------
-async function runSayaAnalysis()
-⋮----
-// ---------------------------------------------------------
-// 3. IGアナリスト（1本のアカウント診断レポート）
-// ---------------------------------------------------------
-async function runAccountAnalysis()
-⋮----
-// ---------------------------------------------------------
-// 4. インスタ担当（無料集客用投稿パッケージ）
-// ---------------------------------------------------------
-async function runSnsPosts(trends: any, cards: any, accountReport: any)
-⋮----
-// ---------------------------------------------------------
-// 5. 有料コミュニティ担当（Discord限定オファー）
-// ---------------------------------------------------------
-async function runSalesDM(trends: any, cards: any)
-⋮----
-// ---------------------------------------------------------
-// GET / POST エンドポイント
-// ---------------------------------------------------------
-export async function GET()
-⋮----
-export async function POST(req: Request)
-⋮----
-// === 単体実行モード ===
-⋮----
-// === 一括実行モード ===
-</file>
-
 <file path="app/[lang]/admin/ClientAdminPage.tsx">
 import React, { useState, useEffect, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
@@ -2589,7 +2975,7 @@ import {
     addAdminAdjustmentItem,
     updateAllOrderItemsStatus
 } from '@/app/actions/admin'
-import AiDashboard from './AiDashboard';
+import AiDashboard from '@/app/AiDashboard';
 ⋮----
 // ==========================================
 // 既存の補助コンポーネント群
@@ -2661,6 +3047,54 @@ setOrderInputs(prev => (
 setEditingWeight(prev
 ⋮----
 {/* モーダル表示 */}
+</file>
+
+<file path="app/api/ai/intelligence/route.ts">
+// app/api/ai/intelligence/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { runMarketTrend } from './agents/marketTrend';
+import { runSayaAnalysis } from './agents/arbitrage';
+import { runChiefManager } from './agents/chiefManager';
+import { runAccountAnalysis, runXAccountAnalysis } from './agents/snsAccount';
+import { runSnsPosts, runXPosts } from './agents/contentCreator';
+import { runSalesDM } from './agents/salesDM';
+import { runHitProofEngine } from './agents/proofEngine';
+import { runRSIOptimization } from './agents/rsiOptimizer';
+⋮----
+// GET: 履歴取得
+export async function GET(req: Request)
+⋮----
+// POST: 各種エージェント実行
+export async function POST(req: Request)
+⋮----
+// 1. 市場トレンドアナリスト単体実行
+⋮----
+// 2. アービトラージアナリスト単体実行
+⋮----
+// 3. チーフマネージャー単体選定
+⋮----
+// 4. IGアナリスト単体実行
+⋮----
+// 5. Xアナリスト単体実行
+⋮----
+// 6. Instagram原稿単体実行
+⋮----
+// 7. X原稿単体実行
+⋮----
+// 8. 有料コミュニティ営業文単体実行
+⋮----
+// 9. 的中実績（タイプC）単体生成
+⋮----
+// 10. RSI（再帰的自己改善）自律評価
+⋮----
+// 11. 全AI一斉調査（フルパイプライン）
+⋮----
+// [Step 1] 6名リサーチャー ＋ IG/Xアナリスト ＋ 的中実績エンジン
+⋮----
+// [Step 2] チーフマネージャーによる最優秀選定
+⋮----
+// [Step 3] クリエイター陣による原稿制作
 </file>
 
 </files>

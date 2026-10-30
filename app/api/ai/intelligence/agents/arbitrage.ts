@@ -33,6 +33,14 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
         maxOutputTokens: 8192,
     });
 
+    const formattedCreatedAt = new Date().toLocaleString('ja-JP', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+
     // 1つのスロット（5価格帯 × 5商品 ＝ 計25商品）を査定するサブ関数
     const analyzeSingleSlot = async (slot: SlotDefinition) => {
         const slotPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達（Import & Retail）する海外現地事業者専属の調達戦略アナリストです。
@@ -111,7 +119,7 @@ ${rules}
 
 以下のJSONのみを出力してください:
 {
-  "title": "【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達・利ざやマトリクスレポート",
+  "title": "${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート",
   "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（高マージン調達と現地即売れポートフォリオ）",
   "summary": {
     "headline": "今週の日本調達・現地販売戦略の核心（例: 円安基調を活かした低単価ARの大量調達と限定プロモの現地プレ値活用）",
@@ -139,13 +147,13 @@ ${rules}
             return parseAIJson(res.content.toString());
         } catch {
             return {
-                title: `【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達・利ざやマトリクスレポート`,
+                title: `${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート`,
                 claim: `今週の${cur.name}向け日本語版カード輸入調達戦略`,
                 summary: {
                     headline: "円安環境を活かした高回転ARの日本一括調達と限定プロモの現地マージン確保",
                     macroAnalysis: {
                         japanSourcingClimate: "為替レートの恩恵により日本国内の調達原価が割安に推移。フリマ・専門店に良品在庫が豊富。",
-                        localMarketDemand: "現行モダンAR/CHRの現地コレクター需要が極めて高く、絶版プロモの希少性評価が定着。"
+                        localMarketDemand: "現行モダンAR/CHRの現地コレクター需要が極めて高く、手頃な絶版シングルへのコレクション需要も安定。"
                     },
                     microAnalysis: {
                         topImportMarginCard: "限定プロモ枠および準高額PSA10で30%〜50%以上の純利ざやを確保可能",
@@ -174,8 +182,9 @@ ${rules}
     const validSlots = slotResults.filter(Boolean);
 
     return {
-        title: summaryResult?.title || `【${region.toUpperCase()}現地販売】日本語版ポケモンカード 輸入調達マトリクス`,
+        title: summaryResult?.title || `${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート`,
         claim: summaryResult?.claim || "海外現地事業者向け 日本語版カード輸入調達ポートフォリオ",
+        createdAt: formattedCreatedAt,
         summary: summaryResult?.summary,
         slots: validSlots
     };
