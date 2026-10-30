@@ -30,7 +30,7 @@ export async function runMarketTrend(
 
   const cur = regionContexts[region];
   const model = new ChatGoogleGenerativeAI({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     temperature: 0.2,
     maxOutputTokens: 8192,
   });
