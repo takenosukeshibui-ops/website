@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
         // 1. 市場トレンドアナリスト単体実行
         if (action === 'trend') {
-            const report = await runMarketTrend(targetRegion);
+            const report = await runMarketTrend(targetRegion, category);
             const currentTrends = currentData?.trendInsights || { us: null, eu: null, asia: null };
             return NextResponse.json({
                 success: true,
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
         // 2. アービトラージアナリスト単体実行
         if (action === 'arbitrage') {
-            const report = await runSayaAnalysis(targetRegion);
+            const report = await runSayaAnalysis(targetRegion, category);
             const currentProfits = currentData?.profitableCards || { us: null, eu: null, asia: null };
             return NextResponse.json({
                 success: true,
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
         // 4. IGアナリスト単体実行
         if (action === 'account') {
-            const accountReport = await runAccountAnalysis();
+            const accountReport = await runAccountAnalysis(category);
             return NextResponse.json({ success: true, data: { accountInsights: accountReport } });
         }
 
@@ -88,13 +88,13 @@ export async function POST(req: Request) {
 
         // 6. Instagram原稿単体実行
         if (action === 'sns') {
-            const snsPosts = await runSnsPosts(currentData?.chiefPackage, currentData?.accountInsights);
+            const snsPosts = await runSnsPosts(currentData?.chiefPackage, currentData?.accountInsights, category);
             return NextResponse.json({ success: true, data: { snsPosts } });
         }
 
-        // 7. X原稿単体実行（'x' と 'x_posts' の両方を受け付けるよう修正）
+        // 7. X原稿単体実行
         if (action === 'x' || action === 'x_posts') {
-            const xPosts = await runXPosts(currentData?.chiefPackage, currentData?.xAccountInsights);
+            const xPosts = await runXPosts(currentData?.chiefPackage, currentData?.xAccountInsights, category);
             return NextResponse.json({ success: true, data: { xPosts } });
         }
 
@@ -156,13 +156,13 @@ export async function POST(req: Request) {
                 xAccountReport,
                 proofPackage
             ] = await Promise.all([
-                runMarketTrend('us'),
-                runMarketTrend('eu'),
-                runMarketTrend('asia'),
-                runSayaAnalysis('us'),
-                runSayaAnalysis('eu'),
-                runSayaAnalysis('asia'),
-                runAccountAnalysis(),
+                runMarketTrend('us', category),
+                runMarketTrend('eu', category),
+                runMarketTrend('asia', category),
+                runSayaAnalysis('us', category),
+                runSayaAnalysis('eu', category),
+                runSayaAnalysis('asia', category),
+                runAccountAnalysis(category),
                 runXAccountAnalysis(),
                 runHitProofEngine(pastLogs || [])
             ]);
@@ -175,8 +175,8 @@ export async function POST(req: Request) {
 
             // [Step 3] クリエイター陣による原稿制作
             const [snsPosts, xPosts, salesDM] = await Promise.all([
-                runSnsPosts(chiefPackage, accountReport),
-                runXPosts(chiefPackage, xAccountReport),
+                runSnsPosts(chiefPackage, accountReport, category),
+                runXPosts(chiefPackage, xAccountReport, category),
                 runSalesDM(chiefPackage)
             ]);
 

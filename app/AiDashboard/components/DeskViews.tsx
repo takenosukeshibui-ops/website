@@ -16,8 +16,8 @@ interface DeskViewsProps {
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
-    handlePublishToX: (mainPost: string, threadPosts: string[]) => void;
-    isPublishingX: boolean;
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
+    isPublishingX: boolean; // 🌟 X投稿ローディングState
 }
 
 export default function DeskViews({
@@ -29,6 +29,9 @@ export default function DeskViews({
 }: DeskViewsProps) {
     return (
         <>
+            {/* ========================================================= */}
+            {/* 👑 チーフマネージャー戦略デスク */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -64,7 +67,7 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 3地域横断マトリクス（存在する場合） */}
+                            {/* 🌟 3地域横断マトリクス */}
                             {aiData.chiefPackage.regionalMatrix && (
                                 <div>
                                     <h4 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
@@ -178,6 +181,8 @@ export default function DeskViews({
                     ) : (
                         <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだチーフの選定が行われていません。「全11AIに一斉調査・発信制作を指示」または「案件を再審査・選定」を実行してください。</div>
                     )}
+
+                    {/* 的中実績証明パッケージ */}
                     <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-5 space-y-4 shadow-xl">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                             <div>
@@ -217,6 +222,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 🔮 市場トレンドアナリスト */}
+            {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_trend') && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -235,6 +243,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 💎 アービトラージアナリスト */}
+            {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_arbitrage') && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -253,6 +264,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 📊 自社Instagramアナリスト */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_account' && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -271,6 +285,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 🐦 自社X (Twitter) アナリスト */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_x_account' && (
                 <div className="max-w-4xl mx-auto space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -289,6 +306,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 🎨 Instagram専任 投稿クリエイター */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -319,6 +339,27 @@ export default function DeskViews({
                                     ))}
                                 </div>
                             </div>
+
+                            {/* 🌟 推奨ハッシュタグ表示＆一括コピー枠 */}
+                            {aiData.snsPosts.hashtags && aiData.snsPosts.hashtags.length > 0 && (
+                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
+                                            <span>🏷️</span> 推奨ハッシュタグ (英語圏コレクター・投資家向け)
+                                        </h4>
+                                        <button 
+                                            onClick={() => handleCopy(aiData.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
+                                            className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
+                                        >
+                                            {copiedKey === 'ig_tags' ? '✓ コピー完了' : 'タグ一括コピー'}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-400 font-mono leading-relaxed bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                                        {aiData.snsPosts.hashtags.join(' ')}
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-white">📝 投稿キャプション (ハイブリッド推奨版)</h4>
@@ -336,6 +377,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 🐦 X (Twitter) 専任 投稿クリエイター */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -402,6 +446,9 @@ export default function DeskViews({
                 </div>
             )}
 
+            {/* ========================================================= */}
+            {/* 💬 コミュニティ営業AIデスク (Discord) */}
+            {/* ========================================================= */}
             {aiActiveDesk === 'desk_dm' && (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">

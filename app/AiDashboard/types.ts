@@ -144,6 +144,7 @@ export interface ProofPackageData {
 export interface SnsPostsData {
     theme: string;
     recommendedTiming: string;
+    hashtags?: string[];
     visualGuideline: { coverSlide: string; carouselSlides: string[]; };
     posts: { hybridPost: string; arbitragePost: string; trendPost: string; };
     discordCTA: string;

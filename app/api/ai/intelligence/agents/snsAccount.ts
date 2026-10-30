@@ -1,43 +1,59 @@
+// app/api/ai/intelligence/agents/snsAccount.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { getInstagramInsights } from '@/lib/instagram';
-import { parseAIJson } from '../helpers';
+import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
 
-// 4. IGアナリスト
-export async function runAccountAnalysis() {
+// 4. IGアナリスト（自社Instagramグロース＆2股ファネル転換アナリスト）
+export async function runAccountAnalysis(category: string = 'pokemon') {
     const rawInsights = await getInstagramInsights(5);
+    const categoryName = getCategoryName(category);
+    const rules = await getAgentRules('account');
+
     const model = new ChatGoogleGenerativeAI({
         model: "gemini-3.1-flash-lite",
         temperature: 0.2,
     });
 
-    const prompt = `あなたは越境トレカ・ホビー販売事業の専任IGアナリストです。
-直近データ: ${JSON.stringify(rawInsights)}
+    const prompt = `あなたは越境【${categoryName}】事業における【自社Instagram専任アカウントアナリスト＆グロースディレクター】です。
 
-答えを教えない撒き餌設計（Fact/Result提示、Action/Reason秘匿）に基づき、改善戦術を分析してください。
+【私たちの最終ゴール（KGI）】
+1. 「先行情報・相場データ（Reason）」を求めるユーザーを【有料VIP Discord】へ誘導すること。
+2. 「今すぐ利ざやを抜くための直送手配（Action）」を求めるユーザーを【自社代理購入サイト】へ誘導すること。
+※Instagram投稿はすべてこの2股導線への「撒き餌」であり、プロフ遷移率と保存（Save）率を最大化することがあなたの至上命題です。
 
-以下のJSON形式のみを出力してください:
+【直近のアカウント実績データ（Meta Graph API）】:
+${JSON.stringify(rawInsights)}
+
+【あなたの分析・ディレクション任務】:
+過去投稿のエンゲージメント（いいね・コメント・推定保存率）、投稿時間帯、ハッシュタグ、カルーセル構成を分析し、
+次に動く「Instagram専任投稿クリエイター」が今週作るべき【最高精度の投稿レギュレーション】を策定してください。
+
+${rules}
+
+以下のJSON形式のみを出力してください（Markdown装飾や余計な解説は不要です）:
 {
-  "title": "自社Instagramアカウントエンゲージメント・ファネル診断",
-  "claim": "改善すべき主要フックおよび投稿方針の推奨アクション",
+  "title": "自社Instagram 2股ファネル転換＆アカウント診断レポート",
+  "claim": "今週の投稿で2股導線（Discord/自社サイト）への送客を最大化するための最重要改善アクション",
   "reasons": [
-    "過去投稿のエンゲージメント分析結果",
-    "クリック率・プロフ誘導のボトルネック",
-    "最も反響の高かった投稿切り口の法則"
+    "過去投稿のエンゲージメント・保存率ボトルネック分析",
+    "最もプロフ遷移を生み出した訴求切り口（サヤ取り型 vs トレンド先行型 vs 的中実績型）の検証",
+    "海外リーチを最大化するハッシュタグおよび投稿タイミングの相関"
   ],
   "facts": [
-    { "label": "平均いいね/保存数", "value": "XX件" },
-    { "label": "高反響の訴求軸", "value": "確定利ざや系 or トレンド系" },
-    { "label": "推奨投稿時間帯", "value": "日本時間 20:00〜22:00" },
-    { "label": "プロフ遷移率", "value": "X.X%" }
+    { "label": "最優秀反響パターン", "value": "確定利ざや比較カルーセル（6枚構成）" },
+    { "label": "推奨投稿時間帯", "value": "日本時間 21:00（米国朝/欧州午後/アジア夜の重複）" },
+    { "label": "ハッシュタグ推奨配分", "value": "ビッグ4: ミドル4: スモール2 (計10個)" },
+    { "label": "2股CTA推奨誘導", "value": "Reason(情報)→Discord / Action(手配)→プロフリンク" }
   ],
-  "soWhat": "次回のInstagramクリエイターへの指示ルール",
+  "soWhat": "Instagramクリエイターへの直接制作指示（表紙フックの文字数、スライド展開順、CTA文言の型）",
   "riskAndMitigation": {
-    "risk": "アルゴリズム変更によるリーチ低下",
-    "mitigation": "カルーセルスライド複数枚化による滞在時間の向上"
+    "risk": "ノウハウを投稿本文で喋りすぎてしまいプロフに飛ばずに離脱されるリスク",
+    "mitigation": "仕入れ先名・具体的ルートを完全秘匿し、Fact（価格差・成約事実）のみ提示してプロフに誘導する"
   },
   "verificationChecklist": [
-    "プロフURLの計測タグ確認",
-    "保存率の高いスライド構成のテンプレ化"
+    "1枚目（表紙）の価格差フックがスマホ画面で3秒以内に理解できるか",
+    "最終スライドの2股CTA（Discord/自社サイト）が明確に分かれているか",
+    "海外向け英語ハッシュタグが正しくセットされているか"
   ]
 }`;
 
