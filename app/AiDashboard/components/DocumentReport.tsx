@@ -44,9 +44,9 @@ export default function DocumentReportView({
         minute: '2-digit'
     });
 
-    // 地域タグの抽出（例: 【US】など）
+    // 地域タグの抽出（例: 【北米】など）
     const regionMatch = report.title?.match(/【(.*?)】/);
-    const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【US】';
+    const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【北米】';
 
     // 🌟 タイトル: 作成日時 ＋ 地域 ＋ アービトラージレポート
     const displayTitle = `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
