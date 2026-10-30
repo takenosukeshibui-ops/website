@@ -69,7 +69,7 @@ export default function Sidebar({
                         <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                     </div>
                     <div className="mt-1 space-y-1">
-                        {([{ key: 'us', label: '北米担当アナリスト', desc: 'eBay / TCG' }, { key: 'eu', label: '欧州担当アナリスト', desc: 'Cardmarket' }, { key: 'asia', label: 'アジア担当アナリスト', desc: 'Shopee' }] as const).map(item => (
+                        {([{ key: 'us', label: '北米担当アナリスト', desc: '' }, { key: 'eu', label: '欧州担当アナリスト', desc: '' }, { key: 'asia', label: 'アジア担当アナリスト', desc: '' }] as const).map(item => (
                             <button key={item.key} type="button" onClick={() => { setActiveTrendRegion(item.key); setAiActiveDesk(`desk_trend_${item.key}`); }} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === `desk_trend_${item.key}` ? 'bg-amber-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                                 <span>{item.label}</span><span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
                             </button>
@@ -83,7 +83,7 @@ export default function Sidebar({
                         <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
                     </div>
                     <div className="mt-1 space-y-1">
-                        {([{ key: 'us', label: '北米担当アナリスト', desc: '日米・FedEx' }, { key: 'eu', label: '欧州担当アナリスト', desc: '日欧・EMS' }, { key: 'asia', label: 'アジア担当アナリスト', desc: '日亜・Shopee' }] as const).map(item => (
+                        {([{ key: 'us', label: '北米担当アナリスト', desc: '' }, { key: 'eu', label: '欧州担当アナリスト', desc: '' }, { key: 'asia', label: 'アジア担当アナリスト', desc: '' }] as const).map(item => (
                             <button key={item.key} type="button" onClick={() => { setActiveArbitrageRegion(item.key); setAiActiveDesk(`desk_arbitrage_${item.key}`); }} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === `desk_arbitrage_${item.key}` ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                                 <span>{item.label}</span><span className="text-[10px] opacity-60 font-mono">{item.desc}</span>
                             </button>
@@ -99,10 +99,10 @@ export default function Sidebar({
                     </div>
                     <div className="mt-1 space-y-1">
                         <button type="button" onClick={() => setAiActiveDesk('desk_account')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_account' ? 'bg-pink-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>📊 IG アナリスト</span><span className="text-[10px] opacity-60 font-mono">反応・ファネル分析</span>
+                            <span>📊 IG アナリスト</span><span className="text-[10px] opacity-60 font-mono"></span>
                         </button>
                         <button type="button" onClick={() => setAiActiveDesk('desk_sns')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_sns' ? 'bg-pink-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>🎨 IG クリエイター</span><span className="text-[10px] opacity-60 font-mono">カルーセル・原稿作成</span>
+                            <span>🎨 IG クリエイター</span><span className="text-[10px] opacity-60 font-mono"></span>
                         </button>
                     </div>
                 </div>
@@ -115,10 +115,10 @@ export default function Sidebar({
                     </div>
                     <div className="mt-1 space-y-1">
                         <button type="button" onClick={() => setAiActiveDesk('desk_x_account')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x_account' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>📈 X アナリスト</span><span className="text-[10px] opacity-60 font-mono">アルゴリズム分析</span>
+                            <span>📈 X アナリスト</span><span className="text-[10px] opacity-60 font-mono"></span>
                         </button>
                         <button type="button" onClick={() => setAiActiveDesk('desk_x')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>✍️ X クリエイター</span><span className="text-[10px] opacity-60 font-mono">140字・スレッド</span>
+                            <span>✍️ X クリエイター</span><span className="text-[10px] opacity-60 font-mono"></span>
                         </button>
                     </div>
                 </div>
