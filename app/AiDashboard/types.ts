@@ -118,6 +118,41 @@ export interface MarketTrendReport {
     hypotheses: MarketTrendHypothesis[]; // 最大3本
 }
 
+// 🌟 市場トレンド：エグゼクティブ・サマリー型
+export interface MarketTrendExecutiveSummary {
+  headline: string; // 今週のトレンド総括見出し
+  trendDynamics: {
+    catalystOverview: string; // 海外の急騰トリガー・資金流入口
+    japanPriceLag: string;    // 日本国内での安値放置理由・相場ラグ
+  };
+  strategicHighlights: {
+    mvpCatalystCard: string;  // 最注目カタリスト銘柄（MVP）
+    optimalExitWindow: string;// 全体的な売り抜け推奨期間・時間軸
+  };
+  riskAlert: {
+    hypeTrapWarning: string;  // 一時的バブル・過熱リスクへの警告
+    gradingVsRawStrategy: string; // 素体NM即売りかPSA10鑑定出しかの指針
+  };
+  actionDirectives: string[]; // 今週の先回り仕込みアクション指針（箇条書き）
+}
+
+// 🌟 トレンド：親となるトレンド仮説（最大3本）
+export interface MarketTrendHypothesis {
+  headline: string;
+  signal: string;
+  timeframe: string;
+  items: MarketTrendCardItem[];
+}
+
+// 🌟 トレンド：統合レポート
+export interface MarketTrendReport {
+  title: string;
+  claim: string;
+  createdAt: string;
+  summary?: MarketTrendExecutiveSummary; // 🌟 サマリーを追加
+  hypotheses: MarketTrendHypothesis[];
+}
+
 // ==========================================
 // 🌟 パッケージ・SNS・プロモーション型定義
 // ==========================================

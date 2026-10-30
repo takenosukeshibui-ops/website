@@ -9,7 +9,6 @@ export async function runMarketTrend(
 ): Promise<MarketTrendReport | null> {
   const rules = await getAgentRules('trend');
 
-  // 地域ごとに固定するのは「監視ソースと通貨」のみに留める
   const regionContexts = {
     us: {
       name: '北米市場（アメリカ・カナダ）',
@@ -30,7 +29,7 @@ export async function runMarketTrend(
 
   const cur = regionContexts[region];
   const model = new ChatGoogleGenerativeAI({
-    model: 'gemini-3.1-flash-lite',
+    model: 'gemini-2.5-flash',
     temperature: 0.2,
     maxOutputTokens: 8192,
   });
@@ -63,13 +62,15 @@ ${rules}
    - 【象徴ポケモンのフラッグシップ】: 大会環境や新弾で話題のポケモンであっても、コレクション・鑑賞対象となる【最高レアリティ（SAR / UR）のみ】を選定
 
 【構成ルール】
-1. トレンド仮説（親）は【最大3本（2〜3本）】抽出:
-   - 同一ジャンルに偏らせず、その地域市場で最も客観的なシグナル（実成約の急増、コミュニティでの言及急増、出品在庫の枯渇など）が出ている波を多角的に抽出してください。
-2. 各仮説にぶら下げる波及銘柄（子）は【上位5銘柄（Rank 1〜5）】を抽出:
+1. 【エグゼクティブ・サマリー】の生成:
+   - レポート全体の潮流、最注目カタリスト銘柄、売り抜け時間軸、警戒リスク、今週のアクション指針を総括すること。
+2. トレンド仮説（親）は【最大3本（2〜3本）】抽出:
+   - 同一ジャンルに偏らせず、客観的なシグナル（実成約急増、SNS言及急増、出品枯渇等）が出ている波を多角的に抽出すること。
+3. 各仮説にぶら下げる波及銘柄（子）は【上位5銘柄（Rank 1〜5）】を抽出:
    - Rank 1: トレンド直撃の最本命カード（主役・フラッグシップ）
    - Rank 2〜3: 連動して動く主力カード
    - Rank 4〜5: 派生効果で化ける過去弾カードや先行大穴
-3. 価格予測のノイズ排除:
+4. 価格予測のノイズ排除:
    - ピーク予想価格や成長率（%）は出力せず、「🇯🇵 日本調達原価」と「${cur.currency} 現地現在相場」の確定値のみを出力すること。
 
 以下の厳格なJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要）:
@@ -77,9 +78,28 @@ ${rules}
   "title": "${formattedCreatedAt} 【${region.toUpperCase()}】市場トレンド先行シグナルレポート",
   "claim": "今週の${cur.name}における急騰先行シグナルと波及銘柄ポートフォリオ",
   "createdAt": "${formattedCreatedAt}",
+  "summary": {
+    "headline": "今週のトレンド総括見出し（例: 海外コレクターによる特定作家ARの現地買い戻し過熱と初期SARの在庫蒸発）",
+    "trendDynamics": {
+      "catalystOverview": "海外市場での急騰トリガー・資金流入口の解説（1〜2文）",
+      "japanPriceLag": "なぜ日本国内で安値放置されているのか・相場ラグの背景解説（1〜2文）"
+    },
+    "strategicHighlights": {
+      "mvpCatalystCard": "今週の最注目カタリスト銘柄名とその理由",
+      "optimalExitWindow": "売り抜け推奨期間（例: 到着後2〜3週間以内 / 次弾海外発売直前）"
+    },
+    "riskAlert": {
+      "hypeTrapWarning": "一時的煽りバブルや日本国内での急な再販リスクへの警戒点",
+      "gradingVsRawStrategy": "素体NM即売りかPSA10鑑定出しかの推奨指針"
+    },
+    "actionDirectives": [
+      "最優先で日本から確保すべき銘柄・仕入れ方のアクション指針",
+      "現地到着後の販売・売り抜けスピードに関するアクション指針"
+    ]
+  },
   "hypotheses": [
     {
-      "headline": "🔥 [トレンド核心タイトル] （例: 海外コミュニティでの特定作家買い急増 / 日本限定プロモの現地流通枯渇 / 新弾象徴ポケモンのSAR再評価 など）",
+      "headline": "🔥 [トレンド核心タイトル]",
       "signal": "【兆候・事実】 なぜその波が起きているかの証拠（現地実成約の動き、SNS言及、在庫状況など客観的事実）",
       "timeframe": "⏳ ピーク想定: 【短期/中期/中長期】〇週間後",
       "items": [
