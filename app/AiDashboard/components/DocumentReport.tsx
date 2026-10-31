@@ -1,41 +1,41 @@
 // app/AiDashboard/components/DocumentReport.tsx
 import React, { useState } from 'react';
 
-// 🌟 5スロットの［ラベル］と［説明］のマッピング
+// 🌟 指定順序に合わせた5スロットの［ラベル］［説明］［ソート順］マッピング
 const SLOT_METADATA: Record<string, { badge: string; desc: string; order: number }> = {
-    modern_meta: {
-        badge: 'モダン・メタ',
-        desc: 'SM〜SV期・直近弾・対戦需要',
+    classic_vintage: {
+        badge: 'クラシック・ヴィンテージ',
+        desc: '旧裏〜PCG期・歴史的希少品',
         order: 1
-    },
-    exclusive_promo: {
-        badge: '限定プロモ',
-        desc: 'ポケセン・ジム・タイアップ等',
-        order: 2
-    },
-    promos_exclusive: {
-        badge: '限定プロモ',
-        desc: 'ポケセン・ジム・タイアップ等',
-        order: 2
-    },
-    graded_sealed: {
-        badge: '鑑定・絶版BOX',
-        desc: 'PSA10・POP希少・絶版未開封BOX',
-        order: 3
-    },
-    high_end_sealed: {
-        badge: '鑑定・絶版BOX',
-        desc: 'PSA10・POP希少・絶版未開封BOX',
-        order: 3
     },
     neo_vintage: {
         badge: 'ネオ・ヴィンテージ',
         desc: 'DP〜XY期・コレクション回帰',
+        order: 2
+    },
+    modern_meta: {
+        badge: 'モダン・メタ',
+        desc: 'SM〜SV期・直近弾・対戦需要',
+        order: 3
+    },
+    exclusive_promo: {
+        badge: '限定プロモ',
+        desc: 'ポケセン・ジム・タイアップ等',
         order: 4
     },
-    classic_vintage: {
-        badge: 'クラシック・ヴィンテージ',
-        desc: '旧裏〜PCG期・歴史的希少品',
+    promos_exclusive: {
+        badge: '限定プロモ',
+        desc: 'ポケセン・ジム・タイアップ等',
+        order: 4
+    },
+    graded_sealed: {
+        badge: '鑑定・絶版BOX',
+        desc: 'PSA10・POP希少・絶版未開封BOX',
+        order: 5
+    },
+    high_end_sealed: {
+        badge: '鑑定・絶版BOX',
+        desc: 'PSA10・POP希少・絶版未開封BOX',
         order: 5
     }
 };
@@ -50,7 +50,6 @@ export default function DocumentReportView({
     icon?: string;
 }) {
     const [selectedTier, setSelectedTier] = useState<string>('all');
-    const [openSubIndex, setOpenSubIndex] = useState<string | null>(null);
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
@@ -91,10 +90,6 @@ export default function DocumentReportView({
         }
     };
 
-    const toggleSub = (cellId: string) => {
-        setOpenSubIndex(prev => prev === cellId ? null : cellId);
-    };
-
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
@@ -131,7 +126,6 @@ export default function DocumentReportView({
         return 5;
     };
 
-    // 🌟 スロット情報を［ラベル］と［説明］のみで取得
     const getSlotMeta = (slotKey: string, slotLabel?: string) => {
         const meta = SLOT_METADATA[slotKey] || SLOT_METADATA[slotKey.toLowerCase()];
         if (meta) return meta;
@@ -142,7 +136,7 @@ export default function DocumentReportView({
         };
     };
 
-    // 体系順（モダン ➔ プロモ ➔ 鑑定BOX ➔ ネオ ➔ クラシック）に整列
+    // 🌟 指定された並び順（クラシック ➔ ネオ ➔ モダン ➔ 限定プロモ ➔ 鑑定絶版BOX）で昇順ソート
     const sortedSlots = (report.slots || []).slice().sort((a: any, b: any) => {
         const orderA = getSlotMeta(a.slotKey, a.slotLabel).order;
         const orderB = getSlotMeta(b.slotKey, b.slotLabel).order;
@@ -401,7 +395,6 @@ export default function DocumentReportView({
 
                                     return (
                                         <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
-                                            {/* 🌟 ［ラベル］と［説明］のみのすっきりした見出し */}
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-bold text-amber-300 font-mono">
@@ -492,7 +485,7 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」選択時 */
+                            /* 🌟 「すべて表示」選択時: ボタンを廃止し代替候補も常時展開表示 */
                             <div className="space-y-4">
                                 {sortedSlots.map((slot: any, sIdx: number) => {
                                     const rawTiers: any[] = slot.tiers || slot.items || [];
@@ -523,7 +516,6 @@ export default function DocumentReportView({
 
                                     return (
                                         <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
-                                            {/* 🌟 ［ラベル］と［説明］のみのすっきりした見出し */}
                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-bold text-amber-300 font-mono">
@@ -542,8 +534,6 @@ export default function DocumentReportView({
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                                 {sortedTiers.map((tierCell: any, cIdx: number) => {
-                                                    const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
-                                                    const isOpen = openSubIndex === cellId;
                                                     const main = tierCell.mainItem || tierCell;
                                                     const subs: any[] = tierCell.subItems || [];
 
@@ -591,35 +581,26 @@ export default function DocumentReportView({
                                                                 )}
                                                             </div>
 
+                                                            {/* 🌟 ボタンを撤廃し、代替候補が存在する場合は常時すべて表示 */}
                                                             {subs.length > 0 && (
-                                                                <div className="border-t border-slate-800 pt-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleSub(cellId)}
-                                                                        className="w-full text-xs font-mono font-bold py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1.5 transition-all"
-                                                                    >
-                                                                        <span>{isOpen ? '▲' : '▼'}</span>
-                                                                        <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
-                                                                    </button>
-
-                                                                    {isOpen && (
-                                                                        <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
-                                                                            {subs.map((subItem: any, sIdx: number) => (
-                                                                                <div key={sIdx} className="bg-slate-950/90 p-2 rounded-lg border border-slate-800/60 text-[11px] space-y-1">
-                                                                                    <div className="flex justify-between items-center">
-                                                                                        <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
-                                                                                            {subItem.cardName}
-                                                                                        </span>
-                                                                                        <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
-                                                                                    </div>
-                                                                                    <div className="flex justify-between font-mono text-slate-400">
-                                                                                        <span>調達: {subItem.jpBuyPriceJPY}</span>
-                                                                                        <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
+                                                                <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1.5">
+                                                                    <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between px-0.5">
+                                                                        <span>🥈 代替候補 ({subs.length}件)</span>
+                                                                    </div>
+                                                                    {subs.map((subItem: any, subIdx: number) => (
+                                                                        <div key={subIdx} className="bg-slate-950/90 p-2 rounded-lg border border-slate-800/60 text-[11px] space-y-1">
+                                                                            <div className="flex justify-between items-center">
+                                                                                <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
+                                                                                    {subItem.cardName}
+                                                                                </span>
+                                                                                <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
+                                                                            </div>
+                                                                            <div className="flex justify-between font-mono text-slate-400 text-[10px]">
+                                                                                <span>調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
+                                                                            </div>
                                                                         </div>
-                                                                    )}
+                                                                    ))}
                                                                 </div>
                                                             )}
                                                         </div>
