@@ -41,7 +41,7 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
         minute: '2-digit' 
     });
 
-    // 1つのスロット（5価格帯 × 5商品 ＝ 計25商品）を査定するサブ関数
+    // 1つのスロット（5価格帯 × 3商品 ＝ 計15商品）を査定するサブ関数
     const analyzeSingleSlot = async (slot: SlotDefinition) => {
         const slotPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達（Import & Retail）する海外現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
@@ -49,8 +49,8 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
 【調達リサーチ任務】
-以下の【5つの価格帯】すべてについて、自国への輸入販売に適した日本語版カードを【本命1商品 ＋ 代替候補4商品（計5商品）】厳選してください。
-（このスロット全体で 5価格帯 × 5商品 ＝ 合計25商品）
+以下の【5つの価格帯】すべてについて、自国への輸入販売に適した日本語版カードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選してください。
+（このスロット全体で 5価格帯 × 3商品 ＝ 合計15商品）
 
 ■ 5つの価格帯と調達・合格基準:
 1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、現地直近7日成約 5件以上（超高回転・エントリー枠）
@@ -84,15 +84,13 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
       },
       "subItems": [
         { "cardName": "候補2 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
-        { "cardName": "候補4 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
-        { "cardName": "候補5 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
+        { "cardName": "候補3 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
       ]
     },
-    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 4商品 */ ] },
-    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 4商品 */ ] },
-    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 4商品 */ ] },
-    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ }, "subItems": [ /* 4商品 */ ] }
+    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
+    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
+    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
+    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] }
   ]
 }`;
 
