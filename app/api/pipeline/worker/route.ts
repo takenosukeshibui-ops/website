@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
       const researchRows: any[] = [];
 
-      // A. アービトラージ候補抽出（安全な配列ガード付き）
+      // A. アービトラージ候補抽出（本命1件 ＋ 代替2件 ＝ 計3件を全件フラットに展開: 計225件）
       const extractArbitrageItems = (report: any, region: string) => {
         if (!report?.slots || !Array.isArray(report.slots)) return;
         for (const slot of report.slots) {
@@ -77,15 +77,21 @@ export async function POST(req: Request) {
             tiers = slot.tiers;
           } else if (slot.tiers && typeof slot.tiers === 'object') {
             tiers = Object.values(slot.tiers);
-          } else if (Array.isArray(slot.items)) {
-            tiers = [{ mainItem: slot.items[0], subItems: slot.items.slice(1) }];
           }
 
           for (const tier of tiers) {
-            const main = tier?.mainItem;
-            if (main && main.cardName) {
-              const buy = parseInt(String(main.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-              const spread = parseInt(String(main.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
+            // 本命と代替2件を同一階層の配列にまとめて全件展開
+            const allItemsInTier = [
+              ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
+              ...(Array.isArray(tier?.subItems)
+                ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
+                : []),
+            ];
+
+            for (const item of allItemsInTier) {
+              if (!item || !item.cardName) continue;
+              const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+              const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
               const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
               researchRows.push({
@@ -94,16 +100,16 @@ export async function POST(req: Request) {
                 region,
                 slot_key: slot.slotKey || 'arbitrage_slot',
                 price_tier: tier.priceTier || 'middle',
-                card_name: main.cardName,
-                condition_grade: main.conditionGrade || 'Raw NM',
+                card_name: item.cardName,
+                condition_grade: item.conditionGrade || 'Raw NM',
                 jp_buy_price_jpy: buy,
-                target_sold_price_local: main.targetSoldPrice || '$0',
+                target_sold_price_local: item.targetSoldPrice || '$0',
                 target_sold_price_jpy: buy + spread,
                 price_spread_jpy: spread,
                 spread_roi_percent: roi,
-                liquidity_indicator: main.liquidity || '直近成約あり',
-                research_insight: main.insight || '',
-                raw_payload: { ...tier, reportSummary: report.summary },
+                liquidity_indicator: item.liquidity || '直近成約あり',
+                research_insight: item.insight || '',
+                raw_payload: { ...tier, reportSummary: report.summary, currentItem: item },
                 gate1_status: 'pending',
                 is_selected: false,
               });
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
         }
       };
 
-      // B. トレンド候補抽出（安全な配列ガード付き）
+      // B. トレンド候補抽出（仮説ごとの銘柄 & レポート本文情報）
       const extractTrendItems = (report: any, region: string) => {
         if (!report?.hypotheses) return;
         const hypotheses = Array.isArray(report.hypotheses)
@@ -191,10 +197,10 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 2: Gate 1 (商材・数値) 監査（全候補の一斉審査）
+    // Phase 2: Gate 1 (商材・数値 & トレンド論理) 監査（全240件一斉審査）
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
-      console.log('▶ [Phase 2] Gate 1 数値・規約監査（全候補対象）を開始します...');
+      console.log('▶ [Phase 2] Gate 1-A (数値検算) & Gate 1-B (トレンド文章論理) 監査を開始します...');
       const { data: allItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -215,13 +221,13 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
-      console.log('✔ [Phase 2 完了] 全候補の監査完了。ステータスを curating に更新しました');
+      console.log('✔ [Phase 2 完了] 全240件の監査完了。ステータスを curating に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 3: キュレーター選定（Gate 1合格品から7日分スロットを厳選）
+    // Phase 3: キュレーター選定（Gate 1 合格品から7日分スロットを厳選）
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
       console.log('▶ [Phase 3] キュレーター選定を開始します...');
@@ -232,7 +238,6 @@ export async function POST(req: Request) {
         .eq('cycle_id', cycleId)
         .eq('gate1_status', 'passed');
 
-      // 🌟 万が一Gate 1で全員落ちていた場合の安全フォールバック（全件から選定）
       if (!passedCandidates || passedCandidates.length === 0) {
         console.warn('⚠️ Gate 1合格品が0件のため、全候補から選定を行います');
         const fallbackRes = await supabase
@@ -244,7 +249,6 @@ export async function POST(req: Request) {
 
       const rawSelected = await runCuratorSelection((passedCandidates as any) || []);
 
-      // 🌟 戻り値の型安全ガード（配列直返し / オブジェクト直返しを自動吸収）
       const selectedList: any[] = Array.isArray(rawSelected)
         ? rawSelected
         : Array.isArray((rawSelected as any)?.selectedItems)

@@ -18,7 +18,7 @@ interface DeskViewsProps {
     activeTrendRegion: RegionKey;
     activeArbitrageRegion: RegionKey;
     aiData: IntelligenceData | null;
-    gate1Audits?: Gate1AuditItem[];
+    gate1Audits?: (Gate1AuditItem & { agentKey?: string; priceTier?: string })[];
     gate2Audits?: Gate2AuditItem[];
     runningAction: string | null;
     runSingleAi: (action: string, region?: RegionKey) => void;
@@ -43,19 +43,21 @@ export default function DeskViews({
     const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
     const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
 
-    // Instagramの選択された曜日の投稿データ取得
     const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
     const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
 
-    // Xの選択された曜日のスレッドデータ取得
     const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
+    // 地域・担当ごとに Gate 1 監査をフィルタリング
+    const currentTrendAudits = gate1Audits.filter(a => a.agentKey === 'trend' && a.region === activeTrendRegion);
+    const currentArbAudits = gate1Audits.filter(a => a.agentKey === 'arbitrage' && a.region === activeArbitrageRegion);
+
     return (
         <>
             {/* ========================================================= */}
-            {/* 👑 チーフマネージャー戦略デスク（AIキュレーター） */}
+            {/* 👑 チーフマネージャー戦略デスク */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -93,14 +95,14 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 7日分週間コンテンツカレンダー */}
+                            {/* 7日分週間コンテンツカレンダー */}
                             {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
                                 <div>
                                     <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
                                         <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                                             <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分スロット）
                                         </h4>
-                                        <span className="text-[10px] text-slate-400">Gate 1 四則検算・商材監査合格品</span>
+                                        <span className="text-[10px] text-slate-400">Gate 1 検算・論理監査 合格品</span>
                                     </div>
                                     <div className="space-y-2.5">
                                         {aiData.chiefPackage.contentCalendar.map((item: any, cIdx: number) => (
@@ -143,7 +145,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🛡️ Gate 1 & Gate 2 監査役デスク */}
+            {/* 🛡️ 品質・規約監査役デスク（Gate 2 専任） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_audit' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -152,134 +154,168 @@ export default function DeskViews({
                             <span className="text-3xl">🛡️</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">品質・規約監査役デスク</h2>
-                                <p className="text-xs text-slate-400">Gate 1（商材・四則計算・大会規約）＆ Gate 2（表現・機密漏洩・2股導線）監査結果</p>
+                                <p className="text-xs text-slate-400">Gate 2（配信コンテンツ表現・機密漏洩・2股導線・文字数規約）最終監査結果</p>
                             </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
+                                全承認: {gate2Audits.filter(a => a.status === 'passed').length} / {gate2Audits.length}
+                            </span>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {/* Gate 1 監査状況 */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
-                            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-                                <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                    <span>⚖️</span> Gate 1: 商材・数値監査
-                                </h3>
-                                <span className="text-xs font-mono font-bold text-slate-300">
-                                    {gate1Audits.filter(a => a.status === 'passed').length} / {gate1Audits.length} 合格
-                                </span>
-                            </div>
-                            {gate1Audits.length === 0 ? (
-                                <p className="text-xs text-slate-500 italic py-4 text-center">監査レコードはまだありません</p>
-                            ) : (
-                                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                                    {gate1Audits.map((item, idx) => (
-                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2 text-xs">
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                    item.status === 'passed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                                                }`}>
-                                                    {item.status === 'passed' ? '✔ 合格' : '✖ 差し戻し'}
-                                                </span>
-                                            </div>
-                                            <div className="text-[11px] text-slate-400 flex gap-2">
-                                                <span>枠: {item.slot}</span>
-                                                <span>地域: {item.region?.toUpperCase()}</span>
-                                            </div>
-                                            {/* 🌟 Gate 1 不合格理由・監査指摘のフォーマット強化 */}
-                                            {item.feedback && (
-                                                <div className="bg-amber-500/10 p-2.5 rounded border border-amber-500/20 mt-1">
-                                                    <span className="text-[10px] text-amber-400 font-bold block mb-1">💬 監査指摘・差し戻し理由</span>
-                                                    <p className="text-[11px] text-amber-200 leading-relaxed whitespace-pre-wrap">
-                                                        {item.feedback}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <h3 className="text-sm font-bold text-orange-300 flex items-center gap-2">
+                                <span>🔍</span> SNS・Discord 配信原稿 監査レポート一覧
+                            </h3>
+                            <span className="text-xs text-slate-400">「撒き餌原則」および仕入れ先ワード漏洩の厳格審査</span>
                         </div>
 
-                        {/* Gate 2 監査状況 */}
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
-                            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-                                <h3 className="text-sm font-bold text-orange-300 flex items-center gap-2">
-                                    <span>🔍</span> Gate 2: 表現・導線規約監査
-                                </h3>
-                                <span className="text-xs font-mono font-bold text-slate-300">
-                                    {gate2Audits.filter(a => a.status === 'passed').length} / {gate2Audits.length} 承認
-                                </span>
-                            </div>
-                            {gate2Audits.length === 0 ? (
-                                <p className="text-xs text-slate-500 italic py-4 text-center">監査レコードはまだありません</p>
-                            ) : (
-                                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                                    {gate2Audits.map((item, idx) => (
-                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2 text-xs">
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-bold text-white uppercase">{item.platform} 配信原稿</span>
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                    item.status === 'passed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                                                }`}>
-                                                    {item.status === 'passed' ? '✔ 配信承認' : '✖ 修正要請'}
-                                                </span>
-                                            </div>
-                                            <span className="text-[11px] text-slate-400 block">対象曜日: {item.day}</span>
-                                            {/* 🌟 Gate 2 規約指摘 ＆ 修正指示のフォーマット強化 */}
-                                            {item.feedback && (
-                                                <div className="bg-rose-500/10 p-2.5 rounded border border-rose-500/20 mt-1">
-                                                    <span className="text-[10px] text-rose-400 font-bold block mb-1">💬 規約指摘 ＆ 修正指示</span>
-                                                    <p className="text-[11px] text-rose-200 leading-relaxed whitespace-pre-wrap">
-                                                        {item.feedback}
-                                                    </p>
-                                                </div>
-                                            )}
+                        {gate2Audits.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic py-8 text-center">監査レコードはまだありません</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                                {gate2Audits.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800/80 space-y-2 text-xs">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold text-white uppercase flex items-center gap-1.5">
+                                                <span>{item.platform === 'instagram' ? '📸' : item.platform === 'x' ? '🐦' : '💬'}</span>
+                                                <span>{item.platform} 配信原稿</span>
+                                            </span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                item.status === 'passed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                            }`}>
+                                                {item.status === 'passed' ? '✔ 配信承認' : '✖ 修正要請'}
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                                        <div className="text-[11px] text-slate-400">
+                                            対象曜日・スロット: <span className="text-slate-300 font-bold">{item.day}</span>
+                                        </div>
+                                        {item.feedback && (
+                                            <div className="bg-rose-500/10 p-2.5 rounded border border-rose-500/20 mt-1">
+                                                <span className="text-[10px] text-rose-400 font-bold block mb-1">💬 規約指摘 ＆ 修正指示</span>
+                                                <p className="text-[11px] text-rose-200 leading-relaxed whitespace-pre-wrap">{item.feedback}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 🔮 市場トレンドアナリスト */}
+            {/* 🔮 市場トレンドアナリスト（自チームのGate 1監査結果を統合） */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_trend') && (
-                <div className="w-full space-y-5 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🔮</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({activeTrendRegion === 'us' ? '北米' : activeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
+                                <p className="text-xs text-slate-400">先行シグナル・急騰仮説レポート & 自チーム Gate 1 論理・大会規約監査</p>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
+
+                    {/* 🌟 自チームの Gate 1-B トレンド論理・規約監査ステータス */}
+                    {currentTrendAudits.length > 0 && (
+                        <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-md">
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                    <span>🛡️</span> 【{activeTrendRegion.toUpperCase()}市場】Gate 1 トレンド論理・大会規約 監査ステータス
+                                </h3>
+                                <span className="text-[11px] font-mono font-bold text-slate-300">
+                                    適合: {currentTrendAudits.filter(a => a.status === 'passed').length} / {currentTrendAudits.length} 件
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                                {currentTrendAudits.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
+                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                                item.status === 'passed' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                            }`}>
+                                                {item.status === 'passed' ? '✔ 適合' : '✖ 差し戻し'}
+                                            </span>
+                                        </div>
+                                        {item.feedback && (
+                                            <p className="text-[10px] text-amber-300 bg-amber-500/10 p-1.5 rounded border border-amber-500/20 leading-relaxed whitespace-pre-wrap">
+                                                💬 {item.feedback}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <DocumentReportView report={aiData?.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 💎 アービトラージアナリスト */}
+            {/* 💎 アービトラージアナリスト（自チームのGate 1監査結果を統合） */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_arbitrage') && (
-                <div className="w-full space-y-5 animate-fadeIn">
+                <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💎</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '北米' : activeArbitrageRegion === 'eu' ? '欧州' : 'アジア'})</h2>
+                                <p className="text-xs text-slate-400">5スロット×5価格帯 調達ポートフォリオ & 自チーム Gate 1 数値マージン検算</p>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('arbitrage', activeArbitrageRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === `arbitrage_${activeArbitrageRegion}` ? '査定中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
+
+                    {/* 🌟 自チームの Gate 1-A 数値検算監査ステータス */}
+                    {currentArbAudits.length > 0 && (
+                        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-3 shadow-md">
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <h3 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                    <span>⚖️</span> 【{activeArbitrageRegion.toUpperCase()}市場】Gate 1 四則検算・粗利マージン 監査ステータス
+                                </h3>
+                                <span className="text-[11px] font-mono font-bold text-slate-300">
+                                    検算合格: {currentArbAudits.filter(a => a.status === 'passed').length} / {currentArbAudits.length} 件
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                                {currentArbAudits.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
+                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                                item.status === 'passed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                            }`}>
+                                                {item.status === 'passed' ? '✔ 検算OK' : '✖ 差額異常'}
+                                            </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 flex justify-between">
+                                            <span>枠: {item.slot}</span>
+                                            <span>帯: {item.priceTier}</span>
+                                        </div>
+                                        {item.feedback && (
+                                            <p className="text-[10px] text-red-300 bg-red-500/10 p-1.5 rounded border border-red-500/20 leading-relaxed whitespace-pre-wrap">
+                                                💬 {item.feedback}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <DocumentReportView report={aiData?.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
                 </div>
             )}
@@ -327,7 +363,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 Instagram専任 投稿クリエイター（7日分切り替えタブ搭載） */}
+            {/* 🎨 Instagram専任 投稿クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -344,7 +380,6 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* 7日分曜日切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {DAYS_OF_WEEK.map(d => (
                             <button
@@ -377,7 +412,6 @@ export default function DeskViews({
                                 </span>
                             </div>
 
-                            {/* カルーセル画像スライド指示 */}
                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                 <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ カルーセル画像スライド構成指示</h4>
                                 <div className="space-y-1.5 text-xs text-slate-300">
@@ -388,7 +422,6 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* ハッシュタグ */}
                             {aiData.snsPosts.hashtags && aiData.snsPosts.hashtags.length > 0 && (
                                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
                                     <div className="flex justify-between items-center">
@@ -408,7 +441,6 @@ export default function DeskViews({
                                 </div>
                             )}
 
-                            {/* 投稿キャプション */}
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-white">📝 【{selectedIgDay}】投稿キャプション</h4>
@@ -433,7 +465,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 X (Twitter) 専任 投稿クリエイター（7日分スレッド切り替え搭載） */}
+            {/* 🐦 X (Twitter) 専任 投稿クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -450,7 +482,6 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* 7日分曜日切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {DAYS_OF_WEEK.map(d => (
                             <button

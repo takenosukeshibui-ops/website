@@ -14,56 +14,74 @@ export interface Gate1AuditResult {
   feedback: string | null;
 }
 
-export async function runGate1Audit(
-  items: ResearchItemRecord[],
-  category: string = 'pokemon'
-): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }> {
+// ----------------------------------------------------------------------------
+// Gate 1-A: アービトラージ数値マージン監査（コードによる0.01秒の決定論的検算）
+// ----------------------------------------------------------------------------
+export function runArbitrageMathAudit(items: ResearchItemRecord[]): Gate1AuditResult[] {
   const results: Gate1AuditResult[] = [];
-  const itemsToLlmCheck: ResearchItemRecord[] = [];
 
-  // 1. コードによる決定論的検算（アービトラージは瞬時に計算＆適格判定）
   for (const item of items) {
-    if (item.agent_key === 'arbitrage') {
-      const buy = Number(item.jp_buy_price_jpy) || 0;
-      const target = Number(item.target_sold_price_jpy) || 0;
-      const spread = target - buy;
-      const roi = buy > 0 ? Math.round((spread / buy) * 100) : 0;
+    const buy = Number(item.jp_buy_price_jpy) || 0;
+    const target = Number(item.target_sold_price_jpy) || 0;
+    const spread = target - buy;
+    const roi = buy > 0 ? Math.round((spread / buy) * 100) : 0;
 
-      // 利益がゼロ以下、または仕入れ値が異常（0円）の場合は却下
-      if (buy <= 0 || spread <= 0 || roi < 10) {
-        results.push({
-          itemId: item.id,
-          passed: false,
-          checks: {
-            card_existence_verified: true,
-            roi_calculation_valid: false,
-            official_tournament_compliant: true,
-          },
-          feedback: `利ざや不足または価格異常: 仕入 ¥${buy}, 見込売価 ¥${target} (差額 ¥${spread}, ROI ${roi}%)`,
-        });
-      } else {
-        results.push({
-          itemId: item.id,
-          passed: true,
-          checks: {
-            card_existence_verified: true,
-            roi_calculation_valid: true,
-            official_tournament_compliant: true,
-          },
-          feedback: null,
-        });
-      }
+    // 1. 異常値チェック（仕入れ値0円、利益なし、ROI 10%未満）
+    if (buy <= 0 || spread <= 0 || roi < 10) {
+      results.push({
+        itemId: item.id,
+        passed: false,
+        checks: {
+          card_existence_verified: true,
+          roi_calculation_valid: false,
+          official_tournament_compliant: true,
+        },
+        feedback: `利ざや不足または価格異常: 仕入 ¥${buy}, 売価 ¥${target} (粗利 ¥${spread}, ROI ${roi}%)`,
+      });
+      continue;
+    }
+
+    // 2. 申告値との四則計算チェック（許容誤差: 差額 ±150円, ROI ±3%）
+    const isSpreadValid = Math.abs(spread - item.price_spread_jpy) <= 150;
+    const isROIValid = Math.abs(roi - item.spread_roi_percent) <= 3;
+
+    if (!isSpreadValid || !isROIValid) {
+      results.push({
+        itemId: item.id,
+        passed: false,
+        checks: {
+          card_existence_verified: true,
+          roi_calculation_valid: false,
+          official_tournament_compliant: true,
+        },
+        feedback: `検算不一致: 実利 ¥${spread} (申告: ¥${item.price_spread_jpy}), 実ROI ${roi}% (申告: ${item.spread_roi_percent}%)`,
+      });
     } else {
-      // トレンド銘柄はLLMによる規約・実在性審査へ回す
-      itemsToLlmCheck.push(item);
+      results.push({
+        itemId: item.id,
+        passed: true,
+        checks: {
+          card_existence_verified: true,
+          roi_calculation_valid: true,
+          official_tournament_compliant: true,
+        },
+        feedback: null,
+      });
     }
   }
 
-  if (itemsToLlmCheck.length === 0) {
-    return { allPassed: results.every((r) => r.passed), results };
-  }
+  return results;
+}
 
-  // 2. LLMによるファクト・規約チェック
+// ----------------------------------------------------------------------------
+// Gate 1-B: 市場トレンド相場・レポート論理監査（LLMによる文章 & 銘柄審査）
+// ----------------------------------------------------------------------------
+export async function runTrendIntelligenceAudit(
+  items: ResearchItemRecord[],
+  category: string = 'pokemon'
+): Promise<Gate1AuditResult[]> {
+  if (items.length === 0) return [];
+
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const model = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
@@ -72,19 +90,31 @@ export async function runGate1Audit(
     apiKey: apiKey,
   });
 
-  const prompt = `あなたは越境トレカ販売の【Gate 1: Fact & Rule Checker】です。
-以下の候補銘柄リストを監査し、合否を判定してください。
+  // レポートの仮説・文章インサイトと銘柄をセットで審査プロンプトへ渡す
+  const prompt = `あなたは越境トレカ販売の市場トレンド最高審査役【Gate 1-B: Trend Intelligence Guard】です。
+アナリストが作成した以下の市場トレンドレポート（仮説・急騰要因の文章）および抽出銘柄を監査し、合否を判定してください。
 
 【厳格監査基準】:
-1. 存在確認: 完全に架空のカード名でないこと。
-2. 欧米公式大会ルール違反の排除: 欧米の公式大会では「日本語版カード」の使用が禁止されています。「大会で強いから」という理由でノーマル、汎用グッズ、ACE SPEC等のプレイ専用カードを選定している場合は即却下（passed: false）。※コレクション目的のSAR/UR等は合格。
+1. 客観的根拠（Signal）の検証:
+   - 「なんとなく値上がりそう」といった主観ではなく、現地実成約（Sold Listings）、在庫枯渇、特定SNSの過熱など、客観的事実がレポート文章に示されているか。
+2. 欧米公式大会ルール違反の排除（最重要）:
+   - 欧米公式大会（Play! Pokémon）では「日本語版カード」の使用が禁止されています。
+   - 「大会環境で強い」「プレイヤー必須パーツ」という理由で、日本語版の【ノーマル、汎用グッズ、ACE SPEC等のプレイ専用カード】を選出・推奨している場合は即却下（passed: false）。
+   - ※ 美術的価値・コレクション需要としてのSAR/UR/プロモ等の選定は合格。
+3. 銘柄の実在性:
+   - 完全に架空のカード名や型番でないこと。
 
-【監査対象銘柄】:
+【監査対象トレンド銘柄 & レポート本文】:
 ${JSON.stringify(
-  itemsToLlmCheck.map((i) => ({
+  items.map((i) => ({
     id: i.id,
+    region: i.region,
     cardName: i.card_name,
-    insight: i.research_insight || '',
+    headline: i.slot_key,
+    insight: i.research_insight,
+    timeframe: i.liquidity_indicator,
+    summaryHeadline: i.raw_payload?.reportSummary?.headline || '',
+    macroAnalysis: i.raw_payload?.reportSummary?.trendDynamics || '',
   })),
   null,
   2
@@ -93,13 +123,13 @@ ${JSON.stringify(
 【出力ルール】:
 - 全件（全ID）について結果を出力すること。
 - 合格の場合は "passed": true のみ出力。
-- 不合格の場合のみ "passed": false と "feedback"（不合格理由）を出力。
+- 不合格の場合のみ "passed": false と "feedback"（レポート文章の破綻理由、または大会規約抵触理由）を出力。
 
 以下のJSON形式のみを出力してください:
 {
   "auditResults": [
     { "id": "アイテムID", "passed": true },
-    { "id": "アイテムID", "passed": false, "feedback": "不合格の理由" }
+    { "id": "アイテムID", "passed": false, "feedback": "不合格の具体的な指摘理由" }
   ]
 }`;
 
@@ -107,52 +137,61 @@ ${JSON.stringify(
     const res = await model.invoke(prompt);
     const parsed = parseAIJson(res.content.toString());
 
-    // 🌟 出力フォーマットのゆらぎに対応（配列直返し or auditResultsキー）
     const rawList = Array.isArray(parsed)
       ? parsed
       : Array.isArray(parsed?.auditResults)
       ? parsed.auditResults
       : [];
 
-    const llmResults: Gate1AuditResult[] = rawList.map((r: any) => ({
-      itemId: r.id,
-      passed: Boolean(r.passed),
-      checks: {
-        card_existence_verified: Boolean(r.passed),
-        roi_calculation_valid: Boolean(r.passed),
-        official_tournament_compliant: Boolean(r.passed),
-      },
-      feedback: r.feedback || null,
-    }));
-
-    // LLMから漏れたIDがあればデフォルト合格で救済
-    for (const item of itemsToLlmCheck) {
-      if (!llmResults.some((r) => r.itemId === item.id)) {
-        llmResults.push({
-          itemId: item.id,
-          passed: true,
-          checks: { card_existence_verified: true, roi_calculation_valid: true, official_tournament_compliant: true },
-          feedback: null,
-        });
-      }
+    const auditMap = new Map<string, any>();
+    for (const r of rawList) {
+      if (r?.id) auditMap.set(r.id, r);
     }
 
-    const combinedResults = [...results, ...llmResults];
-    return {
-      allPassed: combinedResults.every((r) => r.passed),
-      results: combinedResults,
-    };
-  } catch (error) {
-    console.error('Gate 1 audit error:', error);
-    // エラー時もトレンド銘柄を安全側に倒して処理を継続
-    for (const item of itemsToLlmCheck) {
-      results.push({
+    return items.map((item) => {
+      const match = auditMap.get(item.id);
+      const passed = match ? Boolean(match.passed) : true;
+      return {
         itemId: item.id,
-        passed: true,
-        checks: { card_existence_verified: true, roi_calculation_valid: true, official_tournament_compliant: true },
-        feedback: null,
-      });
-    }
-    return { allPassed: true, results };
+        passed,
+        checks: {
+          card_existence_verified: passed,
+          roi_calculation_valid: true,
+          official_tournament_compliant: passed,
+        },
+        feedback: passed ? null : match?.feedback || 'レポート論理または規約不適合',
+      };
+    });
+  } catch (error) {
+    console.error('Gate 1-B trend audit error:', error);
+    return items.map((i) => ({
+      itemId: i.id,
+      passed: true,
+      checks: { card_existence_verified: true, roi_calculation_valid: true, official_tournament_compliant: true },
+      feedback: null,
+    }));
   }
+}
+
+// ----------------------------------------------------------------------------
+// Gate 1 統括エントリーポイント（並列実行）
+// ----------------------------------------------------------------------------
+export async function runGate1Audit(
+  items: ResearchItemRecord[],
+  category: string = 'pokemon'
+): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }> {
+  const arbitrageItems = items.filter((i) => i.agent_key === 'arbitrage');
+  const trendItems = items.filter((i) => i.agent_key === 'trend');
+
+  // Gate 1-A（コード検算）と Gate 1-B（LLMトレンド文章監査）を並列実行
+  const [arbResults, trendResults] = await Promise.all([
+    Promise.resolve(runArbitrageMathAudit(arbitrageItems)),
+    runTrendIntelligenceAudit(trendItems, category),
+  ]);
+
+  const combined = [...arbResults, ...trendResults];
+  return {
+    allPassed: combined.every((r) => r.passed),
+    results: combined,
+  };
 }

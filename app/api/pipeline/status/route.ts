@@ -11,7 +11,7 @@ export async function GET(req: Request) {
 
     const supabase = await createClient();
 
-    // 🌟 1. 履歴セレクトボックス用の過去サイクル一覧返却
+    // 1. 履歴セレクトボックス用の過去サイクル一覧返却
     if (list === 'true') {
       let query = supabase
         .from('ai_pipeline_cycles')
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, cycles: cycles || [] });
     }
 
-    // 🌟 2. 特定サイクル（または最新サイクル）の全データ取得
+    // 2. 特定サイクルの全データ取得
     let cycleQuery = supabase
       .from('ai_pipeline_cycles')
       .select('*')
@@ -63,7 +63,7 @@ export async function GET(req: Request) {
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
 
-    // 🌟 3. サヤ取りレポート（profitableCards）の地域別復元
+    // 3. サヤ取りレポート復元
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
       };
     };
 
-    // 🌟 4. トレンドレポート（trendInsights）の地域別復元
+    // 4. トレンドレポート復元
     const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'trend' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -184,19 +184,20 @@ export async function GET(req: Request) {
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
       salesDM: discordDeliverable?.content_payload || null,
-      // 🌟 監査を受けたすべてのアイテム（合格・不合格）を理由付きで返却
+      // 🌟 全240件規模の監査結果を agent_key 付きで返却
       gate1Audits: researchItems
         .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({
           id: i.id,
+          agentKey: i.agent_key,
           card: i.card_name,
           slot: i.slot_key,
           region: i.region,
+          priceTier: i.price_tier,
           status: i.gate1_status,
           checks: i.gate1_checks,
           feedback: i.gate1_feedback,
         })),
-      // 🌟 Gate 2 の全原稿監査結果（不合格理由 & 修正指示付き）を返却
       gate2Audits: deliverables.map((d) => ({
         id: d.id,
         platform: d.platform,
