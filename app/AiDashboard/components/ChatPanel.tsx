@@ -26,32 +26,35 @@ export default function ChatPanel({
     const [isChatSubmitting, setIsChatSubmitting] = useState(false);
     const [knowledgeList, setKnowledgeList] = useState<KnowledgeItem[]>([]);
     const [showKnowledgePanel, setShowKnowledgePanel] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    
+    // 🌟 画面全体ではなく、チャット枠内のみをスクロールさせるためのRef
+    const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
     };
 
     useEffect(() => {
+        // 🌟 aiActiveDesk を依存配列から除外。メッセージ送受信時のみ枠内を最下部に移動
         scrollToBottom();
-    }, [chatLogs, aiActiveDesk]);
+    }, [chatLogs]);
 
-    // 🌟 デスクに対応するエージェント識別キーの判定
     const getActiveAgentKey = (desk: string): string | null => {
-        if (desk === 'desk_audit') return 'auditor'; // 🛡️ 監査役
+        if (desk === 'desk_audit') return 'auditor';
         if (desk.startsWith('desk_trend')) return 'trend';
         if (desk.startsWith('desk_arbitrage')) return 'arbitrage';
         if (desk === 'desk_x_account') return 'x_account';
         if (desk === 'desk_account') return 'account';
         if (desk === 'desk_sns') return 'sns';
         if (desk === 'desk_x') return 'x';
-        if (desk === 'desk_sales') return 'sales'; // ✉️ コミュニティ営業
+        if (desk === 'desk_sales') return 'sales';
         if (desk === 'desk_chief') return 'chief';
         if (desk.startsWith('desk_')) return desk.replace('desk_', '');
         return null;
     };
 
-    // 🌟 デスクに応じたタイトル表示
     const getDeskTitle = (desk: string): string => {
         if (desk === 'desk_audit') return '🛡️ 品質・規約監査役';
         if (desk === 'desk_chief') return '👑 チーフマネージャー（キュレーター）';
@@ -308,8 +311,11 @@ export default function ChatPanel({
                 </div>
             )}
 
-            {/* チャット履歴表示エリア */}
-            <div className="space-y-3 bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 max-h-80 overflow-y-auto shadow-inner">
+            {/* 🌟 チャット履歴表示エリア（チャット枠内のみスクロールするよう ref をバインド） */}
+            <div 
+                ref={chatContainerRef}
+                className="space-y-3 bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 max-h-80 overflow-y-auto shadow-inner"
+            >
                 {(!chatLogs[aiActiveDesk] || chatLogs[aiActiveDesk].length === 0) ? (
                     <div className="text-center py-8 text-slate-500 text-xs italic">
                         {getDeskTitle(aiActiveDesk)}とのチャット履歴はまだありません。下のフォームから質問や追加指示を送ってみましょう。
@@ -359,7 +365,6 @@ export default function ChatPanel({
                         </div>
                     ))
                 )}
-                <div ref={messagesEndRef} />
             </div>
 
             {/* メッセージ入力・送信フォーム */}
