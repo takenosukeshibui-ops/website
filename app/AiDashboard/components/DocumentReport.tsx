@@ -1,6 +1,45 @@
 // app/AiDashboard/components/DocumentReport.tsx
 import React, { useState } from 'react';
 
+// 🌟 5スロットの［ラベル］と［説明］のマッピング
+const SLOT_METADATA: Record<string, { badge: string; desc: string; order: number }> = {
+    modern_meta: {
+        badge: 'モダン・メタ',
+        desc: 'SM〜SV期・直近弾・対戦需要',
+        order: 1
+    },
+    exclusive_promo: {
+        badge: '限定プロモ',
+        desc: 'ポケセン・ジム・タイアップ等',
+        order: 2
+    },
+    promos_exclusive: {
+        badge: '限定プロモ',
+        desc: 'ポケセン・ジム・タイアップ等',
+        order: 2
+    },
+    graded_sealed: {
+        badge: '鑑定・絶版BOX',
+        desc: 'PSA10・POP希少・絶版未開封BOX',
+        order: 3
+    },
+    high_end_sealed: {
+        badge: '鑑定・絶版BOX',
+        desc: 'PSA10・POP希少・絶版未開封BOX',
+        order: 3
+    },
+    neo_vintage: {
+        badge: 'ネオ・ヴィンテージ',
+        desc: 'DP〜XY期・コレクション回帰',
+        order: 4
+    },
+    classic_vintage: {
+        badge: 'クラシック・ヴィンテージ',
+        desc: '旧裏〜PCG期・歴史的希少品',
+        order: 5
+    }
+};
+
 export default function DocumentReportView({
     report,
     accentColor = 'amber',
@@ -26,7 +65,6 @@ export default function DocumentReportView({
         { key: 'top_end', label: '8万円〜', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' }
     ];
 
-    // 🌟 価格帯の順序定義（昇順ソート用）
     const TIER_ORDER: Record<string, number> = {
         under_3k: 1,
         under_10k: 2,
@@ -74,7 +112,6 @@ export default function DocumentReportView({
     const reportTypeName = isTrendReport ? '市場トレンドレポート' : 'アービトラージレポート';
     const displayTitle = `${formattedDate} ${regionName} ${reportTypeName}`;
 
-    // 🌟 カードの価格帯順序番号を判定するヘルパー
     const getTierOrderScore = (cell: any): number => {
         const key = cell.priceTier || cell.mainItem?.priceTier;
         if (key && TIER_ORDER[key]) return TIER_ORDER[key];
@@ -93,6 +130,24 @@ export default function DocumentReportView({
         if (buy <= 80000) return 4;
         return 5;
     };
+
+    // 🌟 スロット情報を［ラベル］と［説明］のみで取得
+    const getSlotMeta = (slotKey: string, slotLabel?: string) => {
+        const meta = SLOT_METADATA[slotKey] || SLOT_METADATA[slotKey.toLowerCase()];
+        if (meta) return meta;
+        return {
+            badge: slotKey,
+            desc: slotLabel || '',
+            order: 99
+        };
+    };
+
+    // 体系順（モダン ➔ プロモ ➔ 鑑定BOX ➔ ネオ ➔ クラシック）に整列
+    const sortedSlots = (report.slots || []).slice().sort((a: any, b: any) => {
+        const orderA = getSlotMeta(a.slotKey, a.slotLabel).order;
+        const orderB = getSlotMeta(b.slotKey, b.slotLabel).order;
+        return orderA - orderB;
+    });
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
@@ -113,10 +168,10 @@ export default function DocumentReportView({
                         </span>
                     </div>
                 ) : (
-                    report.slots && report.slots.length > 0 && (
+                    sortedSlots && sortedSlots.length > 0 && (
                         <div className="shrink-0">
                             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${report.slots.length}枠)`}
+                                {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${sortedSlots.length}枠)`}
                             </span>
                         </div>
                     )
@@ -304,9 +359,9 @@ export default function DocumentReportView({
                 )}
 
                 {/* ========================================================= */}
-                {/* 💎 アービトラージレポート描画ブロック（デザイン維持 ＆ 金額順ソート） */}
+                {/* 💎 アービトラージレポート描画ブロック */}
                 {/* ========================================================= */}
-                {!isTrendReport && report.slots && report.slots.length > 0 && (
+                {!isTrendReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="space-y-4">
                         {hasArbitrageTiers && (
                             <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-3">
@@ -330,12 +385,13 @@ export default function DocumentReportView({
                         {/* 個別価格帯フィルター選択時 */}
                         {selectedTier !== 'all' ? (
                             <div className="space-y-4">
-                                {report.slots.map((slot: any, sIdx: number) => {
+                                {sortedSlots.map((slot: any, sIdx: number) => {
                                     const matchedTier = slot.tiers?.find((t: any) => t.priceTier === selectedTier)
                                         || slot.items?.find((i: any) => i.priceTier === selectedTier);
 
                                     if (!matchedTier) return null;
 
+                                    const slotMeta = getSlotMeta(slot.slotKey, slot.slotLabel);
                                     const mainItem = matchedTier.mainItem || matchedTier;
                                     const subItems: any[] = matchedTier.subItems || [];
                                     const allItemsInTier = [
@@ -345,10 +401,17 @@ export default function DocumentReportView({
 
                                     return (
                                         <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
-                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                                            {/* 🌟 ［ラベル］と［説明］のみのすっきりした見出し */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
-                                                    <span className="text-sm font-bold text-white">{slot.slotLabel}</span>
+                                                    <span className="text-xs font-bold text-amber-300 font-mono">
+                                                        [{slotMeta.badge}]
+                                                    </span>
+                                                    {slotMeta.desc && (
+                                                        <span className="text-xs text-slate-300 font-medium">
+                                                            {slotMeta.desc}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded border ${getTierBadgeClass(selectedTier)}`}>
@@ -429,12 +492,13 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」選択時: 金額（価格帯）順に昇順ソートして表示 */
+                            /* 🌟 「すべて表示」選択時 */
                             <div className="space-y-4">
-                                {report.slots.map((slot: any, sIdx: number) => {
+                                {sortedSlots.map((slot: any, sIdx: number) => {
                                     const rawTiers: any[] = slot.tiers || slot.items || [];
+                                    const slotMeta = getSlotMeta(slot.slotKey, slot.slotLabel);
 
-                                    // ① 同一カード・同一価格帯の重複を除去（ユニーク化）
+                                    // ① 重複除去
                                     const uniqueMap = new Map<string, any>();
                                     for (const t of rawTiers) {
                                         const main = t.mainItem || t;
@@ -445,14 +509,13 @@ export default function DocumentReportView({
                                     }
                                     const deduplicatedTiers = Array.from(uniqueMap.values());
 
-                                    // ② 🌟 価格帯の安い順（〜3千円 ➔ 3千〜1万 ➔ 1万〜3万 ➔ 3万〜8万 ➔ 8万円〜）に確実に昇順ソート
+                                    // ② 価格帯昇順ソート（〜3千円 ➔ 8万円〜）
                                     const sortedTiers = deduplicatedTiers.sort((a, b) => {
                                         const orderA = getTierOrderScore(a);
                                         const orderB = getTierOrderScore(b);
                                         if (orderA !== orderB) {
                                             return orderA - orderB;
                                         }
-                                        // 同一価格帯内では日本調達金額順（昇順）
                                         const buyA = parseInt(String(a.mainItem?.jpBuyPriceJPY || a.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
                                         const buyB = parseInt(String(b.mainItem?.jpBuyPriceJPY || b.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
                                         return buyA - buyB;
@@ -460,17 +523,23 @@ export default function DocumentReportView({
 
                                     return (
                                         <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
-                                            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                                            {/* 🌟 ［ラベル］と［説明］のみのすっきりした見出し */}
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-amber-300 font-mono">[{slot.slotKey}]</span>
-                                                    <span className="text-sm font-bold text-white">{slot.slotLabel}</span>
+                                                    <span className="text-xs font-bold text-amber-300 font-mono">
+                                                        [{slotMeta.badge}]
+                                                    </span>
+                                                    {slotMeta.desc && (
+                                                        <span className="text-xs text-slate-300 font-medium">
+                                                            {slotMeta.desc}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <span className="text-xs text-slate-500 font-mono">
-                                                    {sortedTiers.length}価格帯（金額順）
+                                                    {sortedTiers.length}価格帯（安値順）
                                                 </span>
                                             </div>
 
-                                            {/* 🌟 昇順ソートされたカードを5列グリッドで描画（左から右へ金額順に並びます） */}
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                                 {sortedTiers.map((tierCell: any, cIdx: number) => {
                                                     const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
