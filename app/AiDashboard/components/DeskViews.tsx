@@ -15,8 +15,8 @@ const DAYS_OF_WEEK = [
 
 interface DeskViewsProps {
     aiActiveDesk: string;
-    activeTrendRegion: RegionKey;
-    activeArbitrageRegion: RegionKey;
+    activeTrendRegion: RegionKey | 'audit';
+    activeArbitrageRegion: RegionKey | 'audit';
     aiData: IntelligenceData | null;
     gate1Audits?: (Gate1AuditItem & { agentKey?: string; priceTier?: string })[];
     gate2Audits?: Gate2AuditItem[];
@@ -52,18 +52,25 @@ export default function DeskViews({
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
-    // 🌟 Gate 1 監査の地域別 & チーム別 確実な振り分け（大文字小文字やagentKey欠落にも完全対応）
-    const currentTrendAudits = gate1Audits.filter(a => {
-        const isTrend = a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
-        const matchRegion = !a.region || a.region.toLowerCase() === activeTrendRegion.toLowerCase();
-        return isTrend && matchRegion;
+    // 🌟 監査アイテムをチーム別に自動振り分け
+    const allTrendAudits = gate1Audits.filter(a => {
+        return a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
     });
 
-    const currentArbAudits = gate1Audits.filter(a => {
+    const allArbAudits = gate1Audits.filter(a => {
         const isTrend = a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
-        const matchRegion = !a.region || a.region.toLowerCase() === activeArbitrageRegion.toLowerCase();
-        return !isTrend && matchRegion;
+        return !isTrend;
     });
+
+    // 🌟 型安全ガード: 'audit' を除外した正規の RegionKey とレポートデータを事前導出
+    const isTrendAudit = aiActiveDesk === 'desk_trend_audit' || activeTrendRegion === 'audit';
+    const isArbAudit = aiActiveDesk === 'desk_arbitrage_audit' || activeArbitrageRegion === 'audit';
+
+    const safeTrendRegion: RegionKey | undefined = activeTrendRegion !== 'audit' ? activeTrendRegion : undefined;
+    const safeArbRegion: RegionKey | undefined = activeArbitrageRegion !== 'audit' ? activeArbitrageRegion : undefined;
+
+    const activeTrendReport = safeTrendRegion ? aiData?.trendInsights?.[safeTrendRegion] || null : null;
+    const activeArbReport = safeArbRegion ? aiData?.profitableCards?.[safeArbRegion] || null : null;
 
     return (
         <>
@@ -218,123 +225,223 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🔮 市場トレンドアナリスト（自チーム Gate 1 監査結果を統合） */}
+            {/* 🛡️🔮 市場トレンド監査担当アナリスト デスク (Gate 1-B 専任AI) */}
             {/* ========================================================= */}
-            {aiActiveDesk.startsWith('desk_trend') && (
+            {(aiActiveDesk === 'desk_trend_audit' || (aiActiveDesk.startsWith('desk_trend') && isTrendAudit)) && (
                 <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
-                            <span className="text-3xl">🔮</span>
+                            <span className="text-3xl">🛡️</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({activeTrendRegion === 'us' ? '北米' : activeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
-                                <p className="text-xs text-slate-400">先行シグナル・急騰仮説レポート & 自チーム Gate 1 論理・大会規約監査</p>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-lg font-bold text-white">市場トレンド監査担当アナリスト</h2>
+                                    <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-bold font-mono">
+                                        Gate 1-B
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400">市場急騰仮説の客観的根拠（Signal）・欧米大会（Play! Pokémon）規約適合性 専任審査</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : '🔄 パイプラインを再実行'}
-                        </button>
-                    </div>
-
-                    {/* 🌟 自チームの Gate 1-B トレンド論理・規約監査ステータス */}
-                    <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-md">
-                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                            <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                <span>🛡️</span> 【{activeTrendRegion.toUpperCase()}市場】Gate 1 トレンド論理・大会規約 監査ステータス
-                            </h3>
-                            <span className="text-[11px] font-mono font-bold text-slate-300">
-                                適合: {currentTrendAudits.filter(a => a.status === 'passed').length} / {currentTrendAudits.length} 件
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
+                                全適合率: {allTrendAudits.filter(a => a.status === 'passed').length} / {allTrendAudits.length} 件
                             </span>
                         </div>
-                        {currentTrendAudits.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic py-3 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
+                    </div>
+
+                    {/* 監査統計サマリーカード */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {(['us', 'eu', 'asia'] as const).map(reg => {
+                            const regAudits = allTrendAudits.filter(a => a.region?.toLowerCase() === reg);
+                            const passedCount = regAudits.filter(a => a.status === 'passed').length;
+                            const regLabel = reg === 'us' ? '北米市場' : reg === 'eu' ? '欧州市場' : 'アジア市場';
+                            return (
+                                <div key={reg} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1.5 shadow-md">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-slate-300">{regLabel}</span>
+                                        <span className="font-mono text-amber-400 font-bold">{passedCount} / {regAudits.length} 適合</span>
+                                    </div>
+                                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="bg-amber-500 h-1.5 rounded-full transition-all"
+                                            style={{ width: `${regAudits.length > 0 ? (passedCount / regAudits.length) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 監査レポート一覧 */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                                <span>📋</span> トレンド仮説・選定銘柄 監査詳細一覧
+                            </h3>
+                            <span className="text-xs text-slate-400">Play! Pokémon 大会使用不可カードの煽り排除チェック</span>
+                        </div>
+
+                        {allTrendAudits.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic py-8 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                                {currentTrendAudits.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs space-y-1.5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                                {allTrendAudits.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800/80 space-y-2 text-xs">
                                         <div className="flex justify-between items-center">
-                                            <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
-                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                            <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 item.status === 'passed' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
                                             }`}>
-                                                {item.status === 'passed' ? '✔ 適合' : '✖ 差し戻し'}
+                                                {item.status === 'passed' ? '✔ 規約適合' : '✖ 差し戻し'}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 truncate">
-                                            {item.slot}
+                                        <div className="text-[11px] text-slate-400 flex justify-between">
+                                            <span className="truncate max-w-[200px]">{item.slot}</span>
+                                            <span className="font-mono text-slate-300 uppercase">地域: {item.region}</span>
                                         </div>
                                         {item.feedback && (
-                                            <p className="text-[10px] text-amber-300 bg-amber-500/10 p-1.5 rounded border border-amber-500/20 leading-relaxed whitespace-pre-wrap">
-                                                💬 {item.feedback}
-                                            </p>
+                                            <div className="bg-amber-500/10 p-2.5 rounded border border-amber-500/20 mt-1">
+                                                <span className="text-[10px] text-amber-400 font-bold block mb-1">💬 監査指摘・差し戻し理由</span>
+                                                <p className="text-[11px] text-amber-200 leading-relaxed whitespace-pre-wrap">{item.feedback}</p>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
-
-                    <DocumentReportView report={aiData?.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 💎 アービトラージアナリスト（自チーム Gate 1 監査結果を統合） */}
+            {/* 🔮 市場トレンドアナリスト (北米 / 欧州 / アジア 各担当デスク) */}
             {/* ========================================================= */}
-            {aiActiveDesk.startsWith('desk_arbitrage') && (
+            {aiActiveDesk.startsWith('desk_trend') && !isTrendAudit && safeTrendRegion && (
+                <div className="w-full space-y-5 animate-fadeIn">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🔮</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({safeTrendRegion === 'us' ? '北米' : safeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
+                            </div>
+                        </div>
+                        <button onClick={() => runSingleAi('trend', safeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                            {runningAction === `trend_${safeTrendRegion}` ? '調査中...' : '🔄 パイプラインを再実行'}
+                        </button>
+                    </div>
+                    <DocumentReportView report={activeTrendReport} accentColor="amber" icon="📈" />
+                </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* ⚖️💎 アービトラージ監査担当アナリスト デスク (Gate 1-A 専任AI) */}
+            {/* ========================================================= */}
+            {(aiActiveDesk === 'desk_arbitrage_audit' || (aiActiveDesk.startsWith('desk_arbitrage') && isArbAudit)) && (
                 <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
-                            <span className="text-3xl">💎</span>
+                            <span className="text-3xl">⚖️</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '北米' : activeArbitrageRegion === 'eu' ? '欧州' : 'アジア'})</h2>
-                                <p className="text-xs text-slate-400">5スロット×5価格帯 調達ポートフォリオ & 自チーム Gate 1 数値マージン検算</p>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-lg font-bold text-white">アービトラージ監査担当アナリスト</h2>
+                                    <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-bold font-mono">
+                                        Gate 1-A
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400">全225商品（本命＋代替）四則演算・粗利マージン・ROI整合性 専任高速検算</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('arbitrage', activeArbitrageRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === `arbitrage_${activeArbitrageRegion}` ? '査定中...' : '🔄 パイプラインを再実行'}
-                        </button>
-                    </div>
-
-                    {/* 🌟 自チームの Gate 1-A 数値検算監査ステータス */}
-                    <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-3 shadow-md">
-                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                            <h3 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                                <span>⚖️</span> 【{activeArbitrageRegion.toUpperCase()}市場】Gate 1 四則検算・粗利マージン 監査ステータス
-                            </h3>
-                            <span className="text-[11px] font-mono font-bold text-slate-300">
-                                検算合格: {currentArbAudits.filter(a => a.status === 'passed').length} / {currentArbAudits.length} 件
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
+                                全検算合致: {allArbAudits.filter(a => a.status === 'passed').length} / {allArbAudits.length} 件
                             </span>
                         </div>
-                        {currentArbAudits.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic py-3 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
+                    </div>
+
+                    {/* 監査統計サマリーカード */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {(['us', 'eu', 'asia'] as const).map(reg => {
+                            const regAudits = allArbAudits.filter(a => a.region?.toLowerCase() === reg);
+                            const passedCount = regAudits.filter(a => a.status === 'passed').length;
+                            const regLabel = reg === 'us' ? '北米市場 (75商品)' : reg === 'eu' ? '欧州市場 (75商品)' : 'アジア市場 (75商品)';
+                            return (
+                                <div key={reg} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1.5 shadow-md">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-slate-300">{regLabel}</span>
+                                        <span className="font-mono text-emerald-400 font-bold">{passedCount} / {regAudits.length} 合格</span>
+                                    </div>
+                                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                            className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                            style={{ width: `${regAudits.length > 0 ? (passedCount / regAudits.length) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* 検算レポート一覧 */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <h3 className="text-sm font-bold text-emerald-300 flex items-center gap-2">
+                                <span>📋</span> 全225商品 四則検算 監査詳細一覧
+                            </h3>
+                            <span className="text-xs text-slate-400">見込売価 - 日本仕入値 ＝ 粗利差額 / ROIの完全整合チェック</span>
+                        </div>
+
+                        {allArbAudits.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic py-8 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                                {currentArbAudits.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs space-y-1.5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
+                                {allArbAudits.map((item, idx) => (
+                                    <div key={idx} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800/80 space-y-2 text-xs">
                                         <div className="flex justify-between items-center">
-                                            <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
-                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                            <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 item.status === 'passed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
                                             }`}>
                                                 {item.status === 'passed' ? '✔ 検算OK' : '✖ 差額異常'}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 flex justify-between">
-                                            <span className="truncate max-w-[120px]">{item.slot}</span>
-                                            {item.priceTier && <span>帯: {item.priceTier}</span>}
+                                        <div className="text-[11px] text-slate-400 flex justify-between">
+                                            <span className="truncate max-w-[180px]">{item.slot}</span>
+                                            <div className="flex gap-2">
+                                                {item.priceTier && <span className="text-slate-400">帯: {item.priceTier}</span>}
+                                                <span className="font-mono text-slate-300 uppercase">地域: {item.region}</span>
+                                            </div>
                                         </div>
                                         {item.feedback && (
-                                            <p className="text-[10px] text-red-300 bg-red-500/10 p-1.5 rounded border border-red-500/20 leading-relaxed whitespace-pre-wrap">
-                                                💬 {item.feedback}
-                                            </p>
+                                            <div className="bg-red-500/10 p-2.5 rounded border border-red-500/20 mt-1">
+                                                <span className="text-[10px] text-red-400 font-bold block mb-1">💬 検算不一致指摘</span>
+                                                <p className="text-[11px] text-red-200 leading-relaxed whitespace-pre-wrap">{item.feedback}</p>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
+                </div>
+            )}
 
-                    <DocumentReportView report={aiData?.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
+            {/* ========================================================= */}
+            {/* 💎 アービトラージアナリスト (北米 / 欧州 / アジア 各担当デスク) */}
+            {/* ========================================================= */}
+            {aiActiveDesk.startsWith('desk_arbitrage') && !isArbAudit && safeArbRegion && (
+                <div className="w-full space-y-5 animate-fadeIn">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">💎</span>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">アービトラージアナリスト ({safeArbRegion === 'us' ? '北米' : safeArbRegion === 'eu' ? '欧州' : 'アジア'})</h2>
+                            </div>
+                        </div>
+                        <button onClick={() => runSingleAi('arbitrage', safeArbRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                            {runningAction === `arbitrage_${safeArbRegion}` ? '査定中...' : '🔄 パイプラインを再実行'}
+                        </button>
+                    </div>
+                    <DocumentReportView report={activeArbReport} accentColor="emerald" icon="⚖️" />
                 </div>
             )}
 
