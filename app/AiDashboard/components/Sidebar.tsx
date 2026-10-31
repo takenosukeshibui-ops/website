@@ -33,7 +33,7 @@ export default function Sidebar({
                     <span className="text-2xl">🤖</span>
                     <h1 className="text-base font-bold tracking-wider text-slate-100">AI STAFF OFFICE</h1>
                 </div>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">自律進化 11 Agents</span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">自律進化 13 Agents</span>
             </div>
 
             {/* 商材カテゴリー切り替え */}
@@ -65,23 +65,23 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* 🛡️ Gate 1 & Gate 2 監査役デスク */}
+                {/* 🛡️ Gate 2 監査役デスク（表現・配信原稿専任） */}
                 <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
                     <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-bold text-orange-200 truncate">品質・規約監査役</p>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 1 & 2</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 2</span>
                         </div>
-                        <p className="text-[10px] text-slate-400 truncate">四則検算 & 機密・導線審査</p>
+                        <p className="text-[10px] text-slate-400 truncate">配信原稿 機密・導線審査</p>
                     </div>
                 </div>
 
-                {/* 市場トレンドリサーチチーム */}
+                {/* 🔮 市場トレンドリサーチチーム */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-amber-300">
                         <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドリサーチチーム</span>
-                        <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
+                        <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">4名</span>
                     </div>
                     <div className="mt-1 space-y-1">
                         {([{ key: 'us', label: '北米担当アナリスト' }, { key: 'eu', label: '欧州担当アナリスト' }, { key: 'asia', label: 'アジア担当アナリスト' }] as const).map(item => (
@@ -89,14 +89,19 @@ export default function Sidebar({
                                 <span>{item.label}</span>
                             </button>
                         ))}
+                        {/* 🌟 専任メンバー: 市場トレンド監査担当 */}
+                        <button type="button" onClick={() => setAiActiveDesk('desk_trend_audit')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_trend_audit' ? 'bg-amber-600 text-white font-bold shadow' : 'text-amber-300/80 hover:bg-slate-800/80'}`}>
+                            <span>🛡️ トレンド監査担当</span>
+                            <span className="text-[9px] font-mono px-1 py-0.2 bg-amber-500/20 rounded">Gate 1-B</span>
+                        </button>
                     </div>
                 </div>
 
-                {/* アービトラージリサーチチーム */}
+                {/* 💎 アービトラージリサーチチーム */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-emerald-300">
                         <span className="flex items-center gap-1.5"><span>💎</span> アービトラージリサーチチーム</span>
-                        <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">3名</span>
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">4名</span>
                     </div>
                     <div className="mt-1 space-y-1">
                         {([{ key: 'us', label: '北米担当アナリスト' }, { key: 'eu', label: '欧州担当アナリスト' }, { key: 'asia', label: 'アジア担当アナリスト' }] as const).map(item => (
@@ -104,6 +109,11 @@ export default function Sidebar({
                                 <span>{item.label}</span>
                             </button>
                         ))}
+                        {/* 🌟 専任メンバー: アービトラージ監査担当 */}
+                        <button type="button" onClick={() => setAiActiveDesk('desk_arbitrage_audit')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_arbitrage_audit' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-emerald-300/80 hover:bg-slate-800/80'}`}>
+                            <span>⚖️ 数値検算監査担当</span>
+                            <span className="text-[9px] font-mono px-1 py-0.2 bg-emerald-500/20 rounded">Gate 1-A</span>
+                        </button>
                     </div>
                 </div>
 
@@ -149,7 +159,7 @@ export default function Sidebar({
                 </div>
             </div>
 
-            {/* 🌟 過去サイクル履歴選択 */}
+            {/* 過去サイクル履歴選択 */}
             <div className="p-3 border-t border-slate-800 bg-slate-950">
                 <span className="text-[10px] text-slate-400 mb-1.5 block font-bold">📅 パイプライン実行サイクル履歴</span>
                 <select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) => {
