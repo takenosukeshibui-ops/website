@@ -26,6 +26,15 @@ export default function DocumentReportView({
         { key: 'top_end', label: '8万円〜', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' }
     ];
 
+    // 🌟 価格帯の順序定義（昇順ソート用）
+    const TIER_ORDER: Record<string, number> = {
+        under_3k: 1,
+        under_10k: 2,
+        middle: 3,
+        upper: 4,
+        top_end: 5
+    };
+
     const getTierBadgeClass = (tierKey?: string) => {
         const found = priceTiers.find(t => t.key === tierKey);
         return found?.badge || 'bg-slate-800 text-slate-300 border-slate-700';
@@ -51,25 +60,39 @@ export default function DocumentReportView({
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
-    // 🌟 年月日のフォーマット
     const dateObj = report.createdAt ? new Date(report.createdAt) : new Date();
     const formattedDate = !isNaN(dateObj.getTime())
         ? `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`
         : new Date().toLocaleDateString('ja-JP');
 
-    // 🌟 担当地域の正規化判定（北米 / 欧州 / アジア）
     let regionName = '北米';
     const titleUpper = (report.title || '').toUpperCase();
-    if (titleUpper.includes('EU') || titleUpper.includes('欧州')) {
-        regionName = '欧州';
-    } else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) {
-        regionName = 'アジア';
-    } else if (titleUpper.includes('US') || titleUpper.includes('北米')) {
-        regionName = '北米';
-    }
+    if (titleUpper.includes('EU') || titleUpper.includes('欧州')) regionName = '欧州';
+    else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) regionName = 'アジア';
+    else if (titleUpper.includes('US') || titleUpper.includes('北米')) regionName = '北米';
 
     const reportTypeName = isTrendReport ? '市場トレンドレポート' : 'アービトラージレポート';
     const displayTitle = `${formattedDate} ${regionName} ${reportTypeName}`;
+
+    // 🌟 カードの価格帯順序番号を判定するヘルパー
+    const getTierOrderScore = (cell: any): number => {
+        const key = cell.priceTier || cell.mainItem?.priceTier;
+        if (key && TIER_ORDER[key]) return TIER_ORDER[key];
+
+        const label = cell.priceTierLabel || cell.mainItem?.priceTierLabel || '';
+        if (label.includes('3千円') || label.includes('3k')) return 1;
+        if (label.includes('1万円') || label.includes('10k')) return 2;
+        if (label.includes('3万円') || label.includes('middle')) return 3;
+        if (label.includes('8万円') || label.includes('upper')) return 4;
+        if (label.includes('8万') || label.includes('top_end')) return 5;
+
+        const buy = parseInt(String(cell.mainItem?.jpBuyPriceJPY || cell.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
+        if (buy <= 3000) return 1;
+        if (buy <= 10000) return 2;
+        if (buy <= 30000) return 3;
+        if (buy <= 80000) return 4;
+        return 5;
+    };
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
@@ -93,7 +116,7 @@ export default function DocumentReportView({
                     report.slots && report.slots.length > 0 && (
                         <div className="shrink-0">
                             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                {hasArbitrageTiers ? '5スロット × 5価格帯 × 5候補 (125枠)' : `5スロット網羅 (${report.slots.length}枠)`}
+                                {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${report.slots.length}枠)`}
                             </span>
                         </div>
                     )
@@ -281,7 +304,7 @@ export default function DocumentReportView({
                 )}
 
                 {/* ========================================================= */}
-                {/* アービトラージレポート描画ブロック */}
+                {/* 💎 アービトラージレポート描画ブロック（デザイン維持 ＆ 金額順ソート） */}
                 {/* ========================================================= */}
                 {!isTrendReport && report.slots && report.slots.length > 0 && (
                     <div className="space-y-4">
@@ -304,6 +327,7 @@ export default function DocumentReportView({
                             </div>
                         )}
 
+                        {/* 個別価格帯フィルター選択時 */}
                         {selectedTier !== 'all' ? (
                             <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
@@ -405,9 +429,35 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
+                            /* 🌟 「すべて表示」選択時: 金額（価格帯）順に昇順ソートして表示 */
                             <div className="space-y-4">
                                 {report.slots.map((slot: any, sIdx: number) => {
-                                    const tiers = slot.tiers || slot.items || [];
+                                    const rawTiers: any[] = slot.tiers || slot.items || [];
+
+                                    // ① 同一カード・同一価格帯の重複を除去（ユニーク化）
+                                    const uniqueMap = new Map<string, any>();
+                                    for (const t of rawTiers) {
+                                        const main = t.mainItem || t;
+                                        const uniqueKey = `${t.priceTier || main.priceTier}_${main.cardName}`;
+                                        if (!uniqueMap.has(uniqueKey)) {
+                                            uniqueMap.set(uniqueKey, t);
+                                        }
+                                    }
+                                    const deduplicatedTiers = Array.from(uniqueMap.values());
+
+                                    // ② 🌟 価格帯の安い順（〜3千円 ➔ 3千〜1万 ➔ 1万〜3万 ➔ 3万〜8万 ➔ 8万円〜）に確実に昇順ソート
+                                    const sortedTiers = deduplicatedTiers.sort((a, b) => {
+                                        const orderA = getTierOrderScore(a);
+                                        const orderB = getTierOrderScore(b);
+                                        if (orderA !== orderB) {
+                                            return orderA - orderB;
+                                        }
+                                        // 同一価格帯内では日本調達金額順（昇順）
+                                        const buyA = parseInt(String(a.mainItem?.jpBuyPriceJPY || a.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
+                                        const buyB = parseInt(String(b.mainItem?.jpBuyPriceJPY || b.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
+                                        return buyA - buyB;
+                                    });
+
                                     return (
                                         <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
                                             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
@@ -416,12 +466,13 @@ export default function DocumentReportView({
                                                     <span className="text-sm font-bold text-white">{slot.slotLabel}</span>
                                                 </div>
                                                 <span className="text-xs text-slate-500 font-mono">
-                                                    {tiers.length}価格帯
+                                                    {sortedTiers.length}価格帯（金額順）
                                                 </span>
                                             </div>
 
+                                            {/* 🌟 昇順ソートされたカードを5列グリッドで描画（左から右へ金額順に並びます） */}
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                                                {tiers.map((tierCell: any, cIdx: number) => {
+                                                {sortedTiers.map((tierCell: any, cIdx: number) => {
                                                     const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
                                                     const isOpen = openSubIndex === cellId;
                                                     const main = tierCell.mainItem || tierCell;
@@ -514,7 +565,7 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                {/* アービトラージ版エグゼクティブ・サマリー */}
+                {/* サマリー描画 */}
                 {!isTrendReport && (summary || hasArbitrageTiers) && (
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
