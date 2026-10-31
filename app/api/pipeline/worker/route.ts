@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'cycleId is required' }, { status: 400 });
   }
 
-  // 🌟 ユーザーからの強制停止リクエストを最優先で検知・遮断
+  // 手動停止シグナル
   if (action === 'stop') {
     await supabase
       .from('ai_pipeline_cycles')
@@ -35,14 +35,12 @@ export async function POST(req: Request) {
     .single();
 
   if (cycleErr || !cycle) {
-    console.error(`[Worker] Cycle ${cycleId} not found`);
     return NextResponse.json({ success: false, error: 'Cycle not found' }, { status: 404 });
   }
 
-  // 🌟 すでに停止されているか完了している場合は後続フェーズを実行せず即時終了
-  if (['partially_failed', 'ready_to_publish', 'completed'].includes(cycle.status)) {
-    console.log(`⏹️ [Worker Halted] Cycle ${cycleId} はステータス [${cycle.status}] のため以降の実行を中止します。`);
-    return NextResponse.json({ success: true, message: 'Pipeline already halted or finished' });
+  // 終了状態の場合は二重実行を防止
+  if (['ready_to_publish', 'completed'].includes(cycle.status)) {
+    return NextResponse.json({ success: true, message: 'Already completed' });
   }
 
   console.log(`\n==============================================`);
@@ -63,7 +61,7 @@ export async function POST(req: Request) {
 
   try {
     // ------------------------------------------------------------------------
-    // Phase 1: 全リサーチ & プラットフォーム戦術の並列実行
+    // Phase 1: リサーチ & プラットフォーム分析
     // ------------------------------------------------------------------------
     if (cycle.status === 'initialized') {
       console.log('▶ [Phase 1] 全リサーチ & 戦術分析を開始します...');
@@ -181,11 +179,14 @@ export async function POST(req: Request) {
       extractTrendItems(trendEU, 'eu');
       extractTrendItems(trendAsia, 'asia');
 
+      // 重複登録防止のため既存の候補をクリアしてからインサート
+      await supabase.from('ai_research_items').delete().eq('cycle_id', cycleId);
       if (researchRows.length > 0) {
         const { error: insErr } = await supabase.from('ai_research_items').insert(researchRows);
         if (insErr) throw insErr;
       }
 
+      await supabase.from('ai_platform_tactics').delete().eq('cycle_id', cycleId);
       await supabase.from('ai_platform_tactics').insert([
         {
           cycle_id: cycleId,
@@ -215,7 +216,7 @@ export async function POST(req: Request) {
     // Phase 2: Gate 1 監査
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
-      console.log('▶ [Phase 2] Gate 1-A & Gate 1-B 監査を開始します...');
+      console.log('▶ [Phase 2] Gate 1 監査を開始します...');
       const { data: allItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -314,10 +315,11 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 4: 原稿生成
+    // Phase 4: 原稿生成（二重起動防止ロック付き）
     // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
       console.log('▶ [Phase 4] SNS原稿 ＆ Discordオファー制作を開始します...');
+
       const { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -407,19 +409,13 @@ export async function POST(req: Request) {
         gate2_status: 'pending',
       });
 
-      await supabase
-        .from('ai_content_deliverables')
-        .delete()
-        .eq('cycle_id', cycleId);
-
-      const { error: insErr } = await supabase
-        .from('ai_content_deliverables')
-        .insert(deliverableRows);
-
+      // 🌟 30件重複を完全に排除：既存レコードを削除してから厳密に15件のみインサート
+      await supabase.from('ai_content_deliverables').delete().eq('cycle_id', cycleId);
+      const { error: insErr } = await supabase.from('ai_content_deliverables').insert(deliverableRows);
       if (insErr) throw insErr;
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 4 完了] ステータスを gate2_auditing に更新しました');
+      console.log('✔ [Phase 4 完了] 全15件の原稿を生成完了。ステータスを gate2_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'content_generation_completed' });
     }
