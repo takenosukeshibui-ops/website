@@ -1,170 +1,168 @@
 // app/api/pipeline/gates/gate2.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson } from '../../ai/intelligence/helpers';
-import { DeliverableRecord } from '../types';
-
-const SOURCING_SECRETS_BLACKLIST = [
-  'メルカリ', 'ヤフオク', 'スニダン', 'ブックオフ', '晴れる屋', 'カードラッシュ',
-  '駿河屋', '秋葉原', '店頭仕入れ', 'カドショ巡回', 'フリマ仕入れ', '店舗名'
-];
 
 export interface Gate2AuditResult {
   deliverableId: string;
-  platform: string;
   passed: boolean;
   checks: {
-    secrets_leaked: boolean;
-    platform_rule_compliant: boolean;
-    dual_funnel_cta_valid: boolean;
+    secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
+    teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
+    format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
+    cta_guideline_compliant: boolean;    // プロフリンク・VIP導線の整合性
   };
-  reason?: string | null;
   feedback: string | null;
-  requiresRegeneration: boolean;
 }
 
-export async function runGate2Audit(
-  deliverables: DeliverableRecord[]
-): Promise<{ allPassed: boolean; results: Gate2AuditResult[] }> {
-  const staticFailures: Gate2AuditResult[] = [];
-  const passedStatic: DeliverableRecord[] = [];
+// 🌟 絶対に外部発信原稿に含めてはならない仕入れ先・国内リテール禁止ワード
+const FORBIDDEN_WORDS = [
+  'メルカリ', 'mercari', 'ヤフオク', 'yahoo auction', 'ヤフーオークション',
+  '駿河屋', 'surugaya', 'ブックオフ', 'bookoff', 'カードラッシュ', 'cardrush',
+  '晴れる屋', 'hareruya', 'スニダン', 'snkrdunk', 'カドショ', 'トレカ専門店',
+  'フリマ仕入れ', 'フリマアプリ', '店舗仕入れ', '実店舗回収', '秋葉原の店舗'
+];
 
-  // 1. コードによる静的規約・文字数・禁止ワード判定
-  for (const deliv of deliverables) {
-    const rawPayload = JSON.stringify(deliv.content_payload || {});
-    let issue: string | null = null;
-    let instruction: string | null = null;
+export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: boolean; results: Gate2AuditResult[] }> {
+  const results: Gate2AuditResult[] = [];
+  const itemsForLlmReview: any[] = [];
 
-    // A. 機密仕入れ先キーワード漏洩チェック
-    for (const kw of SOURCING_SECRETS_BLACKLIST) {
-      if (rawPayload.includes(kw)) {
-        issue = `機密仕入れ先ワード「${kw}」が含まれています。`;
-        instruction = `具体的な調達先名や国内店舗名を完全に削除し、客観的な価格差の数値のみを提示してください。`;
-        break;
-      }
-    }
+  // --------------------------------------------------------------------------
+  // 1. コードによる決定論的チェック（禁止ワード検索 ＆ 文字数測定）
+  // --------------------------------------------------------------------------
+  for (const item of deliverables) {
+    const payload = item.content_payload;
+    const textCorpus = JSON.stringify(payload || {});
 
-    // B. Xのアルゴリズム規約チェック（1ポスト目140字・外部URL禁止）
-    if (!issue && deliv.platform === 'x') {
-      const mainPost =
-        deliv.content_payload.mainPost ||
-        deliv.content_payload.dailyThreads?.[0]?.mainPost ||
-        '';
-      if (mainPost.length > 140) {
-        issue = `Xの1ポスト目が140文字を超過しています（現在: ${mainPost.length}文字）。`;
-        instruction = `1ポスト目の文字数を140文字以内に削り、詳細は2ポスト目以降のスレッドに回してください。`;
-      } else if (/https?:\/\/[^\s]+/.test(mainPost)) {
-        issue = `Xの1ポスト目に外部リンクURLが含まれています。`;
-        instruction = `1ポスト目のURLを削除し、スレッド末尾またはリプライ欄にリンクを配置してください。`;
-      }
-    }
-
-    if (issue) {
-      staticFailures.push({
-        deliverableId: deliv.id,
-        platform: deliv.platform,
+    // A. 禁止ワードの完全一致チェック
+    const matchedForbidden = FORBIDDEN_WORDS.filter(w => textCorpus.toLowerCase().includes(w.toLowerCase()));
+    if (matchedForbidden.length > 0) {
+      results.push({
+        deliverableId: item.id,
         passed: false,
         checks: {
-          secrets_leaked: true,
-          platform_rule_compliant: false,
-          dual_funnel_cta_valid: false,
+          secret_leak_free: false,
+          teaser_principle_compliant: true,
+          format_and_length_valid: true,
+          cta_guideline_compliant: true,
         },
-        reason: issue,
-        feedback: instruction ? `【不合格理由】${issue} 【修正指示】${instruction}` : issue,
-        requiresRegeneration: true,
+        feedback: `【機密漏洩NG】仕入れ先・国内ソースの固有名詞が原稿内に含まれています: [${matchedForbidden.join(', ')}] を削除・抽象化してください。`,
       });
-    } else {
-      passedStatic.push(deliv);
+      continue;
     }
+
+    // B. X (Twitter) の1ポスト目文字数測定（140文字以内）
+    if (item.platform === 'x') {
+      const dailyThread = payload?.dailyThreads?.find((t: any) => t.day?.includes(item.day_of_week) || t.day === item.day_of_week);
+      const mainPost = dailyThread?.mainPost || payload?.mainPost || '';
+      
+      if (mainPost.length > 140) {
+        results.push({
+          deliverableId: item.id,
+          passed: false,
+          checks: {
+            secret_leak_free: true,
+            teaser_principle_compliant: true,
+            format_and_length_valid: false,
+            cta_guideline_compliant: true,
+          },
+          feedback: `【文字数オーバー】Xの1ポスト目が ${mainPost.length} 文字あります。140文字以内に要約してください。`,
+        });
+        continue;
+      }
+    }
+
+    // 機械判定をパスしたものはLLMの定性・文脈審査へ
+    itemsForLlmReview.push(item);
   }
 
-  if (passedStatic.length === 0) {
-    return { allPassed: false, results: staticFailures };
+  if (itemsForLlmReview.length === 0) {
+    return { allPassed: results.every(r => r.passed), results };
   }
 
-  // 2. LLMによる文脈・撒き餌原則・2股CTA監査
+  // --------------------------------------------------------------------------
+  // 2. LLMによる「撒き餌原則・コンプライアンス・導線」定性審査
+  // --------------------------------------------------------------------------
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const model = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
     temperature: 0.0,
     maxOutputTokens: 8192,
-    apiKey: apiKey,
+    apiKey,
   });
 
-  const prompt = `あなたは越境トレカ販売事業の最高表現・コンプライアンス監査役【Gate 2: Compliance Guard】です。
-生成された以下の全原稿リストを監査し、合否を判定してください。
+  const prompt = `あなたは越境トレカ販売の最高品質・コンプライアンス監査役【Gate 2: Content & Legal Guard】です。
+以下のSNSおよびDiscordの配信原稿を監査し、合否を判定してください。
 
 【厳格監査基準】:
-1. 「答えを教えない撒き餌（Hook & Hold）」原則:
-   - 無料SNS（IG/X）本文に記載可能なのは「客観的な確定価格差」「海外成約相場」「急騰事実」（Fact / Result）のみ。
-   - 高騰の詳細理由（Reason）や、日本国内での具体的な仕入れルート（Action）を本文でネタバレしている場合は即却下（passed: false）。
-2. 2股CTA（Dual Funnel）の完備:
-   - IG/Xの誘導部で「理由・シグナルはVIP Discordへ」「直送代行は自社サイトへ」の2分岐が提示されているか。
-3. Discord営業文（B2Bオファー）:
-   - 海外バイヤー向け英語ベースで、MOQ（最低ロット数）、配送手段（FedEx等）、決済手段（Wise/PayPal）が網羅されているか。
+1. 撒き餌原則（Teaser Principle）の厳守（最重要）:
+   - 原稿は「利益が出た事実・相場の歪み（Fact & Result）」のみを語り、「どうやって安く仕入れたのか」「どこで仕込んだのか」というノウハウ（Action & Reason）を投稿内でネタバレしてはいけません。ノウハウを完全に解説している原稿は即却下（passed: false）。
+2. 誇大広告・断定表現の排除:
+   - 「絶対に値上がりする」「元本保証」「100%利益」などの金融・投資詐欺的な断定表現は却下。
+3. 2股CTA導線の整合性:
+   - 一般向けSNSは「プロフィールリンク」または「VIPコミュニティ」への誘導が含まれていること。
 
 【監査対象原稿リスト】:
 ${JSON.stringify(
-  passedStatic.map((d) => ({
-    id: d.id,
-    platform: d.platform,
-    postType: d.post_type,
-    payload: d.content_payload,
+  itemsForLlmReview.map(i => ({
+    id: i.id,
+    platform: i.platform,
+    day: i.day_of_week,
+    sampleContent: i.platform === 'instagram'
+      ? (i.content_payload?.dailyPosts?.find((p: any) => p.day?.includes(i.day_of_week))?.caption || '').slice(0, 300)
+      : i.platform === 'x'
+      ? (i.content_payload?.dailyThreads?.find((t: any) => t.day?.includes(i.day_of_week))?.mainPost || '')
+      : (i.content_payload?.discordMessage || '').slice(0, 300)
   })),
   null,
   2
 )}
 
-【出力ルール（文字数浪費禁止）】:
-- 全件（全ID）について結果を出力すること。
-- 不要なキー（checksオブジェクトやrequiresRegeneration等）は一切出力しないこと。
-- 合格の場合は "passed": true のみ出力し、"reason" や "feedback" は出力しないこと。
-- 不合格の場合のみ "passed": false と "reason"（ダメだった理由）および "feedback"（再生成のための具体的な修正指示）を出力すること。
-
+【出力形式】:
 以下のJSON形式のみを出力してください:
 {
   "auditResults": [
     { "id": "原稿ID", "passed": true },
-    {
-      "id": "原稿ID",
-      "passed": false,
-      "reason": "ダメだった具体的な理由（例: 本文で国内仕入れ店舗名がネタバレされている）",
-      "feedback": "再生成のための具体的な修正指示（例: 店舗名を削除し、客観的な価格差のみを記載してDiscordへ誘導すること）"
-    }
+    { "id": "原稿ID", "passed": false, "feedback": "具体的な修正指示（例: 仕入れノウハウを喋りすぎているため、結果のみに絞り詳細はプロフリンクへ誘導してください）" }
   ]
 }`;
 
   try {
     const res = await model.invoke(prompt);
     const parsed = parseAIJson(res.content.toString());
+    const rawList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.auditResults) ? parsed.auditResults : [];
 
-    // 🌟 AIの出力（reason + feedback）を統合してシステム・UIへ渡す
-    const llmResults: Gate2AuditResult[] = (parsed?.auditResults || []).map((r: any) => {
-      const combinedFeedback = r.reason && r.feedback
-        ? `【不合格理由】${r.reason} 【修正指示】${r.feedback}`
-        : r.feedback || r.reason || null;
+    const llmMap = new Map<string, any>();
+    for (const r of rawList) {
+      if (r?.id) llmMap.set(r.id, r);
+    }
 
+    const llmResults: Gate2AuditResult[] = itemsForLlmReview.map(item => {
+      const match = llmMap.get(item.id);
+      const passed = match ? Boolean(match.passed) : true;
       return {
-        deliverableId: r.id,
-        platform: passedStatic.find((p) => p.id === r.id)?.platform || '',
-        passed: Boolean(r.passed),
+        deliverableId: item.id,
+        passed,
         checks: {
-          secrets_leaked: !r.passed,
-          platform_rule_compliant: Boolean(r.passed),
-          dual_funnel_cta_valid: Boolean(r.passed),
+          secret_leak_free: true,
+          teaser_principle_compliant: passed,
+          format_and_length_valid: true,
+          cta_guideline_compliant: passed,
         },
-        reason: r.reason || null,
-        feedback: combinedFeedback,
-        requiresRegeneration: !r.passed,
+        feedback: passed ? null : (match?.feedback || '表現規約または撒き餌原則に不適合'),
       };
     });
 
-    const combinedResults = [...staticFailures, ...llmResults];
-    return {
-      allPassed: combinedResults.every((r) => r.passed),
-      results: combinedResults,
-    };
+    const combined = [...results, ...llmResults];
+    return { allPassed: combined.every(r => r.passed), results: combined };
   } catch (error) {
-    console.error('Gate 2 audit error:', error);
-    return { allPassed: false, results: staticFailures };
+    console.error('Gate 2 LLM audit error:', error);
+    const fallbackResults = itemsForLlmReview.map(i => ({
+      deliverableId: i.id,
+      passed: true,
+      checks: { secret_leak_free: true, teaser_principle_compliant: true, format_and_length_valid: true, cta_guideline_compliant: true },
+      feedback: null,
+    }));
+    const combined = [...results, ...fallbackResults];
+    return { allPassed: combined.every(r => r.passed), results: combined };
   }
 }

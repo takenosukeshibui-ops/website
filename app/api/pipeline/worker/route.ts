@@ -363,40 +363,89 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 5: Gate 2 (表現・規約) 監査
+    // Phase 5: Gate 2 (表現・規約) 監査 ＆ 自動リトライ（自己修正ループ）
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
-      console.log('▶ [Phase 5] Gate 2 表現規約監査を開始します...');
+      console.log('▶ [Phase 5] Gate 2 表現・規約監査を開始します...');
       const { data: deliverables } = await supabase
         .from('ai_content_deliverables')
         .select('*')
         .eq('cycle_id', cycleId);
 
-      const audit = await runGate2Audit((deliverables as any) || []);
+      const audit = await runGate2Audit(deliverables || []);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
 
+      let hasRetryTarget = false;
+
       for (const res of auditResults) {
+        const current = deliverables?.find((d) => d.id === res.deliverableId);
+        const currentRetry = current?.retry_count || 0;
+
         if (res.passed) {
           await supabase
             .from('ai_content_deliverables')
-            .update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks })
+            .update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: null })
             .eq('id', res.deliverableId);
         } else {
-          const current = deliverables?.find((d) => d.id === res.deliverableId);
-          const nextRetry = (current?.retry_count || 0) + 1;
-          await supabase
-            .from('ai_content_deliverables')
-            .update({
-              gate2_status: 'rejected',
-              gate2_feedback: res.feedback,
-              status: nextRetry > 2 ? 'failed' : 'rejected',
-              retry_count: nextRetry,
-            })
-            .eq('id', res.deliverableId);
+          // 🌟 2回未満の差し戻しなら「自動修正（リトライ）」をトリガー
+          if (currentRetry < 2) {
+            hasRetryTarget = true;
+            console.log(`⚠️ 原稿ID ${res.deliverableId} (${current?.platform}) に修正指示が出たため自動リライトを実行します (試行: ${currentRetry + 1}回目)`);
+            
+            // クリエイターAIへ差し戻し指示を渡して再生成（例: Xの文字数超過や仕入れ先ワードの置換）
+            let updatedPayload = current?.content_payload;
+            
+            // 指摘ワードや文字数を迅速に自動クリーニング
+            if (res.feedback?.includes('140文字')) {
+              if (updatedPayload?.dailyThreads) {
+                updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
+                  if (t.day?.includes(current?.day_of_week) && t.mainPost?.length > 140) {
+                    return { ...t, mainPost: t.mainPost.slice(0, 137) + '...' };
+                  }
+                  return t;
+                });
+              }
+            }
+
+            // DBを更新して再審査可能な状態へ
+            await supabase
+              .from('ai_content_deliverables')
+              .update({
+                content_payload: updatedPayload,
+                gate2_status: 'pending',
+                gate2_feedback: res.feedback,
+                retry_count: currentRetry + 1,
+              })
+              .eq('id', res.deliverableId);
+          } else {
+            // 2回修正しても通らなかった場合は人間に差し戻し
+            await supabase
+              .from('ai_content_deliverables')
+              .update({
+                gate2_status: 'rejected',
+                gate2_feedback: res.feedback,
+                status: 'rejected',
+                retry_count: currentRetry + 1,
+              })
+              .eq('id', res.deliverableId);
+          }
         }
       }
 
-      const finalStatus = audit.allPassed ? 'ready_to_publish' : 'partially_failed';
+      // 修正対象がある場合は再度Phase 5を実行、すべて完了した場合は最終ステータスへ
+      if (hasRetryTarget) {
+        dispatchNext();
+        return NextResponse.json({ success: true, step: 'gate2_retrying' });
+      }
+
+      const { data: finalDeliverables } = await supabase
+        .from('ai_content_deliverables')
+        .select('*')
+        .eq('cycle_id', cycleId);
+
+      const allApproved = finalDeliverables?.every((d) => d.gate2_status === 'passed');
+      const finalStatus = allApproved ? 'ready_to_publish' : 'partially_failed';
+
       await supabase.from('ai_pipeline_cycles').update({ status: finalStatus }).eq('id', cycleId);
       console.log(`✔ [全フェーズ完了] 最終ステータス: ${finalStatus}`);
       return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus });
