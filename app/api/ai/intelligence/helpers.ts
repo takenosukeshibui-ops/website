@@ -1,14 +1,40 @@
 // app/api/ai/intelligence/helpers.ts
 import { createClient } from '@/lib/supabase/server';
 
-export function parseAIJson(content: string) {
-    try {
-        const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
-    } catch (e) {
-        console.error("AI JSON parse error:", e, content);
-        return null;
+// app/api/ai/intelligence/helpers.ts 内の parseAIJson
+
+export function parseAIJson(content: string): any {
+  try {
+    if (!content) return null;
+
+    // 1. マークダウンコードブロック (```json ... ```) の除去
+    let cleaned = content.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json/, '').replace(/```$/, '').trim();
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```/, '').replace(/```$/, '').trim();
     }
+
+    // 2. 🌟 末尾カンマ (Trailing Comma: ,} や ,]) を自動削除するサニタイズ
+    // オブジェクトや配列の閉じカッコ直前にある不要なカンマを正規表現で一掃
+    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+    return JSON.parse(cleaned);
+  } catch (err: any) {
+    console.error('AI JSON parse error:', err, content);
+    
+    // バックアップ: JSONブロックのみを抽出して再トライ
+    try {
+      const match = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+      if (match) {
+        const sanitized = match[0].replace(/,\s*([\]}])/g, '$1');
+        return JSON.parse(sanitized);
+      }
+    } catch (fallbackErr) {
+      // パース不可の場合は null を返却
+    }
+    return null;
+  }
 }
 
 // カテゴリ表示名変換（chiefManager や 各エージェントで使用）
