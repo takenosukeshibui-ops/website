@@ -75,19 +75,22 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     },
     ready_to_publish: {
         step: 'COMPLETE',
-        title: '全フェーズ完了！成果物の配信準備が完了しました',
+        title: '全フェーズ完了！全15原稿の配信準備が完了しました',
         percent: 100,
         color: 'bg-emerald-500',
         activeAgents: [
             '✔ 全13AI 稼働完了（各デスクで原稿確認・自動配信可能）'
         ]
     },
+    // 🌟 Gate 2 監査で一部指摘があった場合の表示
     partially_failed: {
-        step: 'STOPPED',
-        title: 'パイプラインが手動停止または一部中断されました',
+        step: 'AUDIT CHECK',
+        title: 'Gate 2 監査完了（一部の原稿に規約指摘・修正要請があります）',
         percent: 100,
-        color: 'bg-rose-600',
-        activeAgents: ['⏹️ 実行停止（再開するには再度一斉指示を実行してください）']
+        color: 'bg-amber-500',
+        activeAgents: [
+            '🛡️ 品質・規約監査役デスクで指摘内容を確認・調整できます'
+        ]
     },
     completed: {
         step: 'PUBLISHED',
@@ -114,7 +117,6 @@ export default function AiDashboard() {
     const [isPublishingX, setIsPublishingX] = useState<boolean>(false);
     const [isStopping, setIsStopping] = useState<boolean>(false);
 
-    // 🌟 ポーリングタイマーを確実に即時クリアするためのRef
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const [pipelineProgress, setPipelineProgress] = useState<PipelineProgressState>({
@@ -124,7 +126,6 @@ export default function AiDashboard() {
         gate2Audits: [],
     });
 
-    // 1. 特定サイクルの全データを読み込んでダッシュボードに反映
     const loadCycleData = async (cycleId: string) => {
         setSelectedRecordId(cycleId);
         try {
@@ -164,13 +165,12 @@ export default function AiDashboard() {
         runIntelligenceAnalysis();
     };
 
-    // 🌟 2. パイプライン強制停止ハンドラー
+    // 強制停止ハンドラー
     const handleStopPipeline = async () => {
-        if (!window.confirm('現在実行中の全AIパイプラインを強制停止しますか？\n（進行中のリサーチや原稿制作は即座に中断されます）')) return;
+        if (!window.confirm('現在実行中の全AIパイプラインを強制停止しますか？')) return;
 
         setIsStopping(true);
 
-        // A. クライアント側のポーリングタイマーを即座に破棄
         if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
@@ -178,7 +178,6 @@ export default function AiDashboard() {
 
         const targetCycleId = selectedRecordId || pipelineProgress.cycleId;
 
-        // B. バックエンドに停止通知を送信
         if (targetCycleId) {
             try {
                 await fetch('/api/pipeline/worker', {
@@ -187,11 +186,10 @@ export default function AiDashboard() {
                     body: JSON.stringify({ cycleId: targetCycleId, action: 'stop' }),
                 });
             } catch (e) {
-                console.error('停止通知送信エラー:', e);
+                console.error('停止通知エラー:', e);
             }
         }
 
-        // C. フロントエンド状態を停止へ反映
         setAiLoading(false);
         setIsStopping(false);
         setPipelineProgress(prev => ({
@@ -201,7 +199,6 @@ export default function AiDashboard() {
 
         alert('🛑 パイプラインの実行を停止しました。');
 
-        // 履歴一覧を更新
         try {
             const listRes = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
             const listJson = await listRes.json();
@@ -213,9 +210,8 @@ export default function AiDashboard() {
         }
     };
 
-    // 3. パイプライン開始処理
+    // パイプライン開始処理
     const runIntelligenceAnalysis = async () => {
-        // 既存タイマーがあればクリア
         if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
@@ -265,7 +261,7 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // クライアント自動推進
+                        // クライアント自動推進（競合防止フラグ）
                         const activePhases: PipelinePhase[] = [
                             'initialized',
                             'researching',
@@ -286,7 +282,7 @@ export default function AiDashboard() {
                             });
                         }
 
-                        // 終了または中断時
+                        // 終了時
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             if (pollIntervalRef.current) {
                                 clearInterval(pollIntervalRef.current);
@@ -312,7 +308,6 @@ export default function AiDashboard() {
         }
     };
 
-    // コンポーネント破棄時にタイマーをクリア
     useEffect(() => {
         return () => {
             if (pollIntervalRef.current) {
@@ -398,7 +393,6 @@ export default function AiDashboard() {
             />
 
             <div className="flex-1 flex flex-col relative bg-slate-950/50">
-                {/* 🌟 ヘッダー操作エリア：実行中かどうかに応じてボタンが切り替わる */}
                 <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-end px-6 shrink-0">
                     {aiLoading ? (
                         <div className="flex items-center gap-3 animate-fadeIn">
@@ -455,8 +449,11 @@ export default function AiDashboard() {
 
                             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                                 <span className="text-slate-400 font-bold shrink-0 flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                                    作業中AI:
+                                    <span className={`w-2 h-2 rounded-full inline-block ${
+                                        pipelineProgress.status === 'ready_to_publish' ? 'bg-emerald-400' :
+                                        pipelineProgress.status === 'partially_failed' ? 'bg-amber-400' : 'bg-emerald-400 animate-ping'
+                                    }`} />
+                                    ステータス:
                                 </span>
                                 <div className="flex flex-wrap gap-1.5">
                                     {currentPhase.activeAgents.map((agent, i) => (
