@@ -53,7 +53,10 @@ export default function DocumentReportView({
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
+    // 🌟 レポートの種別を正確に判定する
     const isTrendReport = Boolean(report.hypotheses && Array.isArray(report.hypotheses));
+    const isArbitrageReport = Boolean(report.slots && Array.isArray(report.slots));
+    const isStrategicReport = Boolean(report.facts && report.soWhat); // SNSアナリストのデータか判定
 
     const priceTiers = [
         { key: 'all', label: 'すべて表示' },
@@ -65,11 +68,7 @@ export default function DocumentReportView({
     ];
 
     const TIER_ORDER: Record<string, number> = {
-        under_3k: 1,
-        under_10k: 2,
-        middle: 3,
-        upper: 4,
-        top_end: 5
+        under_3k: 1, under_10k: 2, middle: 3, upper: 4, top_end: 5
     };
 
     const getTierBadgeClass = (tierKey?: string) => {
@@ -79,14 +78,10 @@ export default function DocumentReportView({
 
     const getConvictionBadgeClass = (conviction?: string) => {
         switch (conviction) {
-            case 'High':
-                return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-            case 'Mid':
-                return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-            case 'Speculative':
-                return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
-            default:
-                return 'bg-slate-800 text-slate-300 border-slate-700';
+            case 'High': return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+            case 'Mid': return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+            case 'Speculative': return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+            default: return 'bg-slate-800 text-slate-300 border-slate-700';
         }
     };
 
@@ -104,39 +99,29 @@ export default function DocumentReportView({
     else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) regionName = 'アジア';
     else if (titleUpper.includes('US') || titleUpper.includes('北米')) regionName = '北米';
 
-    const reportTypeName = isTrendReport ? '市場トレンドレポート' : 'アービトラージレポート';
-    const displayTitle = `${formattedDate} ${regionName} ${reportTypeName}`;
+    // 🌟 タイトルの動的出し分け（SNSアナリストのタイトルはAIが生成したものをそのまま表示）
+    let displayTitle = '';
+    if (isStrategicReport) {
+        displayTitle = `${formattedDate} ${report.title}`;
+    } else if (isTrendReport) {
+        displayTitle = `${formattedDate} ${regionName} 市場トレンドレポート`;
+    } else {
+        displayTitle = `${formattedDate} ${regionName} アービトラージレポート`;
+    }
 
     const getTierOrderScore = (cell: any): number => {
         const key = cell.priceTier || cell.mainItem?.priceTier;
         if (key && TIER_ORDER[key]) return TIER_ORDER[key];
-
-        const label = cell.priceTierLabel || cell.mainItem?.priceTierLabel || '';
-        if (label.includes('3千円') || label.includes('3k')) return 1;
-        if (label.includes('1万円') || label.includes('10k')) return 2;
-        if (label.includes('3万円') || label.includes('middle')) return 3;
-        if (label.includes('8万円') || label.includes('upper')) return 4;
-        if (label.includes('8万') || label.includes('top_end')) return 5;
-
         const buy = parseInt(String(cell.mainItem?.jpBuyPriceJPY || cell.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
-        if (buy <= 3000) return 1;
-        if (buy <= 10000) return 2;
-        if (buy <= 30000) return 3;
-        if (buy <= 80000) return 4;
-        return 5;
+        if (buy <= 3000) return 1; if (buy <= 10000) return 2; if (buy <= 30000) return 3; if (buy <= 80000) return 4; return 5;
     };
 
     const getSlotMeta = (slotKey: string, slotLabel?: string) => {
         const meta = SLOT_METADATA[slotKey] || SLOT_METADATA[slotKey.toLowerCase()];
         if (meta) return meta;
-        return {
-            badge: slotKey,
-            desc: slotLabel || '',
-            order: 99
-        };
+        return { badge: slotKey, desc: slotLabel || '', order: 99 };
     };
 
-    // 🌟 指定された並び順（クラシック ➔ ネオ ➔ モダン ➔ 限定プロモ ➔ 鑑定絶版BOX）で昇順ソート
     const sortedSlots = (report.slots || []).slice().sort((a: any, b: any) => {
         const orderA = getSlotMeta(a.slotKey, a.slotLabel).order;
         const orderB = getSlotMeta(b.slotKey, b.slotLabel).order;
@@ -145,7 +130,7 @@ export default function DocumentReportView({
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
-            {/* ヘッダー */}
+            {/* 共通ヘッダー */}
             <div className="p-4 sm:p-5 border-b border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between bg-slate-950/60 gap-3">
                 <div className="flex items-center gap-3">
                     <span className="text-2xl sm:text-3xl shrink-0">{icon}</span>
@@ -155,26 +140,139 @@ export default function DocumentReportView({
                         </h3>
                     </div>
                 </div>
-                {isTrendReport ? (
+                {isStrategicReport && (
+                    <div className="shrink-0">
+                        <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
+                            AIアカウント分析完了
+                        </span>
+                    </div>
+                )}
+                {isTrendReport && (
                     <div className="shrink-0">
                         <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
                             厳選トレンド {report.hypotheses?.length || 0}本 (各5銘柄)
                         </span>
                     </div>
-                ) : (
-                    sortedSlots && sortedSlots.length > 0 && (
-                        <div className="shrink-0">
-                            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${sortedSlots.length}枠)`}
-                            </span>
-                        </div>
-                    )
+                )}
+                {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
+                    <div className="shrink-0">
+                        <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
+                            {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${sortedSlots.length}枠)`}
+                        </span>
+                    </div>
                 )}
             </div>
 
             <div className="p-4 sm:p-6 space-y-6">
+                
                 {/* ========================================================= */}
-                {/* 市場トレンドレポート描画ブロック */}
+                {/* 🌟 1. SNSアナリスト（戦略レポート）描画ブロック */}
+                {/* ========================================================= */}
+                {isStrategicReport && (
+                    <div className="space-y-5 animate-fadeIn">
+                        {report.claim && (
+                            <div className={`bg-${accentColor}-500/10 border border-${accentColor}-500/30 rounded-xl p-4 shadow-sm`}>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-sm">🎯</span>
+                                    <h4 className={`text-sm font-bold text-${accentColor}-300`}>今週のSNS最重要ミッション</h4>
+                                </div>
+                                <p className="text-xs text-white font-bold leading-relaxed ml-6">{report.claim}</p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Facts & Insights */}
+                            {report.facts && report.facts.length > 0 && (
+                                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                                    <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
+                                        <span>📊</span> アカウント実績データ ＆ 推奨設定
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {report.facts.map((fact: any, idx: number) => (
+                                            <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800/60">
+                                                <span className="text-slate-400 font-bold">{fact.label}</span>
+                                                <span className="text-white font-mono">{fact.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Curator Directives (スロット重み付け) */}
+                            {report.curatorDirectives && (
+                                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                                    <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                                        <span>👑</span> キュレーター向け編成ディレクション
+                                    </h4>
+                                    <div className="flex items-center justify-between text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800/60">
+                                        <span className="text-slate-400 font-bold">先行予測推奨曜日</span>
+                                        <span className="text-amber-400 font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{report.curatorDirectives.recommendedTrendDay}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <span className="text-[10px] text-slate-400 block mb-1">スロット傾斜配分 (RSI判定)</span>
+                                        {Object.entries(report.curatorDirectives.slotWeights || {}).map(([key, weight]) => (
+                                            <div key={key} className="flex justify-between items-center text-[10px] pl-2">
+                                                <span className="text-slate-300">{SLOT_METADATA[key]?.badge || key}</span>
+                                                <span className={`font-mono font-bold px-1.5 py-0.5 rounded ${
+                                                    weight === 'high' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                                    weight === 'low' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                                                    'bg-slate-800 text-slate-400 border border-slate-700'
+                                                }`}>
+                                                    {String(weight).toUpperCase()}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* So What (クリエイター向け指示) */}
+                        {report.soWhat && (
+                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+                                <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
+                                    <span>🎨</span> クリエイター向け制作レギュレーション
+                                </h4>
+                                <p className="text-xs text-slate-300 leading-relaxed p-2 bg-slate-900/60 rounded border border-slate-800/50">
+                                    {report.soWhat}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {report.riskAndMitigation && (
+                                <div className="bg-slate-950 border border-rose-900/30 rounded-xl p-4 space-y-2">
+                                    <h4 className="text-xs font-bold text-rose-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                                        <span>🚨</span> 警戒すべきリスクと回避策
+                                    </h4>
+                                    <div className="space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
+                                        <p><strong className="text-rose-400">リスク: </strong>{report.riskAndMitigation.risk}</p>
+                                        <p><strong className="text-emerald-400">回避策: </strong>{report.riskAndMitigation.mitigation}</p>
+                                    </div>
+                                </div>
+                            )}
+                            {report.verificationChecklist && (
+                                <div className="bg-slate-950 border border-emerald-900/30 rounded-xl p-4 space-y-2">
+                                    <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                                        <span>✅</span> Gate 2 監査チェックリスト
+                                    </h4>
+                                    <ul className="space-y-1.5 text-[11px] text-slate-300">
+                                        {report.verificationChecklist.map((chk: string, idx: number) => (
+                                            <li key={idx} className="flex items-start gap-1.5">
+                                                <span className="text-emerald-400 font-bold shrink-0">✔</span>
+                                                <span>{chk}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+
+                {/* ========================================================= */}
+                {/* 2. 市場トレンドレポート描画ブロック（既存維持） */}
                 {/* ========================================================= */}
                 {isTrendReport && (
                     <div className="space-y-6">
@@ -353,9 +451,9 @@ export default function DocumentReportView({
                 )}
 
                 {/* ========================================================= */}
-                {/* 💎 アービトラージレポート描画ブロック */}
+                {/* 3. アービトラージレポート描画ブロック（既存維持） */}
                 {/* ========================================================= */}
-                {!isTrendReport && sortedSlots && sortedSlots.length > 0 && (
+                {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="space-y-4">
                         {hasArbitrageTiers && (
                             <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-800 pb-3">
@@ -485,13 +583,12 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」選択時: ボタンを廃止し代替候補も常時展開表示 */
+                            /* 🌟 「すべて表示」選択時 */
                             <div className="space-y-4">
                                 {sortedSlots.map((slot: any, sIdx: number) => {
                                     const rawTiers: any[] = slot.tiers || slot.items || [];
                                     const slotMeta = getSlotMeta(slot.slotKey, slot.slotLabel);
 
-                                    // ① 重複除去
                                     const uniqueMap = new Map<string, any>();
                                     for (const t of rawTiers) {
                                         const main = t.mainItem || t;
@@ -502,7 +599,6 @@ export default function DocumentReportView({
                                     }
                                     const deduplicatedTiers = Array.from(uniqueMap.values());
 
-                                    // ② 価格帯昇順ソート（〜3千円 ➔ 8万円〜）
                                     const sortedTiers = deduplicatedTiers.sort((a, b) => {
                                         const orderA = getTierOrderScore(a);
                                         const orderB = getTierOrderScore(b);
@@ -581,7 +677,6 @@ export default function DocumentReportView({
                                                                 )}
                                                             </div>
 
-                                                            {/* 🌟 ボタンを撤廃し、代替候補が存在する場合は常時すべて表示 */}
                                                             {subs.length > 0 && (
                                                                 <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1.5">
                                                                     <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between px-0.5">
@@ -616,7 +711,7 @@ export default function DocumentReportView({
                 )}
 
                 {/* サマリー描画 */}
-                {!isTrendReport && (summary || hasArbitrageTiers) && (
+                {isArbitrageReport && (summary || hasArbitrageTiers) && (
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
