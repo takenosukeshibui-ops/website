@@ -1,3 +1,4 @@
+// app/api/pipeline/worker/route.ts
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
@@ -13,29 +14,39 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const { cycleId } = await req.json();
+  const { cycleId } = await req.json().catch(() => ({}));
 
   if (!cycleId) {
     return NextResponse.json({ success: false, error: 'cycleId is required' }, { status: 400 });
   }
 
-  const { data: cycle } = await supabase
+  const { data: cycle, error: cycleErr } = await supabase
     .from('ai_pipeline_cycles')
     .select('*')
     .eq('id', cycleId)
     .single();
 
-  if (!cycle) {
+  if (cycleErr || !cycle) {
+    console.error(`[Worker] Cycle ${cycleId} not found`);
     return NextResponse.json({ success: false, error: 'Cycle not found' }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  console.log(`\n==============================================`);
+  console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status}`);
+  console.log(`==============================================\n`);
+
+  // 🌟 次のステップをトリガー（サーバーサイドバックアップ用）
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
+
   const dispatchNext = () => {
+    // 待機せずに非同期で投げっぱなしにする
     fetch(`${baseUrl}/api/pipeline/worker`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cycleId }),
-    }).catch(console.error);
+    }).catch((err) => console.warn('[Worker] dispatchNext notice:', err.message));
   };
 
   try {
@@ -43,6 +54,7 @@ export async function POST(req: Request) {
     // Phase 1: リサーチ & プラットフォーム戦術の並列実行
     // ------------------------------------------------------------------------
     if (cycle.status === 'initialized') {
+      console.log('▶ [Phase 1] リサーチ開始...');
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching' }).eq('id', cycleId);
 
       const [trendUS, trendEU, trendAsia, sayaUS, sayaEU, sayaAsia, igTactics, xTactics] =
@@ -57,7 +69,6 @@ export async function POST(req: Request) {
           runXAccountAnalysis(),
         ]);
 
-      // リサーチ候補を ai_research_items に INSERT
       const researchRows: any[] = [];
       const extractItems = (report: any, agentKey: string, region: string) => {
         if (!report?.slots) return;
@@ -98,7 +109,6 @@ export async function POST(req: Request) {
         await supabase.from('ai_research_items').insert(researchRows);
       }
 
-      // 戦術レギュレーションを ai_platform_tactics に INSERT
       await supabase.from('ai_platform_tactics').insert([
         {
           cycle_id: cycleId,
@@ -119,6 +129,7 @@ export async function POST(req: Request) {
       ]);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
+      console.log('✔ [Phase 1 完了] ステータスを curating に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'researching_completed' });
     }
@@ -127,11 +138,13 @@ export async function POST(req: Request) {
     // Phase 2: キュレーター選定
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
+      console.log('▶ [Phase 2] キュレーター選定を開始します...');
       const { data: candidates } = await supabase
         .from('ai_research_items')
         .select('*')
         .eq('cycle_id', cycleId);
 
+      console.log(`[Phase 2] 対象候補件数: ${candidates?.length || 0}件`);
       const curation = await runCuratorSelection(candidates || [], cycle.category);
 
       for (const sel of curation?.calendarSelections || []) {
@@ -148,6 +161,7 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
+      console.log('✔ [Phase 2 完了] ステータスを gate1_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
@@ -156,6 +170,7 @@ export async function POST(req: Request) {
     // Phase 3: Gate 1 (商材・数値) 監査
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
+      console.log('▶ [Phase 3] Gate 1 数値監査を開始します...');
       const { data: selectedItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -171,7 +186,6 @@ export async function POST(req: Request) {
             .update({ gate1_status: 'passed', gate1_checks: res.checks })
             .eq('id', res.itemId);
         } else {
-          // 不合格品はリジェクトし、raw_payload の代替候補（subItems）から次点を昇格[cite: 1, 2]
           const { data: item } = await supabase
             .from('ai_research_items')
             .update({ gate1_status: 'rejected', gate1_feedback: res.feedback, is_selected: false })
@@ -205,6 +219,7 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'generating_content' }).eq('id', cycleId);
+      console.log('✔ [Phase 3 完了] ステータスを generating_content に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
@@ -213,6 +228,7 @@ export async function POST(req: Request) {
     // Phase 4: 原稿生成（IG / X / Discord営業の並列実行）
     // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
+      console.log('▶ [Phase 4] SNS原稿 & Discord営業文の制作を開始します...');
       const { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -276,6 +292,7 @@ export async function POST(req: Request) {
 
       await supabase.from('ai_content_deliverables').insert(deliverableRows);
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
+      console.log('✔ [Phase 4 完了] ステータスを gate2_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'content_generation_completed' });
     }
@@ -284,6 +301,7 @@ export async function POST(req: Request) {
     // Phase 5: Gate 2 (表現・規約) 監査
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
+      console.log('▶ [Phase 5] Gate 2 表現規約監査を開始します...');
       const { data: deliverables } = await supabase
         .from('ai_content_deliverables')
         .select('*')
@@ -314,12 +332,13 @@ export async function POST(req: Request) {
 
       const finalStatus = audit.allPassed ? 'ready_to_publish' : 'partially_failed';
       await supabase.from('ai_pipeline_cycles').update({ status: finalStatus }).eq('id', cycleId);
+      console.log(`✔ [全フェーズ完了] 最終ステータス: ${finalStatus}`);
       return NextResponse.json({ success: true, status: finalStatus });
     }
 
     return NextResponse.json({ success: true, status: cycle.status });
   } catch (err: any) {
-    console.error('Pipeline worker error:', err);
+    console.error('❌ [Worker Error]:', err);
     await supabase
       .from('ai_pipeline_cycles')
       .update({

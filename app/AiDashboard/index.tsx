@@ -94,11 +94,11 @@ export default function AiDashboard() {
         }
     };
 
-    // 🌟 修正: 非同期パイプラインキックオフとポーリング
+    // 🌟 修正: フロントエンドによる自己推進型パイプライン
     const runIntelligenceAnalysis = async () => {
         setAiLoading(true);
         try {
-            // 1. 非同期パイプラインを開始 (202 Accepted)
+            // 1. パイプライン初期化
             const res = await fetch('/api/pipeline/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -109,7 +109,9 @@ export default function AiDashboard() {
 
             setPipelineProgress(prev => ({ ...prev, cycleId, status: 'initialized' }));
 
-            // 2. 完了までステータスを追跡（ポーリング）
+            let isAdvancing = false;
+
+            // 2. ポーリング & 進行チェック
             const pollInterval = setInterval(async () => {
                 try {
                     const statusRes = await fetch(`/api/pipeline/status?cycleId=${cycleId}`);
@@ -125,7 +127,6 @@ export default function AiDashboard() {
                             gate2Audits: json.data.gate2Audits || [],
                         });
 
-                        // 成果物データがあれば画面のStateへ反映
                         if (json.data) {
                             setAiData(prev => ({
                                 ...prev,
@@ -136,12 +137,32 @@ export default function AiDashboard() {
                             } as any));
                         }
 
+                        // 🌟 フェイルセーフ: 処理中ステータスで止まっている場合、ブラウザから直接ワーカーを呼んで前進させる
+                        const activePhases: PipelinePhase[] = [
+                            'initialized',
+                            'curating',
+                            'gate1_auditing',
+                            'generating_content',
+                            'gate2_auditing'
+                        ];
+
+                        if (activePhases.includes(currentStatus) && !isAdvancing) {
+                            isAdvancing = true;
+                            // バックグラウンドでワーカーを実行
+                            fetch('/api/pipeline/worker', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cycleId }),
+                            }).finally(() => {
+                                isAdvancing = false;
+                            });
+                        }
+
                         // 完了判定
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             clearInterval(pollInterval);
                             setAiLoading(false);
                             
-                            // 完了時に履歴リストを再取得して左メニューを更新
                             const historyRes = await fetch(`/api/ai/intelligence?category=${activeCategory}`);
                             const historyJson = await historyRes.json();
                             if (historyJson.success && historyJson.history.length > 0) {
@@ -153,7 +174,8 @@ export default function AiDashboard() {
                 } catch (err) {
                     console.error('Polling error:', err);
                 }
-            }, 3000); // 3秒ごとに進捗チェック
+            }, 3000);
+
         } catch (err: any) { 
             alert(`分析エラー: ${err.message || '予期せぬエラー'}`); 
             setAiLoading(false); 
