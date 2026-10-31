@@ -169,7 +169,11 @@ export async function POST(req: Request) {
       extractTrendItems(trendAsia, 'asia');
 
       if (researchRows.length > 0) {
-        await supabase.from('ai_research_items').insert(researchRows);
+        const { error: insErr } = await supabase.from('ai_research_items').insert(researchRows);
+        if (insErr) {
+          console.error('[Phase 1] ai_research_items insert error:', insErr);
+          throw insErr;
+        }
       }
 
       // SNSアナリストの出力（curatorDirectives を含む raw_insights）を保存
@@ -265,7 +269,7 @@ export async function POST(req: Request) {
       const weeklyLineup = curationResult?.weeklyLineup || [];
       const mvpItemId = curationResult?.mvpItemId;
 
-      // 🌟 curationResult の編成方針（strategyBlueprint）を ai_platform_tactics に保存
+      // curationResult の編成方針（strategyBlueprint）を ai_platform_tactics に保存
       if (curationResult?.strategyBlueprint) {
         await supabase.from('ai_platform_tactics').insert({
           cycle_id: cycleId,
@@ -369,22 +373,22 @@ export async function POST(req: Request) {
         deliverableRows.push(
           {
             cycle_id: cycleId,
-            research_item_id: primaryItem?.id,
+            research_item_id: primaryItem?.id || null,
             platform: 'instagram',
             post_type: 'carousel',
             day_of_week: day,
-            content_payload: snsPosts,
-            status: 'draft',
+            content_payload: snsPosts || {},
+            status: 'drafting', // 🌟 'draft' ではなく DBのENUM値 'drafting' を指定
             gate2_status: 'pending',
           },
           {
             cycle_id: cycleId,
-            research_item_id: primaryItem?.id,
+            research_item_id: primaryItem?.id || null,
             platform: 'x',
             post_type: 'thread',
             day_of_week: day,
-            content_payload: xPosts,
-            status: 'draft',
+            content_payload: xPosts || {},
+            status: 'drafting', // 🌟 'draft' ではなく DBのENUM値 'drafting' を指定
             gate2_status: 'pending',
           }
         );
@@ -392,12 +396,12 @@ export async function POST(req: Request) {
 
       deliverableRows.push({
         cycle_id: cycleId,
-        research_item_id: mvpItem?.id,
+        research_item_id: mvpItem?.id || null,
         platform: 'discord',
         post_type: 'wholesale_offer',
         day_of_week: 'Weekly',
-        content_payload: salesDM,
-        status: 'draft',
+        content_payload: salesDM || {},
+        status: 'drafting', // 🌟 'draft' ではなく DBのENUM値 'drafting' を指定
         gate2_status: 'pending',
       });
 
@@ -406,9 +410,17 @@ export async function POST(req: Request) {
         .delete()
         .eq('cycle_id', cycleId);
 
-      await supabase.from('ai_content_deliverables').insert(deliverableRows);
+      const { error: insErr } = await supabase
+        .from('ai_content_deliverables')
+        .insert(deliverableRows);
+
+      if (insErr) {
+        console.error('❌ [Phase 4] ai_content_deliverables insert error:', insErr);
+        throw insErr;
+      }
+
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 4 完了] 全原稿生成完了。ステータスを gate2_auditing に更新しました');
+      console.log('✔ [Phase 4 完了] 全原稿生成＆DB保存完了。ステータスを gate2_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'content_generation_completed' });
     }
@@ -418,12 +430,18 @@ export async function POST(req: Request) {
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
       console.log('▶ [Phase 5] Gate 2 表現・撒き餌原則監査を開始します...');
-      const { data: deliverables } = await supabase
+      const { data: deliverables, error: delErr } = await supabase
         .from('ai_content_deliverables')
         .select('*')
         .eq('cycle_id', cycleId);
 
-      const audit = await runGate2Audit(deliverables || []);
+      if (delErr || !deliverables || deliverables.length === 0) {
+        console.error('❌ [Phase 5] 監査対象の原稿が0件です。deliverables query failed:', delErr);
+        await supabase.from('ai_pipeline_cycles').update({ status: 'failed' }).eq('id', cycleId);
+        return NextResponse.json({ success: false, error: 'No deliverables found to audit' }, { status: 500 });
+      }
+
+      const audit = await runGate2Audit(deliverables);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
 
       let hasRetryTarget = false;
@@ -498,7 +516,11 @@ export async function POST(req: Request) {
         .select('*')
         .eq('cycle_id', cycleId);
 
-      const allApproved = finalDeliverables?.every((d) => d.gate2_status === 'passed');
+      const allApproved =
+        finalDeliverables &&
+        finalDeliverables.length > 0 &&
+        finalDeliverables.every((d) => d.gate2_status === 'passed');
+
       const finalStatus = allApproved ? 'ready_to_publish' : 'partially_failed';
 
       await supabase.from('ai_pipeline_cycles').update({ status: finalStatus }).eq('id', cycleId);
