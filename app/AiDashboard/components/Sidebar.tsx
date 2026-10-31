@@ -65,18 +65,6 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* 🛡️ Gate 2 監査役デスク（表現・配信原稿専任） */}
-                <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
-                    <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs font-bold text-orange-200 truncate">品質・規約監査役</p>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 2</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 truncate">配信原稿 機密・導線審査</p>
-                    </div>
-                </div>
-
                 {/* 🔮 市場トレンドリサーチチーム */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-amber-300">
@@ -158,6 +146,18 @@ export default function Sidebar({
                     </div>
                 </div>
             </div>
+
+                {/* 🛡️ Gate 2 監査役デスク（表現・配信原稿専任） */}
+                <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
+                    <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-orange-200 truncate">品質・規約監査役</p>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 2</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">配信原稿 機密・導線審査</p>
+                    </div>
+                </div>
 
             {/* 過去サイクル履歴選択 */}
             <div className="p-3 border-t border-slate-800 bg-slate-950">
