@@ -142,6 +142,8 @@ export async function GET(req: Request) {
       asia: buildTrendInsights('asia'),
     };
 
+    const mvpItem = researchItems.find((i) => i.is_mvp);
+
     const formattedData = {
       cycleId: cycle.id,
       pipelineStatus: cycle.status,
@@ -152,8 +154,16 @@ export async function GET(req: Request) {
       accountInsights: igTactic?.raw_insights || null,
       xAccountInsights: xTactic?.raw_insights || null,
       chiefPackage: {
-        chosenCardOrItem: researchItems.find((i) => i.is_mvp)?.card_name || '選定完了',
-        mvpHighlight: researchItems.find((i) => i.is_mvp) || null,
+        chosenCardOrItem: mvpItem?.card_name || '選定完了',
+        mvpHighlight: mvpItem
+          ? {
+              cardName: mvpItem.card_name,
+              region: mvpItem.region,
+              slotKey: mvpItem.slot_key,
+              hookFact: mvpItem.core_hook_fact || `${mvpItem.card_name} (粗利: ¥${mvpItem.price_spread_jpy})`,
+              selectionReason: mvpItem.curator_rationale || '流動性と粗利マージンを総合勘案して選定',
+            }
+          : null,
         approvedItems: researchItems.filter((i) => i.is_selected),
         contentCalendar: researchItems
           .filter((i) => i.is_selected)
@@ -174,8 +184,9 @@ export async function GET(req: Request) {
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
       salesDM: discordDeliverable?.content_payload || null,
+      // 🌟 監査を受けたすべてのアイテム（合格・不合格）を理由付きで返却
       gate1Audits: researchItems
-        .filter((i) => i.is_selected)
+        .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({
           id: i.id,
           card: i.card_name,
@@ -185,6 +196,7 @@ export async function GET(req: Request) {
           checks: i.gate1_checks,
           feedback: i.gate1_feedback,
         })),
+      // 🌟 Gate 2 の全原稿監査結果（不合格理由 & 修正指示付き）を返却
       gate2Audits: deliverables.map((d) => ({
         id: d.id,
         platform: d.platform,

@@ -79,8 +79,9 @@ export default function DeskViews({
                                         Weekly Selected MVP Highlight
                                     </span>
                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                        <span>🏆</span><span>{aiData.chiefPackage.mvpHighlight?.cardName || aiData.chiefPackage.chosenCardOrItem}</span>
-                                        </h3>
+                                        <span>🏆</span>
+                                        <span>{aiData.chiefPackage.mvpHighlight?.cardName || aiData.chiefPackage.chosenCardOrItem}</span>
+                                    </h3>
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
@@ -131,7 +132,7 @@ export default function DeskViews({
                             <div>
                                 <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ キュレーター選定理由</h4>
                                 <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                  {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason || '7日間の流動性と粗利マージンを総合勘案して選定'}
+                                    {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason || '7日間の流動性と粗利マージンを総合勘案して選定'}
                                 </p>
                             </div>
                         </div>
@@ -172,7 +173,7 @@ export default function DeskViews({
                             ) : (
                                 <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                                     {gate1Audits.map((item, idx) => (
-                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs">
+                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2 text-xs">
                                             <div className="flex justify-between items-center">
                                                 <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -185,10 +186,14 @@ export default function DeskViews({
                                                 <span>枠: {item.slot}</span>
                                                 <span>地域: {item.region?.toUpperCase()}</span>
                                             </div>
+                                            {/* 🌟 Gate 1 不合格理由・監査指摘のフォーマット強化 */}
                                             {item.feedback && (
-                                                <p className="text-[11px] text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20 leading-relaxed">
-                                                    💬 監査指摘: {item.feedback}
-                                                </p>
+                                                <div className="bg-amber-500/10 p-2.5 rounded border border-amber-500/20 mt-1">
+                                                    <span className="text-[10px] text-amber-400 font-bold block mb-1">💬 監査指摘・差し戻し理由</span>
+                                                    <p className="text-[11px] text-amber-200 leading-relaxed whitespace-pre-wrap">
+                                                        {item.feedback}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
@@ -211,7 +216,7 @@ export default function DeskViews({
                             ) : (
                                 <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                                     {gate2Audits.map((item, idx) => (
-                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs">
+                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2 text-xs">
                                             <div className="flex justify-between items-center">
                                                 <span className="font-bold text-white uppercase">{item.platform} 配信原稿</span>
                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -221,10 +226,14 @@ export default function DeskViews({
                                                 </span>
                                             </div>
                                             <span className="text-[11px] text-slate-400 block">対象曜日: {item.day}</span>
+                                            {/* 🌟 Gate 2 規約指摘 ＆ 修正指示のフォーマット強化 */}
                                             {item.feedback && (
-                                                <p className="text-[11px] text-rose-300 bg-rose-500/10 p-2 rounded border border-rose-500/20 leading-relaxed">
-                                                    💬 規約指摘: {item.feedback}
-                                                </p>
+                                                <div className="bg-rose-500/10 p-2.5 rounded border border-rose-500/20 mt-1">
+                                                    <span className="text-[10px] text-rose-400 font-bold block mb-1">💬 規約指摘 ＆ 修正指示</span>
+                                                    <p className="text-[11px] text-rose-200 leading-relaxed whitespace-pre-wrap">
+                                                        {item.feedback}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     ))}
