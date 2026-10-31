@@ -144,6 +144,24 @@ export async function GET(req: Request) {
 
     const mvpItem = researchItems.find((i) => i.is_mvp);
 
+    // 🌟 5. カレンダーを「曜日単位」にグルーピング（1日3商品トリオ化対応）
+    const approvedItems = researchItems.filter((i) => i.is_selected);
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const structuredContentCalendar = days.map((day) => {
+      const dayItems = approvedItems.filter((i) => i.assigned_day === day);
+      return {
+        dayOfWeek: day,
+        dayLabelJa: day, // DeskViews側で日本語化
+        postType: dayItems[0]?.slot_key || '不明なスロット',
+        items: dayItems.map((item) => ({
+          region: item.region,
+          selectedCardOrTopic: item.card_name,
+          hookFact: item.core_hook_fact || `${item.card_name} (粗利: ¥${item.price_spread_jpy})`,
+          hiddenActionReason: item.curator_rationale || '非公開',
+        })),
+      };
+    });
+
     const formattedData = {
       cycleId: cycle.id,
       pipelineStatus: cycle.status,
@@ -164,27 +182,14 @@ export async function GET(req: Request) {
               selectionReason: mvpItem.curator_rationale || '流動性と粗利マージンを総合勘案して選定',
             }
           : null,
-        approvedItems: researchItems.filter((i) => i.is_selected),
-        contentCalendar: researchItems
-          .filter((i) => i.is_selected)
-          .map((i) => ({
-            dayOfWeek: i.assigned_day,
-            dayLabelJa: i.assigned_day,
-            postType: i.slot_key,
-            selectedCardOrTopic: i.card_name,
-            hookFact: i.core_hook_fact || `${i.card_name} (粗利: ¥${i.price_spread_jpy})`,
-            hiddenActionReason: i.curator_rationale || '非公開',
-            directiveForCreator: {
-              instagramAngle: 'カルーセル解説',
-              xTwitterAngle: '140字フック＋スレッド',
-              discordOfferAngle: '大口卸オファー',
-            },
-          })),
+        // 🌟 取得した strategyBlueprint をフロントエンドへ渡す
+        strategyBlueprint: igTactic?.structure_blueprint?.strategyBlueprint || null,
+        approvedItems,
+        contentCalendar: structuredContentCalendar,
       },
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
       salesDM: discordDeliverable?.content_payload || null,
-      // 🌟 全240件規模の監査結果を agent_key 付きで返却
       gate1Audits: researchItems
         .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({

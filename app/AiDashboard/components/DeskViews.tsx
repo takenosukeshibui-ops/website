@@ -3,16 +3,6 @@ import React, { useState } from 'react';
 import { IntelligenceData, RegionKey, Gate1AuditItem, Gate2AuditItem } from '../types';
 import DocumentReportView from './DocumentReport';
 
-const DAYS_OF_WEEK = [
-    { key: 'Monday', label: '月曜', postType: 'Flagship_GlobalCatalog', desc: '全体カタログ' },
-    { key: 'Tuesday', label: '火曜', postType: 'Vintage_Focus', desc: 'クラシック枠' },
-    { key: 'Wednesday', label: '水曜', postType: 'Promo_Focus', desc: '限定プロモ枠' },
-    { key: 'Thursday', label: '木曜', postType: 'Modern_Meta_Focus', desc: '現行モダン枠' },
-    { key: 'Friday', label: '金曜', postType: 'Graded_Sealed_Focus', desc: '高額鑑定BOX枠' },
-    { key: 'Saturday', label: '土曜', postType: 'Hit_Proof_SocialProof', desc: '的中実績証明' },
-    { key: 'Sunday', label: '日曜', postType: 'Weekly_Summary_CTA', desc: '週間総括CTA' }
-];
-
 interface DeskViewsProps {
     aiActiveDesk: string;
     activeTrendRegion: RegionKey | 'audit';
@@ -31,6 +21,11 @@ interface DeskViewsProps {
     handlePublishToX: (mainPost: string, threadPosts: string[]) => void;
     isPublishingX: boolean;
 }
+
+const DAY_LABELS: Record<string, string> = {
+    Monday: '月曜', Tuesday: '火曜', Wednesday: '水曜', Thursday: '木曜',
+    Friday: '金曜', Saturday: '土曜', Sunday: '日曜'
+};
 
 export default function DeskViews({
     aiActiveDesk, activeTrendRegion, activeArbitrageRegion, aiData,
@@ -52,7 +47,19 @@ export default function DeskViews({
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
-    // 🌟 監査アイテムをチーム別に自動振り分け
+    // 🌟 動的曜日ボタン（生成された日別データのテーマからラベルを抽出）
+    const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+        const post = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(day) || p.day === day);
+        return { key: day, label: DAY_LABELS[day], desc: post?.theme || 'スロット未定' };
+    });
+
+    const dynamicXDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+        const thread = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(day) || t.day === day);
+        // "フック (限定プロモ)" などのカッコ内を抽出
+        const match = thread?.mainPost?.match(/\((.*?)\)/);
+        return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : 'スレッド未定' };
+    });
+
     const allTrendAudits = gate1Audits.filter(a => {
         return a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
     });
@@ -62,10 +69,8 @@ export default function DeskViews({
         return !isTrend;
     });
 
-    // 🌟 型安全ガード: 'audit' を除外した正規の RegionKey とレポートデータを事前導出
     const isTrendAudit = aiActiveDesk === 'desk_trend_audit' || activeTrendRegion === 'audit';
     const isArbAudit = aiActiveDesk === 'desk_arbitrage_audit' || activeArbitrageRegion === 'audit';
-
     const safeTrendRegion: RegionKey | undefined = activeTrendRegion !== 'audit' ? activeTrendRegion : undefined;
     const safeArbRegion: RegionKey | undefined = activeArbitrageRegion !== 'audit' ? activeArbitrageRegion : undefined;
 
@@ -91,6 +96,24 @@ export default function DeskViews({
                             {runningAction === 'chief' ? '選定中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
+
+                    {/* 🌟 1. RSI自己適応レポート（strategyBlueprint）の表示枠 */}
+                    {aiData?.chiefPackage?.strategyBlueprint && (
+                        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-lg mb-2">
+                            <div className="flex items-center gap-2 mb-2 border-b border-slate-800 pb-2">
+                                <span className="text-sm">🤖</span>
+                                <h3 className="text-sm font-bold text-emerald-300">今週の自己適応編成方針 (RSI)</h3>
+                            </div>
+                            <p className="text-xs text-white font-bold mb-1.5">
+                                {aiData.chiefPackage.strategyBlueprint.headline}
+                            </p>
+                            <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-950 p-2.5 rounded border border-slate-800">
+                                <span className="font-bold text-emerald-400 mr-1">📝 分析根拠:</span>
+                                {aiData.chiefPackage.strategyBlueprint.adaptationRationale}
+                            </p>
+                        </div>
+                    )}
+
                     {aiData?.chiefPackage ? (
                         <div className="bg-slate-900 border border-amber-500/40 rounded-xl p-5 space-y-5 shadow-xl">
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -107,13 +130,10 @@ export default function DeskViews({
                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
                                         看板MVP銘柄
                                     </span>
-                                    <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-1 rounded-lg font-bold uppercase">
-                                        対象地域: {aiData.chiefPackage.mvpHighlight?.region || 'Global'}
-                                    </span>
                                 </div>
                             </div>
 
-                            {/* 7日分週間コンテンツカレンダー */}
+                            {/* 🌟 2. 7日分週間コンテンツカレンダー（1日＝複数アイテム対応版） */}
                             {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
                                 <div>
                                     <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
@@ -122,26 +142,42 @@ export default function DeskViews({
                                         </h4>
                                         <span className="text-[10px] text-slate-400">Gate 1 検算・論理監査 合格品</span>
                                     </div>
-                                    <div className="space-y-2.5">
-                                        {aiData.chiefPackage.contentCalendar.map((item: any, cIdx: number) => (
-                                            <div key={cIdx} className="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 space-y-2 hover:border-amber-500/40 transition">
-                                                <div className="flex justify-between items-center border-b border-slate-800/60 pb-1.5">
-                                                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                                        <span className="text-amber-400">📌</span> {item.dayLabelJa || item.dayOfWeek}
+                                    <div className="space-y-3">
+                                        {aiData.chiefPackage.contentCalendar.map((dailyItem: any, cIdx: number) => (
+                                            <div key={cIdx} className="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 space-y-3 hover:border-amber-500/40 transition shadow-sm">
+                                                <div className="flex justify-between items-center border-b border-slate-800/60 pb-2">
+                                                    <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                                                        <span className="text-amber-400">📌</span> {DAY_LABELS[dailyItem.dayOfWeek] || dailyItem.dayOfWeek}
                                                     </span>
-                                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60">
-                                                        {item.selectedCardOrTopic || item.postType}
+                                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60 shadow-sm">
+                                                        {dailyItem.postType}
                                                     </span>
                                                 </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                                        <span className="text-[10px] text-emerald-400 font-bold block mb-0.5">📢 無料フック（Fact & Result）</span>
-                                                        <p className="text-[11px] text-slate-300 leading-snug">{item.hookFact || item.coreHookFact}</p>
-                                                    </div>
-                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                                        <span className="text-[10px] text-rose-400 font-bold block mb-0.5">🔒 秘匿指示（Action & Reason）</span>
-                                                        <p className="text-[11px] text-slate-400 leading-snug">{item.hiddenActionReason || '仕入れルート・仕込み理由は非公開'}</p>
-                                                    </div>
+                                                
+                                                {/* その日の3地域トリオまたはトレンド銘柄をグリッドで並べる */}
+                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 text-xs">
+                                                    {(dailyItem.items || []).map((sub: any, subIdx: number) => (
+                                                        <div key={subIdx} className="bg-slate-900/60 p-2.5 rounded border border-slate-800/40 flex flex-col justify-between space-y-2">
+                                                            <div className="flex justify-between items-start">
+                                                                <span className="font-bold text-slate-200 line-clamp-1 truncate w-[130px]" title={sub.selectedCardOrTopic}>
+                                                                    {sub.selectedCardOrTopic}
+                                                                </span>
+                                                                <span className="text-[9px] font-mono font-bold bg-slate-800 px-1.5 py-0.5 rounded uppercase text-slate-400 border border-slate-700">
+                                                                    {sub.region}
+                                                                </span>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <div className="bg-emerald-500/10 p-1.5 rounded border border-emerald-500/20">
+                                                                    <span className="text-[9px] text-emerald-400 font-bold block mb-0.5">📢 無料フック（Fact）</span>
+                                                                    <p className="text-[10px] text-emerald-100 leading-snug">{sub.hookFact}</p>
+                                                                </div>
+                                                                <div className="bg-rose-500/10 p-1.5 rounded border border-rose-500/20">
+                                                                    <span className="text-[9px] text-rose-400 font-bold block mb-0.5">🔒 秘匿指示（Action）</span>
+                                                                    <p className="text-[10px] text-rose-200 leading-snug truncate">{sub.hiddenActionReason || '仕入れ理由は非公開'}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         ))}
@@ -150,9 +186,9 @@ export default function DeskViews({
                             )}
 
                             <div>
-                                <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ キュレーター選定理由</h4>
+                                <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ キュレーター全体選定理由</h4>
                                 <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason || '7日間の流動性と粗利マージンを総合勘案して選定'}
+                                    {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason || '流動性と粗利マージンを総合勘案して選定'}
                                 </p>
                             </div>
                         </div>
@@ -207,8 +243,8 @@ export default function DeskViews({
                                                 {item.status === 'passed' ? '✔ 配信承認' : '✖ 修正要請'}
                                             </span>
                                         </div>
-                                        <div className="text-[11px] text-slate-400">
-                                            対象曜日・スロット: <span className="text-slate-300 font-bold">{item.day}</span>
+                                        <div className="text-[11px] text-slate-400 flex justify-between">
+                                            <span>対象曜日: <span className="text-slate-300 font-bold">{DAY_LABELS[item.day] || item.day}</span></span>
                                         </div>
                                         {item.feedback && (
                                             <div className="bg-rose-500/10 p-2.5 rounded border border-rose-500/20 mt-1">
@@ -506,7 +542,8 @@ export default function DeskViews({
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {DAYS_OF_WEEK.map(d => (
+                        {/* 🌟 3. 動的曜日ボタン */}
+                        {dynamicIgDays.map(d => (
                             <button
                                 key={d.key}
                                 type="button"
@@ -528,9 +565,9 @@ export default function DeskViews({
                             <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                                 <div>
                                     <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">
-                                        {selectedIgDay} Posting Slot
+                                        {DAY_LABELS[selectedIgDay]} Posting Slot
                                     </span>
-                                    <h3 className="text-lg font-bold text-white">{aiData.snsPosts.theme}</h3>
+                                    <h3 className="text-lg font-bold text-white">{currentIgDaily?.theme || aiData.snsPosts.theme}</h3>
                                 </div>
                                 <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
                                     推奨: {aiData.snsPosts.recommendedTiming || '日本時間 21:00'}
@@ -540,10 +577,16 @@ export default function DeskViews({
                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                 <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ カルーセル画像スライド構成指示</h4>
                                 <div className="space-y-1.5 text-xs text-slate-300">
-                                    <p><span className="text-pink-400 font-bold">1枚目(表紙):</span> {aiData.snsPosts.visualGuideline?.coverSlide}</p>
-                                    {aiData.snsPosts.visualGuideline?.carouselSlides?.map((s, i) => (
-                                        <p key={i}><span className="text-slate-400 font-bold">{i + 2}枚目:</span> {s}</p>
-                                    ))}
+                                    {currentIgDaily?.slides?.map((s: string, i: number) => (
+                                        <p key={i}><span className={i === 0 ? 'text-pink-400 font-bold' : 'text-slate-400 font-bold'}>{s.split(':')[0]}:</span> {s.split(':').slice(1).join(':')}</p>
+                                    )) || (
+                                        <>
+                                            <p><span className="text-pink-400 font-bold">1枚目(表紙):</span> {aiData.snsPosts.visualGuideline?.coverSlide}</p>
+                                            {aiData.snsPosts.visualGuideline?.carouselSlides?.map((s, i) => (
+                                                <p key={i}><span className="text-slate-400 font-bold">{i + 2}枚目:</span> {s}</p>
+                                            ))}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -568,7 +611,7 @@ export default function DeskViews({
 
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="text-xs font-bold text-white">📝 【{selectedIgDay}】投稿キャプション</h4>
+                                    <h4 className="text-xs font-bold text-white">📝 【{DAY_LABELS[selectedIgDay]}】投稿キャプション</h4>
                                     <div className="flex gap-2">
                                         <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
                                             {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
@@ -608,7 +651,8 @@ export default function DeskViews({
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {DAYS_OF_WEEK.map(d => (
+                        {/* 🌟 3. 動的曜日ボタン */}
+                        {dynamicXDays.map(d => (
                             <button
                                 key={d.key}
                                 type="button"
@@ -620,7 +664,7 @@ export default function DeskViews({
                                 }`}
                             >
                                 <span>{d.label}</span>
-                                <span className="text-[10px] opacity-70 font-mono">({d.desc})</span>
+                                <span className="text-[10px] opacity-70 font-mono truncate max-w-[100px]">({d.desc})</span>
                             </button>
                         ))}
                     </div>
@@ -629,7 +673,7 @@ export default function DeskViews({
                         <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
                             <div className="border-b border-slate-800 pb-3">
                                 <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">
-                                    {selectedXDay} Viral Thread
+                                    {DAY_LABELS[selectedXDay]} Viral Thread
                                 </span>
                                 <h3 className="text-lg font-bold text-white">{aiData.xPosts.theme}</h3>
                             </div>
@@ -646,7 +690,7 @@ export default function DeskViews({
                                             disabled={isPublishingX}
                                             className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
                                         >
-                                            {isPublishingX ? '投稿中...' : `🐦 【${selectedXDay}】スレッド自動投稿`}
+                                            {isPublishingX ? '投稿中...' : `🐦 【${DAY_LABELS[selectedXDay]}】スレッド自動投稿`}
                                         </button>
                                     </div>
                                 </div>
@@ -665,7 +709,7 @@ export default function DeskViews({
                                                 {copiedKey === `x_thread_${selectedXDay}_${idx}` ? '✓ コピー' : 'コピー'}
                                             </button>
                                         </div>
-                                        <p className="leading-relaxed">{tp}</p>
+                                        <p className="leading-relaxed whitespace-pre-wrap">{tp}</p>
                                     </div>
                                 ))}
                             </div>
