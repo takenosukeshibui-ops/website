@@ -43,21 +43,32 @@ export default function DeskViews({
     const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
     const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
 
+    // Instagramの選択された曜日の投稿データ取得
     const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
     const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
 
+    // Xの選択された曜日のスレッドデータ取得
     const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
-    // 地域・担当ごとに Gate 1 監査をフィルタリング
-    const currentTrendAudits = gate1Audits.filter(a => a.agentKey === 'trend' && a.region === activeTrendRegion);
-    const currentArbAudits = gate1Audits.filter(a => a.agentKey === 'arbitrage' && a.region === activeArbitrageRegion);
+    // 🌟 Gate 1 監査の地域別 & チーム別 確実な振り分け（大文字小文字やagentKey欠落にも完全対応）
+    const currentTrendAudits = gate1Audits.filter(a => {
+        const isTrend = a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
+        const matchRegion = !a.region || a.region.toLowerCase() === activeTrendRegion.toLowerCase();
+        return isTrend && matchRegion;
+    });
+
+    const currentArbAudits = gate1Audits.filter(a => {
+        const isTrend = a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
+        const matchRegion = !a.region || a.region.toLowerCase() === activeArbitrageRegion.toLowerCase();
+        return !isTrend && matchRegion;
+    });
 
     return (
         <>
             {/* ========================================================= */}
-            {/* 👑 チーフマネージャー戦略デスク */}
+            {/* 👑 チーフマネージャー戦略デスク（AIキュレーター） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -145,7 +156,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🛡️ 品質・規約監査役デスク（Gate 2 専任） */}
+            {/* 🛡️ 品質・規約監査役デスク（Gate 2 配信コンテンツ規約専任） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_audit' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -154,7 +165,7 @@ export default function DeskViews({
                             <span className="text-3xl">🛡️</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">品質・規約監査役デスク</h2>
-                                <p className="text-xs text-slate-400">Gate 2（配信コンテンツ表現・機密漏洩・2股導線・文字数規約）最終監査結果</p>
+                                <p className="text-xs text-slate-400">Gate 2（配信コンテンツ表現・撒き餌原則・機密漏洩・2股導線）最終監査結果</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -169,7 +180,7 @@ export default function DeskViews({
                             <h3 className="text-sm font-bold text-orange-300 flex items-center gap-2">
                                 <span>🔍</span> SNS・Discord 配信原稿 監査レポート一覧
                             </h3>
-                            <span className="text-xs text-slate-400">「撒き餌原則」および仕入れ先ワード漏洩の厳格審査</span>
+                            <span className="text-xs text-slate-400">「答えを教えない撒き餌原則」および仕入れ先ワード漏洩の厳格審査</span>
                         </div>
 
                         {gate2Audits.length === 0 ? (
@@ -207,7 +218,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🔮 市場トレンドアナリスト（自チームのGate 1監査結果を統合） */}
+            {/* 🔮 市場トレンドアナリスト（自チーム Gate 1 監査結果を統合） */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_trend') && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -225,19 +236,21 @@ export default function DeskViews({
                     </div>
 
                     {/* 🌟 自チームの Gate 1-B トレンド論理・規約監査ステータス */}
-                    {currentTrendAudits.length > 0 && (
-                        <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-md">
-                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                                <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                    <span>🛡️</span> 【{activeTrendRegion.toUpperCase()}市場】Gate 1 トレンド論理・大会規約 監査ステータス
-                                </h3>
-                                <span className="text-[11px] font-mono font-bold text-slate-300">
-                                    適合: {currentTrendAudits.filter(a => a.status === 'passed').length} / {currentTrendAudits.length} 件
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                    <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-md">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <h3 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                <span>🛡️</span> 【{activeTrendRegion.toUpperCase()}市場】Gate 1 トレンド論理・大会規約 監査ステータス
+                            </h3>
+                            <span className="text-[11px] font-mono font-bold text-slate-300">
+                                適合: {currentTrendAudits.filter(a => a.status === 'passed').length} / {currentTrendAudits.length} 件
+                            </span>
+                        </div>
+                        {currentTrendAudits.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic py-3 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
                                 {currentTrendAudits.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs space-y-1">
+                                    <div key={idx} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs space-y-1.5">
                                         <div className="flex justify-between items-center">
                                             <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
                                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
@@ -245,6 +258,9 @@ export default function DeskViews({
                                             }`}>
                                                 {item.status === 'passed' ? '✔ 適合' : '✖ 差し戻し'}
                                             </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 truncate">
+                                            {item.slot}
                                         </div>
                                         {item.feedback && (
                                             <p className="text-[10px] text-amber-300 bg-amber-500/10 p-1.5 rounded border border-amber-500/20 leading-relaxed whitespace-pre-wrap">
@@ -254,15 +270,15 @@ export default function DeskViews({
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     <DocumentReportView report={aiData?.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 💎 アービトラージアナリスト（自チームのGate 1監査結果を統合） */}
+            {/* 💎 アービトラージアナリスト（自チーム Gate 1 監査結果を統合） */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_arbitrage') && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -280,19 +296,21 @@ export default function DeskViews({
                     </div>
 
                     {/* 🌟 自チームの Gate 1-A 数値検算監査ステータス */}
-                    {currentArbAudits.length > 0 && (
-                        <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-3 shadow-md">
-                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                                <h3 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                                    <span>⚖️</span> 【{activeArbitrageRegion.toUpperCase()}市場】Gate 1 四則検算・粗利マージン 監査ステータス
-                                </h3>
-                                <span className="text-[11px] font-mono font-bold text-slate-300">
-                                    検算合格: {currentArbAudits.filter(a => a.status === 'passed').length} / {currentArbAudits.length} 件
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                    <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 space-y-3 shadow-md">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <h3 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                <span>⚖️</span> 【{activeArbitrageRegion.toUpperCase()}市場】Gate 1 四則検算・粗利マージン 監査ステータス
+                            </h3>
+                            <span className="text-[11px] font-mono font-bold text-slate-300">
+                                検算合格: {currentArbAudits.filter(a => a.status === 'passed').length} / {currentArbAudits.length} 件
+                            </span>
+                        </div>
+                        {currentArbAudits.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic py-3 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
                                 {currentArbAudits.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs space-y-1">
+                                    <div key={idx} className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs space-y-1.5">
                                         <div className="flex justify-between items-center">
                                             <span className="font-bold text-white truncate max-w-[130px]">{item.card}</span>
                                             <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
@@ -302,8 +320,8 @@ export default function DeskViews({
                                             </span>
                                         </div>
                                         <div className="text-[10px] text-slate-400 flex justify-between">
-                                            <span>枠: {item.slot}</span>
-                                            <span>帯: {item.priceTier}</span>
+                                            <span className="truncate max-w-[120px]">{item.slot}</span>
+                                            {item.priceTier && <span>帯: {item.priceTier}</span>}
                                         </div>
                                         {item.feedback && (
                                             <p className="text-[10px] text-red-300 bg-red-500/10 p-1.5 rounded border border-red-500/20 leading-relaxed whitespace-pre-wrap">
@@ -313,8 +331,8 @@ export default function DeskViews({
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     <DocumentReportView report={aiData?.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
                 </div>
@@ -422,14 +440,14 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {aiData.snsPosts.hashtags && aiData.snsPosts.hashtags.length > 0 && (
+                            {aiData?.snsPosts?.hashtags && aiData.snsPosts.hashtags.length > 0 && (
                                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
                                     <div className="flex justify-between items-center">
                                         <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
                                             <span>🏷️</span> 推奨ハッシュタグ
                                         </h4>
                                         <button 
-                                            onClick={() => handleCopy(aiData.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
+                                            onClick={() => handleCopy(aiData?.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
                                             className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
                                         >
                                             {copiedKey === 'ig_tags' ? '✓ コピー完了' : 'タグ一括コピー'}
@@ -595,15 +613,15 @@ export default function DeskViews({
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-white">✉️ Discord投稿メッセージ全文</h4>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(aiData.salesDM?.discordMessage || '', 'dm')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button>
-                                        <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
+                                        <button onClick={() => handleCopy(aiData?.salesDM?.discordMessage || '', 'dm')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button>
+                                        <button onClick={() => handlePublishToDiscord(aiData?.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
                                     </div>
                                 </div>
-                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData.salesDM.discordMessage}</pre>
+                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData?.salesDM?.discordMessage}</pre>
                             </div>
                             <div className="bg-purple-950/20 p-3 rounded-lg border border-purple-900/30">
                                 <h4 className="text-xs font-bold text-purple-300 mb-1">💡 商談・交渉ガイダンス</h4>
-                                <p className="text-xs text-slate-300 leading-relaxed">{aiData.salesDM.negotiationTip}</p>
+                                <p className="text-xs text-slate-300 leading-relaxed">{aiData?.salesDM?.negotiationTip}</p>
                             </div>
                         </div>
                     ) : (
