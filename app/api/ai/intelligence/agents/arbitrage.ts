@@ -1,70 +1,83 @@
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getAgentRules } from '../helpers';
-import { ResearchSlotKey } from '@/app/AiDashboard/types';
+import { parseAIJson } from '../helpers';
 
-interface SlotDefinition {
-    key: ResearchSlotKey;
-    label: string;
-    desc: string;
+export interface ArbitrageItem {
+  cardName: string;
+  conditionGrade: string;
+  jpBuyPriceJPY: string;
+  targetSoldPrice: string;
+  priceSpreadJPY: string;
+  spreadROI: string;
+  liquidity: string;
+  insight: string;
 }
 
-const SLOTS: SlotDefinition[] = [
-    { key: 'classic_vintage', label: 'クラシック・ヴィンテージ枠（旧裏〜PCG期）', desc: '旧裏面、eシリーズ、ADV/PCG等の初期絶版シングル' },
-    { key: 'neo_vintage', label: 'ネオ・ヴィンテージ枠（DP〜XY期）', desc: 'DP/Pt、LEGEND、BW、XY等の絶版シングル・1ED' },
-    { key: 'exclusive_promo', label: '限定プロモ・配布枠', desc: 'ジムプロモ、ポケセン限定、映画付録、イベント配布品' },
-    { key: 'modern_meta', label: '現行モダン・メタ枠', desc: 'SM〜SVのSAR/SR/AR/CHR、直近弾、世界大会メタ' },
-    { key: 'graded_sealed', label: '高額鑑定・未開封BOX枠', desc: 'PSA10鑑定品、未開封BOX・未開封パック' }
+export interface ArbitrageTier {
+  priceTier: string;
+  priceTierLabel: string;
+  mainItem: ArbitrageItem;
+  subItems: ArbitrageItem[];
+}
+
+export interface ArbitrageSlotReport {
+  slotKey: string;
+  slotLabel: string;
+  tiers: ArbitrageTier[];
+}
+
+const REGION_CURRENCIES: Record<string, { currency: string; name: string }> = {
+  us: { currency: 'USD', name: '北米（アメリカ）市場' },
+  eu: { currency: 'EUR', name: '欧州（ヨーロッパ）市場' },
+  asia: { currency: 'SGD', name: 'アジア（シンガポール・台湾・香港等）市場' },
+};
+
+const SLOTS = [
+  { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版' },
+  { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY' },
+  { key: 'promos_exclusive', label: '限定プロモ・配布品', desc: '大会プロモ・ジムプロモ・企業コラボ・プレイヤーズ' },
+  { key: 'modern_meta', label: '現行モダン・高需要枠', desc: 'サン＆ムーン・ソード＆シールド・スカーレット＆バイオレット（SAR・SR・AR・CHR）' },
+  { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封' }
 ];
 
-export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _category: string = 'pokemon') {
-    const rules = await getAgentRules('arbitrage');
+export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: string = 'pokemon') {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
 
-    const regionContexts = {
-        us: { name: '北米市場（現地TCGショップ・リセラー）', currency: 'USD' },
-        eu: { name: '欧州市場（現地Cardmarket/ローカルショップ）', currency: 'EUR' },
-        asia: { name: 'アジア市場（現地リテール・コレクター向け）', currency: 'USD/HKD' }
-    };
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.1,
+    maxOutputTokens: 8192,
+    apiKey,
+  });
 
-    const cur = regionContexts[region];
-    const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
-        temperature: 0.1,
-        maxOutputTokens: 8192,
-    });
-
-    const formattedCreatedAt = new Date().toLocaleString('ja-JP', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-
-    // 1つのスロット（5価格帯 × 3商品 ＝ 計15商品）を査定するサブ関数
-    const analyzeSingleSlot = async (slot: SlotDefinition) => {
-        const slotPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達（Import & Retail）する海外現地事業者専属の調達戦略アナリストです。
+  // ==========================================================================
+  // 【Step 1】5スロット並列調査（計75商品を発掘）
+  // ==========================================================================
+  const slotPromises = SLOTS.map(async (slot) => {
+    const slotPrompt = `あなたは【${cur.name}】で越境トレカ販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
 【調達リサーチ任務】
-以下の【5つの価格帯】すべてについて、自国への輸入販売に適した日本語版カードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選してください。
+以下の【5つの価格帯】すべてについて、日本から輸入・調達して現地で売却するのに適したカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選してください。
 （このスロット全体で 5価格帯 × 3商品 ＝ 合計15商品）
 
 ■ 5つの価格帯と調達・合格基準:
 1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、現地直近7日成約 5件以上（超高回転・エントリー枠）
-2. under_10k（¥3,000〜¥10,000）: 最低差額 +¥2,500以上、現地直近7日成約 3件以上（手頃な定番コレクション枠）
+2. under_10k（¥3,000〜¥10,000）: 最低差額 +¥2,500以上、現地直近7日成約 3件以上（定番コレクション枠）
 3. middle（¥10,000〜¥30,000）: 最低差額 +¥6,000以上、現地直近14日成約 2件以上（中核プロモ・人気SR枠）
 4. upper（¥30,000〜¥80,000）: 最低差額 +¥15,000以上、現地直近30日成約 2件以上（高額鑑定・上位絶版枠）
 5. top_end（¥80,000以上）: 最低差額 +¥30,000以上、現地直近30日成約 1件以上（資産性・未開封BOX枠）
 
-【厳格品質ルール】
-・実在するカード名、型番または弾名を明記すること（架空カード厳禁）。
-・日本国内調達と自国現地販売先の状態（PSA10＝PSA10、Raw NM＝Raw NM）を完全一致させること。
-・自国の実成約データ（Sold Listings）を参照し、単純な価格マージン（差額）とROIを算出すること。
+【指定コンディション・マスター（※商材の性質に応じ、以下から厳格に選定すること）】
+・素体: "Raw NM", "Raw LP", "Raw Played"
+・鑑定品: "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10"
+・未開封: "Sealed Box", "Sealed Pack", "Sealed Promo"
+※仕入れ側と現地販売側の状態は必ず同一基準で評価すること。
 
-以下のJSONのみを出力してください:
+以下のJSON形式のみを出力してください:
 {
   "slotKey": "${slot.key}",
   "slotLabel": "${slot.label}",
@@ -74,17 +87,17 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
       "priceTierLabel": "〜3千円",
       "mainItem": {
         "cardName": "実在カード名 (型番/弾名)",
-        "conditionGrade": "Raw NM 等",
+        "conditionGrade": "コンディションマスターから選定",
         "jpBuyPriceJPY": "¥X,XXX",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
         "liquidity": "直近7日 X件",
-        "insight": "現地コレクターの需要動向と日本から輸入すべき理由（1行）"
+        "insight": "現地需要動向と輸入推奨理由（1行）"
       },
       "subItems": [
-        { "cardName": "候補2 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
+        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
+        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
       ]
     },
     { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
@@ -94,93 +107,94 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
   ]
 }`;
 
-        try {
-            const res = await model.invoke(slotPrompt);
-            return parseAIJson(res.content.toString());
-        } catch (e) {
-            console.error(`Slot analysis failed for ${slot.key}:`, e);
-            return null;
+    const res = await model.invoke(slotPrompt);
+    return parseAIJson(res.content.toString());
+  });
+
+  // 5スロットの調査完了を待つ（計75商品が揃う）
+  const slotResults = await Promise.all(slotPromises);
+
+  // ==========================================================================
+  // 【Step 2】発掘した75商品を要約し、サマリーAIへ渡してデータ駆動分析
+  // ==========================================================================
+  const allDiscoveredItems: any[] = [];
+  for (const slot of slotResults) {
+    if (!slot?.tiers) continue;
+    for (const tier of slot.tiers) {
+      if (tier.mainItem) {
+        allDiscoveredItems.push({
+          slot: slot.slotLabel,
+          tier: tier.priceTierLabel,
+          role: '本命',
+          ...tier.mainItem,
+        });
+      }
+      if (Array.isArray(tier.subItems)) {
+        for (const sub of tier.subItems) {
+          allDiscoveredItems.push({
+            slot: slot.slotLabel,
+            tier: tier.priceTierLabel,
+            role: '代替候補',
+            ...sub,
+          });
         }
-    };
+      }
+    }
+  }
 
-    // 全体サマリーを生成する関数（海外現地事業者・インポーター視点）
-    const generateExecutiveSummary = async () => {
-        const summaryPrompt = `あなたは【${cur.name}】でポケモンカード販売を展開し、日本から日本語版カードを輸入・調達する海外現地事業者専属の調達戦略アナリストです。
-${rules}
+  const summaryPrompt = `あなたは【${cur.name}】専属の最高調達投資責任者（CIO）です。
+リサーチチームが日本市場をスクリーニングし、現地で利ざやの取れる【全75商品（本命25＋代替50）】を発掘しました。
 
-【重要】
-このレポートの読者は「日本から日本語版カードを輸入して自国で販売している海外事業者（ショップオーナー・バイヤー）」です。
-日本国内の輸出セラー向けではなく、海外現地事業者が日本からスマートに輸入・調達し、現地店舗やECで利益を最大化するための【今週の輸入調達・現地販売エグゼクティブ・サマリー】を作成してください。
+【今週発掘された全75商品の調達・価格差データ】:
+${JSON.stringify(allDiscoveredItems, null, 2)}
 
-以下のJSONのみを出力してください:
+【任務】
+上記75商品のデータ群をフラットかつ客観的に観察し、海外現地ショップオーナーに向けた【データ駆動型エグゼクティブ・サマリー】を作成してください。
+
+■ 分析・執筆における絶対ルール:
+1. 先入観を持たず、データ全体の「共通点・差異・異常値」を帰納的に抽出すること:
+   - 特定の切り口に誘導する具体例は一切与えません。75行のレコードを比較対照したときに、データ自身が示している客観的事実や顕著なパターンをアナリスト自身の洞察力で導き出してください。
+   - 以下の「問い」を手がかりに、発見した構造的特徴を言語化してください:
+     * 数値の分布: リスト全体の中で、極端な数値（飛び抜けて高い/低いROI、成約数、価格差など）を示しているグループにはどのような共通項があるか？
+     * 属性間の関係: スロット区分、価格帯、コンディション、商材の年代や種別などの間で、どのような相関や対比が見られるか？
+     * 現地需給の歪み: 現地の販売価格や成約ペースから、バイヤーの行動や市場の歪みについて何が推察できるか？
+2. 注目銘柄は必ず上記75商品の中から選出すること:
+   - topImportMarginCard（最大利ざや銘柄）および topLocalVelocityCard（最高流動性銘柄）は、リストに実在するカード名・価格差をそのまま引用して解説すること。架空のカードやリスト外のカードへの言及は厳禁。
+3. 機密保持: メルカリやカドショなどの国内仕入れ先ワードは絶対に使用せず、「日本国内流通」「国内二次流通」と抽象化すること。
+
+以下のJSON形式のみを出力してください:
 {
-  "title": "${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート",
-  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（高マージン調達と現地即売れポートフォリオ）",
+  "title": "【${region.toUpperCase()}】アービトラージレポート",
+  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（75銘柄の実成約スクリーニング分析）",
   "summary": {
-    "headline": "今週の日本調達・現地販売戦略の核心（例: 円安基調を活かした低単価ARの大量調達と限定プロモの現地プレ値活用）",
+    "headline": "75商品のデータから浮かび上がった、今週最も特筆すべき市場動向や歪みの核心（発見したパターンを記述）",
     "macroAnalysis": {
-      "japanSourcingClimate": "日本市場の調達環境（円相場の有利度、日本のショップ・フリマの流通在庫状況、仕入れやすさの動向）",
-      "localMarketDemand": "自国（現地）市場での日本語版カード需要（現地顧客が今どのスロット・価格帯を熱狂的に求めているか）"
+      "japanSourcingClimate": "今回発掘された75商品の仕入れ値・在庫動向から読み解く、日本国内市場の調達環境分析",
+      "localMarketDemand": "75商品の現地売価・成約速度から浮き彫りになる、現地バイヤーの心理と需要の偏り"
     },
     "microAnalysis": {
-      "topImportMarginCard": "今週最も輸入マージン（利ざや）が厚い注目銘柄とその背景",
-      "topLocalVelocityCard": "自国にストックした瞬間即売れする最高流動性銘柄",
-      "conditionGradingInsight": "現地での状態需要特性（PSA10プレミアムの強さ、素体NMの許容度、日本版特有の検品傾向）"
+      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠（上記75商品から引用）",
+      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠（上記75商品から引用）",
+      "conditionGradingInsight": "75商品のデータ構成から見えてくる独自のインサイト（データ分析から判明した事実を記述）"
     },
     "riskAlert": {
-      "sourcingQualityTrap": "日本からの調達時に警戒すべき品質リスク（フリマ写真の白かけ見落とし、センタリング、偽物・再シュリンク等）",
-      "localInventoryRisk": "自国在庫としての滞留リスク（現地での一時的な投機熱の冷え込み、価格急落リスクへの対策）"
+      "sourcingQualityTrap": "今回選定された商材を日本から仕入れる際の注意点（偽物・状態・シュリンク詐欺等）",
+      "localInventoryRisk": "現地での在庫滞留・急落リスクを避けるための回転・保管戦略"
     },
     "actionDirectives": [
-      "低単価帯（〜3千円・1万円以下）の日本調達発注＆現地スピード販売アクション",
-      "中・高額帯（1万〜8万円以上）の日本調達発注＆現地プレミアム販売アクション"
+      "低単価帯（〜3千円・1万円以下）の重点回収＆スピード販売アクション",
+      "中・高額帯（1万〜8万円以上）のプレミアム販売＆利ざや確保アクション"
     ]
   }
 }`;
-        try {
-            const res = await model.invoke(summaryPrompt);
-            return parseAIJson(res.content.toString());
-        } catch {
-            return {
-                title: `${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート`,
-                claim: `今週の${cur.name}向け日本語版カード輸入調達戦略`,
-                summary: {
-                    headline: "円安環境を活かした高回転ARの日本一括調達と限定プロモの現地マージン確保",
-                    macroAnalysis: {
-                        japanSourcingClimate: "為替レートの恩恵により日本国内の調達原価が割安に推移。フリマ・専門店に良品在庫が豊富。",
-                        localMarketDemand: "現行モダンAR/CHRの現地コレクター需要が極めて高く、手頃な絶版シングルへのコレクション需要も安定。"
-                    },
-                    microAnalysis: {
-                        topImportMarginCard: "限定プロモ枠および準高額PSA10で30%〜50%以上の純利ざやを確保可能",
-                        topLocalVelocityCard: "現行ARおよび世界大会メタの汎用カードが自国入荷から数日以内で回転",
-                        conditionGradingInsight: "海外顧客は日本版の印刷品質に高い信頼を寄せており、Raw NMでも高値成約が持続"
-                    },
-                    riskAlert: {
-                        sourcingQualityTrap: "日本のフリマ個人出品における白かけ・初期傷の見落としに注意。店舗美品またはPSA10を優先調達推奨。",
-                        localInventoryRisk: "新弾の供給過多による一時的な現地価格調整に備え、入荷後即時の在庫回転を徹底。"
-                    },
-                    actionDirectives: [
-                        "低単価帯は日本のフリマ・専門店からまとめ買い調達し、現地ショップ/ECで即時回転",
-                        "高額帯は現地コレクターからのバックオーダー（予約注文）またはPSA10確実品のみを輸入"
-                    ]
-                }
-            };
-        }
-    };
 
-    // 5スロット並列処理 ＋ サマリー生成を同時に実行
-    const [summaryResult, ...slotResults] = await Promise.all([
-        generateExecutiveSummary(),
-        ...SLOTS.map(s => analyzeSingleSlot(s))
-    ]);
+  const summaryRes = await model.invoke(summaryPrompt);
+  const summaryParsed = parseAIJson(summaryRes.content.toString());
 
-    const validSlots = slotResults.filter(Boolean);
-
-    return {
-        title: summaryResult?.title || `${formattedCreatedAt} 【${region.toUpperCase()}】アービトラージレポート`,
-        claim: summaryResult?.claim || "海外現地事業者向け 日本語版カード輸入調達ポートフォリオ",
-        createdAt: formattedCreatedAt,
-        summary: summaryResult?.summary,
-        slots: validSlots
-    };
+  return {
+    title: summaryParsed?.title || `【${region.toUpperCase()}】アービトラージレポート`,
+    claim: summaryParsed?.claim || `${cur.name}向け調達レポート`,
+    summary: summaryParsed?.summary || null,
+    slots: slotResults,
+  };
 }
