@@ -5,7 +5,7 @@ import { parseAIJson, getCategoryName } from '../helpers';
 export async function runChiefManager(trends: any, profits: any, category: string = 'pokemon') {
     const categoryName = getCategoryName(category);
     const model = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.1-flash-lite",
         temperature: 0.2,
         maxOutputTokens: 8192,
     });

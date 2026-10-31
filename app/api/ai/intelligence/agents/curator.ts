@@ -5,7 +5,7 @@ export async function runCuratorSelection(researchCandidates: any[], category: s
   const categoryName = getCategoryName(category);
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const model = new ChatGoogleGenerativeAI({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     temperature: 0.2,
     maxOutputTokens: 4096,
     apiKey: apiKey,
