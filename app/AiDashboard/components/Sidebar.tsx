@@ -50,6 +50,7 @@ export default function Sidebar({
                 </select>
             </div>
 
+            {/* メニューリスト本体（監査役もこの中に含める） */}
             <div className="flex-1 p-3 space-y-2 overflow-y-auto">
                 <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">Command & Desks</h2>
 
@@ -93,7 +94,7 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* 👑 キュレーター（アービトラージチームとInstagram運営チームの間に配置） */}
+                {/* 👑 キュレーター */}
                 <div onClick={() => setAiActiveDesk('desk_chief')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_chief' ? 'bg-amber-500/20 border-amber-500 shadow-md ring-1 ring-amber-500/40' : 'bg-slate-800/60 border-amber-500/30 hover:bg-slate-800/90'}`}>
                     <div className="h-9 w-9 rounded-full bg-amber-500/20 flex items-center justify-center text-lg shrink-0 border border-amber-500/40 text-amber-300">👑</div>
                     <div className="flex-1 min-w-0">
@@ -104,7 +105,7 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* Instagram運営グループ */}
+                {/* 📸 Instagram運営グループ */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-pink-300">
                         <span className="flex items-center gap-1.5"><span>📸</span> Instagram運営チーム</span>
@@ -112,7 +113,7 @@ export default function Sidebar({
                     </div>
                     <div className="mt-1 space-y-1">
                         <button type="button" onClick={() => setAiActiveDesk('desk_account')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_account' ? 'bg-pink-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>📊 Instagramアナリスト</span>
+                            <span>📊 IG アナリスト</span>
                         </button>
                         <button type="button" onClick={() => setAiActiveDesk('desk_sns')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_sns' ? 'bg-pink-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                             <span>🎨 IG クリエイター</span>
@@ -120,7 +121,7 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* X (Twitter) 運営グループ */}
+                {/* 🐦 X運営グループ */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
                     <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-sky-300">
                         <span className="flex items-center gap-1.5"><span>🐦</span> X運営チーム</span>
@@ -128,7 +129,7 @@ export default function Sidebar({
                     </div>
                     <div className="mt-1 space-y-1">
                         <button type="button" onClick={() => setAiActiveDesk('desk_x_account')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x_account' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                            <span>📈 Xアナリスト</span>
+                            <span>📈 X アナリスト</span>
                         </button>
                         <button type="button" onClick={() => setAiActiveDesk('desk_x')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_x' ? 'bg-sky-500 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
                             <span>✍️ X クリエイター</span>
@@ -136,24 +137,24 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* 有料コミュニティ */}
+                {/* ✉️ 有料コミュニティ */}
                 <div onClick={() => setAiActiveDesk('desk_sales')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales' ? 'bg-purple-500/20 border-purple-500 shadow-md ring-1 ring-purple-500/40' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'}`}>
                     <div className="h-8 w-8 rounded-full bg-purple-500/20 flex items-center justify-center text-base shrink-0 border border-purple-500/40 text-purple-300">✉️</div>
                     <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-purple-200 truncate">有料コミュニティ</p>
                     </div>
                 </div>
-            </div>
 
-            {/* 🛡️ Gate 2 監査役デスク */}
-            <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 m-3 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
-                <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-orange-200 truncate">品質・規約監査役</p>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 2</span>
+                {/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
+                <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
+                    <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-orange-200 truncate">品質・規約監査役</p>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-orange-500/30 text-orange-300 font-bold">Gate 2</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">配信原稿 機密・導線審査</p>
                     </div>
-                    <p className="text-[10px] text-slate-400 truncate">配信原稿 機密・導線審査</p>
                 </div>
             </div>
 

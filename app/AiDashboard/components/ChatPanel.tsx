@@ -62,10 +62,10 @@ export default function ChatPanel({
         if (desk === 'desk_chief') return '👑 キュレーター';
         if (desk.startsWith('desk_trend')) return `🔮 市場アナリスト (${activeTrendRegion.toUpperCase()})`;
         if (desk.startsWith('desk_arbitrage')) return `💎 アービトラージアナリスト (${activeArbitrageRegion.toUpperCase()})`;
-        if (desk === 'desk_account') return '📊 Instagramアナリスト';
-        if (desk === 'desk_x_account') return '🐦 Xアナリスト';
-        if (desk === 'desk_sns') return '📸 Instagramクリエイター';
-        if (desk === 'desk_x') return '🐦 Xクリエイター';
+        if (desk === 'desk_account') return '📊 IG アナリスト';
+        if (desk === 'desk_x_account') return '📈 X アナリスト';
+        if (desk === 'desk_sns') return '🎨 IG クリエイター';
+        if (desk === 'desk_x') return '✍️ X クリエイター';
         if (desk === 'desk_sales') return '✉️ 有料コミュニティ';
         return '担当AI';
     };
@@ -98,22 +98,16 @@ export default function ChatPanel({
     const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) => {
         const senderToAgentKey: Record<string, string> = {
             'キュレーター': 'chief',
-            'チーフマネージャー': 'chief',
             '品質・規約監査役': 'auditor',
-            '監査役': 'auditor',
             '市場トレンド監査': 'trend_audit',
             'アービトラージ監査担当': 'arbitrage_audit',
             '市場アナリスト': 'trend',
             'アービトラージアナリスト': 'arbitrage',
-            'Instagramアナリスト': 'account',
-            'IGアナリスト': 'account',
-            'Xアナリスト': 'x_account',
-            'Instagramクリエイター': 'sns',
-            'Instagram担当': 'sns',
-            'Xクリエイター': 'x',
-            'X担当': 'x',
-            '有料コミュニティ': 'sales',
-            'コミュニティ営業担当': 'sales'
+            'IG アナリスト': 'account',
+            'X アナリスト': 'x_account',
+            'IG クリエイター': 'sns',
+            'X クリエイター': 'x',
+            '有料コミュニティ': 'sales'
         };
         let agentKey = senderToAgentKey[sender];
         if (isUserMessage) {
@@ -270,7 +264,7 @@ export default function ChatPanel({
                             </button>
                         </div>
                     </div>
-
+                    {/* RSI / Knowledge List は省略せずに残す */}
                     {aiData?.rsiReport && (
                         <div className="bg-slate-950 p-3 rounded-lg border border-amber-500/30 text-xs space-y-2">
                             <div className="flex justify-between items-center text-slate-300">
@@ -292,9 +286,8 @@ export default function ChatPanel({
                             </div>
                         </div>
                     )}
-
                     {knowledgeList.length === 0 ? (
-                        <p className="text-xs text-slate-500 py-3 text-center">まだ登録されたルールはありません。チャットから「📌 ルールとして学習」を押すか、「🔄 RSIを実行」で蓄積されます。</p>
+                        <p className="text-xs text-slate-500 py-3 text-center">まだ登録されたルールはありません。</p>
                     ) : (
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                             {knowledgeList.map((item) => (
@@ -306,7 +299,6 @@ export default function ChatPanel({
                                         type="button"
                                         onClick={() => handleDeleteKnowledge(item.id)}
                                         className="text-slate-500 hover:text-red-400 text-xs px-2 py-1 bg-slate-900 hover:bg-red-500/10 rounded transition-colors"
-                                        title="削除"
                                     >
                                         🗑️
                                     </button>
@@ -317,10 +309,7 @@ export default function ChatPanel({
                 </div>
             )}
 
-            <div 
-                ref={chatContainerRef}
-                className="space-y-3 bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 max-h-80 overflow-y-auto shadow-inner"
-            >
+            <div ref={chatContainerRef} className="space-y-3 bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 max-h-80 overflow-y-auto shadow-inner">
                 {(!chatLogs[aiActiveDesk] || chatLogs[aiActiveDesk].length === 0) ? (
                     <div className="text-center py-8 text-slate-500 text-xs italic">
                         {getDeskTitle(aiActiveDesk)}とのチャット履歴はまだありません。下のフォームから質問や追加指示を送ってみましょう。

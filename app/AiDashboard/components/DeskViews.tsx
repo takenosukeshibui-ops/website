@@ -473,7 +473,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 📊 Instagramアナリスト */}
+            {/* 📊 IG アナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_account' && (
                 <div className="w-full space-y-5 animate-fadeIn">
@@ -481,7 +481,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">📊</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Instagramアナリスト</h2>
+                                <h2 className="text-lg font-bold text-white">IG アナリスト</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -493,27 +493,27 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 Xアナリスト */}
+            {/* 📈 X アナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x_account' && (
                 <div className="w-full space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
-                            <span className="text-3xl">🐦</span>
+                            <span className="text-3xl">📈</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Xアナリスト</h2>
+                                <h2 className="text-lg font-bold text-white">X アナリスト</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === 'x_account' ? '分析中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
-                    <DocumentReportView report={aiData?.xAccountInsights || null} accentColor="sky" icon="🐦" />
+                    <DocumentReportView report={aiData?.xAccountInsights || null} accentColor="sky" icon="📈" />
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 Instagramクリエイター */}
+            {/* 🎨 IG クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -521,7 +521,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🎨</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Instagramクリエイター</h2>
+                                <h2 className="text-lg font-bold text-white">IG クリエイター</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -620,15 +620,15 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 Xクリエイター */}
+            {/* ✍️ X クリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
-                            <span className="text-3xl">🐦</span>
+                            <span className="text-3xl">✍️</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Xクリエイター</h2>
+                                <h2 className="text-lg font-bold text-white">X クリエイター</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
