@@ -1,21 +1,101 @@
 // app/AiDashboard/index.tsx
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
 import Sidebar from './components/Sidebar';
 import DeskViews from './components/DeskViews';
 import ChatPanel from './components/ChatPanel';
 
-const PHASE_LABELS: Record<string, { label: string; percent: number; color: string }> = {
-    initialized: { label: 'パイプライン初期化中...', percent: 10, color: 'bg-blue-500' },
-    researching: { label: '米・欧・亜 6名リサーチャー & SNSアナリスト並行調査中...', percent: 25, color: 'bg-indigo-500' },
-    curating: { label: 'AIキュレーターが7日分スロット & 看板MVPを選定中...', percent: 45, color: 'bg-purple-500' },
-    gate1_auditing: { label: '【Gate 1】商材・数値監査役が四則検算 & 大会規約をチェック中...', percent: 60, color: 'bg-amber-500' },
-    generating_content: { label: 'IG・Xクリエイター & Discord営業が原稿を自律制作中...', percent: 75, color: 'bg-emerald-500' },
-    gate2_auditing: { label: '【Gate 2】表現・規約監査役が機密漏洩 & 2股CTAを最終審査中...', percent: 90, color: 'bg-orange-500' },
-    ready_to_publish: { label: '全監査クリア！成果物の配信準備が完了しました', percent: 100, color: 'bg-green-600' },
-    partially_failed: { label: '一部監査で差し戻し・調整が必要な項目があります', percent: 100, color: 'bg-red-500' },
-    completed: { label: '配信完了・実績集計フェーズ', percent: 100, color: 'bg-gray-600' }
+interface PhaseDetail {
+    step: string;
+    title: string;
+    percent: number;
+    color: string;
+    activeAgents: string[];
+}
+
+const PHASE_DETAILS: Record<string, PhaseDetail> = {
+    initialized: {
+        step: 'PREPARE',
+        title: 'パイプライン初期化中...',
+        percent: 10,
+        color: 'bg-blue-500',
+        activeAgents: ['システムコントローラー']
+    },
+    researching: {
+        step: 'STEP 1 / 5',
+        title: '世界3大市場リサーチ ＆ プラットフォーム分析',
+        percent: 25,
+        color: 'bg-indigo-500',
+        activeAgents: [
+            '🔮 市場トレンドアナリスト (北米/欧州/アジア)',
+            '💎 アービトラージアナリスト (北米/欧州/アジア)',
+            '📊 IG アナリスト',
+            '📈 X アナリスト'
+        ]
+    },
+    gate1_auditing: {
+        step: 'STEP 2 / 5',
+        title: '商材データ・トレンド論理 一次監査',
+        percent: 45,
+        color: 'bg-amber-500',
+        activeAgents: [
+            '⚖️ アービトラージ監査担当 (Gate 1-A)',
+            '🛡️ 市場トレンド監査担当 (Gate 1-B)'
+        ]
+    },
+    curating: {
+        step: 'STEP 3 / 5',
+        title: '7日分スロット編成 ＆ 看板MVP選定',
+        percent: 60,
+        color: 'bg-purple-500',
+        activeAgents: [
+            '👑 キュレーター'
+        ]
+    },
+    generating_content: {
+        step: 'STEP 4 / 5',
+        title: 'SNS原稿・オファー制作',
+        percent: 75,
+        color: 'bg-pink-500',
+        activeAgents: [
+            '🎨 IG クリエイター',
+            '✍️ X クリエイター',
+            '✉️ 有料コミュニティ'
+        ]
+    },
+    gate2_auditing: {
+        step: 'STEP 5 / 5',
+        title: '配信前 表現・規約・機密漏洩 最終監査',
+        percent: 90,
+        color: 'bg-orange-500',
+        activeAgents: [
+            '🛡️ 品質・規約監査役 (Gate 2)'
+        ]
+    },
+    ready_to_publish: {
+        step: 'COMPLETE',
+        title: '全フェーズ完了！成果物の配信準備が完了しました',
+        percent: 100,
+        color: 'bg-emerald-500',
+        activeAgents: [
+            '✔ 全13AI 稼働完了（各デスクで原稿確認・自動配信可能）'
+        ]
+    },
+    partially_failed: {
+        step: 'STOPPED',
+        title: 'パイプラインが手動停止または一部中断されました',
+        percent: 100,
+        color: 'bg-rose-600',
+        activeAgents: ['⏹️ 実行停止（再開するには再度一斉指示を実行してください）']
+    },
+    completed: {
+        step: 'PUBLISHED',
+        title: '配信完了・実績集計フェーズ',
+        percent: 100,
+        color: 'bg-slate-600',
+        activeAgents: ['定期配信完了']
+    }
 };
 
 export default function AiDashboard() {
@@ -32,6 +112,10 @@ export default function AiDashboard() {
     const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false);
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
     const [isPublishingX, setIsPublishingX] = useState<boolean>(false);
+    const [isStopping, setIsStopping] = useState<boolean>(false);
+
+    // 🌟 ポーリングタイマーを確実に即時クリアするためのRef
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const [pipelineProgress, setPipelineProgress] = useState<PipelineProgressState>({
         cycleId: null,
@@ -40,7 +124,7 @@ export default function AiDashboard() {
         gate2Audits: [],
     });
 
-    // 🌟 1. 特定サイクルの全データを読み込んでダッシュボードに反映
+    // 1. 特定サイクルの全データを読み込んでダッシュボードに反映
     const loadCycleData = async (cycleId: string) => {
         setSelectedRecordId(cycleId);
         try {
@@ -75,14 +159,68 @@ export default function AiDashboard() {
         loadCycleData(target.id);
     };
 
-    // 🌟 2. 個別デスクからの再実行指示も新パイプライン（二重監査付き）に統合
     const runSingleAi = async (_action: string, _region?: RegionKey) => {
-        if (!window.confirm('新パイプラインを一斉実行し、二重監査（Gate 1 / Gate 2）を通して全成果物を最新化しますか？')) return;
+        if (!window.confirm('全AIパイプラインを一斉実行し、二重監査（Gate 1 / Gate 2）を通して成果物を最新化しますか？')) return;
         runIntelligenceAnalysis();
     };
 
-    // 🌟 3. パイプライン実行（自己推進型）
+    // 🌟 2. パイプライン強制停止ハンドラー
+    const handleStopPipeline = async () => {
+        if (!window.confirm('現在実行中の全AIパイプラインを強制停止しますか？\n（進行中のリサーチや原稿制作は即座に中断されます）')) return;
+
+        setIsStopping(true);
+
+        // A. クライアント側のポーリングタイマーを即座に破棄
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+
+        const targetCycleId = selectedRecordId || pipelineProgress.cycleId;
+
+        // B. バックエンドに停止通知を送信
+        if (targetCycleId) {
+            try {
+                await fetch('/api/pipeline/worker', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cycleId: targetCycleId, action: 'stop' }),
+                });
+            } catch (e) {
+                console.error('停止通知送信エラー:', e);
+            }
+        }
+
+        // C. フロントエンド状態を停止へ反映
+        setAiLoading(false);
+        setIsStopping(false);
+        setPipelineProgress(prev => ({
+            ...prev,
+            status: 'partially_failed'
+        }));
+
+        alert('🛑 パイプラインの実行を停止しました。');
+
+        // 履歴一覧を更新
+        try {
+            const listRes = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
+            const listJson = await listRes.json();
+            if (listJson.success && listJson.cycles) {
+                setHistory(listJson.cycles);
+            }
+        } catch (e) {
+            console.error('履歴更新エラー:', e);
+        }
+    };
+
+    // 3. パイプライン開始処理
     const runIntelligenceAnalysis = async () => {
+        // 既存タイマーがあればクリア
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+
         setAiLoading(true);
         try {
             const res = await fetch('/api/pipeline/start', {
@@ -98,7 +236,7 @@ export default function AiDashboard() {
 
             let isAdvancing = false;
 
-            const pollInterval = setInterval(async () => {
+            pollIntervalRef.current = setInterval(async () => {
                 try {
                     const statusRes = await fetch(`/api/pipeline/status?cycleId=${cycleId}`);
                     const json = await statusRes.json();
@@ -127,9 +265,10 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // フェイルセーフ（クライアントサイド推進）
+                        // クライアント自動推進
                         const activePhases: PipelinePhase[] = [
                             'initialized',
+                            'researching',
                             'curating',
                             'gate1_auditing',
                             'generating_content',
@@ -147,12 +286,14 @@ export default function AiDashboard() {
                             });
                         }
 
-                        // 完了時の処理
+                        // 終了または中断時
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
-                            clearInterval(pollInterval);
+                            if (pollIntervalRef.current) {
+                                clearInterval(pollIntervalRef.current);
+                                pollIntervalRef.current = null;
+                            }
                             setAiLoading(false);
                             
-                            // 履歴リストを新テーブルから再取得
                             const listRes = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
                             const listJson = await listRes.json();
                             if (listJson.success && listJson.cycles) {
@@ -171,12 +312,21 @@ export default function AiDashboard() {
         }
     };
 
+    // コンポーネント破棄時にタイマーをクリア
+    useEffect(() => {
+        return () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+            }
+        };
+    }, []);
+
     const handleCopy = (text: string, key: string) => {
         navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(null), 2000);
     };
 
     const handlePublishToDiscord = async (content: string) => {
-        if (!window.confirm('Discordの大口バイヤー用チャンネルへ送信しますか？')) return;
+        if (!window.confirm('DiscordのVIPチャンネルへ送信しますか？')) return;
         setIsPublishingDiscord(true);
         try {
             const res = await fetch('/api/ai/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'discord', content }) });
@@ -216,7 +366,6 @@ export default function AiDashboard() {
         }
     };
 
-    // 🌟 4. 新テーブルから過去サイクル一覧を取得して最新回を自動ロード
     useEffect(() => {
         const fetchLatestCycles = async () => {
             try {
@@ -233,7 +382,9 @@ export default function AiDashboard() {
             } catch (e) { console.error('履歴取得エラー:', e); }
         };
         fetchLatestCycles();
-    }, [activeCategory]); 
+    }, [activeCategory]);
+
+    const currentPhase = pipelineProgress.status ? PHASE_DETAILS[pipelineProgress.status] : null;
 
     return (
         <div className="flex h-full min-h-[820px] bg-slate-950 text-slate-50 overflow-hidden font-sans rounded-xl border border-slate-800 shadow-2xl animate-fadeIn">
@@ -247,48 +398,92 @@ export default function AiDashboard() {
             />
 
             <div className="flex-1 flex flex-col relative bg-slate-950/50">
+                {/* 🌟 ヘッダー操作エリア：実行中かどうかに応じてボタンが切り替わる */}
                 <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-end px-6 shrink-0">
-                    <button onClick={runIntelligenceAnalysis} disabled={aiLoading || Boolean(runningAction)} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 disabled:opacity-50 transition active:scale-95">
-                        {aiLoading ? '🔄 全AIパイプライン稼働中...' : '🚀 全11AIに一斉調査・発信制作を指示'}
-                    </button>
+                    {aiLoading ? (
+                        <div className="flex items-center gap-3 animate-fadeIn">
+                            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                パイプライン稼働中...
+                            </div>
+                            <button
+                                onClick={handleStopPipeline}
+                                disabled={isStopping}
+                                className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition active:scale-95 ring-2 ring-rose-500/40 disabled:opacity-50"
+                            >
+                                <span>🛑 {isStopping ? '停止処理中...' : 'パイプラインを強制停止'}</span>
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={runIntelligenceAnalysis}
+                            disabled={Boolean(runningAction)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 disabled:opacity-50 transition active:scale-95"
+                        >
+                            <span>🚀 全13AIに一斉調査・発信制作を指示</span>
+                        </button>
+                    )}
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                    {/* 非同期パイプライン実行進捗バー */}
-                    {pipelineProgress.status && (
-                        <div className="mb-6 p-4 bg-gray-900 border border-gray-700 rounded-xl shadow-lg animate-fadeIn">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold text-gray-200">
-                                    {PHASE_LABELS[pipelineProgress.status]?.label || '処理中...'}
-                                </span>
-                                <span className="text-xs font-mono text-gray-400">
-                                    {PHASE_LABELS[pipelineProgress.status]?.percent}%
-                                </span>
+                    {/* 進捗ゲージ */}
+                    {currentPhase && (
+                        <div className="mb-6 p-4 bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl animate-fadeIn space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-800 pb-2">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
+                                        {currentPhase.step}
+                                    </span>
+                                    <span className="text-sm font-bold text-white tracking-wide">
+                                        {currentPhase.title}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-400">進捗</span>
+                                    <span className="text-sm font-mono font-extrabold text-blue-400">
+                                        {currentPhase.percent}%
+                                    </span>
+                                </div>
                             </div>
-                            <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+
+                            <div className="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
                                 <div
-                                    className={`h-2.5 rounded-full transition-all duration-500 ${
-                                        PHASE_LABELS[pipelineProgress.status]?.color || 'bg-blue-600'
-                                    }`}
-                                    style={{ width: `${PHASE_LABELS[pipelineProgress.status]?.percent}%` }}
+                                    className={`h-2.5 rounded-full transition-all duration-500 ${currentPhase.color}`}
+                                    style={{ width: `${currentPhase.percent}%` }}
                                 />
                             </div>
 
-                            {/* 監査役クイックステータス */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                                <span className="text-slate-400 font-bold shrink-0 flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                                    作業中AI:
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {currentPhase.activeAgents.map((agent, i) => (
+                                        <span
+                                            key={i}
+                                            className="bg-slate-950 text-slate-200 border border-slate-700 px-2.5 py-0.5 rounded-lg text-[11px] font-bold shadow-sm"
+                                        >
+                                            {agent}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
                             {(pipelineProgress.gate1Audits.length > 0 || pipelineProgress.gate2Audits.length > 0) && (
-                                <div className="mt-3 pt-3 border-t border-gray-800 flex gap-4 text-xs">
-                                    <div>
-                                        <span className="text-gray-400 mr-1">Gate 1 (商材・数値):</span>
-                                        <span className={`font-semibold ${
-                                            pipelineProgress.gate1Audits.every(a => a.status === 'passed') ? 'text-green-400' : 'text-amber-400'
+                                <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-5 text-xs">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">⚖️ Gate 1 (アービトラージ・トレンド監査):</span>
+                                        <span className={`font-mono font-bold ${
+                                            pipelineProgress.gate1Audits.every(a => a.status === 'passed') ? 'text-emerald-400' : 'text-amber-400'
                                         }`}>
                                             {pipelineProgress.gate1Audits.filter(a => a.status === 'passed').length} / {pipelineProgress.gate1Audits.length} 合格
                                         </span>
                                     </div>
-                                    <div>
-                                        <span className="text-gray-400 mr-1">Gate 2 (表現・規約):</span>
-                                        <span className={`font-semibold ${
-                                            pipelineProgress.gate2Audits.every(a => a.status === 'passed') ? 'text-green-400' : 'text-amber-400'
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-400">🛡️ Gate 2 (品質・規約監査):</span>
+                                        <span className={`font-mono font-bold ${
+                                            pipelineProgress.gate2Audits.every(a => a.status === 'passed') ? 'text-emerald-400' : 'text-amber-400'
                                         }`}>
                                             {pipelineProgress.gate2Audits.filter(a => a.status === 'passed').length} / {pipelineProgress.gate2Audits.length} 承認
                                         </span>
