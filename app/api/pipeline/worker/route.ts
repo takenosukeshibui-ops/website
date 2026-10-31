@@ -265,6 +265,18 @@ export async function POST(req: Request) {
       const weeklyLineup = curationResult?.weeklyLineup || [];
       const mvpItemId = curationResult?.mvpItemId;
 
+      // 🌟 curationResult の編成方針（strategyBlueprint）を ai_platform_tactics に保存
+      if (curationResult?.strategyBlueprint) {
+        await supabase.from('ai_platform_tactics').insert({
+          cycle_id: cycleId,
+          platform: 'chief',
+          recommended_timing: 'Weekly',
+          hook_guidelines: curationResult.strategyBlueprint.headline,
+          structure_blueprint: curationResult.strategyBlueprint,
+          raw_insights: curationResult.strategyBlueprint,
+        });
+      }
+
       // 一旦全商品の選定フラグをリセット
       await supabase
         .from('ai_research_items')

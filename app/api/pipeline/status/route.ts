@@ -62,6 +62,7 @@ export async function GET(req: Request) {
 
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
+    const chiefTactic = tactics.find((t) => t.platform === 'chief');
 
     // 3. サヤ取りレポート復元
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
@@ -151,8 +152,8 @@ export async function GET(req: Request) {
       const dayItems = approvedItems.filter((i) => i.assigned_day === day);
       return {
         dayOfWeek: day,
-        dayLabelJa: day, // DeskViews側で日本語化
-        postType: dayItems[0]?.slot_key || '不明なスロット',
+        dayLabelJa: day,
+        postType: dayItems[0]?.slot_key || '未定スロット',
         items: dayItems.map((item) => ({
           region: item.region,
           selectedCardOrTopic: item.card_name,
@@ -182,8 +183,8 @@ export async function GET(req: Request) {
               selectionReason: mvpItem.curator_rationale || '流動性と粗利マージンを総合勘案して選定',
             }
           : null,
-        // 🌟 取得した strategyBlueprint をフロントエンドへ渡す
-        strategyBlueprint: igTactic?.structure_blueprint?.strategyBlueprint || null,
+        // 🌟 chiefTactic から strategyBlueprint を取得して返却
+        strategyBlueprint: chiefTactic?.structure_blueprint || null,
         approvedItems,
         contentCalendar: structuredContentCalendar,
       },
