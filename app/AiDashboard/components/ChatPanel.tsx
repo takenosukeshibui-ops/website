@@ -1,3 +1,4 @@
+// app/AiDashboard/components/ChatPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
 
@@ -35,28 +36,32 @@ export default function ChatPanel({
         scrollToBottom();
     }, [chatLogs, aiActiveDesk]);
 
+    // 🌟 デスクに対応するエージェント識別キーの判定
     const getActiveAgentKey = (desk: string): string | null => {
+        if (desk === 'desk_audit') return 'auditor'; // 🛡️ 監査役
         if (desk.startsWith('desk_trend')) return 'trend';
         if (desk.startsWith('desk_arbitrage')) return 'arbitrage';
         if (desk === 'desk_x_account') return 'x_account';
         if (desk === 'desk_account') return 'account';
         if (desk === 'desk_sns') return 'sns';
         if (desk === 'desk_x') return 'x';
-        if (desk === 'desk_sales') return 'sales';
+        if (desk === 'desk_sales') return 'sales'; // ✉️ コミュニティ営業
         if (desk === 'desk_chief') return 'chief';
         if (desk.startsWith('desk_')) return desk.replace('desk_', '');
         return null;
     };
 
+    // 🌟 デスクに応じたタイトル表示
     const getDeskTitle = (desk: string): string => {
-        if (desk === 'desk_chief') return '👑 チーフマネージャー';
+        if (desk === 'desk_audit') return '🛡️ 品質・規約監査役';
+        if (desk === 'desk_chief') return '👑 チーフマネージャー（キュレーター）';
         if (desk.startsWith('desk_trend')) return `🔮 市場アナリスト (${activeTrendRegion.toUpperCase()})`;
         if (desk.startsWith('desk_arbitrage')) return `💎 アービトラージアナリスト (${activeArbitrageRegion.toUpperCase()})`;
         if (desk === 'desk_account') return '📊 IGアナリスト';
         if (desk === 'desk_x_account') return '🐦 Xアナリスト';
         if (desk === 'desk_sns') return '📸 Instagram担当';
         if (desk === 'desk_x') return '🐦 Xクリエイター';
-        if (desk === 'desk_sales') return '✉️ 有料コミュニティ担当';
+        if (desk === 'desk_sales') return '✉️ コミュニティ営業担当';
         return '担当AI';
     };
 
@@ -88,6 +93,8 @@ export default function ChatPanel({
     const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) => {
         const senderToAgentKey: Record<string, string> = {
             'チーフマネージャー': 'chief',
+            '品質・規約監査役': 'auditor',
+            '監査役': 'auditor',
             '市場アナリスト': 'trend',
             'アービトラージアナリスト': 'arbitrage',
             'IGアナリスト': 'account',
@@ -96,7 +103,8 @@ export default function ChatPanel({
             'インスタ担当': 'sns',
             'X担当': 'x',
             'Xクリエイター': 'x',
-            '有料コミュニティ担当': 'sales'
+            '有料コミュニティ担当': 'sales',
+            'コミュニティ営業担当': 'sales'
         };
         let agentKey = senderToAgentKey[sender];
         if (isUserMessage) {

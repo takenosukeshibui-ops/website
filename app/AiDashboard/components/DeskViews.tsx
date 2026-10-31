@@ -1,13 +1,25 @@
 // app/AiDashboard/components/DeskViews.tsx
-import React from 'react';
-import { IntelligenceData, RegionKey } from '../types';
+import React, { useState } from 'react';
+import { IntelligenceData, RegionKey, Gate1AuditItem, Gate2AuditItem } from '../types';
 import DocumentReportView from './DocumentReport';
+
+const DAYS_OF_WEEK = [
+    { key: 'Monday', label: '月曜', postType: 'Flagship_GlobalCatalog', desc: '全体カタログ' },
+    { key: 'Tuesday', label: '火曜', postType: 'Vintage_Focus', desc: 'クラシック枠' },
+    { key: 'Wednesday', label: '水曜', postType: 'Promo_Focus', desc: '限定プロモ枠' },
+    { key: 'Thursday', label: '木曜', postType: 'Modern_Meta_Focus', desc: '現行モダン枠' },
+    { key: 'Friday', label: '金曜', postType: 'Graded_Sealed_Focus', desc: '高額鑑定BOX枠' },
+    { key: 'Saturday', label: '土曜', postType: 'Hit_Proof_SocialProof', desc: '的中実績証明' },
+    { key: 'Sunday', label: '日曜', postType: 'Weekly_Summary_CTA', desc: '週間総括CTA' }
+];
 
 interface DeskViewsProps {
     aiActiveDesk: string;
     activeTrendRegion: RegionKey;
     activeArbitrageRegion: RegionKey;
     aiData: IntelligenceData | null;
+    gate1Audits?: Gate1AuditItem[];
+    gate2Audits?: Gate2AuditItem[];
     runningAction: string | null;
     runSingleAi: (action: string, region?: RegionKey) => void;
     handleCopy: (text: string, key: string) => void;
@@ -16,21 +28,34 @@ interface DeskViewsProps {
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
-    handlePublishToX: (mainPost: string, threadPosts: string[]) => void; // 🌟 X投稿ハンドラー
-    isPublishingX: boolean; // 🌟 X投稿ローディングState
+    handlePublishToX: (mainPost: string, threadPosts: string[]) => void;
+    isPublishingX: boolean;
 }
 
 export default function DeskViews({
     aiActiveDesk, activeTrendRegion, activeArbitrageRegion, aiData,
+    gate1Audits = [], gate2Audits = [],
     runningAction, runSingleAi, handleCopy, copiedKey,
     handlePublishToInstagram, isPublishingInstagram,
     handlePublishToDiscord, isPublishingDiscord,
     handlePublishToX, isPublishingX
 }: DeskViewsProps) {
+    const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
+    const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
+
+    // Instagramの選択された曜日の投稿データ取得
+    const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day === selectedIgDay);
+    const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
+
+    // Xの選択された曜日のスレッドデータ取得
+    const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day === selectedXDay);
+    const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
+    const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
+
     return (
         <>
             {/* ========================================================= */}
-            {/* 👑 チーフマネージャー戦略デスク */}
+            {/* 👑 チーフマネージャー戦略デスク（AIキュレーター） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -39,11 +64,11 @@ export default function DeskViews({
                             <span className="text-3xl">👑</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">チーフマネージャー戦略デスク</h2>
-                                <p className="text-xs text-slate-400">6地域レポートから最優秀撒き餌案件を審査・ディレクション指示発行</p>
+                                <p className="text-xs text-slate-400">7日分のスロット割当選定 & 看板MVP銘柄のディレクション指示</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md">
-                            {runningAction === 'chief' ? '審査中...' : '🔄 案件を再審査・選定'}
+                        <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                            {runningAction === 'chief' ? '選定中...' : '🔄 案件を再審査・選定'}
                         </button>
                     </div>
                     {aiData?.chiefPackage ? (
@@ -67,62 +92,21 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 3地域横断マトリクス */}
-                            {aiData.chiefPackage.regionalMatrix && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                                        <span>🌐</span> 世界3大市場（米・欧・亜）インテリジェンス・マトリクス
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
-                                                <span className="text-xs font-bold text-blue-400">🇺🇸 北米 (US)</span>
-                                            </div>
-                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.us?.topArbitrage}</p>
-                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.us?.topTrend}</p>
-                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.us?.summary}</p>
-                                        </div>
-                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
-                                                <span className="text-xs font-bold text-emerald-400">🇪🇺 欧州 (EU)</span>
-                                            </div>
-                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.eu?.topArbitrage}</p>
-                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.eu?.topTrend}</p>
-                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.eu?.summary}</p>
-                                        </div>
-                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                                            <div className="flex justify-between items-center border-b border-slate-800/60 pb-1">
-                                                <span className="text-xs font-bold text-purple-400">🌏 アジア (Asia)</span>
-                                            </div>
-                                            <p className="text-[11px] text-slate-300"><span className="text-emerald-400 font-bold">サヤ:</span> {aiData.chiefPackage.regionalMatrix.asia?.topArbitrage}</p>
-                                            <p className="text-[11px] text-slate-300"><span className="text-amber-400 font-bold">トレンド:</span> {aiData.chiefPackage.regionalMatrix.asia?.topTrend}</p>
-                                            <p className="text-[10px] text-slate-400 italic pt-1">{aiData.chiefPackage.regionalMatrix.asia?.summary}</p>
-                                        </div>
-                                    </div>
-                                    {aiData.chiefPackage.globalInsight && (
-                                        <p className="text-xs text-slate-300 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800/60 mt-2 leading-relaxed">
-                                            <span className="text-amber-300 font-bold mr-1">🔍 グローバル示唆:</span>
-                                            {aiData.chiefPackage.globalInsight}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
                             {/* 🌟 7日分週間コンテンツカレンダー */}
                             {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
                                 <div>
-                                    <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-1.5">
+                                    <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
                                         <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                            <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分の日替わり投稿プラン）
+                                            <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分スロット）
                                         </h4>
-                                        <span className="text-[10px] text-slate-400">SNS投稿ネタ切れ完全防止</span>
+                                        <span className="text-[10px] text-slate-400">Gate 1 四則検算・商材監査合格品</span>
                                     </div>
                                     <div className="space-y-2.5">
                                         {aiData.chiefPackage.contentCalendar.map((item: any, cIdx: number) => (
                                             <div key={cIdx} className="bg-slate-950/90 border border-slate-800/80 rounded-lg p-3 space-y-2 hover:border-amber-500/40 transition">
                                                 <div className="flex justify-between items-center border-b border-slate-800/60 pb-1.5">
                                                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                                        <span className="text-amber-400">📌</span> {item.dayLabelJa}
+                                                        <span className="text-amber-400">📌</span> {item.dayLabelJa || item.dayOfWeek}
                                                     </span>
                                                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60">
                                                         {item.postType}
@@ -130,19 +114,13 @@ export default function DeskViews({
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                                                     <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                                        <span className="text-[10px] text-emerald-400 font-bold block mb-0.5">📢 無料SNS用フック (Fact & Result)</span>
-                                                        <p className="text-[11px] text-slate-300 leading-snug">{item.hookFact}</p>
+                                                        <span className="text-[10px] text-emerald-400 font-bold block mb-0.5">📢 無料フック（Fact & Result）</span>
+                                                        <p className="text-[11px] text-slate-300 leading-snug">{item.hookFact || item.coreHookFact}</p>
                                                     </div>
                                                     <div className="bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                                        <span className="text-[10px] text-rose-400 font-bold block mb-0.5">🔒 秘匿指示 (Action & Reason)</span>
-                                                        <p className="text-[11px] text-slate-400 leading-snug">{item.hiddenActionReason}</p>
+                                                        <span className="text-[10px] text-rose-400 font-bold block mb-0.5">🔒 秘匿指示（Action & Reason）</span>
+                                                        <p className="text-[11px] text-slate-400 leading-snug">{item.hiddenActionReason || '仕入れルート・仕込み理由は非公開'}</p>
                                                     </div>
-                                                </div>
-                                                <div className="flex gap-2 text-[10px] text-slate-400 pt-0.5 border-t border-slate-800/40">
-                                                    <span className="text-pink-400 font-bold">IG:</span>
-                                                    <span className="truncate flex-1">{item.directiveForCreator?.instagramAngle}</span>
-                                                    <span className="text-sky-400 font-bold">X:</span>
-                                                    <span className="truncate flex-1">{item.directiveForCreator?.xTwitterAngle}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -151,73 +129,108 @@ export default function DeskViews({
                             )}
 
                             <div>
-                                <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ チーフの選定理由（戦略的根拠）</h4>
+                                <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ キュレーター選定理由</h4>
                                 <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
                                     {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason}
                                 </p>
                             </div>
-                            <div>
-                                <h4 className="text-xs font-bold text-amber-400 mb-1.5">🎯 看板投稿用『撒き餌』フック（Fact & Result）</h4>
-                                <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-xs text-amber-200 leading-relaxed">
-                                    {aiData.chiefPackage.mvpHighlight?.hookFact || aiData.chiefPackage.coreHookFact}
-                                </div>
-                                <span className="text-[10px] text-slate-400 mt-1 block">※国内仕入れルートや具体的手配方法（Reason/Action）は秘匿され、Discord・サイトへ誘導します。</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                                <div className="bg-slate-950 p-3 rounded-lg border border-pink-500/30">
-                                    <h5 className="text-xs font-bold text-pink-400 mb-1">📸 Instagram指示</h5>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.instagramAngle}</p>
-                                </div>
-                                <div className="bg-slate-950 p-3 rounded-lg border border-sky-500/30">
-                                    <h5 className="text-xs font-bold text-sky-400 mb-1">🐦 X (Twitter) 指示</h5>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.xTwitterAngle || '短文フック＋スレッド展開'}</p>
-                                </div>
-                                <div className="bg-slate-950 p-3 rounded-lg border border-purple-500/30">
-                                    <h5 className="text-xs font-bold text-purple-400 mb-1">✉️ Discord担当指示</h5>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed">{aiData.chiefPackage.creativeDirective?.discordOfferAngle}</p>
-                                </div>
-                            </div>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだチーフの選定が行われていません。「全11AIに一斉調査・発信制作を指示」または「案件を再審査・選定」を実行してください。</div>
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだ選定が行われていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
                     )}
+                </div>
+            )}
 
-                    {/* 的中実績証明パッケージ */}
-                    <div className="bg-slate-900 border border-emerald-500/40 rounded-xl p-5 space-y-4 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+            {/* ========================================================= */}
+            {/* 🛡️ 新設: Gate 1 & Gate 2 監査役デスク */}
+            {/* ========================================================= */}
+            {aiActiveDesk === 'desk_audit' && (
+                <div className="w-full space-y-6 animate-fadeIn">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">🛡️</span>
                             <div>
-                                <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-bold block mb-1">Type C: Social Proof Lead Magnet</span>
-                                <h3 className="text-base font-bold text-white flex items-center gap-2"><span>🎯</span><span>的中実績証明パッケージ（社会的証明・権威性構築）</span></h3>
+                                <h2 className="text-lg font-bold text-white">品質・規約監査役デスク</h2>
+                                <p className="text-xs text-slate-400">Gate 1（商材・四則計算・大会規約）＆ Gate 2（表現・機密漏洩・2股導線）監査結果</p>
                             </div>
-                            <button onClick={() => runSingleAi('proof')} disabled={runningAction === 'proof'} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                                {runningAction === 'proof' ? '過去ログ照合中...' : '🔄 的中実績を自動発掘・生成'}
-                            </button>
                         </div>
-                        {aiData?.proofPackage ? (
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800"><span className="text-[10px] text-slate-400 block">的中銘柄</span><span className="text-white font-bold text-xs truncate block">{aiData.proofPackage.cardName}</span></div>
-                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800"><span className="text-[10px] text-slate-400 block">予測時期相場 ({aiData.proofPackage.predictedDate})</span><span className="text-slate-300 font-mono text-xs">{aiData.proofPackage.predictedPrice}</span></div>
-                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800"><span className="text-[10px] text-slate-400 block">現在の海外実成約</span><span className="text-emerald-400 font-mono font-bold text-xs">{aiData.proofPackage.currentPrice}</span></div>
-                                    <div className="bg-slate-950 p-2.5 rounded-lg border border-emerald-500/30"><span className="text-[10px] text-emerald-400 block">急騰上昇率</span><span className="text-emerald-300 font-mono font-bold text-sm">{aiData.proofPackage.growthRate}</span></div>
-                                </div>
-                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    <span className="text-[11px] font-bold text-amber-300 block mb-1">🖼️ ビフォーアフター比較画像指示</span>
-                                    <p className="text-xs text-slate-300 mb-0.5">左(当時): {aiData.proofPackage.visualGuideline?.beforeImageDesc}</p>
-                                    <p className="text-xs text-slate-300">右(現在): {aiData.proofPackage.visualGuideline?.afterImageDesc}</p>
-                                </div>
-                                <div>
-                                    <span className="text-xs font-bold text-slate-300 block mb-1">📝 タイプC 投稿キャプション（VIP Discord誘導主軸）</span>
-                                    <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">{aiData.proofPackage.proofPost}</pre>
-                                </div>
-                                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
-                                    <button onClick={() => handleCopy(aiData.proofPackage?.proofPost || '', 'proof')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">{copiedKey === 'proof' ? '✓ コピー完了' : 'コピー'}</button>
-                                    <button onClick={() => handlePublishToInstagram(aiData.proofPackage?.proofPost || '', 'proof')} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1.5 rounded-lg">📸 Instagramへ投稿</button>
-                                </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {/* Gate 1 監査状況 */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                                <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                                    <span>⚖️</span> Gate 1: 商材・数値監査
+                                </h3>
+                                <span className="text-xs font-mono font-bold text-slate-300">
+                                    {gate1Audits.filter(a => a.status === 'passed').length} / {gate1Audits.length} 合格
+                                </span>
                             </div>
-                        ) : (
-                            <div className="text-center py-6 text-slate-500 text-xs bg-slate-950/60 border border-slate-800 rounded-lg">過去ログを照合して的中銘柄を抽出するには「🔄 的中実績を自動発掘・生成」をクリックしてください。</div>
-                        )}
+                            {gate1Audits.length === 0 ? (
+                                <p className="text-xs text-slate-500 italic py-4 text-center">監査レコードはまだありません</p>
+                            ) : (
+                                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                                    {gate1Audits.map((item, idx) => (
+                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    item.status === 'passed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                                }`}>
+                                                    {item.status === 'passed' ? '✔ 合格' : '✖ 差し戻し'}
+                                                </span>
+                                            </div>
+                                            <div className="text-[11px] text-slate-400 flex gap-2">
+                                                <span>枠: {item.slot}</span>
+                                                <span>地域: {item.region?.toUpperCase()}</span>
+                                            </div>
+                                            {item.feedback && (
+                                                <p className="text-[11px] text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20 leading-relaxed">
+                                                    💬 監査指摘: {item.feedback}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Gate 2 監査状況 */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+                            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                                <h3 className="text-sm font-bold text-orange-300 flex items-center gap-2">
+                                    <span>🔍</span> Gate 2: 表現・導線規約監査
+                                </h3>
+                                <span className="text-xs font-mono font-bold text-slate-300">
+                                    {gate2Audits.filter(a => a.status === 'passed').length} / {gate2Audits.length} 承認
+                                </span>
+                            </div>
+                            {gate2Audits.length === 0 ? (
+                                <p className="text-xs text-slate-500 italic py-4 text-center">監査レコードはまだありません</p>
+                            ) : (
+                                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                                    {gate2Audits.map((item, idx) => (
+                                        <div key={idx} className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-1.5 text-xs">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-bold text-white uppercase">{item.platform} 配信原稿</span>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    item.status === 'passed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                                }`}>
+                                                    {item.status === 'passed' ? '✔ 配信承認' : '✖ 修正要請'}
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] text-slate-400 block">対象曜日: {item.day}</span>
+                                            {item.feedback && (
+                                                <p className="text-[11px] text-rose-300 bg-rose-500/10 p-2 rounded border border-rose-500/20 leading-relaxed">
+                                                    💬 規約指摘: {item.feedback}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -234,7 +247,7 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({activeTrendRegion === 'us' ? '北米' : activeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : `🔄 ${activeTrendRegion.toUpperCase()}担当に調査指示`}
                         </button>
                     </div>
@@ -243,7 +256,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 💎 アービトラージアナリスト（🌟 横幅を w-full に解放） */}
+            {/* 💎 アービトラージアナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk.startsWith('desk_arbitrage') && (
                 <div className="w-full space-y-5 animate-fadeIn">
@@ -254,7 +267,7 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">アービトラージアナリスト ({activeArbitrageRegion === 'us' ? '北米' : activeArbitrageRegion === 'eu' ? '欧州' : 'アジア'})</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('arbitrage', activeArbitrageRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('arbitrage', activeArbitrageRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === `arbitrage_${activeArbitrageRegion}` ? '査定中...' : `🔄 ${activeArbitrageRegion.toUpperCase()}担当に査定指示`}
                         </button>
                     </div>
@@ -275,7 +288,7 @@ export default function DeskViews({
                                 <p className="text-xs text-slate-400">アカウントエンゲージメント・ファネル診断</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === 'account' ? '分析中...' : '🔄 アカウント診断を実行'}
                         </button>
                     </div>
@@ -296,7 +309,7 @@ export default function DeskViews({
                                 <p className="text-xs text-slate-400">Xアルゴリズム・エンゲージメント診断（140字・画像4枚・スレッド最適化）</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === 'x_account' ? '分析中...' : '🔄 Xアカウント診断を実行'}
                         </button>
                     </div>
@@ -305,7 +318,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 Instagram専任 投稿クリエイター */}
+            {/* 🎨 Instagram専任 投稿クリエイター（7日分切り替えタブ搭載） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -314,20 +327,48 @@ export default function DeskViews({
                             <span className="text-3xl">🎨</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">Instagram専任 投稿クリエイター</h2>
-                                <p className="text-xs text-slate-400">答えを教えない撒き餌設計（Fact/Result提示、Action/Reason秘匿）に基づくカルーセル・キャプション作成</p>
+                                <p className="text-xs text-slate-400">7日分の日替わりカルーセル構成 & キャプション原稿（Gate 2 監査済み）</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === 'sns' ? '制作中...' : '🔄 投稿原稿を再生成'}
                         </button>
                     </div>
+
+                    {/* 🌟 7日分曜日切り替えタブ */}
+                    <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+                        {DAYS_OF_WEEK.map(d => (
+                            <button
+                                key={d.key}
+                                type="button"
+                                onClick={() => setSelectedIgDay(d.key)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    selectedIgDay === d.key
+                                        ? 'bg-pink-600 text-white shadow-md ring-1 ring-pink-400/40'
+                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                                }`}
+                            >
+                                <span>{d.label}</span>
+                                <span className="text-[10px] opacity-70 font-mono">({d.desc})</span>
+                            </button>
+                        ))}
+                    </div>
+
                     {aiData?.snsPosts ? (
                         <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
-                            <div className="border-b border-slate-800 pb-3">
-                                <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">Weekly Lead Magnet Theme</span>
-                                <h3 className="text-lg font-bold text-white">{aiData.snsPosts.theme}</h3>
-                                <p className="text-xs text-slate-400 mt-1">推奨投稿時間: {aiData.snsPosts.recommendedTiming}</p>
+                            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                                <div>
+                                    <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">
+                                        {selectedIgDay} Posting Slot
+                                    </span>
+                                    <h3 className="text-lg font-bold text-white">{aiData.snsPosts.theme}</h3>
+                                </div>
+                                <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+                                    推奨: {aiData.snsPosts.recommendedTiming || '日本時間 21:00'}
+                                </span>
                             </div>
+
+                            {/* カルーセル画像スライド指示 */}
                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                 <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ カルーセル画像スライド構成指示</h4>
                                 <div className="space-y-1.5 text-xs text-slate-300">
@@ -338,12 +379,12 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 推奨ハッシュタグ表示＆一括コピー枠 */}
+                            {/* ハッシュタグ */}
                             {aiData.snsPosts.hashtags && aiData.snsPosts.hashtags.length > 0 && (
                                 <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
                                     <div className="flex justify-between items-center">
                                         <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
-                                            <span>🏷️</span> 推奨ハッシュタグ (英語圏コレクター・投資家向け)
+                                            <span>🏷️</span> 推奨ハッシュタグ
                                         </h4>
                                         <button 
                                             onClick={() => handleCopy(aiData.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
@@ -358,15 +399,22 @@ export default function DeskViews({
                                 </div>
                             )}
 
+                            {/* 投稿キャプション */}
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="text-xs font-bold text-white">📝 投稿キャプション (ハイブリッド推奨版)</h4>
+                                    <h4 className="text-xs font-bold text-white">📝 【{selectedIgDay}】投稿キャプション</h4>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'hybrid' ? '✓ コピー完了' : 'コピー'}</button>
-                                        <button onClick={() => handlePublishToInstagram(aiData.snsPosts?.posts?.hybridPost || '', 'hybrid')} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg">📸 IGへ投稿</button>
+                                        <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
+                                            {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
+                                        </button>
+                                        <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
+                                            {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
+                                        </button>
                                     </div>
                                 </div>
-                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData.snsPosts.posts?.hybridPost}</pre>
+                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
+                                    {igPostText}
+                                </pre>
                             </div>
                         </div>
                     ) : (
@@ -376,7 +424,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 X (Twitter) 専任 投稿クリエイター */}
+            {/* 🐦 X (Twitter) 専任 投稿クリエイター（7日分スレッド切り替え搭載） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -385,57 +433,76 @@ export default function DeskViews({
                             <span className="text-3xl">🐦</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">X (Twitter) 専任 投稿クリエイター</h2>
-                                <p className="text-xs text-slate-400">140字フック＋画像4枚＋スレッド展開によるインプレッション最大化と2股導線誘導</p>
+                                <p className="text-xs text-slate-400">7日分の日替わり140字フック ＋ 4ポストスレッド展開（Gate 2 監査済み）</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md">
+                        <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
                             {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 X投稿原稿を再生成'}
                         </button>
                     </div>
+
+                    {/* 🌟 7日分曜日切り替えタブ */}
+                    <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+                        {DAYS_OF_WEEK.map(d => (
+                            <button
+                                key={d.key}
+                                type="button"
+                                onClick={() => setSelectedXDay(d.key)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    selectedXDay === d.key
+                                        ? 'bg-sky-500 text-white shadow-md ring-1 ring-sky-400/40'
+                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                                }`}
+                            >
+                                <span>{d.label}</span>
+                                <span className="text-[10px] opacity-70 font-mono">({d.desc})</span>
+                            </button>
+                        ))}
+                    </div>
+
                     {aiData?.xPosts ? (
                         <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
                             <div className="border-b border-slate-800 pb-3">
-                                <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">X Viral Thread Package</span>
+                                <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">
+                                    {selectedXDay} Viral Thread
+                                </span>
                                 <h3 className="text-lg font-bold text-white">{aiData.xPosts.theme}</h3>
                             </div>
+
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-sky-300">📌 1ポスト目（140字以内フック ＋ 画像添付案内）</h4>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(aiData.xPosts?.mainPost || '', 'x_main')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'x_main' ? '✓ コピー完了' : 'コピー'}</button>
+                                        <button onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
+                                            {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
+                                        </button>
                                         <button 
-                                            onClick={() => handlePublishToX(aiData.xPosts?.mainPost || '', aiData.xPosts?.threadPosts || [])} 
+                                            onClick={() => handlePublishToX(xMainPost, xThreadPosts)} 
                                             disabled={isPublishingX}
                                             className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
                                         >
-                                            {isPublishingX ? '投稿中...' : '🐦 Xへスレッド投稿'}
+                                            {isPublishingX ? '投稿中...' : `🐦 【${selectedXDay}】スレッド自動投稿`}
                                         </button>
                                     </div>
                                 </div>
-                                <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">{aiData.xPosts.mainPost}</div>
+                                <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">
+                                    {xMainPost}
+                                </div>
                             </div>
+
                             <div className="space-y-2">
                                 <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
-                                {aiData.xPosts.threadPosts?.map((tp, idx) => (
+                                {xThreadPosts.map((tp, idx) => (
                                     <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
                                         <div className="flex justify-between items-center text-[10px] text-slate-400">
                                             <span>Post {idx + 2}</span>
-                                            <button onClick={() => handleCopy(tp, `x_thread_${idx}`)} className="hover:text-white">{copiedKey === `x_thread_${idx}` ? '✓ コピー' : 'コピー'}</button>
+                                            <button onClick={() => handleCopy(tp, `x_thread_${selectedXDay}_${idx}`)} className="hover:text-white">
+                                                {copiedKey === `x_thread_${selectedXDay}_${idx}` ? '✓ コピー' : 'コピー'}
+                                            </button>
                                         </div>
                                         <p className="leading-relaxed">{tp}</p>
                                     </div>
                                 ))}
-                            </div>
-                            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ 添付画像4枚の指示</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
-                                    {aiData.xPosts.imageGuideline?.map((ig, i) => (
-                                        <div key={i} className="bg-slate-900 px-3 py-2 rounded border border-slate-800/80">
-                                            <span className="text-amber-400 font-bold block mb-0.5">画像 {i + 1}</span>
-                                            <span className="text-[11px] text-slate-400">{ig}</span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                     ) : (
@@ -445,20 +512,20 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 💬 コミュニティ営業AIデスク (Discord) */}
+            {/* 💬 コミュニティ営業AIデスク (Discord) ※ desk_sales に統一 */}
             {/* ========================================================= */}
-            {aiActiveDesk === 'desk_dm' && (
+            {aiActiveDesk === 'desk_sales' && (
                 <div className="w-full space-y-6 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💬</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">コミュニティ営業AIデスク (Discord)</h2>
-                                <p className="text-xs text-slate-400">VIPコミュニティ（大口バイヤー向けチャンネル）直送ロットオファー</p>
+                                <p className="text-xs text-slate-400">大口バイヤー向けVIPチャンネル直送 ロットオファー（Gate 2 監査済み）</p>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('dm')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md">
-                            {runningAction === 'dm' ? '作成中...' : '🔄 Discordオファーを再作成'}
+                        <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                            {runningAction === 'sales' ? '作成中...' : '🔄 Discordオファーを再作成'}
                         </button>
                     </div>
                     {aiData?.salesDM ? (
@@ -489,7 +556,7 @@ export default function DeskViews({
                                     <h4 className="text-xs font-bold text-white">✉️ Discord投稿メッセージ全文</h4>
                                     <div className="flex gap-2">
                                         <button onClick={() => handleCopy(aiData.salesDM?.discordMessage || '', 'dm')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button>
-                                        <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
+                                        <button onClick={() => handlePublishToDiscord(aiData.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
                                     </div>
                                 </div>
                                 <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData.salesDM.discordMessage}</pre>

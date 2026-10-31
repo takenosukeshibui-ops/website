@@ -6,7 +6,6 @@ import Sidebar from './components/Sidebar';
 import DeskViews from './components/DeskViews';
 import ChatPanel from './components/ChatPanel';
 
-// フェーズに応じた進捗率・メッセージの定義マップ
 const PHASE_LABELS: Record<string, { label: string; percent: number; color: string }> = {
     initialized: { label: 'パイプライン初期化中...', percent: 10, color: 'bg-blue-500' },
     researching: { label: '米・欧・亜 6名リサーチャー & SNSアナリスト並行調査中...', percent: 25, color: 'bg-indigo-500' },
@@ -34,7 +33,6 @@ export default function AiDashboard() {
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
     const [isPublishingX, setIsPublishingX] = useState<boolean>(false);
 
-    // 🌟 新アーキテクチャ: 非同期パイプラインの進捗追跡State
     const [pipelineProgress, setPipelineProgress] = useState<PipelineProgressState>({
         cycleId: null,
         status: null,
@@ -56,7 +54,6 @@ export default function AiDashboard() {
             xAccountInsights: target.x_account_insights || null,
             rsiReport: target.rsi_report || null,
         });
-        // 過去履歴を選んだ際はプログレスバーをリセット
         setPipelineProgress({ cycleId: null, status: null, gate1Audits: [], gate2Audits: [] });
     };
 
@@ -94,11 +91,9 @@ export default function AiDashboard() {
         }
     };
 
-    // 🌟 修正: フロントエンドによる自己推進型パイプライン
     const runIntelligenceAnalysis = async () => {
         setAiLoading(true);
         try {
-            // 1. パイプライン初期化
             const res = await fetch('/api/pipeline/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -111,7 +106,6 @@ export default function AiDashboard() {
 
             let isAdvancing = false;
 
-            // 2. ポーリング & 進行チェック
             const pollInterval = setInterval(async () => {
                 try {
                     const statusRes = await fetch(`/api/pipeline/status?cycleId=${cycleId}`);
@@ -137,7 +131,6 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // 🌟 フェイルセーフ: 処理中ステータスで止まっている場合、ブラウザから直接ワーカーを呼んで前進させる
                         const activePhases: PipelinePhase[] = [
                             'initialized',
                             'curating',
@@ -148,7 +141,6 @@ export default function AiDashboard() {
 
                         if (activePhases.includes(currentStatus) && !isAdvancing) {
                             isAdvancing = true;
-                            // バックグラウンドでワーカーを実行
                             fetch('/api/pipeline/worker', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -158,7 +150,6 @@ export default function AiDashboard() {
                             });
                         }
 
-                        // 完了判定
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             clearInterval(pollInterval);
                             setAiLoading(false);
@@ -198,7 +189,7 @@ export default function AiDashboard() {
     };
 
     const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) => {
-        if (!window.confirm('Instagram に自動投稿しますか？')) return;
+        if (!window.confirm(`Instagram に【${typeKey}】原稿を自動投稿しますか？`)) return;
         setIsPublishingInstagram(typeKey);
         try {
             const res = await fetch('/api/ai/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'instagram', content, imageUrl }) });
@@ -263,7 +254,7 @@ export default function AiDashboard() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                    {/* 🌟 非同期パイプライン実行進捗バー */}
+                    {/* 非同期パイプライン実行進捗バー */}
                     {pipelineProgress.status && (
                         <div className="mb-6 p-4 bg-gray-900 border border-gray-700 rounded-xl shadow-lg animate-fadeIn">
                             <div className="flex items-center justify-between mb-2">
@@ -307,9 +298,13 @@ export default function AiDashboard() {
                         </div>
                     )}
 
+                    {/* メインデスクビュー */}
                     <DeskViews 
                         aiActiveDesk={aiActiveDesk} activeTrendRegion={activeTrendRegion} activeArbitrageRegion={activeArbitrageRegion}
-                        aiData={aiData} runningAction={runningAction} runSingleAi={runSingleAi}
+                        aiData={aiData}
+                        gate1Audits={pipelineProgress.gate1Audits}
+                        gate2Audits={pipelineProgress.gate2Audits}
+                        runningAction={runningAction} runSingleAi={runSingleAi}
                         handleCopy={handleCopy} copiedKey={copiedKey}
                         handlePublishToInstagram={handlePublishToInstagram} isPublishingInstagram={isPublishingInstagram}
                         handlePublishToDiscord={handlePublishToDiscord} isPublishingDiscord={isPublishingDiscord}
