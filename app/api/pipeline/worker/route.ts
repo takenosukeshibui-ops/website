@@ -1,6 +1,4 @@
 // app/api/pipeline/worker/route.ts
-export const maxDuration = 60;
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
@@ -44,7 +42,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cycleId }),
-    }).catch((err) => console.warn('[Worker] dispatchNext notice:', err.message));
+    }).catch((err) => console.error('[Worker Auto-dispatch failed]:', err.message));
   };
 
   try {
@@ -52,7 +50,7 @@ export async function POST(req: Request) {
     // Phase 1: リサーチ & プラットフォーム戦術の並列実行
     // ------------------------------------------------------------------------
     if (cycle.status === 'initialized') {
-      console.log('▶ [Phase 1] リサーチ開始...');
+      console.log('▶ [Phase 1] 全リサーチ & 戦術分析を開始します...');
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching' }).eq('id', cycleId);
 
       const [trendUS, trendEU, trendAsia, sayaUS, sayaEU, sayaAsia, igTactics, xTactics] =
@@ -69,7 +67,7 @@ export async function POST(req: Request) {
 
       const researchRows: any[] = [];
 
-      // A. アービトラージ（サヤ取り）アイテムの抽出
+      // A. アービトラージ候補抽出（各価格帯の本命1件をメイン登録）
       const extractArbitrageItems = (report: any, region: string) => {
         if (!report?.slots) return;
         for (const slot of report.slots) {
@@ -95,8 +93,44 @@ export async function POST(req: Request) {
                 liquidity_indicator: main.liquidity || '直近成約あり',
                 research_insight: main.insight || '',
                 raw_payload: { ...tier, reportSummary: report.summary },
+                gate1_status: 'pending',
+                is_selected: false,
               });
             }
+          }
+        }
+      };
+
+      // B. トレンド候補抽出（仮説ごとのRank銘柄を登録）
+      const extractTrendItems = (report: any, region: string) => {
+        if (!report?.hypotheses) return;
+        for (const hypo of report.hypotheses) {
+          for (const item of hypo.items || []) {
+            const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+            const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
+            const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
+            const spread = Math.max(0, targetJpy - buy);
+            const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
+
+            researchRows.push({
+              cycle_id: cycleId,
+              agent_key: 'trend',
+              region,
+              slot_key: hypo.headline || 'トレンド先行シグナル',
+              price_tier: 'middle',
+              card_name: item.cardName,
+              condition_grade: item.condition || 'Raw NM',
+              jp_buy_price_jpy: buy,
+              target_sold_price_local: item.currentLocalPrice || '$0',
+              target_sold_price_jpy: targetJpy,
+              price_spread_jpy: spread,
+              spread_roi_percent: roi,
+              liquidity_indicator: item.timeframe || hypo.timeframe || '約2週間後',
+              research_insight: item.impactLogic || hypo.signal || '',
+              raw_payload: { ...item, reportSummary: report.summary, hypothesis: hypo },
+              gate1_status: 'pending',
+              is_selected: false,
+            });
           }
         }
       };
@@ -104,33 +138,6 @@ export async function POST(req: Request) {
       extractArbitrageItems(sayaUS, 'us');
       extractArbitrageItems(sayaEU, 'eu');
       extractArbitrageItems(sayaAsia, 'asia');
-
-      // B. 🌟 トレンドアイテム（上位5銘柄）の抽出・永続化
-      const extractTrendItems = (report: any, region: string) => {
-        if (!report?.hypotheses) return;
-        for (const hypo of report.hypotheses) {
-          for (const item of hypo.items || []) {
-            const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-            researchRows.push({
-              cycle_id: cycleId,
-              agent_key: 'trend',
-              region,
-              slot_key: hypo.headline || 'trend_signal',
-              price_tier: item.conviction || 'High',
-              card_name: item.cardName,
-              condition_grade: item.condition || 'Raw NM',
-              jp_buy_price_jpy: buy,
-              target_sold_price_local: item.currentLocalPrice || '$0',
-              target_sold_price_jpy: buy * 1.3,
-              price_spread_jpy: buy * 0.3,
-              spread_roi_percent: 30,
-              liquidity_indicator: item.timeframe || '約2週間後',
-              research_insight: item.impactLogic || '',
-              raw_payload: { ...item, reportSummary: report.summary, hypothesis: hypo },
-            });
-          }
-        }
-      };
 
       extractTrendItems(trendUS, 'us');
       extractTrendItems(trendEU, 'eu');
@@ -159,101 +166,78 @@ export async function POST(req: Request) {
         },
       ]);
 
-      await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
-      console.log('✔ [Phase 1 完了] ステータスを curating に更新しました');
+      // 🌟 Phase 2（Gate 1 監査）へステータス更新
+      await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
+      console.log('✔ [Phase 1 完了] 全リサーチ完了。ステータスを gate1_auditing に更新しました');
       dispatchNext();
-      return NextResponse.json({ success: true, step: 'researching_completed' });
+      return NextResponse.json({ success: true, step: 'research_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 2: キュレーター選定
+    // Phase 2: Gate 1 (商材・数値) 監査（リサーチ直後の全候補を一斉審査）
+    // ------------------------------------------------------------------------
+    if (cycle.status === 'gate1_auditing') {
+      console.log('▶ [Phase 2] Gate 1 数値・規約監査（全候補対象）を開始します...');
+      const { data: allItems } = await supabase
+        .from('ai_research_items')
+        .select('*')
+        .eq('cycle_id', cycleId);
+
+      const audit = await runGate1Audit((allItems as any) || [], cycle.category);
+
+      for (const res of audit.results) {
+        await supabase
+          .from('ai_research_items')
+          .update({
+            gate1_status: res.passed ? 'passed' : 'rejected',
+            gate1_checks: res.checks,
+            gate1_feedback: res.feedback,
+          })
+          .eq('id', res.itemId);
+      }
+
+      await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
+      console.log('✔ [Phase 2 完了] 全候補の監査完了。ステータスを curating に更新しました');
+      dispatchNext();
+      return NextResponse.json({ success: true, step: 'gate1_completed' });
+    }
+
+    // ------------------------------------------------------------------------
+    // Phase 3: キュレーター選定（Gate 1合格品から7日分スロットを厳選）
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
-      console.log('▶ [Phase 2] キュレーター選定を開始します...');
-      const { data: candidates } = await supabase
+      console.log('▶ [Phase 3] キュレーター選定を開始します...');
+      
+      // 🌟 Gate 1 に合格した完全安全な候補のみをチーフAIに渡す
+      const { data: passedCandidates } = await supabase
         .from('ai_research_items')
         .select('*')
         .eq('cycle_id', cycleId)
-        .eq('agent_key', 'arbitrage');
+        .eq('gate1_status', 'passed');
 
-      console.log(`[Phase 2] 対象候補件数: ${candidates?.length || 0}件`);
-      const curation = await runCuratorSelection(candidates || [], cycle.category);
+      const selected = await runCuratorSelection((passedCandidates as any) || []);
 
-      for (const sel of curation?.calendarSelections || []) {
+      await supabase
+        .from('ai_research_items')
+        .update({ is_selected: false })
+        .eq('cycle_id', cycleId);
+
+      for (const item of selected) {
         await supabase
           .from('ai_research_items')
           .update({
             is_selected: true,
-            assigned_day: sel.dayOfWeek,
-            is_mvp: sel.selectedResearchItemId === curation?.mvpCandidateId,
-            core_hook_fact: sel.coreHookFact,
-            curator_rationale: sel.curatorRationale,
+            is_mvp: item.isMvp,
+            assigned_day: item.day,
+            curator_rationale: item.rationale,
           })
-          .eq('id', sel.selectedResearchItemId);
-      }
-
-      await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 2 完了] ステータスを gate1_auditing に更新しました');
-      dispatchNext();
-      return NextResponse.json({ success: true, step: 'curation_completed' });
-    }
-
-    // ------------------------------------------------------------------------
-    // Phase 3: Gate 1 (商材・数値) 監査
-    // ------------------------------------------------------------------------
-    if (cycle.status === 'gate1_auditing') {
-      console.log('▶ [Phase 3] Gate 1 数値監査を開始します...');
-      const { data: selectedItems } = await supabase
-        .from('ai_research_items')
-        .select('*')
-        .eq('cycle_id', cycleId)
-        .eq('is_selected', true);
-
-      const audit = await runGate1Audit(selectedItems || [], cycle.category);
-
-      for (const res of audit.results) {
-        if (res.passed) {
-          await supabase
-            .from('ai_research_items')
-            .update({ gate1_status: 'passed', gate1_checks: res.checks })
-            .eq('id', res.itemId);
-        } else {
-          const { data: item } = await supabase
-            .from('ai_research_items')
-            .update({ gate1_status: 'rejected', gate1_feedback: res.feedback, is_selected: false })
-            .eq('id', res.itemId)
-            .select('*')
-            .single();
-
-          const backup = item?.raw_payload?.subItems?.[0];
-          if (backup) {
-            const buy = parseInt(String(backup.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-            const spread = parseInt(String(backup.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
-            await supabase.from('ai_research_items').insert({
-              cycle_id: cycleId,
-              agent_key: item.agent_key,
-              region: item.region,
-              slot_key: item.slot_key,
-              price_tier: item.price_tier,
-              card_name: backup.cardName,
-              condition_grade: backup.conditionGrade || 'Raw NM',
-              jp_buy_price_jpy: buy,
-              target_sold_price_local: backup.targetSoldPrice || '$0',
-              target_sold_price_jpy: buy + spread,
-              price_spread_jpy: spread,
-              spread_roi_percent: parseInt(String(backup.spreadROI || 0).replace(/[^0-9]/g, '')) || 25,
-              is_selected: true,
-              assigned_day: item.assigned_day,
-              curator_rationale: `Gate 1 差し戻しに伴う代替昇格: ${res.feedback}`,
-            });
-          }
-        }
+          .eq('id', item.itemId);
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'generating_content' }).eq('id', cycleId);
       console.log('✔ [Phase 3 完了] ステータスを generating_content に更新しました');
       dispatchNext();
-      return NextResponse.json({ success: true, step: 'gate1_completed' });
+      return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
     // ------------------------------------------------------------------------
@@ -295,19 +279,21 @@ export async function POST(req: Request) {
             cycle_id: cycleId,
             research_item_id: item?.id,
             platform: 'instagram',
+            post_type: 'carousel',
             day_of_week: day,
-            post_type: 'Instagram_Daily',
             content_payload: snsPosts,
-            status: 'pending_review',
+            status: 'draft',
+            gate2_status: 'pending',
           },
           {
             cycle_id: cycleId,
             research_item_id: item?.id,
             platform: 'x',
+            post_type: 'thread',
             day_of_week: day,
-            post_type: 'X_Daily_Thread',
             content_payload: xPosts,
-            status: 'pending_review',
+            status: 'draft',
+            gate2_status: 'pending',
           }
         );
       }
@@ -316,11 +302,18 @@ export async function POST(req: Request) {
         cycle_id: cycleId,
         research_item_id: approvedItems?.[0]?.id,
         platform: 'discord',
-        day_of_week: 'Monday',
-        post_type: 'Wholesale_Lot_Offer',
+        post_type: 'wholesale_offer',
+        day_of_week: 'Weekly',
         content_payload: salesDM,
-        status: 'pending_review',
+        status: 'draft',
+        gate2_status: 'pending',
       });
+
+      // 🌟 再実行時の重複蓄積防止
+      await supabase
+        .from('ai_content_deliverables')
+        .delete()
+        .eq('cycle_id', cycleId);
 
       await supabase.from('ai_content_deliverables').insert(deliverableRows);
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
@@ -365,19 +358,13 @@ export async function POST(req: Request) {
       const finalStatus = audit.allPassed ? 'ready_to_publish' : 'partially_failed';
       await supabase.from('ai_pipeline_cycles').update({ status: finalStatus }).eq('id', cycleId);
       console.log(`✔ [全フェーズ完了] 最終ステータス: ${finalStatus}`);
-      return NextResponse.json({ success: true, status: finalStatus });
+      return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus });
     }
 
     return NextResponse.json({ success: true, status: cycle.status });
-  } catch (err: any) {
-    console.error('❌ [Worker Error]:', err);
-    await supabase
-      .from('ai_pipeline_cycles')
-      .update({
-        status: 'partially_failed',
-        error_log: [{ error: err.message, stack: err.stack, time: new Date().toISOString() }],
-      })
-      .eq('id', cycleId);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (error: any) {
+    console.error('[Worker Fatal Error]:', error);
+    await supabase.from('ai_pipeline_cycles').update({ status: 'failed' }).eq('id', cycleId);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

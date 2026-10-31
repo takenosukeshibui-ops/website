@@ -87,10 +87,10 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia' = 'us', _cate
         { "cardName": "候補3 (型番)", "conditionGrade": "Raw NM", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
       ]
     },
-    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
-    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
-    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] },
-    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ }, "subItems": [ /* 代替2商品 */ ] }
+    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
+    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
+    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
+    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] }
   ]
 }`;
 
