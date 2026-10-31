@@ -519,258 +519,350 @@ ${JSON.stringify(allDiscoveredItems, null, 2)}
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
 
-// 6. Instagram専任投稿クリエイター（2股転換・カルーセル特化）
+// 6. Instagram専任投稿クリエイター（動的週間カレンダー ＆ 2股転換カルーセル特化）
 export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon') {
-    const categoryName = getCategoryName(category);
-    const rules = await getAgentRules('sns');
-    const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
-        temperature: 0.3,
-    });
+  const categoryName = getCategoryName(category);
+  const rules = await getAgentRules('sns');
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.3,
+    maxOutputTokens: 8192,
+  });
 
-    const prompt = `あなたは越境【${categoryName}】事業における【Instagram専任のトップセールスクリエイター】です。
+  const prompt = `あなたは越境【${categoryName}】事業における【Instagram専任のトップセールスクリエイター】です。
 
 【私たちの最終ゴール（KGI）】
-1. 「詳細データ・先行情報（Reason）」を求めるユーザーを【有料VIP Discord】へ誘導すること。
+1. 「先行情報・相場データ（Reason）」を求めるユーザーを【有料VIP Discord】へ誘導すること。
 2. 「今すぐ利ざやを抜くための直送手配（Action）」を求めるユーザーを【自社代理購入サイト】へ誘導すること。
 ※Instagram投稿はすべてこの2股導線への「撒き餌」であり、プロフ遷移と保存（Save）の最大化を狙って制作してください。
 
-【チーフマネージャーからのディレクション（7日分カレンダー含む）】:
+【チーフ・キュレーター編成パッケージ（今週の動的週間ラインナップ）】:
 ${JSON.stringify(chiefPackage, null, 2)}
 
 【IGアナリストからの直近分析＆制作レギュレーション】:
 ${JSON.stringify(accountReport, null, 2)}
 
-【必須制作ルール】:
-1. 【IGアナリストのレギュレーション遵守】:
-   - アナリストが指定した「推奨投稿時間」「表紙フックの文字数」「スライド構成順」「ハッシュタグ比率」を厳密に反映すること。
-2. 【答えを教えない撒き餌設計（Hook & Hold）】:
-   - 投稿で開示するのは「確定価格差」「海外急騰率」「実成約事実（Fact / Result）」のみ。
-   - 日本国内の仕入れ店舗名、仕入れルート、詳細ノウハウ（Action / Reason）は絶対に投稿本文に書かないこと。
+■ 必須制作ルール:
+1. 【キュレーターの動的編成への完全準拠】:
+   - 曜日のテーマは固定ではありません。上記チーフパッケージ内の weeklyLineup（月〜日の各曜日に割り振られた contentType, slotKey, themeLabel, items）に100%従って各曜日の投稿を執筆してください。
+   - 【アービトラージ枠の日】:
+     * 必ず配置された【北米（us）・欧州（eu）・アジア（asia）の3商品】の確定価格差（Fact）をすべて盛り込んだ「3市場比較カルーセル」を構成すること。
+   - 【先行トレンド予測枠の日】:
+     * なぜ今後跳ねるのかの客観的シグナル（大会・在庫枯渇など）と注目銘柄を提示し、「見返せるように保存（Save）」を促す構成にすること。
+   - 【的中実績（答え合わせ）枠の日】:
+     * 「過去に予測したカードが実際に海外で跳ねた確定事実」を対比提示し、アカウントの権威性を確立してDiscordへ誘導すること。
+2. 【答えを教えない撒き餌原則（Hook & Hold）】:
+   - 投稿で開示するのは「確定価格差」「海外急騰率」「実成約事実（Fact & Result）」のみ。
+   - 日本国内の仕入れ店舗名、仕入れルート、詳細ノウハウ（Action & Reason）は絶対に投稿本文に書かないこと（Gate 2 監査で弾かれます）。
 3. 【明確な2股CTA（Dual Funnel）の配置】:
-   - キャプション末尾および最終スライドで、以下の2つの選択肢を明確に提示すること:
+   - 各曜日キャプション末尾および最終スライドで、以下の2つの選択肢を明確に提示すること:
      ① 「なぜこの価格差が生まれたのか？次の急騰シグナルを知りたい方」 ➔ 【VIP Discord】へ
      ② 「この価格差のまま、日本から最速で直送手配したい方」 ➔ 【プロフの自社代理購入URL】へ
-4. 【週間カレンダー（全7日分）の完全生成】:
-   - 月曜の看板総合カタログに加え、火曜〜日曜の各曜日投稿キャプション・スライド指示を完全に出力すること。
+
 ${rules}
 
 以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
 {
   "theme": "チーフ選定に基づく今週の週間撒き餌テーマ",
-  "recommendedTiming": "アナリスト推奨に基づく最適な投稿時間帯（例: 日本時間 21:00 / 米国東部 08:00）",
+  "recommendedTiming": "アナリスト推奨に基づく最適な投稿時間帯（例: 日本時間 21:00）",
   "hashtags": [
     "#pokemontcg", "#pokemoncards", "#pokemoninvesting", "#psa10", "#japanesepokemon"
   ],
   "visualGuideline": {
-    "coverSlide": "1枚目（表紙）画像指示: 3秒で指が止まる価格差フック、文字サイズ・コントラスト比の指定",
+    "coverSlide": "看板MVP投稿の表紙画像指示: 3秒で指が止まる価格差フック、文字サイズ・コントラスト比の指定",
     "carouselSlides": [
       "2枚目: 北米市場の実成約・サヤ取り実証画面（Fact提示）",
-      "3枚目: 欧州市場の言語版プレミアム・PSA10実証画面（Fact提示）",
-      "4枚目: アジア市場の限定プロモ・コレクション熱狂画面（Fact提示）",
+      "3枚目: 欧州市場の相場実態画面（Fact提示）",
+      "4枚目: アジア市場の熱狂・プレミアム画面（Fact提示）",
       "5枚目: 世界3大市場の確定利ざや比較インフォグラフィック",
       "6枚目: 2股CTAスライド（情報→VIP Discord ＆ 直送手配→自社サイト）"
     ]
   },
   "posts": {
-    "hybridPost": "月曜看板投稿: 世界3大市場比較ハイブリッド投稿キャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
+    "hybridPost": "今週の看板MVP特集: 世界3大市場比較ハイブリッド投稿キャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
     "arbitragePost": "確定利ざや特化型キャプション全文（ハッシュタグ含む）",
     "trendPost": "市場トレンド・急騰先行特化型キャプション全文（ハッシュタグ含む）"
   },
   "discordCTA": "プロフリンク・ハイライトへ誘導する2股CTAテンプレート文",
   "dailyPosts": [
     {
-      "day": "月曜 (Monday)",
-      "theme": "世界3大市場サヤ比較まとめ (MVP特集)",
-      "caption": "月曜フルキャプション全文（2股CTA＋ハッシュタグ含む）",
+      "day": "Monday",
+      "theme": "weeklyLineupの月曜テーマ（例: 海外先行トレンド急騰予測 または 現行モダン3市場比較）",
+      "caption": "月曜フルキャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
       "slides": [
-        "1枚目: 表紙（価格差フック）",
-        "2枚目: 北米実績",
-        "3枚目: 欧州実績",
-        "4枚目: アジア実績",
-        "5枚目: 比較まとめ表",
-        "6枚目: 2股CTA"
+        "1枚目: 表紙（フック）",
+        "2枚目: 事実データスライド",
+        "3枚目: 比較またはシグナルスライド",
+        "4枚目: 2股CTAスライド"
       ]
     },
-    {
-      "day": "火曜 (Tuesday)",
-      "theme": "ヴィンテージ特化（旧裏〜DP絶版）",
-      "caption": "火曜フルキャプション全文（2股CTA＋ハッシュタグ含む）",
-      "slides": ["1枚目: 表紙", "2枚目: 国内相場と海外成約の対比事実", "3枚目: 2股CTA"]
-    },
-    {
-      "day": "水曜 (Wednesday)",
-      "theme": "限定プロモ特化（日本限定希少品）",
-      "caption": "水曜フルキャプション全文（2股CTA＋ハッシュタグ含む）",
-      "slides": ["1枚目: 表紙", "2枚目: 海外プレミアム事実", "3枚目: 2股CTA"]
-    },
-    {
-      "day": "木曜 (Thursday)",
-      "theme": "現行モダン・メタ特化（新弾先行・WCS需要）",
-      "caption": "木曜フルキャプション全文（2股CTA＋ハッシュタグ含む）",
-      "slides": ["1枚目: 表紙", "2枚目: タイムラグ価格差事実", "3枚目: 2股CTA"]
-    },
-    {
-      "day": "金曜 (Friday)",
-      "theme": "高額鑑定・未開封BOX特化（週末大口オファー）",
-      "caption": "金曜フルキャプション全文（2股CTA＋ハッシュタグ含む）",
-      "slides": ["1枚目: 表紙", "2枚目: PSA10成約プレミアム事実", "3枚目: 2股CTA"]
-    },
-    {
-      "day": "土曜 (Saturday)",
-      "theme": "的中実績（タイプC・社会的証明）",
-      "caption": "土曜フルキャプション全文（過去予測vs現在急騰の証拠提示＋Discord誘導）",
-      "slides": ["1枚目: 表紙（的中バナー）", "2枚目: 当時予測画面と現在高騰画面の対比", "3枚目: Discord誘導CTA"]
-    },
-    {
-      "day": "日曜 (Sunday)",
-      "theme": "週間まとめ＆利益ランキング（来週への布石）",
-      "caption": "日曜フルキャプション全文（利益率ランキング振り返り＋2股CTA）",
-      "slides": ["1枚目: 表紙", "2枚目: 週間利益ランキング表", "3枚目: 2股CTA"]
-    }
-  ]
-}`;
-
-    const res = await model.invoke(prompt);
-    return parseAIJson(res.content.toString());
-}
-
-// 7. X (Twitter) 専任クリエイター
-export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon') {
-    const categoryName = getCategoryName(category);
-    const rules = await getAgentRules('x');
-    const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
-        temperature: 0.3,
-    });
-
-    const prompt = `あなたは越境【${categoryName}】事業における【X (Twitter) 専任のプロクリエイター】です。
-【チーフマネージャーからの指示書（7日分カレンダー含む）】:
-${JSON.stringify(chiefPackage, null, 2)}
-
-【Xアナリストの戦術指示】:
-${JSON.stringify(xAccountReport || {}, null, 2)}
-
-【必須発信ルール】:
-1. 1ポスト目は140字以内、フック＋画像添付案内＋スレッド誘導（外部リンクは絶対に貼らないこと）。
-2. リンク（VIP Discord ＆ 自社サイトURL）はスレッド最終ポスト、またはリプライ欄にのみ配置。
-3. 月曜看板スレッドに加え、火曜〜日曜の各曜日スレッドを生成すること。
-${rules}
-
-以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
-{
-  "theme": "X用拡散フックテーマ",
-  "mainPost": "月曜1ポスト目（140字以内、フック＋画像添付案内＋スレッド誘導）",
-  "threadPosts": [
-    "ツリー2ポスト目: 北米・欧州・アジアの成約相場と国内相場の事実比較",
-    "ツリー3ポスト目: なぜこの価格差が生じているのか（背景の示唆のみ、仕入れ先は秘匿）",
-    "ツリー4ポスト目（CTA）: VIP Discord（詳細データ）＆ 自社サイト（直送依頼）への誘導文"
-  ],
-  "imageGuideline": [
-    "画像1: 日本国内実勢相場の画面",
-    "画像2: 海外実成約相場（eBay Sold等）の画面",
-    "画像3: 実質利幅の内訳インフォグラフィック",
-    "画像4: サービス概要・直送フロー図"
-  ],
-  "xCallToAction": "固定ポストまたはリプライ欄に貼る誘導テキスト",
-  "dailyThreads": [
-    {
-      "day": "月曜 (Monday)",
-      "mainPost": "140字以内フック",
-      "threadPosts": ["ツリー2", "ツリー3", "ツリー4 (CTA)"]
-    },
-    {
-      "day": "火曜 (Tuesday)",
-      "mainPost": "140字以内フック (ヴィンテージ)",
-      "threadPosts": ["ツリー2 (事実比較)", "ツリー3 (CTA)"]
-    },
-    {
-      "day": "水曜 (Wednesday)",
-      "mainPost": "140字以内フック (限定プロモ)",
-      "threadPosts": ["ツリー2 (事実比較)", "ツリー3 (CTA)"]
-    },
-    {
-      "day": "木曜 (Thursday)",
-      "mainPost": "140字以内フック (現行モダン)",
-      "threadPosts": ["ツリー2 (事実比較)", "ツリー3 (CTA)"]
-    },
-    {
-      "day": "金曜 (Friday)",
-      "mainPost": "140字以内フック (鑑定品・BOX)",
-      "threadPosts": ["ツリー2 (事実比較)", "ツリー3 (CTA)"]
-    },
-    {
-      "day": "土曜 (Saturday)",
-      "mainPost": "140字以内フック (的中実績)",
-      "threadPosts": ["ツリー2 (急騰事実)", "ツリー3 (Discord誘導)"]
-    },
-    {
-      "day": "日曜 (Sunday)",
-      "mainPost": "140字以内フック (週間まとめ)",
-      "threadPosts": ["ツリー2 (ランキング)", "ツリー3 (CTA)"]
-    }
-  ]
-}`;
-
-    const res = await model.invoke(prompt);
-    return parseAIJson(res.content.toString());
-}
-
---- File: C:\Development Project\website\app\api\ai\intelligence\agents\curator.ts ---
-
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getCategoryName } from '@/app/api/ai/intelligence/helpers';
-
-export async function runCuratorSelection(researchCandidates: any[], category: string = 'pokemon') {
-  const categoryName = getCategoryName(category);
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const model = new ChatGoogleGenerativeAI({
-    model: 'gemini-3.1-flash-lite',
-    temperature: 0.2,
-    maxOutputTokens: 4096,
-    apiKey: apiKey,
-  });
-
-  const prompt = `あなたは越境【${categoryName}】事業の【AIキュレーター（旧チーフマネージャー）】です。
-あなたの役割は、提出されたリサーチ候補銘柄から【7日分の週間スロット（月〜日）】および【看板MVP】を選定し、
-「なぜ今この銘柄なのか（Why）」と「無料SNSで開示する客観的数字（Fact）」のみを定義することです。
-※SNSの詳細な投稿指示やスライド割付けは各クリエイターが自律して行うため、あなたが作成する必要はありません。
-
-【提出されたリサーチ候補】:
-${JSON.stringify(researchCandidates, null, 2)}
-
-【週間スロット構成原則】:
-- Monday: Flagship_GlobalCatalog (看板MVPを中心とした3地域横断)
-- Tuesday: Vintage_Focus (旧裏〜PCG、DP〜XY)
-- Wednesday: Promo_Focus (日本限定プロモ、ポケセン限定品)
-- Thursday: Modern_Meta_Focus (最新弾先行、最高レアSAR鑑賞需要)
-- Friday: Graded_Sealed_Focus (PSA10鑑定品、未開封BOX)
-- Saturday: Hit_Proof_SocialProof (過去予測の急騰的中実績)
-- Sunday: Weekly_Summary_CTA (週間利益ランキング＆総括)
-
-以下のJSONのみを出力してください:
-{
-  "winningRegion": "global",
-  "mvpCandidateId": "最も数字・利ざやインパクトが大きいリサーチ候補のID",
-  "calendarSelections": [
-    {
-      "dayOfWeek": "Monday",
-      "selectedResearchItemId": "候補アイテムのID",
-      "postType": "Flagship_GlobalCatalog",
-      "coreHookFact": "提示する確定価格差（例: 国内¥18,000 → 米国成約$340 / 差額+¥32,000）",
-      "curatorRationale": "今週のMVPとして選定した戦略的理由"
-    },
-    { "dayOfWeek": "Tuesday", "selectedResearchItemId": "候補ID", "postType": "Vintage_Focus", "coreHookFact": "事実数値", "curatorRationale": "選定理由" },
-    { "dayOfWeek": "Wednesday", "selectedResearchItemId": "候補ID", "postType": "Promo_Focus", "coreHookFact": "事実数値", "curatorRationale": "選定理由" },
-    { "dayOfWeek": "Thursday", "selectedResearchItemId": "候補ID", "postType": "Modern_Meta_Focus", "coreHookFact": "事実数値", "curatorRationale": "選定理由" },
-    { "dayOfWeek": "Friday", "selectedResearchItemId": "候補ID", "postType": "Graded_Sealed_Focus", "coreHookFact": "事実数値", "curatorRationale": "選定理由" },
-    { "dayOfWeek": "Saturday", "selectedResearchItemId": "候補ID", "postType": "Hit_Proof_SocialProof", "coreHookFact": "事実数値", "curatorRationale": "選定理由" },
-    { "dayOfWeek": "Sunday", "selectedResearchItemId": "候補ID", "postType": "Weekly_Summary_CTA", "coreHookFact": "事実数値", "curatorRationale": "選定理由" }
+    { "day": "Tuesday", "theme": "火曜テーマ", "caption": "火曜フルキャプション全文", "slides": ["スライド指示"] },
+    { "day": "Wednesday", "theme": "水曜テーマ", "caption": "水曜フルキャプション全文", "slides": ["スライド指示"] },
+    { "day": "Thursday", "theme": "木曜テーマ", "caption": "木曜フルキャプション全文", "slides": ["スライド指示"] },
+    { "day": "Friday", "theme": "金曜テーマ", "caption": "金曜フルキャプション全文", "slides": ["スライド指示"] },
+    { "day": "Saturday", "theme": "土曜テーマ", "caption": "土曜フルキャプション全文", "slides": ["スライド指示"] },
+    { "day": "Sunday", "theme": "日曜テーマ", "caption": "日曜フルキャプション全文", "slides": ["スライド指示"] }
   ]
 }`;
 
   const res = await model.invoke(prompt);
   return parseAIJson(res.content.toString());
+}
+
+// 7. X (Twitter) 専任クリエイター（140字フック ＆ 4ポストスレッド特化）
+export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon') {
+  const categoryName = getCategoryName(category);
+  const rules = await getAgentRules('x');
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.3,
+    maxOutputTokens: 8192,
+  });
+
+  const prompt = `あなたは越境【${categoryName}】事業における【X (Twitter) 専任のプロクリエイター】です。
+
+【チーフ・キュレーター編成パッケージ（今週の動的週間ラインナップ）】:
+${JSON.stringify(chiefPackage, null, 2)}
+
+【Xアナリストの戦術指示】:
+${JSON.stringify(xAccountReport || {}, null, 2)}
+
+■ 必須発信ルール:
+1. 【1ポスト目の140文字制限厳守（最重要）】:
+   - 各曜日の mainPost（1ポスト目）は、改行・絵文字・ハッシュタグを含めて【絶対に140文字以内】で執筆すること（Gate 2 監査で自動検知されます）。
+   - 1ポスト目には絶対に外部リンク（URL）を貼らないこと（アルゴリズムによる表示回数制限を回避するため）。画像4枚の視認案内とスレッド誘導を含めること。
+2. 【キュレーターの動的編成への完全準拠】:
+   - チーフパッケージ内の weeklyLineup に従い、全7曜日（Monday〜Sunday）のスレッドを生成してください。
+   - アービトラージ枠の日：ツリー2〜3ポスト目で北米・欧州・アジアの3市場相場と国内相場の乖離事実を対比させること。
+   - トレンド予測枠の日：海外市場で検知された先行シグナルと注目銘柄の波及ロジックを展開すること。
+   - 的中実績枠の日：過去予測と現在確定成約価格の跳ね上がり実績を開示すること。
+3. 【リンク配置ルール】:
+   - VIP Discord ＆ 自社サイトURLへの誘導は、スレッド最終ポスト（またはリプライ欄想定文）にのみ配置すること。
+4. 【撒き餌原則】:
+   - 価格差や成約実績の事実（Fact & Result）のみを語り、仕入れ店舗名や具体的仕入れルートは絶対に漏洩させないこと。
+
+${rules}
+
+以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
+{
+  "theme": "X用拡散フックテーマ",
+  "mainPost": "今週の看板MVP 1ポスト目（140字以内厳守、フック＋画像添付案内＋スレッド誘導）",
+  "threadPosts": [
+    "ツリー2ポスト目: 世界3市場の実成約・相場乖離の事実データ",
+    "ツリー3ポスト目: なぜこの歪みが生じているのか（背景示唆のみ、仕入れ先は完全秘匿）",
+    "ツリー4ポスト目（CTA）: VIP Discord（先行シグナル）＆ 自社サイト（直送依頼）への誘導文"
+  ],
+  "imageGuideline": [
+    "画像1: 日本国内相場画面（Fact）",
+    "画像2: 海外実成約相場画面（Fact）",
+    "画像3: 確定利ざや・マージン内訳インフォグラフィック",
+    "画像4: 2股導線・サービス概要図"
+  ],
+  "xCallToAction": "固定ポストまたはリプライ欄に貼る誘導テキスト",
+  "dailyThreads": [
+    {
+      "day": "Monday",
+      "mainPost": "月曜1ポスト目（140文字以内厳守、フック＋画像案内＋ツリー誘導）",
+      "threadPosts": [
+        "ツリー2ポスト目: 事実データ展開",
+        "ツリー3ポスト目: 要因分析・示唆",
+        "ツリー4ポスト目: 2股CTA"
+      ]
+    },
+    { "day": "Tuesday", "mainPost": "火曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
+    { "day": "Wednesday", "mainPost": "水曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
+    { "day": "Thursday", "mainPost": "木曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
+    { "day": "Friday", "mainPost": "金曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
+    { "day": "Saturday", "mainPost": "土曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
+    { "day": "Sunday", "mainPost": "日曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] }
+  ]
+}`;
+
+  const res = await model.invoke(prompt);
+  return parseAIJson(res.content.toString());
+}
+
+--- File: C:\Development Project\website\app\api\ai\intelligence\agents\curator.ts ---
+
+// app/api/ai/intelligence/agents/curator.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
+
+export interface CuratorItemSelection {
+  itemId: string;
+  region: 'us' | 'eu' | 'asia';
+  role: string;
+  isMvp: boolean;
+  coreHookFact: string;
+  rationale: string;
+}
+
+export interface CuratorDailyLineup {
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  contentType: 'arbitrage' | 'market_trend' | 'trend_track_record';
+  slotKey: string;
+  themeLabel: string;
+  items: CuratorItemSelection[];
+  dayRationale: string;
+}
+
+export interface CuratorStrategyBlueprint {
+  headline: string;
+  adaptationRationale: string;
+  slotDistribution: Record<string, number>;
+}
+
+export interface CuratorResponse {
+  strategyBlueprint: CuratorStrategyBlueprint;
+  mvpItemId: string;
+  weeklyLineup: CuratorDailyLineup[];
+}
+
+export async function runCuratorSelection(
+  researchCandidates: any[],
+  platformTactics?: any[],
+  category: string = 'pokemon'
+): Promise<CuratorResponse | null> {
+  const categoryName = getCategoryName(category);
+  const rules = await getAgentRules('chief');
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.15,
+    maxOutputTokens: 8192,
+    apiKey,
+  });
+
+  // SNSアナリスト（IG / X）からの示唆を抽出
+  const igTactic = platformTactics?.find((t) => t.platform === 'instagram');
+  const xTactic = platformTactics?.find((t) => t.platform === 'x');
+  const curatorDirectives = {
+    instagram: igTactic?.raw_insights?.curatorDirectives || null,
+    x: xTactic?.raw_insights?.curatorDirectives || null,
+  };
+
+  // トークン節約のため候補データを要約
+  const candidatesSummary = researchCandidates.map((c) => ({
+    id: c.id,
+    agentKey: c.agent_key, // 'arbitrage' | 'trend'
+    region: c.region,       // 'us' | 'eu' | 'asia'
+    slotKey: c.slot_key,
+    priceTier: c.price_tier || null,
+    cardName: c.card_name,
+    condition: c.condition_grade,
+    buyJPY: c.jp_buy_price_jpy,
+    sellTarget: c.target_sold_price_local,
+    spreadJPY: c.price_spread_jpy,
+    roi: c.spread_roi_percent ? `${c.spread_roi_percent}%` : null,
+    liquidity: c.liquidity_indicator,
+    insight: c.research_insight,
+  }));
+
+  const prompt = `あなたは越境【${categoryName}】事業の最高編成責任者【チーフ・キュレーター】です。
+SNSアナリストからのプラットフォーム反響示唆（RSI）と、Gate 1を通過した合格銘柄リストを精査し、今週1週間（月曜日〜日曜日）の【最適週間コンテンツ・ポートフォリオ】を編成してください。
+
+【SNSアナリストからの直近スロット傾斜示唆（RSI）】:
+${JSON.stringify(curatorDirectives, null, 2)}
+
+【Gate 1 合格商材リスト（全候補）】:
+${JSON.stringify(candidatesSummary, null, 2)}
+
+■ 編成ルール（動的自己適応 / RSI）:
+1. 週間スロットの動的配分:
+   - 基本構成は「先行トレンド予測 1日」「的中実績（答え合わせ）1日」「アービトラージ 5日」です。
+   - ただし、SNSアナリストの slotWeights 指示で特定スロット（例: modern_meta）が "high" に指定されている場合は、そのスロットを週2〜3日に増枠し、"low" のスロットを減枠・集約するなど柔軟に比率を傾斜配分してください。
+   - トレンド予測の配置曜日は、アナリスト推奨（recommendedTrendDay）を最優先で考慮してください。
+2. アービトラージ日の【3地域トリオ】厳格編成:
+   - アービトラージを配信する日は、必ず【北米（us）1商品、欧州（eu）1商品、アジア（asia）1商品】の計3商品をセットで選出してください（items配列に3件配置）。
+   - 3商品とも、その日の担当スロット（例: modern_metaの日なら3商品すべてmodern_meta）から選定すること。
+3. トレンド予測日 & 的中実績日の編成:
+   - 先行トレンド予測（market_trend）の日は、agentKey: "trend" の合格銘柄から最もシグナルが強い銘柄を選出してください。
+   - 的中実績（trend_track_record）の日は、過去予測から実際に価格が跳ねた実績証明に最も適した銘柄を1件選出してください。
+4. 看板MVP（全体で1商品のみ）:
+   - 7日間に選ばれた全商材の中から、今週最も相場の歪みが大きく、SNSのフック力と実利を兼ね備えた【看板MVP（mvpItemId）】を1商品だけ指定してください。
+5. データの整合性:
+   - itemId は必ず上記【Gate 1 合格商材リスト】に実在する id をそのまま指定してください。架空のIDや未登録カードの生成は厳禁です。
+
+${rules}
+
+以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
+{
+  "strategyBlueprint": {
+    "headline": "今週の週間編成方針（データに基づく核心）",
+    "adaptationRationale": "SNSアナリストの指示からなぜこの曜日順・スロット比率に調整したのかの根拠",
+    "slotDistribution": {
+      "modern_meta": 2,
+      "market_trend": 1,
+      "promos_exclusive": 1,
+      "neo_vintage": 1,
+      "trend_track_record": 1,
+      "high_end_sealed": 1
+    }
+  },
+  "mvpItemId": "合格リストに実在するMVPアイテムのID",
+  "weeklyLineup": [
+    {
+      "day": "Monday",
+      "contentType": "market_trend",
+      "slotKey": "market_trend",
+      "themeLabel": "海外先行トレンド急騰予測",
+      "dayRationale": "週初めの保存数獲得を狙い月曜へ前倒し配置",
+      "items": [
+        {
+          "itemId": "合格リストのID",
+          "region": "us",
+          "role": "先行シグナル注目株",
+          "isMvp": false,
+          "coreHookFact": "事実数値（例: 海外在庫枯渇による先行急騰シグナル）",
+          "rationale": "選定理由"
+        }
+      ]
+    },
+    {
+      "day": "Tuesday",
+      "contentType": "arbitrage",
+      "slotKey": "modern_meta",
+      "themeLabel": "現行モダン・高需要枠（世界3市場比較）",
+      "dayRationale": "保存率No.1スロットにつき週前半の主軸として配置",
+      "items": [
+        {
+          "itemId": "US候補のID",
+          "region": "us",
+          "role": "北米注目枠",
+          "isMvp": false,
+          "coreHookFact": "国内¥X,XXX ➔ 北米成約$XX (粗利+¥X,XXX)",
+          "rationale": "選定理由"
+        },
+        {
+          "itemId": "EU候補のID",
+          "region": "eu",
+          "role": "欧州注目枠",
+          "isMvp": false,
+          "coreHookFact": "国内¥X,XXX ➔ 欧州成約€XX (粗利+¥X,XXX)",
+          "rationale": "選定理由"
+        },
+        {
+          "itemId": "ASIA候補のID",
+          "region": "asia",
+          "role": "アジア注目枠",
+          "isMvp": false,
+          "coreHookFact": "国内¥X,XXX ➔ アジア成約SGD XX (粗利+¥X,XXX)",
+          "rationale": "選定理由"
+        }
+      ]
+    }
+    // ... 水曜から日曜まで計7日分
+  ]
+}`;
+
+  try {
+    const res = await model.invoke(prompt);
+    return parseAIJson(res.content.toString());
+  } catch (error) {
+    console.error('[Curator] Selection failed:', error);
+    return null;
+  }
 }
 
 --- File: C:\Development Project\website\app\api\ai\intelligence\agents\marketTrend.ts ---
@@ -973,46 +1065,72 @@ import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
 
 // 4. IGアナリスト（自社Instagramグロース＆2股ファネル転換アナリスト）
 export async function runAccountAnalysis(category: string = 'pokemon') {
-    const rawInsights = await getInstagramInsights(5);
-    const categoryName = getCategoryName(category);
-    const rules = await getAgentRules('account');
+  const rawInsights = await getInstagramInsights(5);
+  const categoryName = getCategoryName(category);
+  const rules = await getAgentRules('account');
 
-    const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
-        temperature: 0.2,
-    });
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.2,
+  });
 
-    const prompt = `あなたは越境【${categoryName}】事業における【自社Instagram専任アカウントアナリスト＆グロースディレクター】です。
+  const prompt = `あなたは越境【${categoryName}】事業における【自社Instagram専任アカウントアナリスト＆グロースディレクター】です。
 
 【私たちの最終ゴール（KGI）】
 1. 「先行情報・相場データ（Reason）」を求めるユーザーを【有料VIP Discord】へ誘導すること。
 2. 「今すぐ利ざやを抜くための直送手配（Action）」を求めるユーザーを【自社代理購入サイト】へ誘導すること。
-※Instagram投稿はすべてこの2股導線への「撒き餌」であり、プロフ遷移率と保存（Save）率を最大化することがあなたの至上命題です。
+※Instagram投稿はすべてこの2股導線への「撒き餌」であり、プロフ遷移率と保存（Save）率の最大化が至上命題です。
 
 【直近のアカウント実績データ（Meta Graph API）】:
 ${JSON.stringify(rawInsights)}
 
 【あなたの分析・ディレクション任務】:
 過去投稿のエンゲージメント（いいね・コメント・推定保存率）、投稿時間帯、ハッシュタグ、カルーセル構成を分析し、
-次に動く「Instagram専任投稿クリエイター」が今週作るべき【最高精度の投稿レギュレーション】を策定してください。
+1. チーフ・キュレーターが今週の7日間のスロット比率（どの商材を増枠すべきか）を決めるための【編成ディレクション】
+2. Instagram専任クリエイターが今週作るべき【最高精度の投稿レギュレーション】
+の双方を策定してください。
+
+■ 厳格な分析ルール:
+1. 事実データに基づく客観判定（バイアスの排除）:
+   - 固定の例示には囚われず、上記実績データから観察される生の傾向を反映してください。
+   - 【コールドスタート安全策】: 実績データが空または初期段階で分析に足る母数がない場合は、無理な作文をせず、標準ベースライン（全スロット normal、トレンド予測推奨曜日は Tuesday）を適用してください。
+2. キュレーター向けスロット傾斜判定（RSI自己回帰の核心）:
+   - 以下の5大スロットのうち、保存率・反響が強いものを "high"（増枠推奨）、反応が鈍いものを "low"（縮小/週末集約）、標準を "normal" として判定してください。
+     * modern_meta (現行モダン枠)
+     * neo_vintage (ネオ・ヴィンテージ枠)
+     * promos_exclusive (限定プロモ枠)
+     * classic_vintage (クラシック・ヴィンテージ枠)
+     * high_end_sealed (高額鑑定・未開封BOX枠)
+   - 「先行トレンド予測」を週の初速を獲るために何曜日に配置すべきかも推奨してください。
 
 ${rules}
 
-以下のJSON形式のみを出力してください（Markdown装飾や余計な解説は不要です）:
+以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
 {
   "title": "自社Instagram 2股ファネル転換＆アカウント診断レポート",
   "claim": "今週の投稿で2股導線（Discord/自社サイト）への送客を最大化するための最重要改善アクション",
   "reasons": [
     "過去投稿のエンゲージメント・保存率ボトルネック分析",
-    "最もプロフ遷移を生み出した訴求切り口（サヤ取り型 vs トレンド先行型 vs 的中実績型）の検証",
+    "最もプロフ遷移を生み出した訴求切り口の検証",
     "海外リーチを最大化するハッシュタグおよび投稿タイミングの相関"
   ],
   "facts": [
-    { "label": "最優秀反響パターン", "value": "確定利ざや比較カルーセル（6枚構成）" },
-    { "label": "推奨投稿時間帯", "value": "日本時間 21:00（米国朝/欧州午後/アジア夜の重複）" },
-    { "label": "ハッシュタグ推奨配分", "value": "ビッグ4: ミドル4: スモール2 (計10個)" },
+    { "label": "最優秀反響パターン", "value": "データから観察された最も効果的なカルーセル構成" },
+    { "label": "推奨投稿時間帯", "value": "データから導かれた最適時間帯（例: 日本時間 21:00）" },
+    { "label": "ハッシュタグ推奨配分", "value": "推奨ハッシュタグの配分比率" },
     { "label": "2股CTA推奨誘導", "value": "Reason(情報)→Discord / Action(手配)→プロフリンク" }
   ],
+  "curatorDirectives": {
+    "slotWeights": {
+      "modern_meta": "high",
+      "neo_vintage": "normal",
+      "promos_exclusive": "normal",
+      "classic_vintage": "low",
+      "high_end_sealed": "normal"
+    },
+    "recommendedTrendDay": "Tuesday",
+    "rationale": "各スロットの重み付けおよびトレンド配信曜日を推奨したデータ的根拠"
+  },
   "soWhat": "Instagramクリエイターへの直接制作指示（表紙フックの文字数、スライド展開順、CTA文言の型）",
   "riskAndMitigation": {
     "risk": "ノウハウを投稿本文で喋りすぎてしまいプロフに飛ばずに離脱されるリスク",
@@ -1025,19 +1143,29 @@ ${rules}
   ]
 }`;
 
-    const res = await model.invoke(prompt);
-    return parseAIJson(res.content.toString());
+  const res = await model.invoke(prompt);
+  return parseAIJson(res.content.toString());
 }
 
 // 5. Xアナリスト
-export async function runXAccountAnalysis() {
-    const model = new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-flash-lite",
-        temperature: 0.2,
-    });
+export async function runXAccountAnalysis(sharedInsights?: any) {
+  const model = new ChatGoogleGenerativeAI({
+    model: 'gemini-3.1-flash-lite',
+    temperature: 0.2,
+  });
 
-    const prompt = `あなたは越境トレカ・ホビー販売事業の専任【X (Twitter) アナリスト】です。
-Xプラットフォーム特有のアルゴリズム（インプレッション最大化、ブックマーク保存率、リポスト連鎖、外部リンク遷移のペナルティ回避）を分析し、Xクリエイター向けの戦術ルールを策定してください。
+  const prompt = `あなたは越境トレカ・ホビー販売事業の専任【X (Twitter) アナリスト】です。
+Xプラットフォーム特有のアルゴリズム（インプレッション最大化、ブックマーク保存率、リポスト連鎖、外部リンク遷移のペナルティ回避）を分析し、
+1. チーフ・キュレーター向けのX視点でのスロット編成示唆
+2. Xクリエイター向けの戦術ルール
+を策定してください。
+
+【参考インサイト（Instagram・全体市場の反響傾向）】:
+${JSON.stringify(sharedInsights || '初期運用のための標準アルゴリズム基準を適用')}
+
+■ 厳格な分析ルール:
+1. Xアルゴリズムの最新特性を反映すること（1ポスト目の外部リンク厳禁、画像4枚視認性、140字以内フック）。
+2. キュレーター向けに、X上で拡散・ブックマーク（保存）されやすいスロットの重み（high / normal / low）を判定すること。
 
 以下のJSON形式のみを出力してください:
 {
@@ -1050,10 +1178,21 @@ Xプラットフォーム特有のアルゴリズム（インプレッション�
   ],
   "facts": [
     { "label": "目標ブックマーク率", "value": "1.5%以上" },
-    { "label": "推奨スレッド構成", "value": "全3〜4ポスト" },
-    { "label": "推奨投稿時間帯", "value": "日本時間 19:00〜21:00 / 08:00 (米国夕方)" },
+    { "label": "推奨スレッド構成", "value": "全3〜4ポスト構成" },
+    { "label": "推奨投稿時間帯", "value": "海外アクティブ時間と国内帰宅時間の重畳帯" },
     { "label": "リンク配置ルール", "value": "スレッド最終ポストまたは固定ポスト" }
   ],
+  "curatorDirectives": {
+    "slotWeights": {
+      "modern_meta": "high",
+      "neo_vintage": "normal",
+      "promos_exclusive": "normal",
+      "classic_vintage": "normal",
+      "high_end_sealed": "normal"
+    },
+    "recommendedTrendDay": "Tuesday",
+    "rationale": "X特有の議論性・拡散性から見たスロット推奨理由"
+  },
   "soWhat": "次回のXクリエイターへの制作戦術指示（フック文字数、画像アスペクト比、ツリー展開順）",
   "riskAndMitigation": {
     "risk": "外部リンク貼付による表示回数制限（シャドウリミット）",
@@ -1064,10 +1203,11 @@ Xプラットフォーム特有のアルゴリズム（インプレッション�
     "画像4枚の視認性チェック",
     "アナリティクスのインプレッション中央値照合"
   ]
-}`;
+}
+`;
 
-    const res = await model.invoke(prompt);
-    return parseAIJson(res.content.toString());
+  const res = await model.invoke(prompt);
+  return parseAIJson(res.content.toString());
 }
 
 --- File: C:\Development Project\website\app\api\ai\knowledge\route.ts ---
@@ -2072,13 +2212,16 @@ export async function POST(req: Request) {
 
   try {
     // ------------------------------------------------------------------------
-    // Phase 1: リサーチ & プラットフォーム戦術の並列実行
+    // Phase 1: 全リサーチ & プラットフォーム戦術（RSI示唆含む）の並列実行
     // ------------------------------------------------------------------------
     if (cycle.status === 'initialized') {
       console.log('▶ [Phase 1] 全リサーチ & 戦術分析を開始します...');
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching' }).eq('id', cycleId);
 
-      const [trendUS, trendEU, trendAsia, sayaUS, sayaEU, sayaAsia, igTactics, xTactics] =
+      // まずIGアナリストを実行し、そのインサイトをXアナリストへ共有
+      const igTactics = await runAccountAnalysis(cycle.category);
+
+      const [trendUS, trendEU, trendAsia, sayaUS, sayaEU, sayaAsia, xTactics] =
         await Promise.all([
           runMarketTrend('us', cycle.category),
           runMarketTrend('eu', cycle.category),
@@ -2086,13 +2229,12 @@ export async function POST(req: Request) {
           runSayaAnalysis('us', cycle.category),
           runSayaAnalysis('eu', cycle.category),
           runSayaAnalysis('asia', cycle.category),
-          runAccountAnalysis(cycle.category),
-          runXAccountAnalysis(),
+          runXAccountAnalysis(igTactics?.raw_insights || igTactics),
         ]);
 
       const researchRows: any[] = [];
 
-      // A. アービトラージ候補抽出（本命1件 ＋ 代替2件 ＝ 計3件を全件フラットに展開: 計225件）
+      // A. アービトラージ候補抽出（本命 ＋ 代替候補をフラットに全展開）
       const extractArbitrageItems = (report: any, region: string) => {
         if (!report?.slots || !Array.isArray(report.slots)) return;
         for (const slot of report.slots) {
@@ -2105,7 +2247,6 @@ export async function POST(req: Request) {
           }
 
           for (const tier of tiers) {
-            // 本命と代替2件を同一階層の配列にまとめて全件展開
             const allItemsInTier = [
               ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
               ...(Array.isArray(tier?.subItems)
@@ -2143,7 +2284,7 @@ export async function POST(req: Request) {
         }
       };
 
-      // B. トレンド候補抽出（仮説ごとの銘柄 & レポート本文情報）
+      // B. トレンド候補抽出（仮説ごとの銘柄 & シグナル）
       const extractTrendItems = (report: any, region: string) => {
         if (!report?.hypotheses) return;
         const hypotheses = Array.isArray(report.hypotheses)
@@ -2196,13 +2337,14 @@ export async function POST(req: Request) {
         await supabase.from('ai_research_items').insert(researchRows);
       }
 
+      // SNSアナリストの出力（curatorDirectives を含む raw_insights）を保存
       await supabase.from('ai_platform_tactics').insert([
         {
           cycle_id: cycleId,
           platform: 'instagram',
           recommended_timing: igTactics?.facts?.[1]?.value || '日本時間 21:00',
           hook_guidelines: igTactics?.soWhat || '3秒フック',
-          structure_blueprint: igTactics?.facts || {},
+          structure_blueprint: igTactics?.curatorDirectives || igTactics?.facts || {},
           raw_insights: igTactics || {},
         },
         {
@@ -2210,19 +2352,19 @@ export async function POST(req: Request) {
           platform: 'x',
           recommended_timing: xTactics?.facts?.[2]?.value || '日本時間 20:00',
           hook_guidelines: '140字フック＋画像4枚案内',
-          structure_blueprint: xTactics?.facts || {},
+          structure_blueprint: xTactics?.curatorDirectives || xTactics?.facts || {},
           raw_insights: xTactics || {},
         },
       ]);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 1 完了] 全リサーチ完了。ステータスを gate1_auditing に更新しました');
+      console.log('✔ [Phase 1 完了] 全リサーチ & 戦術分析完了。ステータスを gate1_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'research_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 2: Gate 1 (商材・数値 & トレンド論理) 監査（全240件一斉審査）
+    // Phase 2: Gate 1 (数値検算 ＆ トレンド論理) 監査
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
       console.log('▶ [Phase 2] Gate 1-A (数値検算) & Gate 1-B (トレンド文章論理) 監査を開始します...');
@@ -2246,16 +2388,16 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
-      console.log('✔ [Phase 2 完了] 全240件の監査完了。ステータスを curating に更新しました');
+      console.log('✔ [Phase 2 完了] Gate 1 監査完了。ステータスを curating に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 3: キュレーター選定（Gate 1 合格品から7日分スロットを厳選）
+    // Phase 3: チーフ・キュレーター動的選定（RSI示唆 ＆ 3地域トリオ編成）
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
-      console.log('▶ [Phase 3] キュレーター選定を開始します...');
+      console.log('▶ [Phase 3] キュレーター動的編成（RSI適応 ＆ 3地域トリオ）を開始します...');
 
       let { data: passedCandidates } = await supabase
         .from('ai_research_items')
@@ -2272,45 +2414,56 @@ export async function POST(req: Request) {
         passedCandidates = fallbackRes.data || [];
       }
 
-      const rawSelected = await runCuratorSelection((passedCandidates as any) || []);
-
-      const selectedList: any[] = Array.isArray(rawSelected)
-        ? rawSelected
-        : Array.isArray((rawSelected as any)?.selectedItems)
-        ? (rawSelected as any).selectedItems
-        : Array.isArray((rawSelected as any)?.items)
-        ? (rawSelected as any).items
-        : [];
-
-      await supabase
-        .from('ai_research_items')
-        .update({ is_selected: false })
+      // Phase 1 で保存された SNS戦術（curatorDirectives）を取得
+      const { data: tactics } = await supabase
+        .from('ai_platform_tactics')
+        .select('*')
         .eq('cycle_id', cycleId);
 
-      for (const item of selectedList) {
-        if (!item || !item.itemId) continue;
-        await supabase
-          .from('ai_research_items')
-          .update({
-            is_selected: true,
-            is_mvp: Boolean(item.isMvp),
-            assigned_day: item.day,
-            curator_rationale: item.rationale,
-          })
-          .eq('id', item.itemId);
+      // キュレーター実行（候補銘柄 ＋ SNSアナリスト示唆 を注入）
+      const curationResult = await runCuratorSelection(
+        (passedCandidates as any) || [],
+        tactics || [],
+        cycle.category
+      );
+
+      const weeklyLineup = curationResult?.weeklyLineup || [];
+      const mvpItemId = curationResult?.mvpItemId;
+
+      // 一旦全商品の選定フラグをリセット
+      await supabase
+        .from('ai_research_items')
+        .update({ is_selected: false, is_mvp: false, assigned_day: null })
+        .eq('cycle_id', cycleId);
+
+      // キュレーターが選んだ全商品（7日分 × 3商品トリオ ＋ トレンド/的中）をDBに反映
+      for (const daily of weeklyLineup) {
+        for (const item of daily.items || []) {
+          if (!item?.itemId) continue;
+          await supabase
+            .from('ai_research_items')
+            .update({
+              is_selected: true,
+              is_mvp: Boolean(item.isMvp) || item.itemId === mvpItemId,
+              assigned_day: daily.day,
+              core_hook_fact: item.coreHookFact || daily.themeLabel,
+              curator_rationale: item.rationale || daily.dayRationale,
+            })
+            .eq('id', item.itemId);
+        }
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'generating_content' }).eq('id', cycleId);
-      console.log('✔ [Phase 3 完了] ステータスを generating_content に更新しました');
+      console.log('✔ [Phase 3 完了] 7日分動的ポートフォリオ選定完了。ステータスを generating_content に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 4: 原稿生成（IG / X / Discord営業の並列実行）
+    // Phase 4: 原稿生成（weeklyLineup に完全追従した IG / X / Discord執筆）
     // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
-      console.log('▶ [Phase 4] SNS原稿 & Discord営業文の制作を開始します...');
+      console.log('▶ [Phase 4] 動的週間編成に沿った SNS原稿 ＆ Discordオファー制作を開始します...');
       const { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -2325,9 +2478,33 @@ export async function POST(req: Request) {
       const igTactic = tactics?.find((t) => t.platform === 'instagram');
       const xTactic = tactics?.find((t) => t.platform === 'x');
 
+      const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
+
+      // 各曜日の3地域トリオ・商材データを構造化した chiefPackage を構築
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const structuredWeeklyLineup = days.map((day) => {
+        const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
+        return {
+          day,
+          items: dayItems.map((item) => ({
+            itemId: item.id,
+            region: item.region,
+            cardName: item.card_name,
+            condition: item.condition_grade,
+            jpBuyPriceJPY: item.jp_buy_price_jpy,
+            targetSoldPrice: item.target_sold_price_local,
+            priceSpreadJPY: item.price_spread_jpy,
+            spreadROI: `${item.spread_roi_percent}%`,
+            coreHookFact: item.core_hook_fact,
+            rationale: item.curator_rationale,
+          })),
+        };
+      });
+
       const chiefPackage = {
-        chosenCardOrItem: approvedItems?.[0]?.card_name,
-        mvpHighlight: approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0],
+        chosenCardOrItem: mvpItem?.card_name,
+        mvpHighlight: mvpItem,
+        weeklyLineup: structuredWeeklyLineup,
         approvedItems,
       };
 
@@ -2338,12 +2515,14 @@ export async function POST(req: Request) {
       ]);
 
       const deliverableRows: any[] = [];
-      for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
-        const item = approvedItems?.find((i) => i.assigned_day === day) || approvedItems?.[0];
+      for (const day of days) {
+        const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
+        const primaryItem = dayItems.find((i) => i.is_mvp) || dayItems[0] || mvpItem;
+
         deliverableRows.push(
           {
             cycle_id: cycleId,
-            research_item_id: item?.id,
+            research_item_id: primaryItem?.id,
             platform: 'instagram',
             post_type: 'carousel',
             day_of_week: day,
@@ -2353,7 +2532,7 @@ export async function POST(req: Request) {
           },
           {
             cycle_id: cycleId,
-            research_item_id: item?.id,
+            research_item_id: primaryItem?.id,
             platform: 'x',
             post_type: 'thread',
             day_of_week: day,
@@ -2366,7 +2545,7 @@ export async function POST(req: Request) {
 
       deliverableRows.push({
         cycle_id: cycleId,
-        research_item_id: approvedItems?.[0]?.id,
+        research_item_id: mvpItem?.id,
         platform: 'discord',
         post_type: 'wholesale_offer',
         day_of_week: 'Weekly',
@@ -2382,16 +2561,16 @@ export async function POST(req: Request) {
 
       await supabase.from('ai_content_deliverables').insert(deliverableRows);
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 4 完了] ステータスを gate2_auditing に更新しました');
+      console.log('✔ [Phase 4 完了] 全原稿生成完了。ステータスを gate2_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'content_generation_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 5: Gate 2 (表現・規約) 監査 ＆ 自動リトライ（自己修正ループ）
+    // Phase 5: Gate 2 (表現・規約・撒き餌) 監査 ＆ 自動自己修正ループ
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
-      console.log('▶ [Phase 5] Gate 2 表現・規約監査を開始します...');
+      console.log('▶ [Phase 5] Gate 2 表現・撒き餌原則監査を開始します...');
       const { data: deliverables } = await supabase
         .from('ai_content_deliverables')
         .select('*')
@@ -2409,18 +2588,24 @@ export async function POST(req: Request) {
         if (res.passed) {
           await supabase
             .from('ai_content_deliverables')
-            .update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: null })
+            .update({
+              gate2_status: 'passed',
+              status: 'approved',
+              gate2_checks: res.checks,
+              gate2_feedback: null,
+            })
             .eq('id', res.deliverableId);
         } else {
-          // 🌟 2回未満の差し戻しなら「自動修正（リトライ）」をトリガー
+          // 2回未満の差し戻しなら自動修正ループをトリガー
           if (currentRetry < 2) {
             hasRetryTarget = true;
-            console.log(`⚠️ 原稿ID ${res.deliverableId} (${current?.platform}) に修正指示が出たため自動リライトを実行します (試行: ${currentRetry + 1}回目)`);
-            
-            // クリエイターAIへ差し戻し指示を渡して再生成（例: Xの文字数超過や仕入れ先ワードの置換）
+            console.log(
+              `⚠️ 原稿ID ${res.deliverableId} (${current?.platform}) に修正要請が出たため自動自己修正を実行します (試行: ${currentRetry + 1}回目)`
+            );
+
             let updatedPayload = current?.content_payload;
-            
-            // 指摘ワードや文字数を迅速に自動クリーニング
+
+            // Xの140文字超過時の自動安全トリミング
             if (res.feedback?.includes('140文字')) {
               if (updatedPayload?.dailyThreads) {
                 updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
@@ -2432,7 +2617,6 @@ export async function POST(req: Request) {
               }
             }
 
-            // DBを更新して再審査可能な状態へ
             await supabase
               .from('ai_content_deliverables')
               .update({
@@ -2443,7 +2627,7 @@ export async function POST(req: Request) {
               })
               .eq('id', res.deliverableId);
           } else {
-            // 2回修正しても通らなかった場合は人間に差し戻し
+            // 2回修正しても通らなかった場合は人間にエスカレーション
             await supabase
               .from('ai_content_deliverables')
               .update({
@@ -2457,7 +2641,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // 修正対象がある場合は再度Phase 5を実行、すべて完了した場合は最終ステータスへ
       if (hasRetryTarget) {
         dispatchNext();
         return NextResponse.json({ success: true, step: 'gate2_retrying' });
