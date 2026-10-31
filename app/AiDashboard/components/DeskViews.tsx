@@ -1,5 +1,5 @@
 // app/AiDashboard/components/DeskViews.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IntelligenceData, RegionKey, Gate1AuditItem, Gate2AuditItem } from '../types';
 import DocumentReportView from './DocumentReport';
 
@@ -37,10 +37,24 @@ export default function DeskViews({
 }: DeskViewsProps) {
     const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
     const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
+    const [currentIgSlideIdx, setCurrentIgSlideIdx] = useState<number>(0);
+
+    // 曜日変更時にカルーセルスライドを1枚目にリセット
+    useEffect(() => {
+        setCurrentIgSlideIdx(0);
+    }, [selectedIgDay]);
 
     // Instagramの選択された曜日の投稿データ取得
     const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
     const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
+
+    // スライド配列の正規化
+    const igSlides: string[] = (currentIgDaily?.slides && currentIgDaily.slides.length > 0)
+        ? currentIgDaily.slides
+        : [
+            aiData?.snsPosts?.visualGuideline?.coverSlide ? `1枚目(表紙): ${aiData.snsPosts.visualGuideline.coverSlide}` : '1枚目(表紙): 3秒で指が止まる価格差フック',
+            ...(aiData?.snsPosts?.visualGuideline?.carouselSlides || ['2枚目: 世界相場データ', '3枚目: 2股CTAスライド'])
+        ];
 
     // Xの選択された曜日のスレッドデータ取得
     const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
@@ -513,7 +527,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 IG クリエイター */}
+            {/* 🎨 IG クリエイター（投稿プレビュー統合） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -529,6 +543,7 @@ export default function DeskViews({
                         </button>
                     </div>
 
+                    {/* 曜日スロット切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {dynamicIgDays.map(d => (
                             <button
@@ -548,69 +563,233 @@ export default function DeskViews({
                     </div>
 
                     {aiData?.snsPosts ? (
-                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
-                            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
-                                <div>
-                                    <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">
-                                        {DAY_LABELS[selectedIgDay]} Posting Slot
-                                    </span>
-                                    <h3 className="text-lg font-bold text-white">{currentIgDaily?.theme || aiData.snsPosts.theme}</h3>
-                                </div>
-                                <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
-                                    推奨: {aiData.snsPosts.recommendedTiming || '日本時間 21:00'}
-                                </span>
-                            </div>
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                            {/* 左カラム: 原稿テキスト・スライド指示・ハッシュタグ */}
+                            <div className="xl:col-span-7 space-y-5">
+                                <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-4 shadow-xl">
+                                    <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">
+                                                {DAY_LABELS[selectedIgDay]} Posting Slot
+                                            </span>
+                                            <h3 className="text-base font-bold text-white">{currentIgDaily?.theme || aiData.snsPosts.theme}</h3>
+                                        </div>
+                                        <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+                                            推奨: {aiData.snsPosts.recommendedTiming || '日本時間 21:00'}
+                                        </span>
+                                    </div>
 
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <h4 className="text-xs font-bold text-amber-300 mb-2">🖼️ カルーセル画像スライド構成指示</h4>
-                                <div className="space-y-1.5 text-xs text-slate-300">
-                                    {currentIgDaily?.slides?.map((s: string, i: number) => (
-                                        <p key={i}><span className={i === 0 ? 'text-pink-400 font-bold' : 'text-slate-400 font-bold'}>{s.split(':')[0]}:</span> {s.split(':').slice(1).join(':')}</p>
-                                    )) || (
-                                        <>
-                                            <p><span className="text-pink-400 font-bold">1枚目(表紙):</span> {aiData.snsPosts.visualGuideline?.coverSlide}</p>
-                                            {aiData.snsPosts.visualGuideline?.carouselSlides?.map((s, i) => (
-                                                <p key={i}><span className="text-slate-400 font-bold">{i + 2}枚目:</span> {s}</p>
-                                            ))}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {aiData?.snsPosts?.hashtags && aiData.snsPosts.hashtags.length > 0 && (
-                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
-                                            <span>🏷️</span> 推奨ハッシュタグ
+                                    {/* カルーセルスライド制作指示リスト */}
+                                    <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                        <h4 className="text-xs font-bold text-amber-300 mb-2 flex items-center gap-1.5">
+                                            <span>🖼️</span> カルーセル画像スライド構成指示（全{igSlides.length}枚）
                                         </h4>
-                                        <button 
-                                            onClick={() => handleCopy(aiData?.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
-                                            className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
-                                        >
-                                            {copiedKey === 'ig_tags' ? '✓ コピー完了' : 'タグ一括コピー'}
-                                        </button>
+                                        <div className="space-y-1.5 text-xs text-slate-300">
+                                            {igSlides.map((s: string, i: number) => {
+                                                const parts = s.includes(':') ? s.split(':') : [s.slice(0, 6), s.slice(6)];
+                                                const label = parts[0];
+                                                const desc = parts.slice(1).join(':');
+                                                const isSelected = currentIgSlideIdx === i;
+                                                return (
+                                                    <div 
+                                                        key={i} 
+                                                        onClick={() => setCurrentIgSlideIdx(i)}
+                                                        className={`p-2 rounded cursor-pointer transition flex items-start gap-2 border ${
+                                                            isSelected ? 'bg-pink-950/40 border-pink-500/50 text-white' : 'hover:bg-slate-900/80 border-transparent text-slate-400'
+                                                        }`}
+                                                    >
+                                                        <span className={`font-bold shrink-0 font-mono text-[11px] ${i === 0 ? 'text-pink-400' : 'text-slate-300'}`}>
+                                                            {label}:
+                                                        </span>
+                                                        <span className="text-[11px] leading-relaxed">{desc}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-400 font-mono leading-relaxed bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                        {aiData.snsPosts.hashtags.join(' ')}
-                                    </p>
-                                </div>
-                            )}
 
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="text-xs font-bold text-white">📝 【{DAY_LABELS[selectedIgDay]}】投稿キャプション</h4>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
-                                            {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
-                                        </button>
-                                        <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
-                                            {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
-                                        </button>
+                                    {/* 推奨ハッシュタグ */}
+                                    {aiData?.snsPosts?.hashtags && aiData.snsPosts.hashtags.length > 0 && (
+                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
+                                                    <span>🏷️</span> 推奨ハッシュタグ
+                                                </h4>
+                                                <button 
+                                                    onClick={() => handleCopy(aiData?.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
+                                                    className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
+                                                >
+                                                    {copiedKey === 'ig_tags' ? '✓ コピー完了' : 'タグ一括コピー'}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-slate-400 font-mono leading-relaxed bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                                                {aiData.snsPosts.hashtags.join(' ')}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* 投稿キャプション本文 */}
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <h4 className="text-xs font-bold text-white">📝 【{DAY_LABELS[selectedIgDay]}】投稿キャプション全文</h4>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
+                                                    {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
+                                                </button>
+                                                <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
+                                                    {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">
+                                            {igPostText}
+                                        </pre>
                                     </div>
                                 </div>
-                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">
-                                    {igPostText}
-                                </pre>
+                            </div>
+
+                            {/* 🌟 右カラム: Instagram アプリ実機風プレビュー */}
+                            <div className="xl:col-span-5 flex flex-col items-center">
+                                <div className="w-full max-w-[360px] bg-black rounded-[32px] border-[5px] border-slate-700 shadow-2xl overflow-hidden text-white font-sans text-xs">
+                                    {/* スマホ風ノッチ・上部ステータスバー */}
+                                    <div className="h-5 bg-black flex justify-between items-center px-6 pt-1 text-[10px] text-slate-400 font-mono">
+                                        <span>21:00</span>
+                                        <div className="w-16 h-3 bg-slate-900 rounded-full mx-auto" />
+                                        <span>5G 100%</span>
+                                    </div>
+
+                                    {/* IG アカウントヘッダー */}
+                                    <div className="p-3 flex items-center justify-between border-b border-slate-900 bg-slate-950/80">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 p-[2px]">
+                                                <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-xs">
+                                                    ⚡
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-xs flex items-center gap-1">
+                                                    <span>worldwide_tcg</span>
+                                                    <span className="text-[10px] text-sky-400">●</span>
+                                                </div>
+                                                <div className="text-[9px] text-slate-400">Tokyo, Japan</div>
+                                            </div>
+                                        </div>
+                                        <span className="text-slate-400 text-sm">•••</span>
+                                    </div>
+
+                                    {/* カルーセル画像スライド表示エリア（正方形 1:1） */}
+                                    <div className="relative aspect-square w-full bg-gradient-to-br from-slate-900 via-purple-950 to-slate-950 flex flex-col justify-between p-4 border-y border-slate-900 select-none overflow-hidden">
+                                        {/* 右上スライドカウンターバッジ */}
+                                        <div className="self-end">
+                                            <span className="bg-black/70 backdrop-blur text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 text-slate-200">
+                                                {currentIgSlideIdx + 1} / {igSlides.length}
+                                            </span>
+                                        </div>
+
+                                        {/* スライド中央コンテンツ */}
+                                        <div className="space-y-2 text-center my-auto px-2">
+                                            {currentIgSlideIdx === 0 ? (
+                                                <div className="space-y-3">
+                                                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40 font-mono text-[9px] uppercase font-bold tracking-wider">
+                                                        COVER HOOK SLIDE
+                                                    </span>
+                                                    <h4 className="text-sm font-extrabold text-white leading-snug drop-shadow-md">
+                                                        {currentIgDaily?.theme || aiData.snsPosts.theme}
+                                                    </h4>
+                                                    <div className="text-[10px] text-amber-300 font-bold bg-slate-950/80 p-2 rounded-lg border border-amber-500/30 mx-auto max-w-[240px]">
+                                                        {igSlides[0]?.replace(/^.*?:\s*/, '')}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <span className="inline-block px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[9px] font-bold">
+                                                        SLIDE {currentIgSlideIdx + 1}
+                                                    </span>
+                                                    <p className="text-xs text-slate-200 leading-relaxed font-bold bg-slate-950/70 p-3 rounded-lg border border-slate-800">
+                                                        {igSlides[currentIgSlideIdx]?.replace(/^.*?:\s*/, '')}
+                                                    </p>
+                                                    {currentIgSlideIdx === igSlides.length - 1 && (
+                                                        <div className="pt-2 flex justify-center gap-1.5">
+                                                            <span className="text-[9px] bg-purple-600/80 text-white px-2 py-0.5 rounded font-bold">
+                                                                VIP Discord ➔
+                                                            </span>
+                                                            <span className="text-[9px] bg-blue-600/80 text-white px-2 py-0.5 rounded font-bold">
+                                                                自社代理購入 ➔
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 左右スライドめくり矢印ボタン */}
+                                        <div className="absolute inset-y-0 left-1 flex items-center">
+                                            {currentIgSlideIdx > 0 && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setCurrentIgSlideIdx(prev => Math.max(0, prev - 1))}
+                                                    className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs shadow-md backdrop-blur"
+                                                >
+                                                    ◀
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="absolute inset-y-0 right-1 flex items-center">
+                                            {currentIgSlideIdx < igSlides.length - 1 && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setCurrentIgSlideIdx(prev => Math.min(igSlides.length - 1, prev + 1))}
+                                                    className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs shadow-md backdrop-blur"
+                                                >
+                                                    ▶
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* 下部ドットインジケーター */}
+                                        <div className="flex justify-center gap-1 self-center">
+                                            {igSlides.map((_, dotIdx) => (
+                                                <div 
+                                                    key={dotIdx} 
+                                                    className={`h-1.5 rounded-full transition-all ${
+                                                        currentIgSlideIdx === dotIdx ? 'w-4 bg-pink-500' : 'w-1.5 bg-slate-600'
+                                                    }`} 
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* アクションボタンバー */}
+                                    <div className="p-3 flex justify-between items-center">
+                                        <div className="flex items-center gap-3 text-base">
+                                            <span>🤍</span>
+                                            <span>💬</span>
+                                            <span>↗️</span>
+                                        </div>
+                                        <span className="text-base text-amber-400">🔖</span>
+                                    </div>
+
+                                    {/* キャプションプレビュー */}
+                                    <div className="px-3 pb-4 space-y-1 text-[11px] leading-snug">
+                                        <div className="text-[10px] font-bold text-slate-300">
+                                            いいね！ 342件
+                                        </div>
+                                        <div>
+                                            <span className="font-bold mr-1.5 text-white">worldwide_tcg</span>
+                                            <span className="text-slate-300 whitespace-pre-wrap line-clamp-4">
+                                                {igPostText}
+                                            </span>
+                                        </div>
+                                        {aiData?.snsPosts?.hashtags && (
+                                            <p className="text-[10px] text-sky-400/90 line-clamp-1 font-mono">
+                                                {aiData.snsPosts.hashtags.join(' ')}
+                                            </p>
+                                        )}
+                                        <div className="text-[9px] text-slate-500 uppercase pt-1">
+                                            1時間前 • 翻訳を見る
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -620,7 +799,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* ✍️ X クリエイター */}
+            {/* ✍️ X クリエイター（スレッドプレビュー統合） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -636,6 +815,7 @@ export default function DeskViews({
                         </button>
                     </div>
 
+                    {/* 曜日スロット切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {dynamicXDays.map(d => (
                             <button
@@ -655,48 +835,157 @@ export default function DeskViews({
                     </div>
 
                     {aiData?.xPosts ? (
-                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
-                            <div className="border-b border-slate-800 pb-3">
-                                <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">
-                                    {DAY_LABELS[selectedXDay]} Viral Thread
-                                </span>
-                                <h3 className="text-lg font-bold text-white">{aiData.xPosts.theme}</h3>
-                            </div>
-
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="text-xs font-bold text-sky-300">📌 1ポスト目（140字以内フック ＋ 画像添付案内）</h4>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
-                                            {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
-                                        </button>
-                                        <button 
-                                            onClick={() => handlePublishToX(xMainPost, xThreadPosts)} 
-                                            disabled={isPublishingX}
-                                            className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
-                                        >
-                                            {isPublishingX ? '投稿中...' : `🐦 【${DAY_LABELS[selectedXDay]}】スレッド自動投稿`}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">
-                                    {xMainPost}
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
-                                {xThreadPosts.map((tp, idx) => (
-                                    <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
-                                        <div className="flex justify-between items-center text-[10px] text-slate-400">
-                                            <span>Post {idx + 2}</span>
-                                            <button onClick={() => handleCopy(tp, `x_thread_${selectedXDay}_${idx}`)} className="hover:text-white">
-                                                {copiedKey === `x_thread_${selectedXDay}_${idx}` ? '✓ コピー' : 'コピー'}
-                                            </button>
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                            {/* 左カラム: 原稿テキスト・スレッドリスト */}
+                            <div className="xl:col-span-7 space-y-5">
+                                <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-4 shadow-xl">
+                                    <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">
+                                                {DAY_LABELS[selectedXDay]} Viral Thread
+                                            </span>
+                                            <h3 className="text-base font-bold text-white">{aiData.xPosts.theme}</h3>
                                         </div>
-                                        <p className="leading-relaxed whitespace-pre-wrap">{tp}</p>
                                     </div>
-                                ))}
+
+                                    {/* 1ポスト目 */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-bold text-sky-300">📌 1ポスト目（140字フック）</h4>
+                                                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                                                    xMainPost.length <= 140 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                                                }`}>
+                                                    {xMainPost.length} / 140文字
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
+                                                    {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
+                                                </button>
+                                                <button 
+                                                    onClick={() => handlePublishToX(xMainPost, xThreadPosts)} 
+                                                    disabled={isPublishingX}
+                                                    className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
+                                                >
+                                                    {isPublishingX ? '投稿中...' : `🐦 【${DAY_LABELS[selectedXDay]}】スレッド自動投稿`}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">
+                                            {xMainPost}
+                                        </div>
+                                    </div>
+
+                                    {/* 2〜4ポスト目 */}
+                                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                                        <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
+                                        {xThreadPosts.map((tp, idx) => (
+                                            <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
+                                                <div className="flex justify-between items-center text-[10px] text-slate-400">
+                                                    <span>Post {idx + 2} ({tp.length}文字)</span>
+                                                    <button onClick={() => handleCopy(tp, `x_thread_${selectedXDay}_${idx}`)} className="hover:text-white">
+                                                        {copiedKey === `x_thread_${selectedXDay}_${idx}` ? '✓ コピー' : 'コピー'}
+                                                    </button>
+                                                </div>
+                                                <p className="leading-relaxed whitespace-pre-wrap">{tp}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 🌟 右カラム: X (Twitter) 公式風スレッドプレビュー */}
+                            <div className="xl:col-span-5 flex flex-col items-center">
+                                <div className="w-full max-w-[400px] bg-black border border-slate-800 rounded-2xl p-4 shadow-2xl text-white font-sans text-xs space-y-4">
+                                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
+                                        <span className="font-bold flex items-center gap-1.5">
+                                            <span className="text-base text-white">𝕏</span> タイムライン・スレッド表示
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">最新アルゴリズム適合</span>
+                                    </div>
+
+                                    {/* 1ポスト目（メインフック） */}
+                                    <div className="space-y-3 relative">
+                                        {/* ツリー結合線 */}
+                                        {xThreadPosts.length > 0 && (
+                                            <div className="absolute left-4 top-10 bottom-[-16px] w-[2px] bg-slate-800" />
+                                        )}
+
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-sm">
+                                                ⚡
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-bold text-white text-xs truncate">Worldwide TCG</span>
+                                                    <span className="text-sky-400 text-[10px]">☑</span>
+                                                    <span className="text-slate-500 text-[11px]">@worldwide_tcg</span>
+                                                    <span className="text-slate-500 text-[11px]">· 1m</span>
+                                                </div>
+                                                <p className="text-xs text-slate-200 mt-1 leading-relaxed whitespace-pre-wrap">
+                                                    {xMainPost}
+                                                </p>
+
+                                                {/* 添付画像4枚プレビュー枠 */}
+                                                <div className="mt-2.5 grid grid-cols-2 gap-1 rounded-xl overflow-hidden border border-slate-800/80 aspect-[16/9] bg-slate-950">
+                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-r border-b border-slate-800">
+                                                        📊 北米実成約データ
+                                                    </div>
+                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-b border-slate-800">
+                                                        🇪🇺 欧州相場推移
+                                                    </div>
+                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-r border-slate-800">
+                                                        🌏 アジア需要・プレミアム
+                                                    </div>
+                                                    <div className="bg-purple-950/40 flex items-center justify-center p-2 text-center text-[9px] text-purple-300 font-bold">
+                                                        📈 3市場確定利ざや比較
+                                                    </div>
+                                                </div>
+
+                                                {/* X アクションボタン */}
+                                                <div className="flex justify-between items-center text-slate-500 text-xs mt-2.5 pt-1 px-1">
+                                                    <span className="hover:text-sky-400 cursor-pointer">💬 12</span>
+                                                    <span className="hover:text-green-400 cursor-pointer">🔁 45</span>
+                                                    <span className="hover:text-pink-400 cursor-pointer">❤️ 189</span>
+                                                    <span className="hover:text-sky-400 cursor-pointer">🔖 82</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2ポスト目以降（スレッドツリー表示） */}
+                                    {xThreadPosts.map((threadText, tIdx) => {
+                                        const isLast = tIdx === xThreadPosts.length - 1;
+                                        return (
+                                            <div key={tIdx} className="space-y-2 relative pt-1">
+                                                {!isLast && (
+                                                    <div className="absolute left-4 top-10 bottom-[-16px] w-[2px] bg-slate-800" />
+                                                )}
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 text-xs text-slate-400">
+                                                        {tIdx + 2}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-bold text-white text-xs">Worldwide TCG</span>
+                                                            <span className="text-slate-500 text-[11px]">@worldwide_tcg</span>
+                                                        </div>
+                                                        <p className="text-xs text-slate-300 mt-1 leading-relaxed whitespace-pre-wrap">
+                                                            {threadText}
+                                                        </p>
+                                                        <div className="flex justify-between items-center text-slate-500 text-[11px] mt-2 pt-1 px-1">
+                                                            <span>💬 4</span>
+                                                            <span>🔁 18</span>
+                                                            <span>❤️ 67</span>
+                                                            <span>🔖 34</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     ) : (
