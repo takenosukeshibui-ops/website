@@ -44,11 +44,11 @@ export default function DeskViews({
     const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
 
     // Instagramの選択された曜日の投稿データ取得
-    const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day === selectedIgDay);
+    const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
     const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
 
     // Xの選択された曜日のスレッドデータ取得
-    const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day === selectedXDay);
+    const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
@@ -68,7 +68,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'chief' ? '選定中...' : '🔄 案件を再審査・選定'}
+                            {runningAction === 'chief' ? '選定中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     {aiData?.chiefPackage ? (
@@ -76,18 +76,18 @@ export default function DeskViews({
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                                 <div>
                                     <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold block mb-1">
-                                        {aiData.chiefPackage.leadMagnetTitle || "Winning Lead Magnet Package"}
+                                        Weekly Selected MVP Highlight
                                     </span>
                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                         <span>🏆</span><span>{aiData.chiefPackage.mvpHighlight?.cardName || aiData.chiefPackage.chosenCardOrItem}</span>
-                                    </h3>
+                                        </h3>
                                 </div>
                                 <div className="flex gap-2">
                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
-                                        {aiData.chiefPackage.selectedLeadMagnetType === 'GlobalCatalog' ? '世界3大市場カタログ' : aiData.chiefPackage.selectedLeadMagnetType === 'TypeA_Arbitrage' ? 'タイプA: 確定利ざや' : 'タイプB: 市場トレンド'}
+                                        看板MVP銘柄
                                     </span>
                                     <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40 px-2.5 py-1 rounded-lg font-bold uppercase">
-                                        対象地域: {aiData.chiefPackage.winningRegion}
+                                        対象地域: {aiData.chiefPackage.mvpHighlight?.region || 'Global'}
                                     </span>
                                 </div>
                             </div>
@@ -109,7 +109,7 @@ export default function DeskViews({
                                                         <span className="text-amber-400">📌</span> {item.dayLabelJa || item.dayOfWeek}
                                                     </span>
                                                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700/60">
-                                                        {item.postType}
+                                                        {item.selectedCardOrTopic || item.postType}
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
@@ -131,7 +131,7 @@ export default function DeskViews({
                             <div>
                                 <h4 className="text-xs font-bold text-slate-300 mb-1.5">⚖️ キュレーター選定理由</h4>
                                 <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason}
+                                  {aiData.chiefPackage.mvpHighlight?.selectionReason || aiData.chiefPackage.selectionReason || '7日間の流動性と粗利マージンを総合勘案して選定'}
                                 </p>
                             </div>
                         </div>
@@ -142,7 +142,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🛡️ 新設: Gate 1 & Gate 2 監査役デスク */}
+            {/* 🛡️ Gate 1 & Gate 2 監査役デスク */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_audit' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -248,7 +248,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('trend', activeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : `🔄 ${activeTrendRegion.toUpperCase()}担当に調査指示`}
+                            {runningAction === `trend_${activeTrendRegion}` ? '調査中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     <DocumentReportView report={aiData?.trendInsights?.[activeTrendRegion] || null} accentColor="amber" icon="📈" />
@@ -268,7 +268,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('arbitrage', activeArbitrageRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === `arbitrage_${activeArbitrageRegion}` ? '査定中...' : `🔄 ${activeArbitrageRegion.toUpperCase()}担当に査定指示`}
+                            {runningAction === `arbitrage_${activeArbitrageRegion}` ? '査定中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     <DocumentReportView report={aiData?.profitableCards?.[activeArbitrageRegion] || null} accentColor="emerald" icon="⚖️" />
@@ -289,7 +289,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'account' ? '分析中...' : '🔄 アカウント診断を実行'}
+                            {runningAction === 'account' ? '分析中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     <DocumentReportView report={aiData?.accountInsights || null} accentColor="pink" icon="📱" />
@@ -310,7 +310,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'x_account' ? '分析中...' : '🔄 Xアカウント診断を実行'}
+                            {runningAction === 'x_account' ? '分析中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     <DocumentReportView report={aiData?.xAccountInsights || null} accentColor="sky" icon="🐦" />
@@ -331,11 +331,11 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'sns' ? '制作中...' : '🔄 投稿原稿を再生成'}
+                            {runningAction === 'sns' ? '制作中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
 
-                    {/* 🌟 7日分曜日切り替えタブ */}
+                    {/* 7日分曜日切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {DAYS_OF_WEEK.map(d => (
                             <button
@@ -418,7 +418,7 @@ export default function DeskViews({
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだInstagram投稿が生成されていません。「🔄 投稿原稿を再生成」を実行してください。</div>
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだInstagram投稿が生成されていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
                     )}
                 </div>
             )}
@@ -437,11 +437,11 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 X投稿原稿を再生成'}
+                            {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
 
-                    {/* 🌟 7日分曜日切り替えタブ */}
+                    {/* 7日分曜日切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {DAYS_OF_WEEK.map(d => (
                             <button
@@ -506,13 +506,13 @@ export default function DeskViews({
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだX投稿が生成されていません。「🔄 X投稿原稿を再生成」を実行してください。</div>
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだX投稿が生成されていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
                     )}
                 </div>
             )}
 
             {/* ========================================================= */}
-            {/* 💬 コミュニティ営業AIデスク (Discord) ※ desk_sales に統一 */}
+            {/* 💬 コミュニティ営業AIデスク (Discord) */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sales' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -525,7 +525,7 @@ export default function DeskViews({
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'sales' ? '作成中...' : '🔄 Discordオファーを再作成'}
+                            {runningAction === 'sales' ? '作成中...' : '🔄 パイプラインを再実行'}
                         </button>
                     </div>
                     {aiData?.salesDM ? (
@@ -567,7 +567,7 @@ export default function DeskViews({
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだDiscordオファーが生成されていません。「🔄 Discordオファーを再作成」を実行してください。</div>
+                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだDiscordオファーが生成されていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
                     )}
                 </div>
             )}

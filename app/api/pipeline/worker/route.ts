@@ -35,13 +35,11 @@ export async function POST(req: Request) {
   console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status}`);
   console.log(`==============================================\n`);
 
-  // 🌟 次のステップをトリガー（サーバーサイドバックアップ用）
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
   const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
 
   const dispatchNext = () => {
-    // 待機せずに非同期で投げっぱなしにする
     fetch(`${baseUrl}/api/pipeline/worker`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,7 +68,9 @@ export async function POST(req: Request) {
         ]);
 
       const researchRows: any[] = [];
-      const extractItems = (report: any, agentKey: string, region: string) => {
+
+      // A. アービトラージ（サヤ取り）アイテムの抽出
+      const extractArbitrageItems = (report: any, region: string) => {
         if (!report?.slots) return;
         for (const slot of report.slots) {
           const tiers = slot.tiers || [{ mainItem: slot.items?.[0], subItems: slot.items?.slice(1) }];
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
               const spread = parseInt(String(main.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
               researchRows.push({
                 cycle_id: cycleId,
-                agent_key: agentKey,
+                agent_key: 'arbitrage',
                 region,
                 slot_key: slot.slotKey,
                 price_tier: tier.priceTier || 'middle',
@@ -94,16 +94,47 @@ export async function POST(req: Request) {
                 spread_roi_percent: parseInt(String(main.spreadROI || 0).replace(/[^0-9]/g, '')) || 30,
                 liquidity_indicator: main.liquidity || '直近成約あり',
                 research_insight: main.insight || '',
-                raw_payload: tier,
+                raw_payload: { ...tier, reportSummary: report.summary },
               });
             }
           }
         }
       };
 
-      extractItems(sayaUS, 'arbitrage', 'us');
-      extractItems(sayaEU, 'arbitrage', 'eu');
-      extractItems(sayaAsia, 'arbitrage', 'asia');
+      extractArbitrageItems(sayaUS, 'us');
+      extractArbitrageItems(sayaEU, 'eu');
+      extractArbitrageItems(sayaAsia, 'asia');
+
+      // B. 🌟 トレンドアイテム（上位5銘柄）の抽出・永続化
+      const extractTrendItems = (report: any, region: string) => {
+        if (!report?.hypotheses) return;
+        for (const hypo of report.hypotheses) {
+          for (const item of hypo.items || []) {
+            const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+            researchRows.push({
+              cycle_id: cycleId,
+              agent_key: 'trend',
+              region,
+              slot_key: hypo.headline || 'trend_signal',
+              price_tier: item.conviction || 'High',
+              card_name: item.cardName,
+              condition_grade: item.condition || 'Raw NM',
+              jp_buy_price_jpy: buy,
+              target_sold_price_local: item.currentLocalPrice || '$0',
+              target_sold_price_jpy: buy * 1.3,
+              price_spread_jpy: buy * 0.3,
+              spread_roi_percent: 30,
+              liquidity_indicator: item.timeframe || '約2週間後',
+              research_insight: item.impactLogic || '',
+              raw_payload: { ...item, reportSummary: report.summary, hypothesis: hypo },
+            });
+          }
+        }
+      };
+
+      extractTrendItems(trendUS, 'us');
+      extractTrendItems(trendEU, 'eu');
+      extractTrendItems(trendAsia, 'asia');
 
       if (researchRows.length > 0) {
         await supabase.from('ai_research_items').insert(researchRows);
@@ -142,7 +173,8 @@ export async function POST(req: Request) {
       const { data: candidates } = await supabase
         .from('ai_research_items')
         .select('*')
-        .eq('cycle_id', cycleId);
+        .eq('cycle_id', cycleId)
+        .eq('agent_key', 'arbitrage');
 
       console.log(`[Phase 2] 対象候補件数: ${candidates?.length || 0}件`);
       const curation = await runCuratorSelection(candidates || [], cycle.category);

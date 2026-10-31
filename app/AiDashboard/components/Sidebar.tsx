@@ -65,7 +65,7 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* 🛡️ 新設: Gate 1 & Gate 2 監査役デスク */}
+                {/* 🛡️ Gate 1 & Gate 2 監査役デスク */}
                 <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
                     <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
                     <div className="flex-1 min-w-0">
@@ -149,18 +149,22 @@ export default function Sidebar({
                 </div>
             </div>
 
-            {/* 過去ログ履歴選択 */}
-            <div className="p-3 border-t border-slate-800 bg-slate-900">
-                <span className="text-[10px] text-slate-400 mb-1 block font-bold">📅 過去のオフィス記録</span>
+            {/* 🌟 過去サイクル履歴選択 */}
+            <div className="p-3 border-t border-slate-800 bg-slate-950">
+                <span className="text-[10px] text-slate-400 mb-1.5 block font-bold">📅 パイプライン実行サイクル履歴</span>
                 <select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) => {
                     const target = history.find(h => h.id === e.target.value);
                     if (target) onSelectHistory(target);
-                }} className="w-full bg-slate-950 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 text-xs outline-none focus:border-blue-500">
-                    {history.map((h) => (
-                        <option key={h.id} value={h.id}>
-                            {new Date(h.created_at).toLocaleString('ja-JP')} [{h.trigger_type === 'cron' ? '⏰ 自動' : '👤 手動'}]
-                        </option>
-                    ))}
+                }} className="w-full bg-slate-900 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-500 font-mono">
+                    {history.length === 0 ? (
+                        <option value="">履歴がありません</option>
+                    ) : (
+                        history.map((cycle) => (
+                            <option key={cycle.id} value={cycle.id}>
+                                {cycle.target_week}週 [{cycle.status}] ({new Date(cycle.created_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })})
+                            </option>
+                        ))
+                    )}
                 </select>
             </div>
         </div>

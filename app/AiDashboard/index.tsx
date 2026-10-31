@@ -40,57 +40,48 @@ export default function AiDashboard() {
         gate2Audits: [],
     });
 
-    const handleSelectHistory = (target: any) => {
-        setSelectedRecordId(target.id);
-        setAiData({
-            trendInsights: target.trend_insights || { us: null, eu: null, asia: null },
-            profitableCards: target.profitable_cards || { us: null, eu: null, asia: null },
-            chiefPackage: target.chief_package || null,
-            proofPackage: target.proof_package || null,
-            snsPosts: target.sns_posts,
-            xPosts: target.x_posts,
-            salesDM: target.sales_dm,
-            accountInsights: target.account_insights || null,
-            xAccountInsights: target.x_account_insights || null,
-            rsiReport: target.rsi_report || null,
-        });
-        setPipelineProgress({ cycleId: null, status: null, gate1Audits: [], gate2Audits: [] });
-    };
-
-    const runSingleAi = async (action: string, region?: RegionKey) => {
-        const actionKey = region ? `${action}_${region}` : action;
-        setRunningAction(actionKey);
+    // 🌟 1. 特定サイクルの全データを読み込んでダッシュボードに反映
+    const loadCycleData = async (cycleId: string) => {
+        setSelectedRecordId(cycleId);
         try {
-            const res = await fetch('/api/ai/intelligence', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, currentData: aiData || {}, recordId: selectedRecordId, region: region || 'us', category: activeCategory }),
-            });
+            const res = await fetch(`/api/pipeline/status?cycleId=${cycleId}`);
             const json = await res.json();
-            if (!json.success) throw new Error(json.error || '生成失敗');
-            
-            setAiData(prev => ({
-                trendInsights: prev?.trendInsights || { us: null, eu: null, asia: null },
-                profitableCards: prev?.profitableCards || { us: null, eu: null, asia: null },
-                chiefPackage: prev?.chiefPackage || null,
-                proofPackage: prev?.proofPackage || null,
-                snsPosts: prev?.snsPosts || null,
-                xPosts: prev?.xPosts || null,
-                salesDM: prev?.salesDM || null,
-                accountInsights: prev?.accountInsights || null,
-                xAccountInsights: prev?.xAccountInsights || null,
-                rsiReport: prev?.rsiReport || null,
-                ...json.data
-            }));
-            
-            if (action === 'rsi') alert('RSI（再帰的自己改善）が完了しました。');
-        } catch (err: any) {
-            alert(`実行エラー: ${err.message}`);
-        } finally {
-            setRunningAction(null);
+            if (json.success && json.data) {
+                setAiData({
+                    trendInsights: json.data.trendInsights || { us: null, eu: null, asia: null },
+                    profitableCards: json.data.profitableCards || { us: null, eu: null, asia: null },
+                    chiefPackage: json.data.chiefPackage || null,
+                    proofPackage: null,
+                    snsPosts: json.data.snsPosts || null,
+                    xPosts: json.data.xPosts || null,
+                    salesDM: json.data.salesDM || null,
+                    accountInsights: json.data.accountInsights || null,
+                    xAccountInsights: json.data.xAccountInsights || null,
+                    rsiReport: null,
+                });
+                setPipelineProgress({
+                    cycleId: json.cycle.id,
+                    status: json.cycle.status,
+                    gate1Audits: json.data.gate1Audits || [],
+                    gate2Audits: json.data.gate2Audits || [],
+                });
+            }
+        } catch (err) {
+            console.error('サイクルデータ取得エラー:', err);
         }
     };
 
+    const handleSelectHistory = (target: any) => {
+        loadCycleData(target.id);
+    };
+
+    // 🌟 2. 個別デスクからの再実行指示も新パイプライン（二重監査付き）に統合
+    const runSingleAi = async (_action: string, _region?: RegionKey) => {
+        if (!window.confirm('新パイプラインを一斉実行し、二重監査（Gate 1 / Gate 2）を通して全成果物を最新化しますか？')) return;
+        runIntelligenceAnalysis();
+    };
+
+    // 🌟 3. パイプライン実行（自己推進型）
     const runIntelligenceAnalysis = async () => {
         setAiLoading(true);
         try {
@@ -102,6 +93,7 @@ export default function AiDashboard() {
             const { cycleId } = await res.json();
             if (!cycleId) throw new Error('パイプラインの開始に失敗しました');
 
+            setSelectedRecordId(cycleId);
             setPipelineProgress(prev => ({ ...prev, cycleId, status: 'initialized' }));
 
             let isAdvancing = false;
@@ -124,13 +116,18 @@ export default function AiDashboard() {
                         if (json.data) {
                             setAiData(prev => ({
                                 ...prev,
+                                trendInsights: json.data.trendInsights || prev?.trendInsights,
+                                profitableCards: json.data.profitableCards || prev?.profitableCards,
                                 chiefPackage: json.data.chiefPackage,
                                 snsPosts: json.data.snsPosts,
                                 xPosts: json.data.xPosts,
                                 salesDM: json.data.salesDM,
+                                accountInsights: json.data.accountInsights || prev?.accountInsights,
+                                xAccountInsights: json.data.xAccountInsights || prev?.xAccountInsights,
                             } as any));
                         }
 
+                        // フェイルセーフ（クライアントサイド推進）
                         const activePhases: PipelinePhase[] = [
                             'initialized',
                             'curating',
@@ -150,15 +147,16 @@ export default function AiDashboard() {
                             });
                         }
 
+                        // 完了時の処理
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             clearInterval(pollInterval);
                             setAiLoading(false);
                             
-                            const historyRes = await fetch(`/api/ai/intelligence?category=${activeCategory}`);
-                            const historyJson = await historyRes.json();
-                            if (historyJson.success && historyJson.history.length > 0) {
-                                setHistory(historyJson.history);
-                                setSelectedRecordId(historyJson.history[0]?.id);
+                            // 履歴リストを新テーブルから再取得
+                            const listRes = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
+                            const listJson = await listRes.json();
+                            if (listJson.success && listJson.cycles) {
+                                setHistory(listJson.cycles);
                             }
                         }
                     }
@@ -218,21 +216,23 @@ export default function AiDashboard() {
         }
     };
 
+    // 🌟 4. 新テーブルから過去サイクル一覧を取得して最新回を自動ロード
     useEffect(() => {
-        const fetchLatestHistory = async () => {
+        const fetchLatestCycles = async () => {
             try {
-                const res = await fetch(`/api/ai/intelligence?category=${activeCategory}`);
+                const res = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
                 const json = await res.json();
-                if (json.success && json.history && json.history.length > 0) {
-                    setHistory(json.history);
-                    handleSelectHistory(json.history[0]);
+                if (json.success && json.cycles && json.cycles.length > 0) {
+                    setHistory(json.cycles);
+                    await loadCycleData(json.cycles[0].id);
                 } else {
                     setHistory([]);
                     setAiData(null);
+                    setPipelineProgress({ cycleId: null, status: null, gate1Audits: [], gate2Audits: [] });
                 }
             } catch (e) { console.error('履歴取得エラー:', e); }
         };
-        fetchLatestHistory();
+        fetchLatestCycles();
     }, [activeCategory]); 
 
     return (

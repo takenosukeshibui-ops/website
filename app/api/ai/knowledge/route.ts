@@ -2,14 +2,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// 🌟 1. ナレッジ一覧取得 (GET)
+// 1. ナレッジ一覧取得 (GET)
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const agentKey = searchParams.get('agentKey');
 
     const supabase = await createClient();
-    let query = supabase.from('ai_knowledge_base').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('ai_knowledge').select('*').order('created_at', { ascending: false });
 
     if (agentKey && agentKey !== 'all') {
       query = query.eq('agent_key', agentKey);
@@ -18,13 +18,13 @@ export async function GET(req: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ success: true, knowledge: data });
+    return NextResponse.json({ success: true, knowledge: data || [] });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
-// 🌟 2. ナレッジ登録 (POST)
+// 2. ナレッジ登録 (POST)
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from('ai_knowledge_base')
+      .from('ai_knowledge')
       .insert({ agent_key: agentKey, content: content })
       .select();
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   }
 }
 
-// 🌟 3. ナレッジ削除 (DELETE)
+// 3. ナレッジ削除 (DELETE)
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -60,7 +60,7 @@ export async function DELETE(req: Request) {
 
     const supabase = await createClient();
     const { error } = await supabase
-      .from('ai_knowledge_base')
+      .from('ai_knowledge')
       .delete()
       .eq('id', id);
 
