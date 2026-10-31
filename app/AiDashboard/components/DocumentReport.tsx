@@ -51,20 +51,25 @@ export default function DocumentReportView({
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
-    const formattedCreatedAt = report.createdAt || new Date().toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    // 🌟 年月日のフォーマット
+    const dateObj = report.createdAt ? new Date(report.createdAt) : new Date();
+    const formattedDate = !isNaN(dateObj.getTime())
+        ? `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`
+        : new Date().toLocaleDateString('ja-JP');
 
-    const regionMatch = report.title?.match(/【(.*?)】/);
-    const regionTag = regionMatch ? `【${regionMatch[1]}】` : '【北米】';
+    // 🌟 担当地域の正規化判定（北米 / 欧州 / アジア）
+    let regionName = '北米';
+    const titleUpper = (report.title || '').toUpperCase();
+    if (titleUpper.includes('EU') || titleUpper.includes('欧州')) {
+        regionName = '欧州';
+    } else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) {
+        regionName = 'アジア';
+    } else if (titleUpper.includes('US') || titleUpper.includes('北米')) {
+        regionName = '北米';
+    }
 
-    const displayTitle = isTrendReport
-        ? (report.title || `${formattedCreatedAt} ${regionTag} 市場トレンドレポート`)
-        : `${formattedCreatedAt} ${regionTag} アービトラージレポート`;
+    const reportTypeName = isTrendReport ? '市場トレンドレポート' : 'アービトラージレポート';
+    const displayTitle = `${formattedDate} ${regionName} ${reportTypeName}`;
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
@@ -76,9 +81,6 @@ export default function DocumentReportView({
                         <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">
                             {displayTitle}
                         </h3>
-                        {report.claim && (
-                            <p className="text-xs text-slate-400 mt-1">{report.claim}</p>
-                        )}
                     </div>
                 </div>
                 {isTrendReport ? (
@@ -100,13 +102,12 @@ export default function DocumentReportView({
 
             <div className="p-4 sm:p-6 space-y-6">
                 {/* ========================================================= */}
-                {/* 🔥 市場トレンドレポート描画ブロック（カード5枚を最上部に配置） */}
+                {/* 市場トレンドレポート描画ブロック */}
                 {/* ========================================================= */}
                 {isTrendReport && (
                     <div className="space-y-6">
                         {report.hypotheses.map((hypo: any, hIdx: number) => (
                             <div key={hIdx} className="space-y-3">
-                                {/* 複数仮説がある場合のみ見分け用のインデックスを表示 */}
                                 {report.hypotheses.length > 1 && (
                                     <div className="flex items-center gap-2 px-1">
                                         <span className="text-xs font-bold text-amber-400 font-mono">
@@ -118,7 +119,6 @@ export default function DocumentReportView({
                                     </div>
                                 )}
 
-                                {/* 子：波及銘柄 上位5枚グリッド */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                     {hypo.items?.map((item: any, iIdx: number) => {
                                         const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
@@ -199,7 +199,6 @@ export default function DocumentReportView({
                             </div>
                         ))}
 
-                        {/* 🌟 上部にあった「仮説・ピーク想定・シグナル」＋ サマリーをここにまとめて配置 */}
                         <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-6 shadow-lg">
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                                 <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
@@ -207,7 +206,6 @@ export default function DocumentReportView({
                                 </h4>
                             </div>
 
-                            {/* 仮説タイトル ＆ シグナル文章 */}
                             <div className="space-y-3">
                                 {report.hypotheses?.map((hypo: any, hIdx: number) => (
                                     <div key={hIdx} className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-2.5">
@@ -231,7 +229,6 @@ export default function DocumentReportView({
                                 ))}
                             </div>
 
-                            {/* エグゼクティブ・サマリー（データがある場合のみ展開） */}
                             {summary && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
@@ -284,7 +281,7 @@ export default function DocumentReportView({
                 )}
 
                 {/* ========================================================= */}
-                {/* 💎 アービトラージレポート描画ブロック（既存維持） */}
+                {/* アービトラージレポート描画ブロック */}
                 {/* ========================================================= */}
                 {!isTrendReport && report.slots && report.slots.length > 0 && (
                     <div className="space-y-4">
@@ -517,7 +514,7 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-                {/* 🌟 アービトラージ版エグゼクティブ・サマリー */}
+                {/* アービトラージ版エグゼクティブ・サマリー */}
                 {!isTrendReport && (summary || hasArbitrageTiers) && (
                     <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">

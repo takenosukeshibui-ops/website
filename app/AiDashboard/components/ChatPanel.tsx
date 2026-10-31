@@ -27,7 +27,6 @@ export default function ChatPanel({
     const [knowledgeList, setKnowledgeList] = useState<KnowledgeItem[]>([]);
     const [showKnowledgePanel, setShowKnowledgePanel] = useState(false);
     
-    // 🌟 画面全体ではなく、チャット枠内のみをスクロールさせるためのRef
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -37,12 +36,13 @@ export default function ChatPanel({
     };
 
     useEffect(() => {
-        // 🌟 aiActiveDesk を依存配列から除外。メッセージ送受信時のみ枠内を最下部に移動
         scrollToBottom();
     }, [chatLogs]);
 
     const getActiveAgentKey = (desk: string): string | null => {
         if (desk === 'desk_audit') return 'auditor';
+        if (desk.startsWith('desk_trend_audit')) return 'trend_audit';
+        if (desk.startsWith('desk_arbitrage_audit')) return 'arbitrage_audit';
         if (desk.startsWith('desk_trend')) return 'trend';
         if (desk.startsWith('desk_arbitrage')) return 'arbitrage';
         if (desk === 'desk_x_account') return 'x_account';
@@ -57,14 +57,16 @@ export default function ChatPanel({
 
     const getDeskTitle = (desk: string): string => {
         if (desk === 'desk_audit') return '🛡️ 品質・規約監査役';
-        if (desk === 'desk_chief') return '👑 チーフマネージャー（キュレーター）';
+        if (desk === 'desk_trend_audit') return '🛡️ 市場トレンド監査';
+        if (desk === 'desk_arbitrage_audit') return '⚖️ アービトラージ監査担当';
+        if (desk === 'desk_chief') return '👑 キュレーター';
         if (desk.startsWith('desk_trend')) return `🔮 市場アナリスト (${activeTrendRegion.toUpperCase()})`;
         if (desk.startsWith('desk_arbitrage')) return `💎 アービトラージアナリスト (${activeArbitrageRegion.toUpperCase()})`;
-        if (desk === 'desk_account') return '📊 IGアナリスト';
+        if (desk === 'desk_account') return '📊 Instagramアナリスト';
         if (desk === 'desk_x_account') return '🐦 Xアナリスト';
-        if (desk === 'desk_sns') return '📸 Instagram担当';
+        if (desk === 'desk_sns') return '📸 Instagramクリエイター';
         if (desk === 'desk_x') return '🐦 Xクリエイター';
-        if (desk === 'desk_sales') return '✉️ コミュニティ営業担当';
+        if (desk === 'desk_sales') return '✉️ 有料コミュニティ';
         return '担当AI';
     };
 
@@ -95,18 +97,22 @@ export default function ChatPanel({
 
     const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) => {
         const senderToAgentKey: Record<string, string> = {
+            'キュレーター': 'chief',
             'チーフマネージャー': 'chief',
             '品質・規約監査役': 'auditor',
             '監査役': 'auditor',
+            '市場トレンド監査': 'trend_audit',
+            'アービトラージ監査担当': 'arbitrage_audit',
             '市場アナリスト': 'trend',
             'アービトラージアナリスト': 'arbitrage',
+            'Instagramアナリスト': 'account',
             'IGアナリスト': 'account',
             'Xアナリスト': 'x_account',
+            'Instagramクリエイター': 'sns',
             'Instagram担当': 'sns',
-            'インスタ担当': 'sns',
-            'X担当': 'x',
             'Xクリエイター': 'x',
-            '有料コミュニティ担当': 'sales',
+            'X担当': 'x',
+            '有料コミュニティ': 'sales',
             'コミュニティ営業担当': 'sales'
         };
         let agentKey = senderToAgentKey[sender];
@@ -311,7 +317,6 @@ export default function ChatPanel({
                 </div>
             )}
 
-            {/* 🌟 チャット履歴表示エリア（チャット枠内のみスクロールするよう ref をバインド） */}
             <div 
                 ref={chatContainerRef}
                 className="space-y-3 bg-slate-900/60 rounded-xl p-4 border border-slate-800/80 max-h-80 overflow-y-auto shadow-inner"
@@ -367,7 +372,6 @@ export default function ChatPanel({
                 )}
             </div>
 
-            {/* メッセージ入力・送信フォーム */}
             <form onSubmit={handleSendChatMessage} className="mt-3 flex gap-2">
                 <input
                     type="text"

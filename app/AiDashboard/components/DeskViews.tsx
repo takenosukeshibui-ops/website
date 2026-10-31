@@ -47,7 +47,7 @@ export default function DeskViews({
     const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
     const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
 
-    // 🌟 動的曜日ボタン（生成された日別データのテーマからラベルを抽出）
+    // 動的曜日ボタン
     const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
         const post = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(day) || p.day === day);
         return { key: day, label: DAY_LABELS[day], desc: post?.theme || 'スロット未定' };
@@ -55,7 +55,6 @@ export default function DeskViews({
 
     const dynamicXDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
         const thread = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(day) || t.day === day);
-        // "フック (限定プロモ)" などのカッコ内を抽出
         const match = thread?.mainPost?.match(/\((.*?)\)/);
         return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : 'スレッド未定' };
     });
@@ -80,7 +79,7 @@ export default function DeskViews({
     return (
         <>
             {/* ========================================================= */}
-            {/* 👑 チーフマネージャー戦略デスク（AIキュレーター） */}
+            {/* 👑 キュレーターデスク */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_chief' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -88,8 +87,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">👑</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">チーフマネージャー戦略デスク</h2>
-                                <p className="text-xs text-slate-400">7日分のスロット割当選定 & 看板MVP銘柄のディレクション指示</p>
+                                <h2 className="text-lg font-bold text-white">キュレーター</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -97,7 +95,7 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* 🌟 1. RSI自己適応レポート（strategyBlueprint）の表示枠 */}
+                    {/* RSI自己適応レポート（strategyBlueprint）の表示枠 */}
                     {aiData?.chiefPackage?.strategyBlueprint && (
                         <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-lg mb-2">
                             <div className="flex items-center gap-2 mb-2 border-b border-slate-800 pb-2">
@@ -133,7 +131,7 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 2. 7日分週間コンテンツカレンダー（1日＝複数アイテム対応版） */}
+                            {/* 7日分週間コンテンツカレンダー */}
                             {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
                                 <div>
                                     <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
@@ -154,7 +152,6 @@ export default function DeskViews({
                                                     </span>
                                                 </div>
                                                 
-                                                {/* その日の3地域トリオまたはトレンド銘柄をグリッドで並べる */}
                                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 text-xs">
                                                     {(dailyItem.items || []).map((sub: any, subIdx: number) => (
                                                         <div key={subIdx} className="bg-slate-900/60 p-2.5 rounded border border-slate-800/40 flex flex-col justify-between space-y-2">
@@ -261,7 +258,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🛡️🔮 市場トレンド監査担当アナリスト デスク (Gate 1-B 専任AI) */}
+            {/* 🛡️ 市場トレンド監査 デスク (Gate 1-B) */}
             {/* ========================================================= */}
             {(aiActiveDesk === 'desk_trend_audit' || (aiActiveDesk.startsWith('desk_trend') && isTrendAudit)) && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -270,12 +267,11 @@ export default function DeskViews({
                             <span className="text-3xl">🛡️</span>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-lg font-bold text-white">市場トレンド監査担当アナリスト</h2>
+                                    <h2 className="text-lg font-bold text-white">市場トレンド監査</h2>
                                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-bold font-mono">
                                         Gate 1-B
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-400">市場急騰仮説の客観的根拠（Signal）・欧米大会（Play! Pokémon）規約適合性 専任審査</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -285,7 +281,6 @@ export default function DeskViews({
                         </div>
                     </div>
 
-                    {/* 監査統計サマリーカード */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {(['us', 'eu', 'asia'] as const).map(reg => {
                             const regAudits = allTrendAudits.filter(a => a.region?.toLowerCase() === reg);
@@ -308,7 +303,6 @@ export default function DeskViews({
                         })}
                     </div>
 
-                    {/* 監査レポート一覧 */}
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
                             <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
@@ -370,7 +364,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* ⚖️💎 アービトラージ監査担当アナリスト デスク (Gate 1-A 専任AI) */}
+            {/* ⚖️💎 アービトラージ監査担当 デスク (Gate 1-A) */}
             {/* ========================================================= */}
             {(aiActiveDesk === 'desk_arbitrage_audit' || (aiActiveDesk.startsWith('desk_arbitrage') && isArbAudit)) && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -379,12 +373,11 @@ export default function DeskViews({
                             <span className="text-3xl">⚖️</span>
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-lg font-bold text-white">アービトラージ監査担当アナリスト</h2>
+                                    <h2 className="text-lg font-bold text-white">アービトラージ監査担当</h2>
                                     <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded font-bold font-mono">
                                         Gate 1-A
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-400">全225商品（本命＋代替）四則演算・粗利マージン・ROI整合性 専任高速検算</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -394,7 +387,6 @@ export default function DeskViews({
                         </div>
                     </div>
 
-                    {/* 監査統計サマリーカード */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {(['us', 'eu', 'asia'] as const).map(reg => {
                             const regAudits = allArbAudits.filter(a => a.region?.toLowerCase() === reg);
@@ -417,7 +409,6 @@ export default function DeskViews({
                         })}
                     </div>
 
-                    {/* 検算レポート一覧 */}
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
                             <h3 className="text-sm font-bold text-emerald-300 flex items-center gap-2">
@@ -482,7 +473,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 📊 自社Instagramアナリスト */}
+            {/* 📊 Instagramアナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_account' && (
                 <div className="w-full space-y-5 animate-fadeIn">
@@ -490,8 +481,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">📊</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">自社Instagramアナリスト</h2>
-                                <p className="text-xs text-slate-400">アカウントエンゲージメント・ファネル診断</p>
+                                <h2 className="text-lg font-bold text-white">Instagramアナリスト</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -503,7 +493,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 自社X (Twitter) アナリスト */}
+            {/* 🐦 Xアナリスト */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x_account' && (
                 <div className="w-full space-y-5 animate-fadeIn">
@@ -511,8 +501,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🐦</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">自社X (Twitter) アナリスト</h2>
-                                <p className="text-xs text-slate-400">Xアルゴリズム・エンゲージメント診断（140字・画像4枚・スレッド最適化）</p>
+                                <h2 className="text-lg font-bold text-white">Xアナリスト</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -524,7 +513,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 Instagram専任 投稿クリエイター */}
+            {/* 🎨 Instagramクリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -532,8 +521,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🎨</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Instagram専任 投稿クリエイター</h2>
-                                <p className="text-xs text-slate-400">7日分の日替わりカルーセル構成 & キャプション原稿（Gate 2 監査済み）</p>
+                                <h2 className="text-lg font-bold text-white">Instagramクリエイター</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -542,7 +530,6 @@ export default function DeskViews({
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {/* 🌟 3. 動的曜日ボタン */}
                         {dynamicIgDays.map(d => (
                             <button
                                 key={d.key}
@@ -633,7 +620,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🐦 X (Twitter) 専任 投稿クリエイター */}
+            {/* 🐦 Xクリエイター */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -641,8 +628,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">🐦</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">X (Twitter) 専任 投稿クリエイター</h2>
-                                <p className="text-xs text-slate-400">7日分の日替わり140字フック ＋ 4ポストスレッド展開（Gate 2 監査済み）</p>
+                                <h2 className="text-lg font-bold text-white">Xクリエイター</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
@@ -651,7 +637,6 @@ export default function DeskViews({
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {/* 🌟 3. 動的曜日ボタン */}
                         {dynamicXDays.map(d => (
                             <button
                                 key={d.key}
@@ -721,7 +706,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 💬 コミュニティ営業AIデスク (Discord) */}
+            {/* 💬 有料コミュニティ */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sales' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -729,8 +714,7 @@ export default function DeskViews({
                         <div className="flex items-center gap-3">
                             <span className="text-3xl">💬</span>
                             <div>
-                                <h2 className="text-lg font-bold text-white">コミュニティ営業AIデスク (Discord)</h2>
-                                <p className="text-xs text-slate-400">大口バイヤー向けVIPチャンネル直送 ロットオファー（Gate 2 監査済み）</p>
+                                <h2 className="text-lg font-bold text-white">有料コミュニティ</h2>
                             </div>
                         </div>
                         <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
