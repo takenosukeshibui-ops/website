@@ -41,6 +41,9 @@ ${JSON.stringify(accountReport, null, 2)}
    - 各曜日キャプション末尾および最終スライドで、以下の2つの選択肢を明確に提示すること:
      ① 「なぜこの価格差が生まれたのか？次の急騰シグナルを知りたい方」 ➔ 【VIP Discord】へ
      ② 「この価格差のまま、日本から最速で直送手配したい方」 ➔ 【プロフの自社代理購入URL】へ
+4. 【画像生成データの出力原則（最重要）】:
+   - 著作権およびVeRO違反を防ぐため、カードのイラスト画像や他者の撮影画像は絶対に使用しません。
+   - 代わりに、システムが「価格差インフォグラフィック」を自動生成（合成）するための正確なテキストデータ（infographicData）を出力してください。
 
 ${rules}
 
@@ -51,40 +54,29 @@ ${rules}
   "hashtags": [
     "#pokemontcg", "#pokemoncards", "#pokemoninvesting", "#psa10", "#japanesepokemon"
   ],
-  "visualGuideline": {
-    "coverSlide": "看板MVP投稿の表紙画像指示: 3秒で指が止まる価格差フック、文字サイズ・コントラスト比の指定",
-    "carouselSlides": [
-      "2枚目: 北米市場の実成約・サヤ取り実証画面（Fact提示）",
-      "3枚目: 欧州市場の相場実態画面（Fact提示）",
-      "4枚目: アジア市場の熱狂・プレミアム画面（Fact提示）",
-      "5枚目: 世界3大市場の確定利ざや比較インフォグラフィック",
-      "6枚目: 2股CTAスライド（情報→VIP Discord ＆ 直送手配→自社サイト）"
-    ]
-  },
-  "posts": {
-    "hybridPost": "今週の看板MVP特集: 世界3大市場比較ハイブリッド投稿キャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
-    "arbitragePost": "確定利ざや特化型キャプション全文（ハッシュタグ含む）",
-    "trendPost": "市場トレンド・急騰先行特化型キャプション全文（ハッシュタグ含む）"
-  },
   "discordCTA": "プロフリンク・ハイライトへ誘導する2股CTAテンプレート文",
   "dailyPosts": [
     {
       "day": "Monday",
       "theme": "weeklyLineupの月曜テーマ（例: 海外先行トレンド急騰予測 または 現行モダン3市場比較）",
       "caption": "月曜フルキャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
-      "slides": [
-        "1枚目: 表紙（フック）",
-        "2枚目: 事実データスライド",
-        "3枚目: 比較またはシグナルスライド",
-        "4枚目: 2股CTAスライド"
-      ]
+      "infographicData": {
+        "type": "arbitrage または trend",
+        "cardName": "実在のカード名（※イラストではなく文字として画像に印字します）",
+        "region": "US または EU または ASIA",
+        "jpPrice": "¥X,XXX",
+        "overseasPrice": "$XX または €XX",
+        "spread": "+¥X,XXX",
+        "roi": "XX%",
+        "hookText": "画像内に大きく印字する短い英語の煽り文句（例: Massive Spread!）"
+      }
     },
-    { "day": "Tuesday", "theme": "火曜テーマ", "caption": "火曜フルキャプション全文", "slides": ["スライド指示"] },
-    { "day": "Wednesday", "theme": "水曜テーマ", "caption": "水曜フルキャプション全文", "slides": ["スライド指示"] },
-    { "day": "Thursday", "theme": "木曜テーマ", "caption": "木曜フルキャプション全文", "slides": ["スライド指示"] },
-    { "day": "Friday", "theme": "金曜テーマ", "caption": "金曜フルキャプション全文", "slides": ["スライド指示"] },
-    { "day": "Saturday", "theme": "土曜テーマ", "caption": "土曜フルキャプション全文", "slides": ["スライド指示"] },
-    { "day": "Sunday", "theme": "日曜テーマ", "caption": "日曜フルキャプション全文", "slides": ["スライド指示"] }
+    { "day": "Tuesday", "theme": "火曜テーマ", "caption": "火曜フルキャプション全文", "infographicData": { ... } },
+    { "day": "Wednesday", "theme": "水曜テーマ", "caption": "水曜フルキャプション全文", "infographicData": { ... } },
+    { "day": "Thursday", "theme": "木曜テーマ", "caption": "木曜フルキャプション全文", "infographicData": { ... } },
+    { "day": "Friday", "theme": "金曜テーマ", "caption": "金曜フルキャプション全文", "infographicData": { ... } },
+    { "day": "Saturday", "theme": "土曜テーマ", "caption": "土曜フルキャプション全文", "infographicData": { ... } },
+    { "day": "Sunday", "theme": "日曜テーマ", "caption": "日曜フルキャプション全文", "infographicData": { ... } }
   ]
 }`;
 
@@ -129,28 +121,25 @@ ${rules}
 以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
 {
   "theme": "X用拡散フックテーマ",
-  "mainPost": "今週の看板MVP 1ポスト目（140字以内厳守、フック＋画像添付案内＋スレッド誘導）",
-  "threadPosts": [
-    "ツリー2ポスト目: 世界3市場の実成約・相場乖離の事実データ",
-    "ツリー3ポスト目: なぜこの歪みが生じているのか（背景示唆のみ、仕入れ先は完全秘匿）",
-    "ツリー4ポスト目（CTA）: VIP Discord（先行シグナル）＆ 自社サイト（直送依頼）への誘導文"
-  ],
-  "imageGuideline": [
-    "画像1: 日本国内相場画面（Fact）",
-    "画像2: 海外実成約相場画面（Fact）",
-    "画像3: 確定利ざや・マージン内訳インフォグラフィック",
-    "画像4: 2股導線・サービス概要図"
-  ],
   "xCallToAction": "固定ポストまたはリプライ欄に貼る誘導テキスト",
   "dailyThreads": [
     {
       "day": "Monday",
-      "mainPost": "月曜1ポスト目（140文字以内厳守、フック＋画像案内＋ツリー誘導）",
+      "mainPost": "月曜1ポスト目（140文字以内厳守、フック＋インフォグラフィック画像参照＋ツリー誘導）",
       "threadPosts": [
         "ツリー2ポスト目: 事実データ展開",
         "ツリー3ポスト目: 要因分析・示唆",
         "ツリー4ポスト目: 2股CTA"
-      ]
+      ],
+      "infographicData": {
+        "type": "arbitrage または trend",
+        "cardName": "実在のカード名",
+        "jpPrice": "¥X,XXX",
+        "overseasPrice": "$XX",
+        "spread": "+¥X,XXX",
+        "roi": "XX%",
+        "hookText": "Xのタイムラインで目を引く短い英語フック"
+      }
     },
     { "day": "Tuesday", "mainPost": "火曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
     { "day": "Wednesday", "mainPost": "水曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },

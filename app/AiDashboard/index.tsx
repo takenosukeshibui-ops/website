@@ -82,7 +82,6 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
             '✔ 全13AI 稼働完了（各デスクで原稿確認・自動配信可能）'
         ]
     },
-    // 🌟 Gate 2 監査で一部指摘があった場合の表示
     partially_failed: {
         step: 'AUDIT CHECK',
         title: 'Gate 2 監査完了（一部の原稿に規約指摘・修正要請があります）',
@@ -342,14 +341,15 @@ export default function AiDashboard() {
         } catch (err: any) { alert(`投稿エラー: ${err.message}`); } finally { setIsPublishingInstagram(null); }
     };
 
-    const handlePublishToX = async (mainPost: string, threadPosts: string[] = []) => {
+    // 🌟 引数に imageUrl?: string を受け取り、バックエンドへ送信
+    const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) => {
         if (!window.confirm('X (Twitter) 公式アカウントへスレッドを自動投稿しますか？')) return;
         setIsPublishingX(true);
         try {
             const res = await fetch('/api/ai/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ platform: 'x', mainPost, threadPosts })
+                body: JSON.stringify({ platform: 'x', mainPost, threadPosts, imageUrl })
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error);

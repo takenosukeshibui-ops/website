@@ -220,38 +220,27 @@ export interface ProofPackageData {
 }
 
 export interface SnsPostsData {
-  theme: string;
-  recommendedTiming: string;
-  hashtags?: string[];
-  visualGuideline: {
-    coverSlide: string;
-    carouselSlides: string[];
-  };
-  posts: {
-    hybridPost: string;
-    arbitragePost: string;
-    trendPost: string;
-  };
-  discordCTA: string;
-  dailyPosts?: {
-    day: string;
-    theme?: string;
-    caption: string;
-    slides: string[];
-  }[];
+    theme: string;
+    recommendedTiming: string;
+    hashtags?: string[];
+    discordCTA: string;
+    dailyPosts?: {
+        day: string;
+        theme: string;
+        caption: string;
+        infographicData: InfographicData; 
+    }[];
 }
 
 export interface XPostsData {
-  theme: string;
-  mainPost: string;
-  threadPosts: string[];
-  imageGuideline: string[];
-  xCallToAction: string;
-  dailyThreads?: {
-    day: string;
-    mainPost: string;
-    threadPosts: string[];
-  }[];
+    theme: string;
+    xCallToAction: string;
+    dailyThreads?: {
+        day: string;
+        mainPost: string;
+        threadPosts: string[];
+        infographicData: InfographicData; 
+    }[];
 }
 
 export interface SalesDMData {
@@ -360,4 +349,18 @@ export interface PipelineProgressState {
   status: PipelinePhase | null;
   gate1Audits: Gate1AuditItem[];
   gate2Audits: Gate2AuditItem[];
+}
+
+// app/AiDashboard/types.ts
+
+// 共通のインフォグラフィックデータ型を新規追加
+export interface InfographicData {
+    type: 'arbitrage' | 'trend';
+    cardName: string;
+    region?: RegionKey | string;
+    jpPrice: string;
+    overseasPrice: string;
+    spread: string;
+    roi: string;
+    hookText: string;
 }

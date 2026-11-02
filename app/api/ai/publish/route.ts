@@ -130,9 +130,11 @@ export async function POST(req: Request) {
         );
       }
 
+      // 🌟 imageUrl を渡す
       const result = await publishThreadToX({
         mainPost: targetMainPost,
         threadPosts: targetThreadPosts,
+        imageUrl: imageUrl,
       });
 
       if (!result.success) {

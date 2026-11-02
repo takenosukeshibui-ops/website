@@ -18,13 +18,19 @@ interface DeskViewsProps {
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
-    handlePublishToX: (mainPost: string, threadPosts: string[]) => void;
+    handlePublishToX: (mainPost: string, threadPosts: string[], imageUrl?: string) => void;
     isPublishingX: boolean;
 }
 
 const DAY_LABELS: Record<string, string> = {
     Monday: '月曜', Tuesday: '火曜', Wednesday: '水曜', Thursday: '木曜',
     Friday: '金曜', Saturday: '土曜', Sunday: '日曜'
+};
+
+const buildInfographicUrl = (info: any) => {
+    if (!info) return undefined;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    return `${baseUrl}/api/og?type=${info.type || 'arbitrage'}&cardName=${encodeURIComponent(info.cardName || '')}&jpPrice=${encodeURIComponent(info.jpPrice || '')}&overseasPrice=${encodeURIComponent(info.overseasPrice || '')}&spread=${encodeURIComponent(info.spread || '')}&roi=${encodeURIComponent(info.roi || '')}&hookText=${encodeURIComponent(info.hookText || '')}`;
 };
 
 export default function DeskViews({
@@ -46,20 +52,20 @@ export default function DeskViews({
 
     // Instagramの選択された曜日の投稿データ取得
     const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
-    const igPostText = currentIgDaily?.caption || aiData?.snsPosts?.posts?.hybridPost || '';
+    const igPostText = currentIgDaily?.caption || '';
+    const igImageUrl = buildInfographicUrl(currentIgDaily?.infographicData);
 
-    // スライド配列の正規化
-    const igSlides: string[] = (currentIgDaily?.slides && currentIgDaily.slides.length > 0)
-        ? currentIgDaily.slides
-        : [
-            aiData?.snsPosts?.visualGuideline?.coverSlide ? `1枚目(表紙): ${aiData.snsPosts.visualGuideline.coverSlide}` : '1枚目(表紙): 3秒で指が止まる価格差フック',
-            ...(aiData?.snsPosts?.visualGuideline?.carouselSlides || ['2枚目: 世界相場データ', '3枚目: 2股CTAスライド'])
-        ];
+    // インフォグラフィック仕様に合わせたスライド配列
+    const igSlides: string[] = [
+        '1枚目(表紙): 価格差インフォグラフィック画像（自動合成）',
+        '2枚目: VIP Discord ＆ 自社代理購入 への誘導CTA'
+    ];
 
     // Xの選択された曜日のスレッドデータ取得
     const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
-    const xMainPost = currentXDaily?.mainPost || aiData?.xPosts?.mainPost || '';
-    const xThreadPosts = currentXDaily?.threadPosts || aiData?.xPosts?.threadPosts || [];
+    const xMainPost: string = currentXDaily?.mainPost || '';
+    const xThreadPosts: string[] = currentXDaily?.threadPosts || [];
+    const xImageUrl = buildInfographicUrl(currentXDaily?.infographicData);
 
     // 動的曜日ボタン
     const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
@@ -109,7 +115,6 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* RSI自己適応レポート（strategyBlueprint）の表示枠 */}
                     {aiData?.chiefPackage?.strategyBlueprint && (
                         <div className="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-lg mb-2">
                             <div className="flex items-center gap-2 mb-2 border-b border-slate-800 pb-2">
@@ -145,7 +150,6 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 7日分週間コンテンツカレンダー */}
                             {aiData.chiefPackage.contentCalendar && aiData.chiefPackage.contentCalendar.length > 0 && (
                                 <div>
                                     <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
@@ -543,7 +547,6 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* 曜日スロット切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {dynamicIgDays.map(d => (
                             <button
@@ -578,6 +581,23 @@ export default function DeskViews({
                                             推奨: {aiData.snsPosts.recommendedTiming || '日本時間 21:00'}
                                         </span>
                                     </div>
+
+                                    {igImageUrl && (
+                                        <div className="bg-emerald-950/40 p-3 rounded-lg border border-emerald-500/30 flex justify-between items-center">
+                                            <div className="text-xs text-emerald-300 flex items-center gap-2">
+                                                <span>🖼️</span>
+                                                <span className="font-bold">インフォグラフィック画像が生成されました</span>
+                                            </div>
+                                            <a 
+                                                href={igImageUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-white font-bold transition flex items-center gap-1 shadow-md"
+                                            >
+                                                👁️ 画像プレビュー
+                                            </a>
+                                        </div>
+                                    )}
 
                                     {/* カルーセルスライド制作指示リスト */}
                                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
@@ -636,7 +656,7 @@ export default function DeskViews({
                                                 <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
                                                     {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
-                                                <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
+                                                <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, igImageUrl)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
                                                     {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
                                                 </button>
                                             </div>
@@ -648,17 +668,15 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 右カラム: Instagram アプリ実機風プレビュー */}
+                            {/* 右カラム: Instagram アプリ実機風プレビュー */}
                             <div className="xl:col-span-5 flex flex-col items-center">
                                 <div className="w-full max-w-[360px] bg-black rounded-[32px] border-[5px] border-slate-700 shadow-2xl overflow-hidden text-white font-sans text-xs">
-                                    {/* スマホ風ノッチ・上部ステータスバー */}
                                     <div className="h-5 bg-black flex justify-between items-center px-6 pt-1 text-[10px] text-slate-400 font-mono">
                                         <span>21:00</span>
                                         <div className="w-16 h-3 bg-slate-900 rounded-full mx-auto" />
                                         <span>5G 100%</span>
                                     </div>
 
-                                    {/* IG アカウントヘッダー */}
                                     <div className="p-3 flex items-center justify-between border-b border-slate-900 bg-slate-950/80">
                                         <div className="flex items-center gap-2.5">
                                             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 p-[2px]">
@@ -677,17 +695,14 @@ export default function DeskViews({
                                         <span className="text-slate-400 text-sm">•••</span>
                                     </div>
 
-                                    {/* カルーセル画像スライド表示エリア（正方形 1:1） */}
                                     <div className="relative aspect-square w-full bg-gradient-to-br from-slate-900 via-purple-950 to-slate-950 flex flex-col justify-between p-4 border-y border-slate-900 select-none overflow-hidden">
-                                        {/* 右上スライドカウンターバッジ */}
-                                        <div className="self-end">
+                                        <div className="self-end z-10">
                                             <span className="bg-black/70 backdrop-blur text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700 text-slate-200">
                                                 {currentIgSlideIdx + 1} / {igSlides.length}
                                             </span>
                                         </div>
 
-                                        {/* スライド中央コンテンツ */}
-                                        <div className="space-y-2 text-center my-auto px-2">
+                                        <div className="space-y-2 text-center my-auto px-2 relative z-10">
                                             {currentIgSlideIdx === 0 ? (
                                                 <div className="space-y-3">
                                                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40 font-mono text-[9px] uppercase font-bold tracking-wider">
@@ -721,9 +736,15 @@ export default function DeskViews({
                                                 </div>
                                             )}
                                         </div>
+                                        
+                                        {currentIgSlideIdx === 0 && igImageUrl && (
+                                            <div 
+                                                className="absolute inset-0 opacity-40 z-0 bg-cover bg-center" 
+                                                style={{ backgroundImage: `url('${igImageUrl}')` }} 
+                                            />
+                                        )}
 
-                                        {/* 左右スライドめくり矢印ボタン */}
-                                        <div className="absolute inset-y-0 left-1 flex items-center">
+                                        <div className="absolute inset-y-0 left-1 flex items-center z-10">
                                             {currentIgSlideIdx > 0 && (
                                                 <button 
                                                     type="button"
@@ -734,7 +755,7 @@ export default function DeskViews({
                                                 </button>
                                             )}
                                         </div>
-                                        <div className="absolute inset-y-0 right-1 flex items-center">
+                                        <div className="absolute inset-y-0 right-1 flex items-center z-10">
                                             {currentIgSlideIdx < igSlides.length - 1 && (
                                                 <button 
                                                     type="button"
@@ -746,8 +767,7 @@ export default function DeskViews({
                                             )}
                                         </div>
 
-                                        {/* 下部ドットインジケーター */}
-                                        <div className="flex justify-center gap-1 self-center">
+                                        <div className="flex justify-center gap-1 self-center z-10">
                                             {igSlides.map((_, dotIdx) => (
                                                 <div 
                                                     key={dotIdx} 
@@ -759,7 +779,6 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
-                                    {/* アクションボタンバー */}
                                     <div className="p-3 flex justify-between items-center">
                                         <div className="flex items-center gap-3 text-base">
                                             <span>🤍</span>
@@ -769,7 +788,6 @@ export default function DeskViews({
                                         <span className="text-base text-amber-400">🔖</span>
                                     </div>
 
-                                    {/* キャプションプレビュー */}
                                     <div className="px-3 pb-4 space-y-1 text-[11px] leading-snug">
                                         <div className="text-[10px] font-bold text-slate-300">
                                             いいね！ 342件
@@ -815,7 +833,6 @@ export default function DeskViews({
                         </button>
                     </div>
 
-                    {/* 曜日スロット切り替えタブ */}
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
                         {dynamicXDays.map(d => (
                             <button
@@ -848,6 +865,23 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
+                                    {xImageUrl && (
+                                        <div className="bg-emerald-950/40 p-3 rounded-lg border border-emerald-500/30 flex justify-between items-center">
+                                            <div className="text-xs text-emerald-300 flex items-center gap-2">
+                                                <span>🖼️</span>
+                                                <span className="font-bold">インフォグラフィック画像が生成されました</span>
+                                            </div>
+                                            <a 
+                                                href={xImageUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-white font-bold transition flex items-center gap-1 shadow-md"
+                                            >
+                                                👁️ 画像プレビュー
+                                            </a>
+                                        </div>
+                                    )}
+
                                     {/* 1ポスト目 */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
@@ -864,7 +898,7 @@ export default function DeskViews({
                                                     {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
                                                 <button 
-                                                    onClick={() => handlePublishToX(xMainPost, xThreadPosts)} 
+                                                    onClick={() => handlePublishToX(xMainPost, xThreadPosts, xImageUrl)} 
                                                     disabled={isPublishingX}
                                                     className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
                                                 >
@@ -880,7 +914,7 @@ export default function DeskViews({
                                     {/* 2〜4ポスト目 */}
                                     <div className="space-y-2 pt-2 border-t border-slate-800">
                                         <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
-                                        {xThreadPosts.map((tp, idx) => (
+                                        {xThreadPosts.map((tp: string, idx: number) => (
                                             <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
                                                 <div className="flex justify-between items-center text-[10px] text-slate-400">
                                                     <span>Post {idx + 2} ({tp.length}文字)</span>
@@ -895,7 +929,7 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 🌟 右カラム: X (Twitter) 公式風スレッドプレビュー */}
+                            {/* 右カラム: X (Twitter) 公式風スレッドプレビュー */}
                             <div className="xl:col-span-5 flex flex-col items-center">
                                 <div className="w-full max-w-[400px] bg-black border border-slate-800 rounded-2xl p-4 shadow-2xl text-white font-sans text-xs space-y-4">
                                     <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
@@ -907,7 +941,6 @@ export default function DeskViews({
 
                                     {/* 1ポスト目（メインフック） */}
                                     <div className="space-y-3 relative">
-                                        {/* ツリー結合線 */}
                                         {xThreadPosts.length > 0 && (
                                             <div className="absolute left-4 top-10 bottom-[-16px] w-[2px] bg-slate-800" />
                                         )}
@@ -927,23 +960,18 @@ export default function DeskViews({
                                                     {xMainPost}
                                                 </p>
 
-                                                {/* 添付画像4枚プレビュー枠 */}
-                                                <div className="mt-2.5 grid grid-cols-2 gap-1 rounded-xl overflow-hidden border border-slate-800/80 aspect-[16/9] bg-slate-950">
-                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-r border-b border-slate-800">
-                                                        📊 北米実成約データ
-                                                    </div>
-                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-b border-slate-800">
-                                                        🇪🇺 欧州相場推移
-                                                    </div>
-                                                    <div className="bg-slate-900 flex items-center justify-center p-2 text-center text-[9px] text-slate-400 border-r border-slate-800">
-                                                        🌏 アジア需要・プレミアム
-                                                    </div>
-                                                    <div className="bg-purple-950/40 flex items-center justify-center p-2 text-center text-[9px] text-purple-300 font-bold">
-                                                        📈 3市場確定利ざや比較
-                                                    </div>
+                                                {/* 添付画像プレビュー枠 */}
+                                                <div 
+                                                    className="mt-2.5 rounded-xl overflow-hidden border border-slate-800/80 aspect-square bg-slate-950 bg-cover bg-center"
+                                                    style={xImageUrl ? { backgroundImage: `url('${xImageUrl}')` } : {}}
+                                                >
+                                                    {!xImageUrl && (
+                                                        <div className="w-full h-full flex items-center justify-center text-slate-500">
+                                                            画像データなし
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* X アクションボタン */}
                                                 <div className="flex justify-between items-center text-slate-500 text-xs mt-2.5 pt-1 px-1">
                                                     <span className="hover:text-sky-400 cursor-pointer">💬 12</span>
                                                     <span className="hover:text-green-400 cursor-pointer">🔁 45</span>
@@ -955,7 +983,7 @@ export default function DeskViews({
                                     </div>
 
                                     {/* 2ポスト目以降（スレッドツリー表示） */}
-                                    {xThreadPosts.map((threadText, tIdx) => {
+                                    {xThreadPosts.map((threadText: string, tIdx: number) => {
                                         const isLast = tIdx === xThreadPosts.length - 1;
                                         return (
                                             <div key={tIdx} className="space-y-2 relative pt-1">
