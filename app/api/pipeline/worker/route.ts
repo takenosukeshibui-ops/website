@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
   try {
     // ------------------------------------------------------------------------
-    // Phase 1: 全リサーチ & プラットフォーム戦術（RSI示唆含む）の並列実行
+    // Phase 1: 全リサーチ & プラットフォーム戦術の並列実行 + 外部API自動検証
     // ------------------------------------------------------------------------
     if (cycle.status === 'initialized') {
       console.log('▶ [Phase 1] 全リサーチ & 戦術分析を開始します...');
@@ -98,11 +98,12 @@ export async function POST(req: Request) {
               const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
               const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-              const platformDefault = region === 'us'
-                ? 'eBay US / TCGplayer'
-                : region === 'eu'
-                ? 'Cardmarket / eBay UK'
-                : 'Shopee / Carousell';
+              const platformDefault =
+                region === 'us'
+                  ? 'eBay US / TCGplayer'
+                  : region === 'eu'
+                  ? 'Cardmarket / eBay DE'
+                  : 'Shopee / Carousell';
 
               researchRows.push({
                 cycle_id: cycleId,
@@ -152,6 +153,13 @@ export async function POST(req: Request) {
             const spread = Math.max(0, targetJpy - buy);
             const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
+            const platformDefault =
+              region === 'us'
+                ? 'eBay US / TCGplayer'
+                : region === 'eu'
+                ? 'Cardmarket / eBay DE'
+                : 'Shopee / Carousell';
+
             researchRows.push({
               cycle_id: cycleId,
               agent_key: 'trend',
@@ -167,7 +175,13 @@ export async function POST(req: Request) {
               spread_roi_percent: roi,
               liquidity_indicator: item.timeframe || hypo.timeframe || '約2週間後',
               research_insight: item.impactLogic || hypo.signal || '',
-              raw_payload: { ...item, reportSummary: report.summary, hypothesis: hypo },
+              raw_payload: {
+                ...item,
+                reportSummary: report.summary,
+                hypothesis: hypo,
+                sourcePlatform: item.sourcePlatform || platformDefault,
+                evidenceNote: item.evidenceNote || '市場相場基準',
+              },
               gate1_status: 'pending',
               is_selected: false,
             });
@@ -184,24 +198,28 @@ export async function POST(req: Request) {
       extractTrendItems(trendAsia, 'asia');
 
       if (researchRows.length > 0) {
-        // 1. 全商品を一旦保存
+        // 1. 全商品をDBに一旦登録
         const { data: insertedItems, error: insErr } = await supabase
           .from('ai_research_items')
           .insert(researchRows)
           .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
 
-        // 2. 🌟 アプローチB: 発掘されたアービトラージ商品を外部APIで全件検索・上書き検証
+        // 2. 🌟 外部API（eBay US/UK/DE、TCGplayer、Cardmarket）による全件自動検証・上書き
         if (!insErr && insertedItems) {
-          const arbitrageTargets = insertedItems.filter((i) => i.agent_key === 'arbitrage');
-          console.log(`▶ [アプローチB] 発掘された全${arbitrageTargets.length}商品の海外売価を外部APIで直接検証中...`);
+          const targetsToVerify = insertedItems.filter(
+            (i) => i.agent_key === 'arbitrage' || i.agent_key === 'trend'
+          );
 
-          const verifiedUpdates = await verifyAndEnrichArbitrageItems(arbitrageTargets as any);
-          console.log(`✔ [アプローチB 完了] ${verifiedUpdates.length} / ${arbitrageTargets.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
+          console.log(`▶ 発掘された全${targetsToVerify.length}件の海外売価を外部APIで検証中...`);
+
+          const verifiedUpdates = await verifyAndEnrichArbitrageItems(targetsToVerify as any);
+          console.log(`✔ ${verifiedUpdates.length} / ${targetsToVerify.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
 
           // 3. API検証できた商品の売価・粗利・ROI・エビデンスをDBへ上書き更新
           for (const update of verifiedUpdates) {
             const originalItem = insertedItems.find((i) => i.id === update.itemId);
             const currentPayload = originalItem?.raw_payload || {};
+            const isTrend = originalItem?.agent_key === 'trend';
 
             await supabase
               .from('ai_research_items')
@@ -215,14 +233,20 @@ export async function POST(req: Request) {
                   sourcePlatform: update.sourcePlatform,
                   evidenceNote: update.evidenceNote,
                   sourceEvidenceUrl: update.sourceEvidenceUrl,
-                  currentItem: {
-                    ...(currentPayload.currentItem || {}),
-                    targetSoldPrice: update.target_sold_price_local,
-                    priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
-                    spreadROI: `${update.spread_roi_percent}%`,
-                    sourcePlatform: update.sourcePlatform,
-                    evidenceNote: update.evidenceNote,
-                  },
+                  ...(isTrend
+                    ? {
+                        currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
+                      }
+                    : {
+                        currentItem: {
+                          ...(currentPayload.currentItem || {}),
+                          targetSoldPrice: update.target_sold_price_local,
+                          priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
+                          spreadROI: `${update.spread_roi_percent}%`,
+                          sourcePlatform: update.sourcePlatform,
+                          evidenceNote: update.evidenceNote,
+                        },
+                      }),
                 },
               })
               .eq('id', update.itemId);
@@ -307,13 +331,11 @@ export async function POST(req: Request) {
         passedCandidates = fallbackRes.data || [];
       }
 
-      // Phase 1 で保存された SNS戦術（curatorDirectives）を取得
       const { data: tactics } = await supabase
         .from('ai_platform_tactics')
         .select('*')
         .eq('cycle_id', cycleId);
 
-      // キュレーター実行（候補銘柄 ＋ SNSアナリスト示唆 を注入）
       const curationResult = await runCuratorSelection(
         (passedCandidates as any) || [],
         tactics || [],
@@ -323,13 +345,11 @@ export async function POST(req: Request) {
       const weeklyLineup = curationResult?.weeklyLineup || [];
       const mvpItemId = curationResult?.mvpItemId;
 
-      // 一旦全商品の選定フラグをリセット
       await supabase
         .from('ai_research_items')
         .update({ is_selected: false, is_mvp: false, assigned_day: null })
         .eq('cycle_id', cycleId);
 
-      // キュレーターが選んだ全商品（7日分 × 3商品トリオ ＋ トレンド/的中）をDBに反映
       for (const daily of weeklyLineup) {
         for (const item of daily.items || []) {
           if (!item?.itemId) continue;
@@ -373,7 +393,6 @@ export async function POST(req: Request) {
 
       const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
 
-      // 各曜日の3地域トリオ・商材データを構造化した chiefPackage を構築
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       const structuredWeeklyLineup = days.map((day) => {
         const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];

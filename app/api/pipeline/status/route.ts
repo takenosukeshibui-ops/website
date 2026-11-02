@@ -62,9 +62,8 @@ export async function GET(req: Request) {
 
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
-    const chiefTactic = tactics.find((t) => t.platform === 'chief');
 
-    // 3. サヤ取りレポート復元（新プラットフォーム・エビデンス情報の引き継ぎ対応）
+    // 3. 🌟 サヤ取りレポート復元（外部API検証データ・URL・バッジを完全マッピング）
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -80,27 +79,34 @@ export async function GET(req: Request) {
             tiers: [],
           };
         }
+
         if (item.raw_payload) {
-          const tierPayload = { ...item.raw_payload };
-          
-          // mainItem / subItems にエビデンス情報を確実にセット
-          if (tierPayload.mainItem) {
-            tierPayload.mainItem = {
-              ...tierPayload.mainItem,
-              sourcePlatform: tierPayload.mainItem.sourcePlatform || tierPayload.sourcePlatform || item.raw_payload.sourcePlatform,
-              evidenceNote: tierPayload.mainItem.evidenceNote || tierPayload.evidenceNote || item.raw_payload.evidenceNote,
+          const tierData = { ...item.raw_payload };
+
+          // 本命アイテムへのAPI確定値マッピング
+          if (tierData.mainItem) {
+            tierData.mainItem = {
+              ...tierData.mainItem,
+              targetSoldPrice: item.target_sold_price_local || tierData.mainItem.targetSoldPrice,
+              priceSpreadJPY: item.price_spread_jpy ? `¥${item.price_spread_jpy.toLocaleString()}` : tierData.mainItem.priceSpreadJPY,
+              spreadROI: item.spread_roi_percent ? `${item.spread_roi_percent}%` : tierData.mainItem.spreadROI,
+              sourcePlatform: item.raw_payload?.sourcePlatform,
+              evidenceNote: item.raw_payload?.evidenceNote,
+              sourceEvidenceUrl: item.raw_payload?.sourceEvidenceUrl,
             };
           }
 
-          if (Array.isArray(tierPayload.subItems)) {
-            tierPayload.subItems = tierPayload.subItems.map((sub: any) => ({
+          // 代替候補アイテムへのAPI確定値マッピング
+          if (Array.isArray(tierData.subItems)) {
+            tierData.subItems = tierData.subItems.map((sub: any) => ({
               ...sub,
-              sourcePlatform: sub.sourcePlatform || tierPayload.sourcePlatform || item.raw_payload.sourcePlatform,
-              evidenceNote: sub.evidenceNote || tierPayload.evidenceNote || item.raw_payload.evidenceNote,
+              sourcePlatform: sub.sourcePlatform || item.raw_payload?.sourcePlatform,
+              evidenceNote: sub.evidenceNote || item.raw_payload?.evidenceNote,
+              sourceEvidenceUrl: sub.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl,
             }));
           }
 
-          slotMap[item.slot_key].tiers.push(tierPayload);
+          slotMap[item.slot_key].tiers.push(tierData);
           if (item.raw_payload.reportSummary && !summaryObj) {
             summaryObj = item.raw_payload.reportSummary;
           }
@@ -115,7 +121,7 @@ export async function GET(req: Request) {
       };
     };
 
-    // 4. トレンドレポート復元
+    // 4. 🌟 トレンドレポート復元（外部API検証データ・URL・バッジを完全マッピング）
     const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'trend' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -133,8 +139,16 @@ export async function GET(req: Request) {
             items: [],
           };
         }
+
         if (item.raw_payload) {
-          hypoMap[headline].items.push(item.raw_payload);
+          hypoMap[headline].items.push({
+            ...item.raw_payload,
+            currentLocalPrice: item.raw_payload?.currentLocalPrice || item.target_sold_price_local,
+            sourcePlatform: item.raw_payload?.sourcePlatform,
+            evidenceNote: item.raw_payload?.evidenceNote,
+            sourceEvidenceUrl: item.raw_payload?.sourceEvidenceUrl,
+          });
+
           if (item.raw_payload.reportSummary && !summaryObj) {
             summaryObj = item.raw_payload.reportSummary;
           }
@@ -164,24 +178,6 @@ export async function GET(req: Request) {
 
     const mvpItem = researchItems.find((i) => i.is_mvp);
 
-    // 🌟 5. カレンダーを「曜日単位」にグルーピング（1日3商品トリオ化対応）
-    const approvedItems = researchItems.filter((i) => i.is_selected);
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const structuredContentCalendar = days.map((day) => {
-      const dayItems = approvedItems.filter((i) => i.assigned_day === day);
-      return {
-        dayOfWeek: day,
-        dayLabelJa: day,
-        postType: dayItems[0]?.slot_key || '未定スロット',
-        items: dayItems.map((item) => ({
-          region: item.region,
-          selectedCardOrTopic: item.card_name,
-          hookFact: item.core_hook_fact || `${item.card_name} (粗利: ¥${item.price_spread_jpy})`,
-          hiddenActionReason: item.curator_rationale || '非公開',
-        })),
-      };
-    });
-
     const formattedData = {
       cycleId: cycle.id,
       pipelineStatus: cycle.status,
@@ -202,14 +198,27 @@ export async function GET(req: Request) {
               selectionReason: mvpItem.curator_rationale || '流動性と粗利マージンを総合勘案して選定',
             }
           : null,
-        // 🌟 chiefTactic から strategyBlueprint を取得して返却
-        strategyBlueprint: chiefTactic?.structure_blueprint || null,
-        approvedItems,
-        contentCalendar: structuredContentCalendar,
+        approvedItems: researchItems.filter((i) => i.is_selected),
+        contentCalendar: researchItems
+          .filter((i) => i.is_selected)
+          .map((i) => ({
+            dayOfWeek: i.assigned_day,
+            dayLabelJa: i.assigned_day,
+            postType: i.slot_key,
+            selectedCardOrTopic: i.card_name,
+            hookFact: i.core_hook_fact || `${i.card_name} (粗利: ¥${i.price_spread_jpy})`,
+            hiddenActionReason: i.curator_rationale || '非公開',
+            directiveForCreator: {
+              instagramAngle: 'カルーセル解説',
+              xTwitterAngle: '140字フック＋スレッド',
+              discordOfferAngle: '大口卸オファー',
+            },
+          })),
       },
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
       salesDM: discordDeliverable?.content_payload || null,
+      // 全件規模の監査結果を agent_key 付きで返却
       gate1Audits: researchItems
         .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({

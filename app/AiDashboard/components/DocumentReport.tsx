@@ -50,6 +50,7 @@ export default function DocumentReportView({
     icon?: string;
 }) {
     const [selectedTier, setSelectedTier] = useState<string>('all');
+    const [openSubIndex, setOpenSubIndex] = useState<string | null>(null);
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
@@ -83,6 +84,10 @@ export default function DocumentReportView({
             case 'Speculative': return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
             default: return 'bg-slate-800 text-slate-300 border-slate-700';
         }
+    };
+
+    const toggleSub = (cellId: string) => {
+        setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
@@ -288,6 +293,10 @@ export default function DocumentReportView({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                     {hypo.items?.map((item: any, iIdx: number) => {
                                         const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
+                                        const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
+                                        const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
+                                        const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
+
                                         return (
                                             <div
                                                 key={iIdx}
@@ -325,6 +334,32 @@ export default function DocumentReportView({
                                                             {item.cardName}
                                                         </h5>
                                                     </div>
+
+                                                    {/* 🌟 外部API連携プラットフォームバッジ ＆ エビデンスURL */}
+                                                    {(platformName || evidenceNote || evidenceUrl) && (
+                                                        <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
+                                                            <div className="flex items-center justify-between gap-1">
+                                                                <span className="font-mono text-amber-400 font-bold truncate">
+                                                                    🌐 {platformName || '海外成約相場'}
+                                                                </span>
+                                                                {evidenceUrl && (
+                                                                    <a
+                                                                        href={evidenceUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-sky-400 hover:text-sky-300 underline font-mono text-[9px] shrink-0"
+                                                                    >
+                                                                        成約URL ↗
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                            {evidenceNote && (
+                                                                <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
+                                                                    📌 {evidenceNote}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
 
                                                     <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
                                                         <div className="flex justify-between text-slate-400">
@@ -514,6 +549,7 @@ export default function DocumentReportView({
                                                 {allItemsInTier.map((item: any, itemIdx: number) => {
                                                     const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
                                                     const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
+                                                    const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
 
                                                     return (
                                                         <div
@@ -546,14 +582,24 @@ export default function DocumentReportView({
                                                                     </h5>
                                                                 </div>
 
-                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ */}
-                                                                {(platformName || evidenceNote) && (
+                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
+                                                                {(platformName || evidenceNote || evidenceUrl) && (
                                                                     <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
-                                                                        {platformName && (
-                                                                            <span className="font-mono text-blue-400 font-bold truncate">
-                                                                                🌐 {platformName}
+                                                                        <div className="flex items-center justify-between gap-1">
+                                                                            <span className="font-mono text-emerald-400 font-bold truncate">
+                                                                                🌐 {platformName || '海外成約相場'}
                                                                             </span>
-                                                                        )}
+                                                                            {evidenceUrl && (
+                                                                                <a
+                                                                                    href={evidenceUrl}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-sky-400 hover:text-sky-300 underline font-mono text-[9px] shrink-0"
+                                                                                >
+                                                                                    成約URL ↗
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
                                                                         {evidenceNote && (
                                                                             <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
                                                                                 📌 {evidenceNote}
@@ -647,10 +693,13 @@ export default function DocumentReportView({
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                                 {sortedTiers.map((tierCell: any, cIdx: number) => {
+                                                    const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
+                                                    const isOpen = openSubIndex === cellId;
                                                     const main = tierCell.mainItem || tierCell;
                                                     const subs: any[] = tierCell.subItems || [];
                                                     const platformName = main.sourcePlatform || tierCell.sourcePlatform;
                                                     const evidenceNote = main.evidenceNote || tierCell.evidenceNote;
+                                                    const evidenceUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl;
 
                                                     return (
                                                         <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -673,14 +722,24 @@ export default function DocumentReportView({
                                                                     {main.cardName}
                                                                 </h5>
 
-                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ */}
-                                                                {(platformName || evidenceNote) && (
+                                                                {/* 🌟 本命の連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
+                                                                {(platformName || evidenceNote || evidenceUrl) && (
                                                                     <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
-                                                                        {platformName && (
-                                                                            <span className="font-mono text-blue-400 font-bold truncate">
-                                                                                🌐 {platformName}
+                                                                        <div className="flex items-center justify-between gap-1">
+                                                                            <span className="font-mono text-emerald-400 font-bold truncate">
+                                                                                🌐 {platformName || '海外成約相場'}
                                                                             </span>
-                                                                        )}
+                                                                            {evidenceUrl && (
+                                                                                <a
+                                                                                    href={evidenceUrl}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-sky-400 hover:text-sky-300 underline font-mono text-[9px] shrink-0"
+                                                                                >
+                                                                                    成約URL ↗
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
                                                                         {evidenceNote && (
                                                                             <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
                                                                                 📌 {evidenceNote}
@@ -713,30 +772,61 @@ export default function DocumentReportView({
                                                             </div>
 
                                                             {subs.length > 0 && (
-                                                                <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1.5">
-                                                                    <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between px-0.5">
-                                                                        <span>🥈 代替候補 ({subs.length}件)</span>
-                                                                    </div>
-                                                                    {subs.map((subItem: any, subIdx: number) => (
-                                                                        <div key={subIdx} className="bg-slate-950/90 p-2 rounded-lg border border-slate-800/60 text-[11px] space-y-1">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
-                                                                                    {subItem.cardName}
-                                                                                </span>
-                                                                                <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
-                                                                            </div>
-                                                                            {(subItem.sourcePlatform || subItem.evidenceNote) && (
-                                                                                <div className="text-[9px] text-slate-500 font-mono flex items-center gap-1 truncate">
-                                                                                    <span>🌐 {subItem.sourcePlatform || '海外成約'}</span>
-                                                                                    {subItem.evidenceNote && <span>({subItem.evidenceNote})</span>}
-                                                                                </div>
-                                                                            )}
-                                                                            <div className="flex justify-between font-mono text-slate-400 text-[10px]">
-                                                                                <span>調達: {subItem.jpBuyPriceJPY}</span>
-                                                                                <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
-                                                                            </div>
+                                                                <div className="border-t border-slate-800 pt-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleSub(cellId)}
+                                                                        className="w-full text-xs font-mono font-bold py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1.5 transition-all"
+                                                                    >
+                                                                        <span>{isOpen ? '▲' : '▼'}</span>
+                                                                        <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
+                                                                    </button>
+
+                                                                    {isOpen && (
+                                                                        <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
+                                                                            {subs.map((subItem: any, subIdx: number) => {
+                                                                                const subPlatform = subItem.sourcePlatform || subItem.raw_payload?.sourcePlatform;
+                                                                                const subEvidence = subItem.evidenceNote || subItem.raw_payload?.evidenceNote;
+                                                                                const subUrl = subItem.sourceEvidenceUrl || subItem.raw_payload?.sourceEvidenceUrl;
+
+                                                                                return (
+                                                                                    <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
+                                                                                        <div className="flex justify-between items-center">
+                                                                                            <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
+                                                                                                {subItem.cardName}
+                                                                                            </span>
+                                                                                            <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
+                                                                                        </div>
+
+                                                                                        {/* 🌟 代替候補の連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
+                                                                                        {(subPlatform || subEvidence || subUrl) && (
+                                                                                            <div className="text-[9px] flex items-center justify-between bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                                                                                                <div className="flex items-center gap-1 truncate">
+                                                                                                    <span className="font-mono text-slate-300 font-bold">🌐 {subPlatform || '海外成約'}</span>
+                                                                                                    {subEvidence && <span className="text-slate-500 truncate">({subEvidence})</span>}
+                                                                                                </div>
+                                                                                                {subUrl && (
+                                                                                                    <a
+                                                                                                        href={subUrl}
+                                                                                                        target="_blank"
+                                                                                                        rel="noopener noreferrer"
+                                                                                                        className="text-sky-400 hover:text-sky-300 underline font-mono text-[8px] shrink-0 ml-1"
+                                                                                                    >
+                                                                                                        成約URL ↗
+                                                                                                    </a>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        <div className="flex justify-between font-mono text-slate-400 text-[10px]">
+                                                                                            <span>調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                            <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
                                                                         </div>
-                                                                    ))}
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
