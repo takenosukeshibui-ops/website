@@ -13,12 +13,198 @@ import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 
+// ============================================================================
+// 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
+// ============================================================================
+async function processAndSaveRegionResearch(
+  supabase: any,
+  cycleId: string,
+  region: 'us' | 'eu' | 'asia',
+  sayaReport: any,
+  trendReport: any
+) {
+  const researchRows: any[] = [];
+  const platformDefault =
+    region === 'us'
+      ? 'eBay US / TCGplayer'
+      : region === 'eu'
+      ? 'Cardmarket / eBay DE'
+      : 'Shopee / Carousell';
+
+  // 1. アービトラージ候補抽出
+  if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
+    for (const slot of sayaReport.slots) {
+      if (!slot) continue;
+      let tiers: any[] = [];
+      if (Array.isArray(slot.tiers)) {
+        tiers = slot.tiers;
+      } else if (slot.tiers && typeof slot.tiers === 'object') {
+        tiers = Object.values(slot.tiers);
+      }
+
+      for (const tier of tiers) {
+        const allItemsInTier = [
+          ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
+          ...(Array.isArray(tier?.subItems)
+            ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
+            : []),
+        ];
+
+        for (const item of allItemsInTier) {
+          if (!item || !item.cardName) continue;
+          const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+          const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
+          const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
+
+          researchRows.push({
+            cycle_id: cycleId,
+            agent_key: 'arbitrage',
+            region,
+            slot_key: slot.slotKey || 'arbitrage_slot',
+            price_tier: tier.priceTier || 'middle',
+            card_name: item.cardName,
+            condition_grade: item.conditionGrade || 'Raw NM',
+            jp_buy_price_jpy: buy,
+            target_sold_price_local: item.targetSoldPrice || '$0',
+            target_sold_price_jpy: buy + spread,
+            price_spread_jpy: spread,
+            spread_roi_percent: roi,
+            liquidity_indicator: item.liquidity || '直近成約あり',
+            research_insight: item.insight || '',
+            raw_payload: {
+              ...tier,
+              reportSummary: sayaReport.summary,
+              currentItem: item,
+              sourcePlatform: item.sourcePlatform || platformDefault,
+              evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',
+              sourceEvidenceUrl: item.sourceEvidenceUrl || null,
+            },
+            gate1_status: 'pending',
+            is_selected: false,
+          });
+        }
+      }
+    }
+  }
+
+  // 2. トレンド候補抽出
+  if (trendReport?.hypotheses) {
+    const hypotheses = Array.isArray(trendReport.hypotheses)
+      ? trendReport.hypotheses
+      : [trendReport.hypotheses];
+
+    for (const hypo of hypotheses) {
+      if (!hypo) continue;
+      const items = Array.isArray(hypo.items) ? hypo.items : [];
+      for (const item of items) {
+        if (!item || !item.cardName) continue;
+        const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+        const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
+        const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
+        const spread = Math.max(0, targetJpy - buy);
+        const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
+
+        researchRows.push({
+          cycle_id: cycleId,
+          agent_key: 'trend',
+          region,
+          slot_key: hypo.headline || 'トレンド先行シグナル',
+          price_tier: 'middle',
+          card_name: item.cardName,
+          condition_grade: item.condition || 'Raw NM',
+          jp_buy_price_jpy: buy,
+          target_sold_price_local: item.currentLocalPrice || '$0',
+          target_sold_price_jpy: targetJpy,
+          price_spread_jpy: spread,
+          spread_roi_percent: roi,
+          liquidity_indicator: item.timeframe || hypo.timeframe || '約2週間後',
+          research_insight: item.impactLogic || hypo.signal || '',
+          raw_payload: {
+            ...item,
+            reportSummary: trendReport.summary,
+            hypothesis: hypo,
+            sourcePlatform: item.sourcePlatform || platformDefault,
+            evidenceNote: item.evidenceNote || '市場相場基準',
+            sourceEvidenceUrl: item.sourceEvidenceUrl || null,
+          },
+          gate1_status: 'pending',
+          is_selected: false,
+        });
+      }
+    }
+  }
+
+  // 3. DB一括登録 ＆ API自動検証・上書き
+  if (researchRows.length > 0) {
+    const { data: insertedItems, error: insErr } = await supabase
+      .from('ai_research_items')
+      .insert(researchRows)
+      .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
+
+    if (!insErr && insertedItems) {
+      console.log(`▶ [${region.toUpperCase()}] 発掘された全${insertedItems.length}件の海外売価を外部APIで検証中...`);
+      try {
+        const verifiedUpdates = await verifyAndEnrichArbitrageItems(insertedItems as any);
+        console.log(`✔ [${region.toUpperCase()}] ${verifiedUpdates.length} / ${insertedItems.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
+
+        for (const update of verifiedUpdates) {
+          const originalItem = insertedItems.find((i: any) => i.id === update.itemId);
+          const currentPayload = originalItem?.raw_payload || {};
+          const isTrend = originalItem?.agent_key === 'trend';
+
+          await supabase
+            .from('ai_research_items')
+            .update({
+              target_sold_price_local: update.target_sold_price_local,
+              target_sold_price_jpy: update.target_sold_price_jpy,
+              price_spread_jpy: update.price_spread_jpy,
+              spread_roi_percent: update.spread_roi_percent,
+              raw_payload: {
+                ...currentPayload,
+                sourcePlatform: update.sourcePlatform,
+                evidenceNote: update.evidenceNote,
+                sourceEvidenceUrl: update.sourceEvidenceUrl,
+                ...(isTrend
+                  ? {
+                      currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
+                    }
+                  : {
+                      currentItem: {
+                        ...(currentPayload.currentItem || {}),
+                        targetSoldPrice: update.target_sold_price_local,
+                        priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
+                        spreadROI: `${update.spread_roi_percent}%`,
+                        sourcePlatform: update.sourcePlatform,
+                        evidenceNote: update.evidenceNote,
+                        sourceEvidenceUrl: update.sourceEvidenceUrl,
+                      },
+                    }),
+              },
+            })
+            .eq('id', update.itemId);
+        }
+      } catch (verifyErr) {
+        console.warn(`[${region.toUpperCase()}] API検証スキップ (フォールバック継続):`, verifyErr);
+      }
+    }
+  }
+}
+
+// ============================================================================
+// メインハンドラー
+// ============================================================================
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const { cycleId } = await req.json().catch(() => ({}));
+  const { cycleId, action } = await req.json().catch(() => ({}));
 
   if (!cycleId) {
     return NextResponse.json({ success: false, error: 'cycleId is required' }, { status: 400 });
+  }
+
+  // 強制停止アクションのハンドリング
+  if (action === 'stop') {
+    await supabase.from('ai_pipeline_cycles').update({ status: 'partially_failed' }).eq('id', cycleId);
+    return NextResponse.json({ success: true, message: 'Pipeline stopped' });
   }
 
   const { data: cycle, error: cycleErr } = await supabase
@@ -50,238 +236,92 @@ export async function POST(req: Request) {
 
   try {
     // ------------------------------------------------------------------------
-    // Phase 1: 全リサーチ & プラットフォーム戦術の並列実行 + 外部API自動検証
+    // Phase 1-A: 初期化 ＆ SNSアナリスト診断 ＆ 北米(US)リサーチ
     // ------------------------------------------------------------------------
-    if (cycle.status === 'initialized') {
-      console.log('▶ [Phase 1] 全リサーチ & 戦術分析を開始します...');
-      await supabase.from('ai_pipeline_cycles').update({ status: 'researching' }).eq('id', cycleId);
-
-      // まずIGアナリストを実行し、そのインサイトをXアナリストへ共有
+    if (cycle.status === 'initialized' || cycle.status === 'researching') {
+      console.log('▶ [Phase 1-A] SNSアナリスト診断 ＆ 北米(US)市場リサーチを開始します...');
+      
       const igTactics = await runAccountAnalysis(cycle.category);
-
-      const [trendUS, trendEU, trendAsia, sayaUS, sayaEU, sayaAsia, xTactics] =
-        await Promise.all([
-          runMarketTrend('us', cycle.category),
-          runMarketTrend('eu', cycle.category),
-          runMarketTrend('asia', cycle.category),
-          runSayaAnalysis('us', cycle.category),
-          runSayaAnalysis('eu', cycle.category),
-          runSayaAnalysis('asia', cycle.category),
-          runXAccountAnalysis(igTactics?.raw_insights || igTactics),
-        ]);
-
-      const researchRows: any[] = [];
-
-      // A. アービトラージ候補抽出（本命 ＋ 代替候補をフラットに全展開）
-      const extractArbitrageItems = (report: any, region: string) => {
-        if (!report?.slots || !Array.isArray(report.slots)) return;
-        for (const slot of report.slots) {
-          if (!slot) continue;
-          let tiers: any[] = [];
-          if (Array.isArray(slot.tiers)) {
-            tiers = slot.tiers;
-          } else if (slot.tiers && typeof slot.tiers === 'object') {
-            tiers = Object.values(slot.tiers);
-          }
-
-          for (const tier of tiers) {
-            const allItemsInTier = [
-              ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
-              ...(Array.isArray(tier?.subItems)
-                ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
-                : []),
-            ];
-
-            for (const item of allItemsInTier) {
-              if (!item || !item.cardName) continue;
-              const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-              const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
-              const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
-
-              const platformDefault =
-                region === 'us'
-                  ? 'eBay US / TCGplayer'
-                  : region === 'eu'
-                  ? 'Cardmarket / eBay DE'
-                  : 'Shopee / Carousell';
-
-              researchRows.push({
-                cycle_id: cycleId,
-                agent_key: 'arbitrage',
-                region,
-                slot_key: slot.slotKey || 'arbitrage_slot',
-                price_tier: tier.priceTier || 'middle',
-                card_name: item.cardName,
-                condition_grade: item.conditionGrade || 'Raw NM',
-                jp_buy_price_jpy: buy,
-                target_sold_price_local: item.targetSoldPrice || '$0',
-                target_sold_price_jpy: buy + spread,
-                price_spread_jpy: spread,
-                spread_roi_percent: roi,
-                liquidity_indicator: item.liquidity || '直近成約あり',
-                research_insight: item.insight || '',
-                raw_payload: {
-                  ...tier,
-                  reportSummary: report.summary,
-                  currentItem: item,
-                  sourcePlatform: item.sourcePlatform || platformDefault,
-                  evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',
-                  sourceEvidenceUrl: item.sourceEvidenceUrl || null,
-                },
-                gate1_status: 'pending',
-                is_selected: false,
-              });
-            }
-          }
-        }
-      };
-
-      // B. トレンド候補抽出（仮説ごとの銘柄 & シグナル）
-      const extractTrendItems = (report: any, region: string) => {
-        if (!report?.hypotheses) return;
-        const hypotheses = Array.isArray(report.hypotheses)
-          ? report.hypotheses
-          : [report.hypotheses];
-
-        for (const hypo of hypotheses) {
-          if (!hypo) continue;
-          const items = Array.isArray(hypo.items) ? hypo.items : [];
-          for (const item of items) {
-            if (!item || !item.cardName) continue;
-            const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-            const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
-            const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
-            const spread = Math.max(0, targetJpy - buy);
-            const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
-
-            const platformDefault =
-              region === 'us'
-                ? 'eBay US / TCGplayer'
-                : region === 'eu'
-                ? 'Cardmarket / eBay DE'
-                : 'Shopee / Carousell';
-
-            researchRows.push({
-              cycle_id: cycleId,
-              agent_key: 'trend',
-              region,
-              slot_key: hypo.headline || 'トレンド先行シグナル',
-              price_tier: 'middle',
-              card_name: item.cardName,
-              condition_grade: item.condition || 'Raw NM',
-              jp_buy_price_jpy: buy,
-              target_sold_price_local: item.currentLocalPrice || '$0',
-              target_sold_price_jpy: targetJpy,
-              price_spread_jpy: spread,
-              spread_roi_percent: roi,
-              liquidity_indicator: item.timeframe || hypo.timeframe || '約2週間後',
-              research_insight: item.impactLogic || hypo.signal || '',
-              raw_payload: {
-                ...item,
-                reportSummary: report.summary,
-                hypothesis: hypo,
-                sourcePlatform: item.sourcePlatform || platformDefault,
-                evidenceNote: item.evidenceNote || '市場相場基準',
-                sourceEvidenceUrl: item.sourceEvidenceUrl || null,
-              },
-              gate1_status: 'pending',
-              is_selected: false,
-            });
-          }
-        }
-      };
-
-      extractArbitrageItems(sayaUS, 'us');
-      extractArbitrageItems(sayaEU, 'eu');
-      extractArbitrageItems(sayaAsia, 'asia');
-
-      extractTrendItems(trendUS, 'us');
-      extractTrendItems(trendEU, 'eu');
-      extractTrendItems(trendAsia, 'asia');
-
-      if (researchRows.length > 0) {
-        // 1. 全商品をDBに一旦登録
-        const { data: insertedItems, error: insErr } = await supabase
-          .from('ai_research_items')
-          .insert(researchRows)
-          .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
-
-        // 2. 外部API（eBay US/UK/DE、TCGplayer、Cardmarket）による全件自動検証・上書き
-        if (!insErr && insertedItems) {
-          const targetsToVerify = insertedItems.filter(
-            (i) => i.agent_key === 'arbitrage' || i.agent_key === 'trend'
-          );
-
-          console.log(`▶ 発掘された全${targetsToVerify.length}件の海外売価を外部APIで検証中...`);
-
-          const verifiedUpdates = await verifyAndEnrichArbitrageItems(targetsToVerify as any);
-          console.log(`✔ ${verifiedUpdates.length} / ${targetsToVerify.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
-
-          // 3. API検証できた商品の売価・粗利・ROI・エビデンスをDBへ上書き更新
-          for (const update of verifiedUpdates) {
-            const originalItem = insertedItems.find((i) => i.id === update.itemId);
-            const currentPayload = originalItem?.raw_payload || {};
-            const isTrend = originalItem?.agent_key === 'trend';
-
-            await supabase
-              .from('ai_research_items')
-              .update({
-                target_sold_price_local: update.target_sold_price_local,
-                target_sold_price_jpy: update.target_sold_price_jpy,
-                price_spread_jpy: update.price_spread_jpy,
-                spread_roi_percent: update.spread_roi_percent,
-                raw_payload: {
-                  ...currentPayload,
-                  // 🌟 sourcePlatform, evidenceNote, sourceEvidenceUrl を一本化して重複を排除
-                  sourcePlatform: update.sourcePlatform,
-                  evidenceNote: update.evidenceNote,
-                  sourceEvidenceUrl: update.sourceEvidenceUrl,
-                  ...(isTrend
-                    ? {
-                        currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
-                      }
-                    : {
-                        currentItem: {
-                          ...(currentPayload.currentItem || {}),
-                          targetSoldPrice: update.target_sold_price_local,
-                          priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
-                          spreadROI: `${update.spread_roi_percent}%`,
-                          sourcePlatform: update.sourcePlatform,
-                          evidenceNote: update.evidenceNote,
-                          sourceEvidenceUrl: update.sourceEvidenceUrl,
-                        },
-                      }),
-                },
-              })
-              .eq('id', update.itemId);
-          }
-        }
-      }
-
-      // SNSアナリストの出力（curatorDirectives を含む raw_insights）を保存
-      await supabase.from('ai_platform_tactics').insert([
-        {
-          cycle_id: cycleId,
-          platform: 'instagram',
-          recommended_timing: igTactics?.facts?.[1]?.value || '日本時間 21:00',
-          hook_guidelines: igTactics?.soWhat || '3秒フック',
-          structure_blueprint: igTactics?.curatorDirectives || igTactics?.facts || {},
-          raw_insights: igTactics || {},
-        },
-        {
-          cycle_id: cycleId,
-          platform: 'x',
-          recommended_timing: xTactics?.facts?.[2]?.value || '日本時間 20:00',
-          hook_guidelines: '140字フック＋画像4枚案内',
-          structure_blueprint: xTactics?.curatorDirectives || xTactics?.facts || {},
-          raw_insights: xTactics || {},
-        },
+      const [trendUS, sayaUS] = await Promise.all([
+        runMarketTrend('us', cycle.category),
+        runSayaAnalysis('us', cycle.category),
       ]);
 
-      await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 1 完了] 全リサーチ & 戦術分析 & API検証完了。ステータスを gate1_auditing に更新しました');
+      await processAndSaveRegionResearch(supabase, cycleId, 'us', sayaUS, trendUS);
+
+      // IGアナリスト結果を保存
+      await supabase.from('ai_platform_tactics').upsert({
+        cycle_id: cycleId,
+        platform: 'instagram',
+        recommended_timing: igTactics?.facts?.[1]?.value || '日本時間 21:00',
+        hook_guidelines: igTactics?.soWhat || '3秒フック',
+        structure_blueprint: igTactics?.curatorDirectives || igTactics?.facts || {},
+        raw_insights: igTactics || {},
+      }, { onConflict: 'cycle_id,platform' });
+
+      // 次の欧州(EU)フェーズへバトンタッチ
+      await supabase.from('ai_pipeline_cycles').update({ status: 'researching_eu' as any }).eq('id', cycleId);
+      console.log('✔ [Phase 1-A 完了] 北米リサーチ完了。ステータスを researching_eu に更新しました');
       dispatchNext();
-      return NextResponse.json({ success: true, step: 'research_completed' });
+      return NextResponse.json({ success: true, step: 'us_research_completed' });
+    }
+
+    // ------------------------------------------------------------------------
+    // Phase 1-B: 欧州(EU)リサーチ
+    // ------------------------------------------------------------------------
+    if ((cycle.status as string) === 'researching_eu') {
+      console.log('▶ [Phase 1-B] 欧州(EU)市場リサーチを開始します...');
+
+      const [trendEU, sayaEU] = await Promise.all([
+        runMarketTrend('eu', cycle.category),
+        runSayaAnalysis('eu', cycle.category),
+      ]);
+
+      await processAndSaveRegionResearch(supabase, cycleId, 'eu', sayaEU, trendEU);
+
+      // 次のアジア(Asia)フェーズへバトンタッチ
+      await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
+      console.log('✔ [Phase 1-B 完了] 欧州リサーチ完了。ステータスを researching_asia に更新しました');
+      dispatchNext();
+      return NextResponse.json({ success: true, step: 'eu_research_completed' });
+    }
+
+    // ------------------------------------------------------------------------
+    // Phase 1-C: アジア(Asia)リサーチ ＆ Xアナリスト分析
+    // ------------------------------------------------------------------------
+    if ((cycle.status as string) === 'researching_asia') {
+      console.log('▶ [Phase 1-C] アジア(Asia)市場リサーチ ＆ Xアナリスト分析を開始します...');
+
+      const { data: igTacticRow } = await supabase
+        .from('ai_platform_tactics')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .eq('platform', 'instagram')
+        .single();
+
+      const [trendAsia, sayaAsia, xTactics] = await Promise.all([
+        runMarketTrend('asia', cycle.category),
+        runSayaAnalysis('asia', cycle.category),
+        runXAccountAnalysis(igTacticRow?.raw_insights || {}),
+      ]);
+
+      await processAndSaveRegionResearch(supabase, cycleId, 'asia', sayaAsia, trendAsia);
+
+      // Xアナリスト結果を保存
+      await supabase.from('ai_platform_tactics').upsert({
+        cycle_id: cycleId,
+        platform: 'x',
+        recommended_timing: xTactics?.facts?.[2]?.value || '日本時間 20:00',
+        hook_guidelines: '140字フック＋画像4枚案内',
+        structure_blueprint: xTactics?.curatorDirectives || xTactics?.facts || {},
+        raw_insights: xTactics || {},
+      }, { onConflict: 'cycle_id,platform' });
+
+      // Gate 1 監査へバトンタッチ
+      await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
+      console.log('✔ [Phase 1-C 完了] アジアリサーチ＆X分析完了。ステータスを gate1_auditing に更新しました');
+      dispatchNext();
+      return NextResponse.json({ success: true, step: 'all_research_completed' });
     }
 
     // ------------------------------------------------------------------------
