@@ -1,7 +1,7 @@
 // app/api/pipeline/worker/route.ts
 export const maxDuration = 60;
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
@@ -227,11 +227,20 @@ export async function POST(req: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
 
   const dispatchNext = () => {
-    fetch(`${baseUrl}/api/pipeline/worker`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cycleId }),
-    }).catch((err) => console.error('[Worker Auto-dispatch failed]:', err.message));
+    after(async () => {
+      try {
+        console.log(`📡 [Worker Auto-dispatch] 次のステップを起動します... (Cycle: ${cycleId})`);
+        const res = await fetch(`${baseUrl}/api/pipeline/worker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cycleId }),
+        });
+        const json = await res.json().catch(() => ({}));
+        console.log(`✔ [Worker Auto-dispatch 応答受信]:`, json);
+      } catch (err: any) {
+        console.error('❌ [Worker Auto-dispatch 失敗]:', err.message);
+      }
+    });
   };
 
   try {

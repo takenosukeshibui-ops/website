@@ -14,6 +14,8 @@ interface PhaseDetail {
     activeAgents: string[];
 }
 
+// app/AiDashboard/index.tsx の PHASE_DETAILS 定義部分
+
 const PHASE_DETAILS: Record<string, PhaseDetail> = {
     initialized: {
         step: 'PREPARE',
@@ -24,20 +26,31 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     },
     researching: {
         step: 'STEP 1 / 5',
-        title: '世界3大市場リサーチ ＆ プラットフォーム分析',
+        title: '世界3大市場リサーチ (準備中)',
+        percent: 15,
+        color: 'bg-indigo-500',
+        activeAgents: ['リサーチチーム']
+    },
+    // 🌟 追加: 北米完了 ➔ 欧州リサーチ中
+    researching_eu: {
+        step: 'STEP 1 / 5',
+        title: '欧州(EU)市場リサーチ ＆ 価格差検証中...',
         percent: 25,
         color: 'bg-indigo-500',
-        activeAgents: [
-            '🔮 市場トレンドアナリスト (北米/欧州/アジア)',
-            '💎 アービトラージアナリスト (北米/欧州/アジア)',
-            '📊 IG アナリスト',
-            '📈 X アナリスト'
-        ]
+        activeAgents: ['🔮 市場トレンド (EU)', '💎 アービトラージ (EU)']
+    },
+    // 🌟 追加: 欧州完了 ➔ アジアリサーチ中
+    researching_asia: {
+        step: 'STEP 1 / 5',
+        title: 'アジア市場リサーチ ＆ Xアナリスト分析中...',
+        percent: 35,
+        color: 'bg-indigo-500',
+        activeAgents: ['🔮 市場トレンド (Asia)', '💎 アービトラージ (Asia)', '📈 X アナリスト']
     },
     gate1_auditing: {
         step: 'STEP 2 / 5',
         title: '商材データ・トレンド論理 一次監査',
-        percent: 45,
+        percent: 50,
         color: 'bg-amber-500',
         activeAgents: [
             '⚖️ アービトラージ監査担当 (Gate 1-A)',
