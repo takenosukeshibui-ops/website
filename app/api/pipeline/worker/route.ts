@@ -1,4 +1,6 @@
 // app/api/pipeline/worker/route.ts
+export const maxDuration = 60;
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
@@ -9,6 +11,7 @@ import { runGate1Audit } from '@/app/api/pipeline/gates/gate1';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
+import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -116,7 +119,6 @@ export async function POST(req: Request) {
                 spread_roi_percent: roi,
                 liquidity_indicator: item.liquidity || '直近成約あり',
                 research_insight: item.insight || '',
-                // 🌟 外部連携プラットフォーム情報・売価エビデンスを raw_payload に格納
                 raw_payload: {
                   ...tier,
                   reportSummary: report.summary,
@@ -182,7 +184,50 @@ export async function POST(req: Request) {
       extractTrendItems(trendAsia, 'asia');
 
       if (researchRows.length > 0) {
-        await supabase.from('ai_research_items').insert(researchRows);
+        // 1. 全商品を一旦保存
+        const { data: insertedItems, error: insErr } = await supabase
+          .from('ai_research_items')
+          .insert(researchRows)
+          .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
+
+        // 2. 🌟 アプローチB: 発掘されたアービトラージ商品を外部APIで全件検索・上書き検証
+        if (!insErr && insertedItems) {
+          const arbitrageTargets = insertedItems.filter((i) => i.agent_key === 'arbitrage');
+          console.log(`▶ [アプローチB] 発掘された全${arbitrageTargets.length}商品の海外売価を外部APIで直接検証中...`);
+
+          const verifiedUpdates = await verifyAndEnrichArbitrageItems(arbitrageTargets as any);
+          console.log(`✔ [アプローチB 完了] ${verifiedUpdates.length} / ${arbitrageTargets.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
+
+          // 3. API検証できた商品の売価・粗利・ROI・エビデンスをDBへ上書き更新
+          for (const update of verifiedUpdates) {
+            const originalItem = insertedItems.find((i) => i.id === update.itemId);
+            const currentPayload = originalItem?.raw_payload || {};
+
+            await supabase
+              .from('ai_research_items')
+              .update({
+                target_sold_price_local: update.target_sold_price_local,
+                target_sold_price_jpy: update.target_sold_price_jpy,
+                price_spread_jpy: update.price_spread_jpy,
+                spread_roi_percent: update.spread_roi_percent,
+                raw_payload: {
+                  ...currentPayload,
+                  sourcePlatform: update.sourcePlatform,
+                  evidenceNote: update.evidenceNote,
+                  sourceEvidenceUrl: update.sourceEvidenceUrl,
+                  currentItem: {
+                    ...(currentPayload.currentItem || {}),
+                    targetSoldPrice: update.target_sold_price_local,
+                    priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
+                    spreadROI: `${update.spread_roi_percent}%`,
+                    sourcePlatform: update.sourcePlatform,
+                    evidenceNote: update.evidenceNote,
+                  },
+                },
+              })
+              .eq('id', update.itemId);
+          }
+        }
       }
 
       // SNSアナリストの出力（curatorDirectives を含む raw_insights）を保存
@@ -206,7 +251,7 @@ export async function POST(req: Request) {
       ]);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 1 完了] 全リサーチ & 戦術分析完了。ステータスを gate1_auditing に更新しました');
+      console.log('✔ [Phase 1 完了] 全リサーチ & 戦術分析 & API検証完了。ステータスを gate1_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'research_completed' });
     }
