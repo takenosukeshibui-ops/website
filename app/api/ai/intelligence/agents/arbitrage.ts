@@ -1,6 +1,6 @@
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../helpers';
+import { parseAIJson, getCategoryName } from '../helpers';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ArbitrageItem {
@@ -58,6 +58,7 @@ const SLOTS = [
 export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: string = 'pokemon') {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
+  const categoryName = getCategoryName(category);
 
   const model = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
@@ -93,7 +94,7 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   // 【Step 1】5スロット並列調査（計75商品を発掘）
   // ==========================================================================
   const slotPromises = SLOTS.map(async (slot) => {
-    const slotPrompt = `あなたは【${cur.name}】で越境トレカ販売を展開する現地事業者専属の調達戦略アナリストです。
+    const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
 
 【主要連携プラットフォーム基準】
@@ -107,6 +108,7 @@ ${externalPriceContext}
 
 【調達リサーチ任務】
 以下の【5つの価格帯】すべてについて、日本から輸入・調達して現地で売却するのに適したカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選してください。
+（※他タイトルのカードは絶対に含めないこと）
 （このスロット全体で 5価格帯 × 3商品 ＝ 合計15商品）
 
 ■ 5つの価格帯と調達・合格基準:

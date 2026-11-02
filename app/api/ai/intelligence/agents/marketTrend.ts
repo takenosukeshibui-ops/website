@@ -1,7 +1,7 @@
 // app/api/ai/intelligence/agents/marketTrend.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { createClient } from '@/lib/supabase/server';
-import { parseAIJson } from '../helpers';
+import { parseAIJson, getCategoryName } from '../helpers';
 
 export interface TrendItem {
   cardName: string;
@@ -57,6 +57,7 @@ export async function runMarketTrend(
 ): Promise<MarketTrendReport | null> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
+  const categoryName = getCategoryName(category);
 
   // 1. 直近同期された最新海外相場データをSupabaseから取得
   let overseasContext = '（最新海外成約相場データなし：AIの市場知識ベースで推論）';
@@ -96,8 +97,8 @@ export async function runMarketTrend(
     apiKey,
   });
 
-  const prompt = `あなたは【${cur.name}】のトレカ相場動向を分析する専任の市場トレンドアナリストです。
-日本のトレカ市場（一次・二次流通）と現地市場（TCGplayer, Cardmarket, eBay, 各国専門店）の価格差・需要変化を客観的に監視しています。
+  const prompt = `あなたは【${cur.name}】の【${categoryName}】相場動向を分析する専任の市場トレンドアナリストです。
+日本の【${categoryName}】市場（一次・二次流通）と現地市場（TCGPlayer, Cardmarket, eBay, 各国専門店）の価格差・需要変化を客観的に監視しています。
 
 以下の【直近の現地プラットフォーム実成約・トレンド相場データ】を優先参照し、現在現地市場で先行シグナルや価格変動が発生している注目銘柄・注目仮説を分析してください。
 
@@ -108,19 +109,21 @@ ${overseasContext}
 今後2週間〜1ヶ月以内に【${cur.name}】で需要急増または価格高騰が予見される「先行トレンド仮説」を3〜5件立案し、それぞれの仮説に紐づく注目銘柄を特定してください。
 仮説の切り口やテーマに特定の制約はありません。現在の市場データを観察して最も顕著に現れている変化を自由に捉えてください。
 
-■ 厳格な論理整合性ルール（自律検証義務）:
-1. 事実と論理の整合性（ハルシネーションの排除）:
+■ 厳格な論理整合性ルール（自律検証義務）
+1. 対象商材の絶対固定（最重要）:
+   - 必ず【${categoryName}】のみを選定してください。ワンピースカード、遊戯王、その他他タイトルのカードが混入することは絶対に許されません。
+2. 事実と論理の整合性（ハルシネーションの排除）:
    - 架空のカード名や型番は厳禁。実在するカード名・型番を明記すること。
    - 自ら立てた仮説の「高騰理由」と「カードの属性」が論理的に一致していること。
      * 大会・対戦需要を根拠にする場合：そのカードが現地公式大会で使用可能なレギュレーション準拠であること（大会使用不可のカードを対戦需要として扱わない）。
      * コレクション・希少性需要を根拠にする場合：キャラクター人気、イラストレーター、絶版などコレクター心理に基づいていること。
-2. 客観的根拠（Signal）の言語化:
+3. 客観的根拠（Signal）の言語化:
    - 単なる「人気」「注目」といった曖昧な形容詞で済ませず、「何が起きた／起きつつあるのか」という客観的な観測事実を signal に記述すること。
-3. 状態の指定:
+4. 状態の指定:
    - コンディションは商材の流通実態に合わせて以下から客観的に選定すること:
      ["Raw NM", "Raw LP", "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10", "Sealed Box", "Sealed Pack", "Sealed Promo"]
    - 仕入れ値（jpBuyPriceJPY）と現地見込売価（currentLocalPrice）の状態基準は必ず一致させること。
-4. プラットフォームと根拠の明記:
+5. プラットフォームと根拠の明記:
    - sourcePlatform（例: TCGplayer (Market Price), eBay US, Cardmarket）と evidenceNote（例: 直近成約基準、MKMトレンド相場）を必ず出力すること。
 
 以下のJSON形式のみを出力してください:
