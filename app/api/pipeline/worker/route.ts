@@ -241,6 +241,9 @@ export async function POST(req: Request) {
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       console.log('▶ [Phase 1-A] SNSアナリスト診断 ＆ 北米(US)市場リサーチを開始します...');
       
+      // 🌟 修正: 処理開始直後に即座にステータスを変更し、二重実行を完全にブロックする
+      await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
+
       const igTactics = await runAccountAnalysis(cycle.category);
       const [trendUS, sayaUS] = await Promise.all([
         runMarketTrend('us', cycle.category),

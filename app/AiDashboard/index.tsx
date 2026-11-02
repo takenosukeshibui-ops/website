@@ -260,27 +260,6 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // クライアント自動推進（競合防止フラグ）
-                        const activePhases: PipelinePhase[] = [
-                            'initialized',
-                            'researching',
-                            'curating',
-                            'gate1_auditing',
-                            'generating_content',
-                            'gate2_auditing'
-                        ];
-
-                        if (activePhases.includes(currentStatus) && !isAdvancing) {
-                            isAdvancing = true;
-                            fetch('/api/pipeline/worker', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ cycleId }),
-                            }).finally(() => {
-                                isAdvancing = false;
-                            });
-                        }
-
                         // 終了時
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             if (pollIntervalRef.current) {
