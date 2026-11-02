@@ -99,7 +99,7 @@ export default function DocumentReportView({
     else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) regionName = 'アジア';
     else if (titleUpper.includes('US') || titleUpper.includes('北米')) regionName = '北米';
 
-    // 🌟 タイトルの動的出し分け（SNSアナリストのタイトルはAIが生成したものをそのまま表示）
+    // 🌟 タイトルの動的出し分け
     let displayTitle = '';
     if (isStrategicReport) {
         displayTitle = `${formattedDate} ${report.title}`;
@@ -181,7 +181,6 @@ export default function DocumentReportView({
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Facts & Insights */}
                             {report.facts && report.facts.length > 0 && (
                                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
                                     <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
@@ -198,7 +197,6 @@ export default function DocumentReportView({
                                 </div>
                             )}
 
-                            {/* Curator Directives (スロット重み付け) */}
                             {report.curatorDirectives && (
                                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
                                     <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-2">
@@ -227,7 +225,6 @@ export default function DocumentReportView({
                             )}
                         </div>
 
-                        {/* So What (クリエイター向け指示) */}
                         {report.soWhat && (
                             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
                                 <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
@@ -270,9 +267,8 @@ export default function DocumentReportView({
                     </div>
                 )}
 
-
                 {/* ========================================================= */}
-                {/* 2. 市場トレンドレポート描画ブロック（既存維持） */}
+                {/* 2. 市場トレンドレポート描画ブロック */}
                 {/* ========================================================= */}
                 {isTrendReport && (
                     <div className="space-y-6">
@@ -451,7 +447,7 @@ export default function DocumentReportView({
                 )}
 
                 {/* ========================================================= */}
-                {/* 3. アービトラージレポート描画ブロック（既存維持） */}
+                {/* 3. アービトラージレポート描画ブロック */}
                 {/* ========================================================= */}
                 {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="space-y-4">
@@ -515,68 +511,89 @@ export default function DocumentReportView({
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                                                {allItemsInTier.map((item: any, itemIdx: number) => (
-                                                    <div
-                                                        key={itemIdx}
-                                                        className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
-                                                            item.isMain
-                                                                ? 'bg-slate-900 border-amber-500/40 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
-                                                                : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
-                                                        }`}
-                                                    >
-                                                        <div className="space-y-2.5">
-                                                            <div className="flex justify-between items-start gap-1">
-                                                                <span
-                                                                    className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                                                                        item.isMain
-                                                                            ? 'bg-amber-400 text-slate-950 shadow-sm'
-                                                                            : 'bg-slate-800 text-slate-300 border border-slate-700'
-                                                                    }`}
-                                                                >
-                                                                    {item.rankLabel}
-                                                                </span>
-                                                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
-                                                                    {item.conditionGrade || item.condition || 'Raw NM'}
-                                                                </span>
-                                                            </div>
+                                                {allItemsInTier.map((item: any, itemIdx: number) => {
+                                                    const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
+                                                    const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
 
-                                                            <div className="min-h-[2.8rem]">
-                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
-                                                                    {item.cardName}
-                                                                </h5>
-                                                            </div>
-
-                                                            <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
-                                                                <div className="flex justify-between text-slate-400">
-                                                                    <span>日本調達:</span>
-                                                                    <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
+                                                    return (
+                                                        <div
+                                                            key={itemIdx}
+                                                            className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                                                                item.isMain
+                                                                    ? 'bg-slate-900 border-amber-500/40 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
+                                                                    : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                                                            }`}
+                                                        >
+                                                            <div className="space-y-2.5">
+                                                                <div className="flex justify-between items-start gap-1">
+                                                                    <span
+                                                                        className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+                                                                            item.isMain
+                                                                                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                                                                                : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                                                        }`}
+                                                                    >
+                                                                        {item.rankLabel}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
+                                                                        {item.conditionGrade || item.condition || 'Raw NM'}
+                                                                    </span>
                                                                 </div>
-                                                                <div className="flex justify-between text-slate-400">
-                                                                    <span>現地実成約:</span>
-                                                                    <span className="text-emerald-400 font-bold">{item.targetSoldPrice || item.targetMarketPrice}</span>
+
+                                                                <div className="min-h-[2.8rem]">
+                                                                    <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
+                                                                        {item.cardName}
+                                                                    </h5>
                                                                 </div>
+
+                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ */}
+                                                                {(platformName || evidenceNote) && (
+                                                                    <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
+                                                                        {platformName && (
+                                                                            <span className="font-mono text-blue-400 font-bold truncate">
+                                                                                🌐 {platformName}
+                                                                            </span>
+                                                                        )}
+                                                                        {evidenceNote && (
+                                                                            <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
+                                                                                📌 {evidenceNote}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
+                                                                    <div className="flex justify-between text-slate-400">
+                                                                        <span>日本調達:</span>
+                                                                        <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between text-slate-400">
+                                                                        <span>現地実成約:</span>
+                                                                        <span className="text-emerald-400 font-bold">{item.targetSoldPrice || item.targetMarketPrice}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded flex justify-between items-center text-xs font-mono text-emerald-300">
+                                                                    <span>利ざや: <strong>{item.priceSpreadJPY}</strong></span>
+                                                                    <span className="font-bold">ROI: {item.spreadROI}</span>
+                                                                </div>
+
+                                                                {item.liquidity && (
+                                                                    <div className="text-[11px] font-mono text-slate-400 flex justify-between">
+                                                                        <span>現地回転:</span>
+                                                                        <span className="text-slate-300 font-bold">{item.liquidity}</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
-                                                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded flex justify-between items-center text-xs font-mono text-emerald-300">
-                                                                <span>利ざや: <strong>{item.priceSpreadJPY}</strong></span>
-                                                                <span className="font-bold">ROI: {item.spreadROI}</span>
-                                                            </div>
-
-                                                            {item.liquidity && (
-                                                                <div className="text-[11px] font-mono text-slate-400 flex justify-between">
-                                                                    <span>現地回転:</span>
-                                                                    <span className="text-slate-300 font-bold">{item.liquidity}</span>
+                                                            {item.insight && (
+                                                                <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
+                                                                    <span className="text-amber-400 font-bold mr-1">💡</span>{item.insight}
                                                                 </div>
                                                             )}
                                                         </div>
-
-                                                        {item.insight && (
-                                                            <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
-                                                                <span className="text-amber-400 font-bold mr-1">💡</span>{item.insight}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -632,6 +649,8 @@ export default function DocumentReportView({
                                                 {sortedTiers.map((tierCell: any, cIdx: number) => {
                                                     const main = tierCell.mainItem || tierCell;
                                                     const subs: any[] = tierCell.subItems || [];
+                                                    const platformName = main.sourcePlatform || tierCell.sourcePlatform;
+                                                    const evidenceNote = main.evidenceNote || tierCell.evidenceNote;
 
                                                     return (
                                                         <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -653,6 +672,22 @@ export default function DocumentReportView({
                                                                 <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2.5rem]" title={main.cardName}>
                                                                     {main.cardName}
                                                                 </h5>
+
+                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ */}
+                                                                {(platformName || evidenceNote) && (
+                                                                    <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
+                                                                        {platformName && (
+                                                                            <span className="font-mono text-blue-400 font-bold truncate">
+                                                                                🌐 {platformName}
+                                                                            </span>
+                                                                        )}
+                                                                        {evidenceNote && (
+                                                                            <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
+                                                                                📌 {evidenceNote}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
 
                                                                 <div className="flex justify-between text-xs font-mono border-t border-slate-800/60 pt-1.5">
                                                                     <span className="text-slate-400">日本調達:</span>
@@ -690,6 +725,12 @@ export default function DocumentReportView({
                                                                                 </span>
                                                                                 <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
                                                                             </div>
+                                                                            {(subItem.sourcePlatform || subItem.evidenceNote) && (
+                                                                                <div className="text-[9px] text-slate-500 font-mono flex items-center gap-1 truncate">
+                                                                                    <span>🌐 {subItem.sourcePlatform || '海外成約'}</span>
+                                                                                    {subItem.evidenceNote && <span>({subItem.evidenceNote})</span>}
+                                                                                </div>
+                                                                            )}
                                                                             <div className="flex justify-between font-mono text-slate-400 text-[10px]">
                                                                                 <span>調達: {subItem.jpBuyPriceJPY}</span>
                                                                                 <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>

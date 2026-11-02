@@ -64,7 +64,7 @@ export async function GET(req: Request) {
     const xTactic = tactics.find((t) => t.platform === 'x');
     const chiefTactic = tactics.find((t) => t.platform === 'chief');
 
-    // 3. サヤ取りレポート復元
+    // 3. サヤ取りレポート復元（新プラットフォーム・エビデンス情報の引き継ぎ対応）
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -81,7 +81,26 @@ export async function GET(req: Request) {
           };
         }
         if (item.raw_payload) {
-          slotMap[item.slot_key].tiers.push(item.raw_payload);
+          const tierPayload = { ...item.raw_payload };
+          
+          // mainItem / subItems にエビデンス情報を確実にセット
+          if (tierPayload.mainItem) {
+            tierPayload.mainItem = {
+              ...tierPayload.mainItem,
+              sourcePlatform: tierPayload.mainItem.sourcePlatform || tierPayload.sourcePlatform || item.raw_payload.sourcePlatform,
+              evidenceNote: tierPayload.mainItem.evidenceNote || tierPayload.evidenceNote || item.raw_payload.evidenceNote,
+            };
+          }
+
+          if (Array.isArray(tierPayload.subItems)) {
+            tierPayload.subItems = tierPayload.subItems.map((sub: any) => ({
+              ...sub,
+              sourcePlatform: sub.sourcePlatform || tierPayload.sourcePlatform || item.raw_payload.sourcePlatform,
+              evidenceNote: sub.evidenceNote || tierPayload.evidenceNote || item.raw_payload.evidenceNote,
+            }));
+          }
+
+          slotMap[item.slot_key].tiers.push(tierPayload);
           if (item.raw_payload.reportSummary && !summaryObj) {
             summaryObj = item.raw_payload.reportSummary;
           }

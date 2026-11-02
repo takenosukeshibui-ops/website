@@ -1,6 +1,7 @@
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson } from '../helpers';
+import { createClient } from '@/lib/supabase/server';
 
 export interface ArbitrageItem {
   cardName: string;
@@ -11,6 +12,8 @@ export interface ArbitrageItem {
   spreadROI: string;
   liquidity: string;
   insight: string;
+  sourcePlatform?: string;       // 参照先（eBay US, TCGplayer, Cardmarket, eBay UK/DE 等）
+  evidenceNote?: string;         // 売価の根拠（実成約、Market Price等）
 }
 
 export interface ArbitrageTier {
@@ -26,10 +29,22 @@ export interface ArbitrageSlotReport {
   tiers: ArbitrageTier[];
 }
 
-const REGION_CURRENCIES: Record<string, { currency: string; name: string }> = {
-  us: { currency: 'USD', name: '北米（アメリカ）市場' },
-  eu: { currency: 'EUR', name: '欧州（ヨーロッパ）市場' },
-  asia: { currency: 'SGD', name: 'アジア（シンガポール・台湾・香港等）市場' },
+const REGION_CURRENCIES: Record<string, { currency: string; name: string; targetPlatforms: string[] }> = {
+  us: { 
+    currency: 'USD', 
+    name: '北米（アメリカ）市場',
+    targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
+  },
+  eu: { 
+    currency: 'EUR', 
+    name: '欧州（ヨーロッパ）市場',
+    targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
+  },
+  asia: { 
+    currency: 'SGD', 
+    name: 'アジア（シンガポール・台湾・香港等）市場',
+    targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
+  },
 };
 
 const SLOTS = [
@@ -52,11 +67,41 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   });
 
   // ==========================================================================
+  // 【Step 0】Supabaseから直近の海外API成約・相場キャッシュを取得
+  // ==========================================================================
+  let externalPriceContext = '※外部APIデータ未取得のため、各主要プラットフォーム（' + cur.targetPlatforms.join(', ') + '）の公的成約基準に基づき推論';
+  try {
+    const supabase = await createClient();
+    const { data: cachedPrices, error: cacheErr } = await supabase
+      .from('overseas_market_prices')
+      .select('platform, card_name, condition_grade, sold_price_local, currency, sold_price_jpy, volume_indicator, source_evidence_url')
+      .eq('region', region)
+      .eq('category', category)
+      .order('updated_at', { ascending: false })
+      .limit(30);
+
+    if (!cacheErr && cachedPrices && cachedPrices.length > 0) {
+      externalPriceContext = cachedPrices.map((p: any) => 
+        `- [${p.platform}] ${p.card_name} (${p.condition_grade}): 売価 ${p.currency} ${p.sold_price_local} (約¥${Number(p.sold_price_jpy).toLocaleString()}) | 流動性: ${p.volume_indicator || '直近成約あり'}`
+      ).join('\n');
+    }
+  } catch (err) {
+    console.warn('[Arbitrage] Overseas price fetch warning:', err);
+  }
+
+  // ==========================================================================
   // 【Step 1】5スロット並列調査（計75商品を発掘）
   // ==========================================================================
   const slotPromises = SLOTS.map(async (slot) => {
     const slotPrompt = `あなたは【${cur.name}】で越境トレカ販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}。
+
+【主要連携プラットフォーム基準】
+現地売価（targetSoldPrice）の算定にあたっては、以下の主要プラットフォームの相場を根拠としてください:
+${cur.targetPlatforms.map((p) => `- ${p}`).join('\n')}
+
+【外部API連携による最新実成約データ（※データが存在する場合は最優先で基準価格として採用すること）】
+${externalPriceContext}
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
@@ -93,11 +138,13 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
         "liquidity": "直近7日 X件",
+        "sourcePlatform": "参照プラットフォーム名（例: eBay US / TCGplayer / Cardmarket 等）",
+        "evidenceNote": "売価根拠（例: 直近Sold成約中央値、TCGplayer Market Price等）",
         "insight": "現地需要動向と輸入推奨理由（1行）"
       },
       "subItems": [
-        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "insight": "特徴1行" }
+        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
+        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
       ]
     },
     { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
@@ -143,7 +190,7 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   }
 
   const summaryPrompt = `あなたは【${cur.name}】専属の最高調達投資責任者（CIO）です。
-リサーチチームが日本市場をスクリーニングし、現地で利ざやの取れる【全75商品（本命25＋代替50）】を発掘しました。
+リサーチチームが日本市場をスクリーニングし、現地主要プラットフォーム（${cur.targetPlatforms.join(' / ')}）で利ざやの取れる【全75商品（本命25＋代替50）】を発掘しました。
 
 【今週発掘された全75商品の調達・価格差データ】:
 ${JSON.stringify(allDiscoveredItems, null, 2)}
