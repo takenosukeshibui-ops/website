@@ -206,7 +206,7 @@ export async function POST(req: Request) {
           .insert(researchRows)
           .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
 
-        // 2. 🌟 外部API（eBay US/UK/DE、TCGplayer、Cardmarket）による全件自動検証・上書き
+        // 2. 外部API（eBay US/UK/DE、TCGplayer、Cardmarket）による全件自動検証・上書き
         if (!insErr && insertedItems) {
           const targetsToVerify = insertedItems.filter(
             (i) => i.agent_key === 'arbitrage' || i.agent_key === 'trend'
@@ -232,15 +232,13 @@ export async function POST(req: Request) {
                 spread_roi_percent: update.spread_roi_percent,
                 raw_payload: {
                   ...currentPayload,
+                  // 🌟 sourcePlatform, evidenceNote, sourceEvidenceUrl を一本化して重複を排除
                   sourcePlatform: update.sourcePlatform,
                   evidenceNote: update.evidenceNote,
                   sourceEvidenceUrl: update.sourceEvidenceUrl,
                   ...(isTrend
                     ? {
                         currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
-                        sourcePlatform: update.sourcePlatform,
-                        evidenceNote: update.evidenceNote,
-                        sourceEvidenceUrl: update.sourceEvidenceUrl,
                       }
                     : {
                         currentItem: {
