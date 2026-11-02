@@ -141,16 +141,28 @@ export async function GET(req: Request) {
         }
 
         if (item.raw_payload) {
+          const payload = item.raw_payload;
+
+          // 現地売価表記の正規化（API確定値があれば円換算付きで優先成型）
+          const verifiedLocalPrice =
+            item.target_sold_price_local && item.target_sold_price_jpy
+              ? `${item.target_sold_price_local} (約¥${item.target_sold_price_jpy.toLocaleString()})`
+              : payload.currentLocalPrice || item.target_sold_price_local;
+
           hypoMap[headline].items.push({
-            ...item.raw_payload,
-            currentLocalPrice: item.raw_payload?.currentLocalPrice || item.target_sold_price_local,
-            sourcePlatform: item.raw_payload?.sourcePlatform,
-            evidenceNote: item.raw_payload?.evidenceNote,
-            sourceEvidenceUrl: item.raw_payload?.sourceEvidenceUrl,
+            ...payload,
+            cardName: item.card_name || payload.cardName,
+            condition: item.condition_grade || payload.condition || 'Raw NM',
+            jpBuyPriceJPY: item.jp_buy_price_jpy ? `¥${item.jp_buy_price_jpy.toLocaleString()}` : payload.jpBuyPriceJPY,
+            currentLocalPrice: verifiedLocalPrice,
+            impactLogic: item.research_insight || payload.impactLogic,
+            sourcePlatform: payload.sourcePlatform || (regionKey === 'us' ? 'TCGplayer / eBay US' : regionKey === 'eu' ? 'Cardmarket / eBay DE' : 'Shopee / Carousell'),
+            evidenceNote: payload.evidenceNote || '海外実勢相場基準',
+            sourceEvidenceUrl: payload.sourceEvidenceUrl || null,
           });
 
-          if (item.raw_payload.reportSummary && !summaryObj) {
-            summaryObj = item.raw_payload.reportSummary;
+          if (payload.reportSummary && !summaryObj) {
+            summaryObj = payload.reportSummary;
           }
         }
       }

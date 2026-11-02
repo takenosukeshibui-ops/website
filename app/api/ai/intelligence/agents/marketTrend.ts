@@ -1,5 +1,6 @@
 // app/api/ai/intelligence/agents/marketTrend.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
 import { parseAIJson } from '../helpers';
 
 export interface TrendItem {
@@ -8,6 +9,9 @@ export interface TrendItem {
   jpBuyPriceJPY: string;
   currentLocalPrice: string;
   impactLogic: string;
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
 }
 
 export interface TrendHypothesis {
@@ -54,6 +58,37 @@ export async function runMarketTrend(
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
 
+  // 1. 直近同期された最新海外相場データをSupabaseから取得
+  let overseasContext = '（最新海外成約相場データなし：AIの市場知識ベースで推論）';
+  try {
+    const supabase = await createClient();
+    const targetRegion = region === 'asia' ? 'us' : region;
+    const { data: prices } = await supabase
+      .from('overseas_market_prices')
+      .select('card_name, platform, condition_grade, sold_price_local, currency, sold_price_jpy, source_evidence_url')
+      .eq('region', targetRegion)
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (prices && prices.length > 0) {
+      overseasContext = prices
+        .map(
+          (p) =>
+            `- ${p.card_name} [${p.platform}] (${p.condition_grade || 'Raw'}): ${p.sold_price_local} ${p.currency} (約¥${p.sold_price_jpy?.toLocaleString()})`
+        )
+        .join('\n');
+    }
+  } catch (dbErr) {
+    console.warn('[MarketTrend] DB相場コンテキスト取得スキップ:', dbErr);
+  }
+
+  const defaultPlatform =
+    region === 'us'
+      ? 'eBay US / TCGplayer'
+      : region === 'eu'
+      ? 'Cardmarket / eBay DE'
+      : 'Shopee / Carousell';
+
   const model = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
     temperature: 0.1,
@@ -62,7 +97,12 @@ export async function runMarketTrend(
   });
 
   const prompt = `あなたは【${cur.name}】のトレカ相場動向を分析する専任の市場トレンドアナリストです。
-日本のトレカ市場（一次・二次流通）と現地市場（TCGPlayer, Cardmarket, eBay, 各国専門店）の価格差・需要変化を客観的に監視しています。
+日本のトレカ市場（一次・二次流通）と現地市場（TCGplayer, Cardmarket, eBay, 各国専門店）の価格差・需要変化を客観的に監視しています。
+
+以下の【直近の現地プラットフォーム実成約・トレンド相場データ】を優先参照し、現在現地市場で先行シグナルや価格変動が発生している注目銘柄・注目仮説を分析してください。
+
+【直近の現地プラットフォーム実成約・トレンド相場データ】
+${overseasContext}
 
 【分析任務】
 今後2週間〜1ヶ月以内に【${cur.name}】で需要急増または価格高騰が予見される「先行トレンド仮説」を3〜5件立案し、それぞれの仮説に紐づく注目銘柄を特定してください。
@@ -80,6 +120,8 @@ export async function runMarketTrend(
    - コンディションは商材の流通実態に合わせて以下から客観的に選定すること:
      ["Raw NM", "Raw LP", "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10", "Sealed Box", "Sealed Pack", "Sealed Promo"]
    - 仕入れ値（jpBuyPriceJPY）と現地見込売価（currentLocalPrice）の状態基準は必ず一致させること。
+4. プラットフォームと根拠の明記:
+   - sourcePlatform（例: TCGplayer (Market Price), eBay US, Cardmarket）と evidenceNote（例: 直近成約基準、MKMトレンド相場）を必ず出力すること。
 
 以下のJSON形式のみを出力してください:
 {
@@ -117,7 +159,9 @@ export async function runMarketTrend(
           "condition": "指定マスターから選定",
           "jpBuyPriceJPY": "¥X,XXX",
           "currentLocalPrice": "約¥X,XXX (${cur.currency} XX)",
-          "impactLogic": "この銘柄が選定された具体的な理由"
+          "impactLogic": "この銘柄が選定された具体的な理由",
+          "sourcePlatform": "${defaultPlatform}",
+          "evidenceNote": "成約相場基準"
         }
       ]
     }

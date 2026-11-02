@@ -126,6 +126,7 @@ export async function POST(req: Request) {
                   currentItem: item,
                   sourcePlatform: item.sourcePlatform || platformDefault,
                   evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',
+                  sourceEvidenceUrl: item.sourceEvidenceUrl || null,
                 },
                 gate1_status: 'pending',
                 is_selected: false,
@@ -181,6 +182,7 @@ export async function POST(req: Request) {
                 hypothesis: hypo,
                 sourcePlatform: item.sourcePlatform || platformDefault,
                 evidenceNote: item.evidenceNote || '市場相場基準',
+                sourceEvidenceUrl: item.sourceEvidenceUrl || null,
               },
               gate1_status: 'pending',
               is_selected: false,
@@ -236,6 +238,9 @@ export async function POST(req: Request) {
                   ...(isTrend
                     ? {
                         currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
+                        sourcePlatform: update.sourcePlatform,
+                        evidenceNote: update.evidenceNote,
+                        sourceEvidenceUrl: update.sourceEvidenceUrl,
                       }
                     : {
                         currentItem: {
@@ -245,6 +250,7 @@ export async function POST(req: Request) {
                           spreadROI: `${update.spread_roi_percent}%`,
                           sourcePlatform: update.sourcePlatform,
                           evidenceNote: update.evidenceNote,
+                          sourceEvidenceUrl: update.sourceEvidenceUrl,
                         },
                       }),
                 },
