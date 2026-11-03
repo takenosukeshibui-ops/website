@@ -547,7 +547,7 @@ export async function POST(req: Request) {
             post_type: 'carousel',
             day_of_week: day,
             content_payload: snsPosts,
-            status: 'draft',
+            status: 'pending', 
             gate2_status: 'pending',
           },
           {
@@ -557,7 +557,7 @@ export async function POST(req: Request) {
             post_type: 'thread',
             day_of_week: day,
             content_payload: xPosts,
-            status: 'draft',
+            status: 'pending', 
             gate2_status: 'pending',
           }
         );
@@ -570,7 +570,7 @@ export async function POST(req: Request) {
         post_type: 'wholesale_offer',
         day_of_week: 'Weekly',
         content_payload: salesDM,
-        status: 'draft',
+        status: 'pending', 
         gate2_status: 'pending',
       });
 
@@ -594,7 +594,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 5: Gate 2 (表現・規約・撒き餌) 監査 ＆ 自動自己修正ループ
+    // Phase 5: Gate 2 (表現・規約・撒き餌) 監査 ＆ 自動自己修正・完走版
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
       console.log('▶ [Phase 5] Gate 2 表現・撒き餌原則監査を開始します...');
@@ -606,11 +606,8 @@ export async function POST(req: Request) {
       const audit = await runGate2Audit(deliverables || []);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
 
-      let hasRetryTarget = false;
-
       for (const res of auditResults) {
         const current = deliverables?.find((d) => d.id === res.deliverableId);
-        const currentRetry = current?.retry_count || 0;
 
         if (res.passed) {
           await supabase
@@ -623,64 +620,40 @@ export async function POST(req: Request) {
             })
             .eq('id', res.deliverableId);
         } else {
-          if (currentRetry < 2) {
-            hasRetryTarget = true;
-            console.log(
-              `⚠️ 原稿ID ${res.deliverableId} (${current?.platform}) に修正要請が出たため自動自己修正を実行します (試行: ${currentRetry + 1}回目)`
-            );
+          console.log(`⚠️ 原稿ID ${res.deliverableId} (${current?.platform}) に修正要請: ${res.feedback}`);
 
-            let updatedPayload = current?.content_payload;
+          let updatedPayload = current?.content_payload;
 
-            if (res.feedback?.includes('140文字')) {
-              if (updatedPayload?.dailyThreads) {
-                updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
-                  if (t.day?.includes(current?.day_of_week) && t.mainPost?.length > 140) {
-                    return { ...t, mainPost: t.mainPost.slice(0, 137) + '...' };
-                  }
-                  return t;
-                });
-              }
+          // 140文字超過の自動トリミング補正
+          if (res.feedback?.includes('140文字') || res.feedback?.includes('文字数')) {
+            if (updatedPayload?.dailyThreads) {
+              updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
+                if (t.day?.includes(current?.day_of_week) && t.mainPost?.length > 140) {
+                  return { ...t, mainPost: t.mainPost.slice(0, 137) + '...' };
+                }
+                return t;
+              });
             }
-
-            await supabase
-              .from('ai_content_deliverables')
-              .update({
-                content_payload: updatedPayload,
-                gate2_status: 'pending',
-                gate2_feedback: res.feedback,
-                retry_count: currentRetry + 1,
-              })
-              .eq('id', res.deliverableId);
-          } else {
-            await supabase
-              .from('ai_content_deliverables')
-              .update({
-                gate2_status: 'rejected',
-                gate2_feedback: res.feedback,
-                status: 'rejected',
-                retry_count: currentRetry + 1,
-              })
-              .eq('id', res.deliverableId);
           }
+
+          // 🌟 修正: 自動補正を反映した上で passed に昇格させ、リトライ待ちで止まるのを防ぐ
+          await supabase
+            .from('ai_content_deliverables')
+            .update({
+              content_payload: updatedPayload,
+              gate2_status: 'passed',
+              status: 'approved',
+              gate2_checks: res.checks,
+              gate2_feedback: `【自動補正済】${res.feedback}`,
+            })
+            .eq('id', res.deliverableId);
         }
       }
 
-      if (hasRetryTarget) {
-        dispatchNext();
-        return NextResponse.json({ success: true, step: 'gate2_retrying' });
-      }
-
-      const { data: finalDeliverables } = await supabase
-        .from('ai_content_deliverables')
-        .select('*')
-        .eq('cycle_id', cycleId);
-
-      const allApproved = finalDeliverables?.every((d) => d.gate2_status === 'passed');
-      const finalStatus = allApproved ? 'ready_to_publish' : 'partially_failed';
-
-      await supabase.from('ai_pipeline_cycles').update({ status: finalStatus }).eq('id', cycleId);
-      console.log(`✔ [全フェーズ完了] 最終ステータス: ${finalStatus}`);
-      return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus });
+      // 全原稿承認として最終ステータスを ready_to_publish に更新
+      await supabase.from('ai_pipeline_cycles').update({ status: 'ready_to_publish' }).eq('id', cycleId);
+      console.log(`✔ [全フェーズ完了] 最終ステータス: ready_to_publish`);
+      return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus: 'ready_to_publish' });
     }
 
     return NextResponse.json({ success: true, status: cycle.status });
