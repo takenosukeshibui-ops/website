@@ -226,19 +226,32 @@ export async function POST(req: Request) {
   const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
 
+  // app/api/pipeline/worker/route.ts の dispatchNext 部分を差し替え
+
   const dispatchNext = () => {
     after(async () => {
       try {
         console.log(`📡 [Worker Auto-dispatch] 次のステップを起動します... (Cycle: ${cycleId})`);
+        
         const res = await fetch(`${baseUrl}/api/pipeline/worker`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'User-Agent': 'WorldwideJapan-Internal-Worker/1.0',
+          },
           body: JSON.stringify({ cycleId }),
         });
+
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '');
+          console.error(`❌ [Worker Auto-dispatch 拒否] Status: ${res.status} ${res.statusText} | Response: ${errBody.slice(0, 200)}`);
+          return;
+        }
+
         const json = await res.json().catch(() => ({}));
         console.log(`✔ [Worker Auto-dispatch 応答受信]:`, json);
       } catch (err: any) {
-        console.error('❌ [Worker Auto-dispatch 失敗]:', err.message);
+        console.error('❌ [Worker Auto-dispatch 致命的例外]:', err.message);
       }
     });
   };

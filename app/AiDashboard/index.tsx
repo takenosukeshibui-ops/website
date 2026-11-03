@@ -14,8 +14,6 @@ interface PhaseDetail {
     activeAgents: string[];
 }
 
-// app/AiDashboard/index.tsx の PHASE_DETAILS 定義部分
-
 const PHASE_DETAILS: Record<string, PhaseDetail> = {
     initialized: {
         step: 'PREPARE',
@@ -31,19 +29,27 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         color: 'bg-indigo-500',
         activeAgents: ['リサーチチーム']
     },
-    // 🌟 追加: 北米完了 ➔ 欧州リサーチ中
+    // 🌟 北米リサーチ
+    researching_us: {
+        step: 'STEP 1 / 5',
+        title: '北米(US)市場リサーチ ＆ 価格差検証中...',
+        percent: 20,
+        color: 'bg-indigo-500',
+        activeAgents: ['🔮 市場トレンド (US)', '💎 アービトラージ (US)', '📊 IG アナリスト']
+    },
+    // 🌟 欧州リサーチ
     researching_eu: {
         step: 'STEP 1 / 5',
         title: '欧州(EU)市場リサーチ ＆ 価格差検証中...',
-        percent: 25,
+        percent: 30,
         color: 'bg-indigo-500',
         activeAgents: ['🔮 市場トレンド (EU)', '💎 アービトラージ (EU)']
     },
-    // 🌟 追加: 欧州完了 ➔ アジアリサーチ中
+    // 🌟 アジアリサーチ
     researching_asia: {
         step: 'STEP 1 / 5',
         title: 'アジア市場リサーチ ＆ Xアナリスト分析中...',
-        percent: 35,
+        percent: 40,
         color: 'bg-indigo-500',
         activeAgents: ['🔮 市場トレンド (Asia)', '💎 アービトラージ (Asia)', '📈 X アナリスト']
     },
@@ -60,7 +66,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     curating: {
         step: 'STEP 3 / 5',
         title: '7日分スロット編成 ＆ 看板MVP選定',
-        percent: 60,
+        percent: 65,
         color: 'bg-purple-500',
         activeAgents: [
             '👑 キュレーター'
@@ -69,7 +75,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     generating_content: {
         step: 'STEP 4 / 5',
         title: 'SNS原稿・オファー制作',
-        percent: 75,
+        percent: 80,
         color: 'bg-pink-500',
         activeAgents: [
             '🎨 IG クリエイター',
@@ -128,8 +134,8 @@ export default function AiDashboard() {
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
     const [isPublishingX, setIsPublishingX] = useState<boolean>(false);
     const [isStopping, setIsStopping] = useState<boolean>(false);
-
     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastDispatchedPhaseRef = useRef<string | null>(null);
 
     const [pipelineProgress, setPipelineProgress] = useState<PipelineProgressState>({
         cycleId: null,
@@ -229,7 +235,9 @@ export default function AiDashboard() {
             pollIntervalRef.current = null;
         }
 
+        lastDispatchedPhaseRef.current = null;
         setAiLoading(true);
+
         try {
             const res = await fetch('/api/pipeline/start', {
                 method: 'POST',
@@ -242,8 +250,6 @@ export default function AiDashboard() {
             setSelectedRecordId(cycleId);
             setPipelineProgress(prev => ({ ...prev, cycleId, status: 'initialized' }));
 
-            let isAdvancing = false;
-
             pollIntervalRef.current = setInterval(async () => {
                 try {
                     const statusRes = await fetch(`/api/pipeline/status?cycleId=${cycleId}`);
@@ -255,8 +261,8 @@ export default function AiDashboard() {
                         setPipelineProgress({
                             cycleId,
                             status: currentStatus,
-                            gate1Audits: json.data.gate1Audits || [],
-                            gate2Audits: json.data.gate2Audits || [],
+                            gate1Audits: json.data?.gate1Audits || [],
+                            gate2Audits: json.data?.gate2Audits || [],
                         });
 
                         if (json.data) {
@@ -273,7 +279,35 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // 終了時
+                        // 🌟 進行対象のフェーズ一覧
+                        const activePhases: string[] = [
+                            'initialized',
+                            'researching',
+                            'researching_us',
+                            'researching_eu',
+                            'researching_asia',
+                            'gate1_auditing',
+                            'curating',
+                            'generating_content',
+                            'gate2_auditing'
+                        ];
+
+                        // 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
+                        if (
+                            activePhases.includes(currentStatus) &&
+                            lastDispatchedPhaseRef.current !== currentStatus
+                        ) {
+                            lastDispatchedPhaseRef.current = currentStatus;
+                            console.log(`🚀 [Client Dispatch] 新しいフェーズ [${currentStatus}] の実行を指示します`);
+
+                            fetch('/api/pipeline/worker', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cycleId }),
+                            }).catch(e => console.error('Worker dispatch error:', e));
+                        }
+
+                        // 完了・失敗時の停止処理
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             if (pollIntervalRef.current) {
                                 clearInterval(pollIntervalRef.current);
@@ -333,7 +367,6 @@ export default function AiDashboard() {
         } catch (err: any) { alert(`投稿エラー: ${err.message}`); } finally { setIsPublishingInstagram(null); }
     };
 
-    // 🌟 引数に imageUrl?: string を受け取り、バックエンドへ送信
     const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) => {
         if (!window.confirm('X (Twitter) 公式アカウントへスレッドを自動投稿しますか？')) return;
         setIsPublishingX(true);
