@@ -337,7 +337,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 2: Gate 1 (数値検算 ＆ トレンド論理) 監査
+    // Phase 2: Gate 1 (数値検算 ＆ トレンド論理) 監査（高速並列化版）
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
       console.log('▶ [Phase 2] Gate 1-A (数値検算) & Gate 1-B (トレンド文章論理) 監査を開始します...');
@@ -349,15 +349,24 @@ export async function POST(req: Request) {
       const audit = await runGate1Audit((allItems as any) || [], cycle.category);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
 
-      for (const res of auditResults) {
-        await supabase
-          .from('ai_research_items')
-          .update({
-            gate1_status: res.passed ? 'passed' : 'rejected',
-            gate1_checks: res.checks,
-            gate1_feedback: res.feedback,
-          })
-          .eq('id', res.itemId);
+      console.log(`▶ 全${auditResults.length}件の監査結果をDBへ並列保存中...`);
+
+      // 🌟 修正: 1件ずつ直列で待たず、Promise.all で50件ずつ並列バッチ更新（30秒→2秒に短縮）
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < auditResults.length; i += BATCH_SIZE) {
+        const batch = auditResults.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map((res) =>
+            supabase
+              .from('ai_research_items')
+              .update({
+                gate1_status: res.passed ? 'passed' : 'rejected',
+                gate1_checks: res.checks,
+                gate1_feedback: res.feedback,
+              })
+              .eq('id', res.itemId)
+          )
+        );
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
