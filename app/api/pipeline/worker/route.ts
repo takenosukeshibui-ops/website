@@ -1,7 +1,7 @@
 // app/api/pipeline/worker/route.ts
 export const maxDuration = 60;
 
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
@@ -364,8 +364,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
+    // app/api/pipeline/worker/route.ts の Phase 3 〜 Phase 4 部分
+
     // ------------------------------------------------------------------------
-    // Phase 3: チーフ・キュレーター動的選定（RSI示唆 ＆ 3地域トリオ編成）
+    // Phase 3: チーフ・キュレーター動的選定（堅牢化 ＆ 自動フォールバック版）
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
       console.log('▶ [Phase 3] キュレーター動的編成（RSI適応 ＆ 3地域トリオ）を開始します...');
@@ -399,24 +401,60 @@ export async function POST(req: Request) {
       const weeklyLineup = curationResult?.weeklyLineup || [];
       const mvpItemId = curationResult?.mvpItemId;
 
+      // 初期化
       await supabase
         .from('ai_research_items')
         .update({ is_selected: false, is_mvp: false, assigned_day: null })
         .eq('cycle_id', cycleId);
 
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      let selectedCount = 0;
+
+      // 1. キュレーターの指定に沿って商品をマッチング＆更新
       for (const daily of weeklyLineup) {
         for (const item of daily.items || []) {
-          if (!item?.itemId) continue;
+          const anyItem = item as any; // 🌟 型エラー回避のためのキャスト
+
+          // 🌟 UUIDまたはカード名で柔軟に該当レコードを検索
+          const matched = passedCandidates.find(
+            (c: any) =>
+              c.id === item.itemId ||
+              c.id === anyItem.id ||
+              (anyItem.cardName && c.card_name?.toLowerCase().includes(anyItem.cardName.toLowerCase()))
+          );
+
+          if (matched) {
+            await supabase
+              .from('ai_research_items')
+              .update({
+                is_selected: true,
+                is_mvp: Boolean(item.isMvp) || matched.id === mvpItemId,
+                assigned_day: daily.day,
+                core_hook_fact: item.coreHookFact || daily.themeLabel,
+                curator_rationale: item.rationale || daily.dayRationale,
+              })
+              .eq('id', matched.id);
+            selectedCount++;
+          }
+        }
+      }
+
+      // 🌟 フェイルセーフ: 万が一AIのID不一致で0件だった場合、Gate 1合格品の上位7件を月〜日に自動割り当て
+      if (selectedCount === 0 && passedCandidates.length > 0) {
+        console.warn('⚠️ キュレーターのマッチングが0件だったため、Gate 1合格品から上位7件を自動割り当てします');
+        const fallbackTopItems = passedCandidates.slice(0, 7);
+        for (let i = 0; i < fallbackTopItems.length; i++) {
+          const targetDay = days[i % days.length];
           await supabase
             .from('ai_research_items')
             .update({
               is_selected: true,
-              is_mvp: Boolean(item.isMvp) || item.itemId === mvpItemId,
-              assigned_day: daily.day,
-              core_hook_fact: item.coreHookFact || daily.themeLabel,
-              curator_rationale: item.rationale || daily.dayRationale,
+              is_mvp: i === 0,
+              assigned_day: targetDay,
+              core_hook_fact: '今週の注目注目カード',
+              curator_rationale: '市場相場・粗利ROI基準での選定',
             })
-            .eq('id', item.itemId);
+            .eq('id', fallbackTopItems[i].id);
         }
       }
 
@@ -431,11 +469,23 @@ export async function POST(req: Request) {
     // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
       console.log('▶ [Phase 4] 動的週間編成に沿った SNS原稿 ＆ Discordオファー制作を開始します...');
-      const { data: approvedItems } = await supabase
+      
+      let { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
         .eq('cycle_id', cycleId)
         .eq('is_selected', true);
+
+      // 🌟 二重防御: 万が一 approvedItems が空なら全候補から救済取得
+      if (!approvedItems || approvedItems.length === 0) {
+        console.warn('⚠️ approvedItems が0件のため、合格品から上位7件を再取得します');
+        const { data: fallbackItems } = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .limit(7);
+        approvedItems = fallbackItems || [];
+      }
 
       const { data: tactics } = await supabase
         .from('ai_platform_tactics')
@@ -448,8 +498,11 @@ export async function POST(req: Request) {
       const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
 
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const structuredWeeklyLineup = days.map((day) => {
-        const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
+      const structuredWeeklyLineup = days.map((day, idx) => {
+        let dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
+        if (dayItems.length === 0 && approvedItems?.[idx]) {
+          dayItems = [approvedItems[idx]];
+        }
         return {
           day,
           items: dayItems.map((item) => ({
@@ -461,19 +514,20 @@ export async function POST(req: Request) {
             targetSoldPrice: item.target_sold_price_local,
             priceSpreadJPY: item.price_spread_jpy,
             spreadROI: `${item.spread_roi_percent}%`,
-            coreHookFact: item.core_hook_fact,
-            rationale: item.curator_rationale,
+            coreHookFact: item.core_hook_fact || '注目ピックアップ',
+            rationale: item.curator_rationale || '価格差・流動性基準',
           })),
         };
       });
 
       const chiefPackage = {
-        chosenCardOrItem: mvpItem?.card_name,
-        mvpHighlight: mvpItem,
+        chosenCardOrItem: mvpItem?.card_name || '注目カード',
+        mvpHighlight: mvpItem || {},
         weeklyLineup: structuredWeeklyLineup,
-        approvedItems,
+        approvedItems: approvedItems || [],
       };
 
+      console.log('▶ IG / X / Discord の原稿生成を実行中...');
       const [snsPosts, xPosts, salesDM] = await Promise.all([
         runSnsPosts(chiefPackage, igTactic?.raw_insights, cycle.category),
         runXPosts(chiefPackage, xTactic?.raw_insights, cycle.category),
@@ -488,7 +542,7 @@ export async function POST(req: Request) {
         deliverableRows.push(
           {
             cycle_id: cycleId,
-            research_item_id: primaryItem?.id,
+            research_item_id: primaryItem?.id || null,
             platform: 'instagram',
             post_type: 'carousel',
             day_of_week: day,
@@ -498,7 +552,7 @@ export async function POST(req: Request) {
           },
           {
             cycle_id: cycleId,
-            research_item_id: primaryItem?.id,
+            research_item_id: primaryItem?.id || null,
             platform: 'x',
             post_type: 'thread',
             day_of_week: day,
@@ -511,7 +565,7 @@ export async function POST(req: Request) {
 
       deliverableRows.push({
         cycle_id: cycleId,
-        research_item_id: mvpItem?.id,
+        research_item_id: mvpItem?.id || null,
         platform: 'discord',
         post_type: 'wholesale_offer',
         day_of_week: 'Weekly',
@@ -525,7 +579,14 @@ export async function POST(req: Request) {
         .delete()
         .eq('cycle_id', cycleId);
 
-      await supabase.from('ai_content_deliverables').insert(deliverableRows);
+      const { error: insErr } = await supabase.from('ai_content_deliverables').insert(deliverableRows);
+      if (insErr) {
+        console.error('❌ Deliverables 保存エラー:', insErr);
+        throw insErr;
+      }
+
+      console.log(`✔ 全${deliverableRows.length}件の原稿をDBに保存しました`);
+
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
       console.log('✔ [Phase 4 完了] 全原稿生成完了。ステータスを gate2_auditing に更新しました');
       dispatchNext();
