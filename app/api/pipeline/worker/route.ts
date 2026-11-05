@@ -12,6 +12,7 @@ import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/content
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
+import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
 // ============================================================================
 // 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
@@ -56,6 +57,15 @@ async function processAndSaveRegionResearch(
           const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
+          // 🌟 本命商品はGoogle検索1位の個別URLを取得、代替候補は検索一覧URLを割り当て
+          let evidenceUrl: string;
+          if (item.isMain) {
+            evidenceUrl = await getTopShopUrlByGoogle(item.cardName, 'cardrush');
+          } else {
+            const clean = item.cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+            evidenceUrl = `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(clean)}`;
+          }
+
           researchRows.push({
             cycle_id: cycleId,
             agent_key: 'arbitrage',
@@ -74,9 +84,12 @@ async function processAndSaveRegionResearch(
             raw_payload: {
               ...tier,
               reportSummary: sayaReport.summary,
-              exchangeRate: sayaReport.exchangeRate, // 🌟 sayaReport から参照
-              jpEvidenceUrl: item.jpEvidenceUrl || null,
-              currentItem: item,
+              exchangeRate: sayaReport.exchangeRate,
+              jpEvidenceUrl: evidenceUrl,
+              currentItem: {
+                ...item,
+                jpEvidenceUrl: evidenceUrl,
+              },
               sourcePlatform: item.sourcePlatform || platformDefault,
               evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',
               sourceEvidenceUrl: item.sourceEvidenceUrl || null,
@@ -228,8 +241,6 @@ export async function POST(req: Request) {
   const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
 
-  // app/api/pipeline/worker/route.ts の dispatchNext 部分を差し替え
-
   const dispatchNext = () => {
     console.log(`📡 [Worker] フェーズ完了。次のステップはブラウザの Client Dispatch により安全に起動されます (Cycle: ${cycleId})`);
   };
@@ -241,7 +252,6 @@ export async function POST(req: Request) {
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       console.log('▶ [Phase 1-A] SNSアナリスト診断 ＆ 北米(US)市場リサーチを開始します...');
       
-      // 🌟 修正: 処理開始直後に即座にステータスを変更し、二重実行を完全にブロックする
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
 
       const igTactics = await runAccountAnalysis(cycle.category);
@@ -342,7 +352,6 @@ export async function POST(req: Request) {
 
       console.log(`▶ 全${auditResults.length}件の監査結果をDBへ並列保存中...`);
 
-      // 🌟 修正: 1件ずつ直列で待たず、Promise.all で50件ずつ並列バッチ更新（30秒→2秒に短縮）
       const BATCH_SIZE = 50;
       for (let i = 0; i < auditResults.length; i += BATCH_SIZE) {
         const batch = auditResults.slice(i, i + BATCH_SIZE);
@@ -365,8 +374,6 @@ export async function POST(req: Request) {
       dispatchNext();
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
-
-    // app/api/pipeline/worker/route.ts の Phase 3 〜 Phase 4 部分
 
     // ------------------------------------------------------------------------
     // Phase 3: チーフ・キュレーター動的選定（堅牢化 ＆ 自動フォールバック版）
@@ -415,9 +422,8 @@ export async function POST(req: Request) {
       // 1. キュレーターの指定に沿って商品をマッチング＆更新
       for (const daily of weeklyLineup) {
         for (const item of daily.items || []) {
-          const anyItem = item as any; // 🌟 型エラー回避のためのキャスト
+          const anyItem = item as any;
 
-          // 🌟 UUIDまたはカード名で柔軟に該当レコードを検索
           const matched = passedCandidates.find(
             (c: any) =>
               c.id === item.itemId ||
@@ -441,7 +447,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // 🌟 フェイルセーフ: 万が一AIのID不一致で0件だった場合、Gate 1合格品の上位7件を月〜日に自動割り当て
+      // フェイルセーフ: 万が一AIのID不一致で0件だった場合、Gate 1合格品の上位7件を月〜日に自動割り当て
       if (selectedCount === 0 && passedCandidates.length > 0) {
         console.warn('⚠️ キュレーターのマッチングが0件だったため、Gate 1合格品から上位7件を自動割り当てします');
         const fallbackTopItems = passedCandidates.slice(0, 7);
@@ -453,7 +459,7 @@ export async function POST(req: Request) {
               is_selected: true,
               is_mvp: i === 0,
               assigned_day: targetDay,
-              core_hook_fact: '今週の注目注目カード',
+              core_hook_fact: '今週の注目カード',
               curator_rationale: '市場相場・粗利ROI基準での選定',
             })
             .eq('id', fallbackTopItems[i].id);
@@ -478,7 +484,6 @@ export async function POST(req: Request) {
         .eq('cycle_id', cycleId)
         .eq('is_selected', true);
 
-      // 🌟 二重防御: 万が一 approvedItems が空なら全候補から救済取得
       if (!approvedItems || approvedItems.length === 0) {
         console.warn('⚠️ approvedItems が0件のため、合格品から上位7件を再取得します');
         const { data: fallbackItems } = await supabase
@@ -626,7 +631,6 @@ export async function POST(req: Request) {
 
           let updatedPayload = current?.content_payload;
 
-          // 140文字超過の自動トリミング補正
           if (res.feedback?.includes('140文字') || res.feedback?.includes('文字数')) {
             if (updatedPayload?.dailyThreads) {
               updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
@@ -638,7 +642,6 @@ export async function POST(req: Request) {
             }
           }
 
-          // 🌟 修正: 自動補正を反映した上で passed に昇格させ、リトライ待ちで止まるのを防ぐ
           await supabase
             .from('ai_content_deliverables')
             .update({
@@ -652,7 +655,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // 全原稿承認として最終ステータスを ready_to_publish に更新
       await supabase.from('ai_pipeline_cycles').update({ status: 'ready_to_publish' }).eq('id', cycleId);
       console.log(`✔ [全フェーズ完了] 最終ステータス: ready_to_publish`);
       return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus: 'ready_to_publish' });

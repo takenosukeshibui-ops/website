@@ -127,8 +127,11 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新リアルタイム為替レート: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
-【重要: 大手トレカ通販専門サイト「在庫あり」個別商品リサーチ】
-  必ずGoogle検索を実行し、日本国内の大手トレカ通販専門店から「現在購入可能な在庫あり商品」を検索して確認した上で jpBuyPriceJPY を決定してください。++  ■ 検索対象ショップ（大手トレカ通販のみに限定）:
+重要: 大手トレカ通販専門サイトの実勢相場リサーチ】
+必ずGoogle検索を実行し、カードラッシュ・晴れる屋2・駿河屋等の大手専門店の現在実売相場を確認した上で jpBuyPriceJPY を決定してください。
+（※個別商品ページのURL特定は後続システムが自動で行うため、プロンプト内でのURL出力は不要です）
+
+■ 検索対象ショップ（大手トレカ通販のみに限定）:
   ・カードラッシュ (cardrush-pokemon.jp / cardrush.jp)
   ・遊々亭 (yuyu-tei.jp)
   ・駿河屋 (suruga-ya.jp) ※中古在庫あり品
@@ -137,12 +140,6 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   ・ホビーステーション (hobbystation.com)
   ・フルコンプ (fullcomp-online.com)
   ※メルカリ、ヤフオク、楽天ラクマ、Yahoo!フリマ等の個人CtoCフリマ・オークションサイトは検索・引用厳禁です。
-
-  ■ 在庫およびURL取得の厳格ルール:
-  1. 「在庫あり」厳守: 検索結果やページ内で「SOLD OUT」「在庫切れ」「品切れ」となっている商品は絶対に選定しないでください。カートに入れて即購入できる現行販売価格のみを採用すること。
-  2. 「個別商品URL」厳守: 検索結果一覧（/search、?keyword=等）やカテゴリ一覧ページは禁止です。必ず特定カードの個別詳細ページURL（例: /product/12345, /item/..., /goods/... 形式）を jpEvidenceUrl に格納してください。
-  3. 架空URLの禁止: 検索結果に実在する正規のURLをそのまま格納してください。推測でURLを合成することは厳禁です。
-
 
 【主要連携プラットフォーム基準】
 現地売価（targetSoldPrice）の算定にあたっては、以下の主要プラットフォームの相場を根拠としてください:
@@ -189,7 +186,6 @@ ${externalPriceContext}
         "cardName": "実在カード名 (型番/弾名)",
         "conditionGrade": "コンディションマスターから選定",
         "jpBuyPriceJPY": "¥X,XXX",
-        "jpEvidenceUrl": "https://...",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
@@ -199,8 +195,8 @@ ${externalPriceContext}
         "insight": "現地需要動向と輸入推奨理由（1行）"
       },
       "subItems": [
-        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "jpEvidenceUrl": "https://...", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "jpEvidenceUrl": "https://...", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
+        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
+        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
       ]
     },
     { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
