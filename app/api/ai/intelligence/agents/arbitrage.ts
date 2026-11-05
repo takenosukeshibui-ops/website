@@ -127,9 +127,21 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新リアルタイム為替レート: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
- 【重要: Google検索グラウンディングによる最新実勢相場リサーチ】
- 必ずGoogle検索を実行し、日本国内の二次流通（メルカリ直近成約、ヤフオク落札相場、駿河屋・カドショ販売価格）の「現在の実売価格・安値相場」を実際に検索して確認した上で jpBuyPriceJPY を決定してください。 過去の記憶や架空の数値を推論することは厳禁です。
- また、検索結果で確認した国内の販売・成約ページURL（または出品一覧URL）を jpEvidenceUrl に正確に記録してください。
+【重要: 大手トレカ通販専門サイト「在庫あり」個別商品リサーチ】
+  必ずGoogle検索を実行し、日本国内の大手トレカ通販専門店から「現在購入可能な在庫あり商品」を検索して確認した上で jpBuyPriceJPY を決定してください。++  ■ 検索対象ショップ（大手トレカ通販のみに限定）:
+  ・カードラッシュ (cardrush-pokemon.jp / cardrush.jp)
+  ・遊々亭 (yuyu-tei.jp)
+  ・駿河屋 (suruga-ya.jp) ※中古在庫あり品
+  ・晴れる屋2 (hareruya2.com)
+  ・ドラゴンスター (dorasuta.jp)
+  ・ホビーステーション (hobbystation.com)
+  ・フルコンプ (fullcomp-online.com)
+  ※メルカリ、ヤフオク、楽天ラクマ、Yahoo!フリマ等の個人CtoCフリマ・オークションサイトは検索・引用厳禁です。
+
+  ■ 在庫およびURL取得の厳格ルール:
+  1. 「在庫あり」厳守: 検索結果やページ内で「SOLD OUT」「在庫切れ」「品切れ」となっている商品は絶対に選定しないでください。カートに入れて即購入できる現行販売価格のみを採用すること。
+  2. 「個別商品URL」厳守: 検索結果一覧（/search、?keyword=等）やカテゴリ一覧ページは禁止です。必ず特定カードの個別詳細ページURL（例: /product/12345, /item/..., /goods/... 形式）を jpEvidenceUrl に格納してください。
+  3. 架空URLの禁止: 検索結果に実在する正規のURLをそのまま格納してください。推測でURLを合成することは厳禁です。
 
 
 【主要連携プラットフォーム基準】
