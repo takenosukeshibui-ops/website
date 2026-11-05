@@ -11,7 +11,7 @@ export async function GET(req: Request) {
 
     const supabase = await createClient();
 
-    // 1. 履歴セレクトボックス用の過去サイクル一覧返却
+    // 1. 履歴一覧返却
     if (list === 'true') {
       let query = supabase
         .from('ai_pipeline_cycles')
@@ -63,69 +63,78 @@ export async function GET(req: Request) {
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
 
-    // 3. 🌟 サヤ取りレポート復元（外部API検証データ・URL・バッジを完全マッピング）
+    // 3. サヤ取りレポート復元（重複排除・1スロット1カードに正確に再構築）
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
 
       const slotMap: Record<string, any> = {};
-      let summaryObj: any = null;
       let exchangeRateObj: any = null;
 
       for (const item of items) {
-        if (!slotMap[item.slot_key]) {
-          slotMap[item.slot_key] = {
-            slotKey: item.slot_key,
-            slotLabel: item.slot_key,
+        const slotKey = item.slot_key;
+        if (!slotMap[slotKey]) {
+          slotMap[slotKey] = {
+            slotKey: slotKey,
+            slotLabel: item.raw_payload?.slotLabel || slotKey,
             tiers: [],
           };
         }
 
-        if (item.raw_payload) {
-          const tierData = { ...item.raw_payload };
+        if (item.raw_payload?.exchangeRate && !exchangeRateObj) {
+          exchangeRateObj = item.raw_payload.exchangeRate;
+        }
 
-          // 本命アイテムへのAPI確定値マッピング
-          if (tierData.mainItem) {
-            tierData.mainItem = {
-              ...tierData.mainItem,
-              targetSoldPrice: item.target_sold_price_local || tierData.mainItem.targetSoldPrice,
-              priceSpreadJPY: item.price_spread_jpy ? `¥${item.price_spread_jpy.toLocaleString()}` : tierData.mainItem.priceSpreadJPY,
-              spreadROI: item.spread_roi_percent ? `${item.spread_roi_percent}%` : tierData.mainItem.spreadROI,
-              sourcePlatform: item.raw_payload?.sourcePlatform,
-              evidenceNote: item.raw_payload?.evidenceNote,
-              sourceEvidenceUrl: item.raw_payload?.sourceEvidenceUrl,
-            };
-          }
+        // 🌟 重複排除: 本命アイテム（isMain === true）を親tierとして登録
+        const isMain = Boolean(item.raw_payload?.isMain || item.raw_payload?.role === '本命');
+        if (isMain) {
+          const mainItemData = item.raw_payload?.mainItem || item.raw_payload?.currentItem || {
+            cardName: item.card_name,
+            conditionGrade: item.condition_grade,
+            jpBuyPriceJPY: `¥${item.jp_buy_price_jpy.toLocaleString()}`,
+            targetSoldPrice: item.target_sold_price_local,
+            priceSpreadJPY: `¥${item.price_spread_jpy.toLocaleString()}`,
+            spreadROI: `${item.spread_roi_percent}%`,
+            liquidity: item.liquidity_indicator,
+            insight: item.research_insight,
+            jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl,
+          };
 
-          // 代替候補アイテムへのAPI確定値マッピング
-          if (Array.isArray(tierData.subItems)) {
-            tierData.subItems = tierData.subItems.map((sub: any) => ({
-              ...sub,
-              sourcePlatform: sub.sourcePlatform || item.raw_payload?.sourcePlatform,
-              evidenceNote: sub.evidenceNote || item.raw_payload?.evidenceNote,
-              sourceEvidenceUrl: sub.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl,
+          // 該当スロットの代替候補（subItems）を抽出してバインド
+          const subItemsData = items
+            .filter((sub) => sub.slot_key === slotKey && !sub.raw_payload?.isMain && sub.raw_payload?.role !== '本命')
+            .map((sub) => ({
+              cardName: sub.card_name,
+              conditionGrade: sub.condition_grade,
+              jpBuyPriceJPY: `¥${sub.jp_buy_price_jpy.toLocaleString()}`,
+              targetSoldPrice: sub.target_sold_price_local,
+              priceSpreadJPY: `¥${sub.price_spread_jpy.toLocaleString()}`,
+              spreadROI: `${sub.spread_roi_percent}%`,
+              liquidity: sub.liquidity_indicator,
+              insight: sub.research_insight,
+              jpEvidenceUrl: sub.raw_payload?.jpEvidenceUrl,
             }));
-          }
 
-          slotMap[item.slot_key].tiers.push(tierData);
-          if (item.raw_payload.reportSummary && !summaryObj) {
-            summaryObj = item.raw_payload.reportSummary;
-          }
-          if (item.raw_payload.exchangeRate && !exchangeRateObj) {
-           exchangeRateObj = item.raw_payload.exchangeRate;
-         }
+          slotMap[slotKey].tiers = [
+            {
+              priceTier: item.price_tier,
+              priceTierLabel: item.raw_payload?.priceTierLabel || '本日の指定価格帯',
+              mainItem: mainItemData,
+              subItems: subItemsData,
+            },
+          ];
         }
       }
+
       return {
         title: `【${regionKey.toUpperCase()}】アービトラージレポート`,
-        claim: `${regionKey.toUpperCase()}市場向け輸入調達レポート`,
+        claim: `${regionKey.toUpperCase()}市場向け輸入調達レポート（全5スロット網羅）`,
         exchangeRate: exchangeRateObj,
-        summary: summaryObj,
         slots: Object.values(slotMap),
       };
     };
 
-    // 4. 🌟 トレンドレポート復元（外部API検証データ・URL・バッジを完全マッピング）
+    // 4. トレンドレポート復元
     const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'trend' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -143,30 +152,17 @@ export async function GET(req: Request) {
             items: [],
           };
         }
-
         if (item.raw_payload) {
-          const payload = item.raw_payload;
-
-          // 現地売価表記の正規化（API確定値があれば円換算付きで優先成型）
-          const verifiedLocalPrice =
-            item.target_sold_price_local && item.target_sold_price_jpy
-              ? `${item.target_sold_price_local} (約¥${item.target_sold_price_jpy.toLocaleString()})`
-              : payload.currentLocalPrice || item.target_sold_price_local;
-
           hypoMap[headline].items.push({
-            ...payload,
-            cardName: item.card_name || payload.cardName,
-            condition: item.condition_grade || payload.condition || 'Raw NM',
-            jpBuyPriceJPY: item.jp_buy_price_jpy ? `¥${item.jp_buy_price_jpy.toLocaleString()}` : payload.jpBuyPriceJPY,
-            currentLocalPrice: verifiedLocalPrice,
-            impactLogic: item.research_insight || payload.impactLogic,
-            sourcePlatform: payload.sourcePlatform || (regionKey === 'us' ? 'TCGplayer / eBay US' : regionKey === 'eu' ? 'Cardmarket / eBay DE' : 'Shopee / Carousell'),
-            evidenceNote: payload.evidenceNote || '海外実勢相場基準',
-            sourceEvidenceUrl: payload.sourceEvidenceUrl || null,
+            cardName: item.card_name,
+            condition: item.condition_grade,
+            jpBuyPriceJPY: `¥${item.jp_buy_price_jpy.toLocaleString()}`,
+            currentLocalPrice: item.target_sold_price_local,
+            impactLogic: item.research_insight,
+            jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl,
           });
-
-          if (payload.reportSummary && !summaryObj) {
-            summaryObj = payload.reportSummary;
+          if (item.raw_payload.reportSummary && !summaryObj) {
+            summaryObj = item.raw_payload.reportSummary;
           }
         }
       }
@@ -180,18 +176,6 @@ export async function GET(req: Request) {
       };
     };
 
-    const profitableCards = {
-      us: buildProfitableCards('us'),
-      eu: buildProfitableCards('eu'),
-      asia: buildProfitableCards('asia'),
-    };
-
-    const trendInsights = {
-      us: buildTrendInsights('us'),
-      eu: buildTrendInsights('eu'),
-      asia: buildTrendInsights('asia'),
-    };
-
     const mvpItem = researchItems.find((i) => i.is_mvp);
 
     const formattedData = {
@@ -199,8 +183,16 @@ export async function GET(req: Request) {
       pipelineStatus: cycle.status,
       category: cycle.category,
       targetWeek: cycle.target_week,
-      trendInsights,
-      profitableCards,
+      trendInsights: {
+        us: buildTrendInsights('us'),
+        eu: buildTrendInsights('eu'),
+        asia: buildTrendInsights('asia'),
+      },
+      profitableCards: {
+        us: buildProfitableCards('us'),
+        eu: buildProfitableCards('eu'),
+        asia: buildProfitableCards('asia'),
+      },
       accountInsights: igTactic?.raw_insights || null,
       xAccountInsights: xTactic?.raw_insights || null,
       chiefPackage: {
@@ -214,27 +206,10 @@ export async function GET(req: Request) {
               selectionReason: mvpItem.curator_rationale || '流動性と粗利マージンを総合勘案して選定',
             }
           : null,
-        approvedItems: researchItems.filter((i) => i.is_selected),
-        contentCalendar: researchItems
-          .filter((i) => i.is_selected)
-          .map((i) => ({
-            dayOfWeek: i.assigned_day,
-            dayLabelJa: i.assigned_day,
-            postType: i.slot_key,
-            selectedCardOrTopic: i.card_name,
-            hookFact: i.core_hook_fact || `${i.card_name} (粗利: ¥${i.price_spread_jpy})`,
-            hiddenActionReason: i.curator_rationale || '非公開',
-            directiveForCreator: {
-              instagramAngle: 'カルーセル解説',
-              xTwitterAngle: '140字フック＋スレッド',
-              discordOfferAngle: '大口卸オファー',
-            },
-          })),
       },
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
       salesDM: discordDeliverable?.content_payload || null,
-      // 全件規模の監査結果を agent_key 付きで返却
       gate1Audits: researchItems
         .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({

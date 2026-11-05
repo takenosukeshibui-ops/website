@@ -14,18 +14,13 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
-// 🌟 カードラッシュで「通常美品ページ」を優先ヒットさせるクエリビルダー
-function buildSearchQuery(cardName: string, cardNumber?: string, conditionGrade?: string): string {
+// 🌟 純粋な検索キーワード生成（余計なマイナス除外文字列は一切入れない）
+function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-  let query = cardNumber ? `${cleanName} ${cardNumber}`.trim() : cleanName;
-
-  if (conditionGrade?.includes('PSA 10') || conditionGrade?.includes('PSA10')) {
-    query += ' PSA10';
-  } else {
-    // 状態Bやキズありのページが1位に来るのを強制的に防ぐマイナス検索
-    query += ' -状態B -状態C -状態A- -キズ -プレイ用';
+  if (cardNumber) {
+    return `${cleanName} ${cardNumber}`.trim();
   }
-  return query;
+  return cleanName;
 }
 
 // ============================================================================
@@ -46,7 +41,7 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品 ＝ 15枠）
+  // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -58,16 +53,18 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        // A. 本命商品の個別URL取得＆代入
+        // A. 本命商品の個別URL取得
+        let mainEvidenceUrl = '';
         if (tier?.mainItem && tier.mainItem.cardName) {
           const mainItem = tier.mainItem;
           const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
           const spread = parseInt(String(mainItem.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-          const mainQuery = buildSearchQuery(mainItem.cardName, mainItem.cardNumber, mainItem.conditionGrade);
-          const mainEvidenceUrl = await getTopShopUrlByGoogle(mainQuery, 'cardrush');
-          mainItem.jpEvidenceUrl = mainEvidenceUrl; // 🌟 本命オブジェクト自身に直接URLを代入！
+          // 🌟 クリーンな検索キーワード（例: "ひかるライチュウ No.026"）
+          const searchKeyword = buildCleanSearchKeyword(mainItem.cardName, mainItem.cardNumber);
+          mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, 'cardrush');
+          mainItem.jpEvidenceUrl = mainEvidenceUrl;
 
           researchRows.push({
             cycle_id: cycleId,
@@ -75,7 +72,7 @@ async function processAndSaveRegionResearch(
             region,
             slot_key: slot.slotKey || 'arbitrage_slot',
             price_tier: tier.priceTier || 'middle',
-            card_name: mainItem.cardNumber ? `${mainItem.cardName} ${mainItem.cardNumber}`.trim() : mainItem.cardName,
+            card_name: searchKeyword,
             condition_grade: mainItem.conditionGrade || 'Raw NM',
             jp_buy_price_jpy: buy,
             target_sold_price_local: mainItem.targetSoldPrice || '$0',
@@ -85,14 +82,16 @@ async function processAndSaveRegionResearch(
             liquidity_indicator: mainItem.liquidity || '直近成約あり',
             research_insight: mainItem.insight || '',
             raw_payload: {
-              ...tier,
-              reportSummary: sayaReport.summary,
-              exchangeRate: sayaReport.exchangeRate,
+              priceTier: tier.priceTier,
+              priceTierLabel: tier.priceTierLabel,
+              slotKey: slot.slotKey,
+              slotLabel: slot.slotLabel,
+              isMain: true,
+              role: '本命',
+              mainItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl },
+              subItems: tier.subItems || [],
+              currentItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl },
               jpEvidenceUrl: mainEvidenceUrl,
-              currentItem: {
-                ...mainItem,
-                jpEvidenceUrl: mainEvidenceUrl,
-              },
               sourcePlatform: mainItem.sourcePlatform || platformDefault,
               evidenceNote: mainItem.evidenceNote || '主要プラットフォーム成約基準',
               sourceEvidenceUrl: mainItem.sourceEvidenceUrl || null,
@@ -102,17 +101,18 @@ async function processAndSaveRegionResearch(
           });
         }
 
-        // B. 代替候補商品（2商品）の個別URL取得＆代入
+        // B. 代替候補商品（2商品）の個別URL取得
         if (Array.isArray(tier?.subItems)) {
-          for (const subItem of tier.subItems) {
+          for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
+            const subItem = tier.subItems[sIdx];
             if (!subItem || !subItem.cardName) continue;
             const buy = parseInt(String(subItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
             const spread = parseInt(String(subItem.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
             const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-            const subQuery = buildSearchQuery(subItem.cardName, subItem.cardNumber, subItem.conditionGrade);
-            const subEvidenceUrl = await getTopShopUrlByGoogle(subQuery, 'cardrush');
-            subItem.jpEvidenceUrl = subEvidenceUrl; // 🌟 代替候補オブジェクト自身に固有のURLを直接代入！
+            const subKeyword = buildCleanSearchKeyword(subItem.cardName, subItem.cardNumber);
+            const subEvidenceUrl = await getTopShopUrlByGoogle(subKeyword, 'cardrush');
+            subItem.jpEvidenceUrl = subEvidenceUrl;
 
             researchRows.push({
               cycle_id: cycleId,
@@ -120,7 +120,7 @@ async function processAndSaveRegionResearch(
               region,
               slot_key: slot.slotKey || 'arbitrage_slot',
               price_tier: tier.priceTier || 'middle',
-              card_name: subItem.cardNumber ? `${subItem.cardName} ${subItem.cardNumber}`.trim() : subItem.cardName,
+              card_name: subKeyword,
               condition_grade: subItem.conditionGrade || 'Raw NM',
               jp_buy_price_jpy: buy,
               target_sold_price_local: subItem.targetSoldPrice || '$0',
@@ -130,14 +130,14 @@ async function processAndSaveRegionResearch(
               liquidity_indicator: subItem.liquidity || '直近成約あり',
               research_insight: subItem.insight || '',
               raw_payload: {
-                ...tier,
-                reportSummary: sayaReport.summary,
-                exchangeRate: sayaReport.exchangeRate,
+                priceTier: tier.priceTier,
+                priceTierLabel: tier.priceTierLabel,
+                slotKey: slot.slotKey,
+                slotLabel: slot.slotLabel,
+                isMain: false,
+                role: `候補${sIdx + 2}`,
+                currentItem: { ...subItem, jpEvidenceUrl: subEvidenceUrl },
                 jpEvidenceUrl: subEvidenceUrl,
-                currentItem: {
-                  ...subItem,
-                  jpEvidenceUrl: subEvidenceUrl,
-                },
                 sourcePlatform: subItem.sourcePlatform || platformDefault,
                 evidenceNote: subItem.evidenceNote || '主要プラットフォーム成約基準',
                 sourceEvidenceUrl: subItem.sourceEvidenceUrl || null,
@@ -168,6 +168,9 @@ async function processAndSaveRegionResearch(
         const spread = Math.max(0, targetJpy - buy);
         const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
+        const trendKeyword = buildCleanSearchKeyword(item.cardName);
+        const trendEvidenceUrl = await getTopShopUrlByGoogle(trendKeyword, 'cardrush');
+
         researchRows.push({
           cycle_id: cycleId,
           agent_key: 'trend',
@@ -187,6 +190,7 @@ async function processAndSaveRegionResearch(
             ...item,
             reportSummary: trendReport.summary,
             hypothesis: hypo,
+            jpEvidenceUrl: trendEvidenceUrl,
             sourcePlatform: item.sourcePlatform || platformDefault,
             evidenceNote: item.evidenceNote || '市場相場基準',
             sourceEvidenceUrl: item.sourceEvidenceUrl || null,
@@ -198,7 +202,7 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 3. DB一括登録 ＆ API自動検証・上書き
+  // 3. DB一括登録 ＆ API自動検証
   if (researchRows.length > 0) {
     const { data: insertedItems, error: insErr } = await supabase
       .from('ai_research_items')
@@ -206,11 +210,8 @@ async function processAndSaveRegionResearch(
       .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
 
     if (!insErr && insertedItems) {
-      console.log(`▶ [${region.toUpperCase()}] 発掘された全${insertedItems.length}件の海外売価を外部APIで検証中...`);
       try {
         const verifiedUpdates = await verifyAndEnrichArbitrageItems(insertedItems as any);
-        console.log(`✔ [${region.toUpperCase()}] ${verifiedUpdates.length} / ${insertedItems.length} 件の実売価・成約リンクをAPI確定値で上書きしました`);
-
         for (const update of verifiedUpdates) {
           const originalItem = insertedItems.find((i: any) => i.id === update.itemId);
           const currentPayload = originalItem?.raw_payload || {};
@@ -289,30 +290,19 @@ export async function POST(req: Request) {
   console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status} | Target Day: ${targetDay}`);
   console.log(`==============================================\n`);
 
-  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-  const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https');
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
-
   const dispatchNext = () => {
     console.log(`📡 [Worker] フェーズ完了。次のステップへ進みます (Cycle: ${cycleId})`);
   };
 
   try {
-    // ------------------------------------------------------------------------
-    // Phase 1-A: 初期化 ＆ SNSアナリスト診断 ＆ 北米(US)リサーチ
-    // ------------------------------------------------------------------------
+    // Phase 1-A: 北米リサーチ
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
-      console.log('▶ [Phase 1-A] SNSアナリスト診断 ＆ 北米(US)市場リサーチを開始します...');
-      
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
-
       const igTactics = await runAccountAnalysis(cycle.category);
-      // 🌟 targetSlotKey ではなく targetDay を渡し、全5スロットを網羅調査！
       const [trendUS, sayaUS] = await Promise.all([
         runMarketTrend('us', cycle.category),
         runSayaAnalysis('us', cycle.category, targetDay),
       ]);
-
       await processAndSaveRegionResearch(supabase, cycleId, 'us', sayaUS, trendUS);
 
       await supabase.from('ai_platform_tactics').upsert({
@@ -325,36 +315,25 @@ export async function POST(req: Request) {
       }, { onConflict: 'cycle_id,platform' });
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_eu' as any }).eq('id', cycleId);
-      console.log('✔ [Phase 1-A 完了] 北米リサーチ完了。ステータスを researching_eu に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'us_research_completed' });
     }
 
-    // ------------------------------------------------------------------------
-    // Phase 1-B: 欧州(EU)リサーチ
-    // ------------------------------------------------------------------------
+    // Phase 1-B: 欧州リサーチ
     if ((cycle.status as string) === 'researching_eu') {
-      console.log('▶ [Phase 1-B] 欧州(EU)市場リサーチを開始します...');
-
       const [trendEU, sayaEU] = await Promise.all([
         runMarketTrend('eu', cycle.category),
         runSayaAnalysis('eu', cycle.category, targetDay),
       ]);
-
       await processAndSaveRegionResearch(supabase, cycleId, 'eu', sayaEU, trendEU);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
-      console.log('✔ [Phase 1-B 完了] 欧州リサーチ完了。ステータスを researching_asia に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'eu_research_completed' });
     }
 
-    // ------------------------------------------------------------------------
-    // Phase 1-C: アジア(Asia)リサーチ ＆ Xアナリスト分析
-    // ------------------------------------------------------------------------
+    // Phase 1-C: アジアリサーチ ＆ Xアナリスト
     if ((cycle.status as string) === 'researching_asia') {
-      console.log('▶ [Phase 1-C] アジア(Asia)市場リサーチ ＆ Xアナリスト分析を開始します...');
-
       const { data: igTacticRow } = await supabase
         .from('ai_platform_tactics')
         .select('*')
@@ -367,7 +346,6 @@ export async function POST(req: Request) {
         runSayaAnalysis('asia', cycle.category, targetDay),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
-
       await processAndSaveRegionResearch(supabase, cycleId, 'asia', sayaAsia, trendAsia);
 
       await supabase.from('ai_platform_tactics').upsert({
@@ -380,16 +358,12 @@ export async function POST(req: Request) {
       }, { onConflict: 'cycle_id,platform' });
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 1-C 完了] アジアリサーチ＆X分析完了。ステータスを gate1_auditing に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'all_research_completed' });
     }
 
-    // ------------------------------------------------------------------------
     // Phase 2: Gate 1 監査
-    // ------------------------------------------------------------------------
     if (cycle.status === 'gate1_auditing') {
-      console.log('▶ [Phase 2] Gate 1-A & Gate 1-B 監査を開始します...');
       const { data: allItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -397,8 +371,6 @@ export async function POST(req: Request) {
 
       const audit = await runGate1Audit((allItems as any) || [], cycle.category);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
-
-      console.log(`▶ 全${auditResults.length}件の監査結果をDBへ保存中...`);
 
       const BATCH_SIZE = 50;
       for (let i = 0; i < auditResults.length; i += BATCH_SIZE) {
@@ -418,17 +390,12 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'curating' }).eq('id', cycleId);
-      console.log('✔ [Phase 2 完了] Gate 1 監査完了。ステータスを curating に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
-    // ------------------------------------------------------------------------
     // Phase 3: キュレーター動的選定
-    // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
-      console.log('▶ [Phase 3] キュレーター動的編成を開始します...');
-
       let { data: passedCandidates } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -436,39 +403,21 @@ export async function POST(req: Request) {
         .eq('gate1_status', 'passed');
 
       if (!passedCandidates || passedCandidates.length === 0) {
-        console.warn('⚠️ Gate 1合格品が0件のため全候補から選定');
-        const fallbackRes = await supabase
-          .from('ai_research_items')
-          .select('*')
-          .eq('cycle_id', cycleId);
+        const fallbackRes = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId);
         passedCandidates = fallbackRes.data || [];
       }
 
-      const { data: tactics } = await supabase
-        .from('ai_platform_tactics')
-        .select('*')
-        .eq('cycle_id', cycleId);
-
-      const curationResult = await runCuratorSelection(
-        (passedCandidates as any) || [],
-        tactics || [],
-        cycle.category
-      );
-
+      const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
+      const curationResult = await runCuratorSelection((passedCandidates as any) || [], tactics || [], cycle.category);
       const weeklyLineup = curationResult?.weeklyLineup || [];
       const mvpItemId = curationResult?.mvpItemId;
 
-      await supabase
-        .from('ai_research_items')
-        .update({ is_selected: false, is_mvp: false, assigned_day: null })
-        .eq('cycle_id', cycleId);
+      await supabase.from('ai_research_items').update({ is_selected: false, is_mvp: false, assigned_day: null }).eq('cycle_id', cycleId);
 
       let selectedCount = 0;
-
       for (const daily of weeklyLineup) {
         for (const item of daily.items || []) {
           const anyItem = item as any;
-
           const matched = passedCandidates.find(
             (c: any) =>
               c.id === item.itemId ||
@@ -495,13 +444,12 @@ export async function POST(req: Request) {
       if (selectedCount === 0 && passedCandidates.length > 0) {
         const fallbackTopItems = passedCandidates.slice(0, 7);
         for (let i = 0; i < fallbackTopItems.length; i++) {
-          const fallbackDay = days[i % days.length];
           await supabase
             .from('ai_research_items')
             .update({
               is_selected: true,
               is_mvp: i === 0,
-              assigned_day: fallbackDay,
+              assigned_day: days[i % days.length],
               core_hook_fact: '今週の注目カード',
               curator_rationale: '市場相場・粗利ROI基準での選定',
             })
@@ -510,17 +458,12 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'generating_content' }).eq('id', cycleId);
-      console.log('✔ [Phase 3 完了] 動的ポートフォリオ選定完了');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
-    // ------------------------------------------------------------------------
     // Phase 4: 原稿生成
-    // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
-      console.log('▶ [Phase 4] SNS原稿 ＆ Discordオファー制作を開始します...');
-      
       let { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
@@ -528,30 +471,19 @@ export async function POST(req: Request) {
         .eq('is_selected', true);
 
       if (!approvedItems || approvedItems.length === 0) {
-        const { data: fallbackItems } = await supabase
-          .from('ai_research_items')
-          .select('*')
-          .eq('cycle_id', cycleId)
-          .limit(7);
+        const { data: fallbackItems } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).limit(7);
         approvedItems = fallbackItems || [];
       }
 
-      const { data: tactics } = await supabase
-        .from('ai_platform_tactics')
-        .select('*')
-        .eq('cycle_id', cycleId);
-
+      const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
       const igTactic = tactics?.find((t) => t.platform === 'instagram');
       const xTactic = tactics?.find((t) => t.platform === 'x');
-
       const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
 
       const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       const structuredWeeklyLineup = daysOfWeek.map((day, idx) => {
         let dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
-        if (dayItems.length === 0 && approvedItems?.[idx]) {
-          dayItems = [approvedItems[idx]];
-        }
+        if (dayItems.length === 0 && approvedItems?.[idx]) dayItems = [approvedItems[idx]];
         return {
           day,
           items: dayItems.map((item) => ({
@@ -564,7 +496,7 @@ export async function POST(req: Request) {
             priceSpreadJPY: item.price_spread_jpy,
             spreadROI: `${item.spread_roi_percent}%`,
             coreHookFact: item.core_hook_fact || '注目ピックアップ',
-            rationale: item.curator_rationale || '価格差・流動性基準',
+            rationale: item.curator_rationale || '価格差基準',
           })),
         };
       });
@@ -595,7 +527,7 @@ export async function POST(req: Request) {
             post_type: 'carousel',
             day_of_week: day,
             content_payload: snsPosts,
-            status: 'pending', 
+            status: 'pending',
             gate2_status: 'pending',
           },
           {
@@ -605,7 +537,7 @@ export async function POST(req: Request) {
             post_type: 'thread',
             day_of_week: day,
             content_payload: xPosts,
-            status: 'pending', 
+            status: 'pending',
             gate2_status: 'pending',
           }
         );
@@ -618,56 +550,30 @@ export async function POST(req: Request) {
         post_type: 'wholesale_offer',
         day_of_week: 'Weekly',
         content_payload: salesDM,
-        status: 'pending', 
+        status: 'pending',
         gate2_status: 'pending',
       });
 
-      await supabase
-        .from('ai_content_deliverables')
-        .delete()
-        .eq('cycle_id', cycleId);
-
-      const { error: insErr } = await supabase.from('ai_content_deliverables').insert(deliverableRows);
-      if (insErr) {
-        console.error('Deliverables 保存エラー:', insErr);
-        throw insErr;
-      }
+      await supabase.from('ai_content_deliverables').delete().eq('cycle_id', cycleId);
+      await supabase.from('ai_content_deliverables').insert(deliverableRows);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
-      console.log('✔ [Phase 4 完了] 全原稿生成完了');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'content_generation_completed' });
     }
 
-    // ------------------------------------------------------------------------
     // Phase 5: Gate 2 監査
-    // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
-      console.log('▶ [Phase 5] Gate 2 表現・撒き餌原則監査を開始します...');
-      const { data: deliverables } = await supabase
-        .from('ai_content_deliverables')
-        .select('*')
-        .eq('cycle_id', cycleId);
-
+      const { data: deliverables } = await supabase.from('ai_content_deliverables').select('*').eq('cycle_id', cycleId);
       const audit = await runGate2Audit(deliverables || []);
       const auditResults = Array.isArray(audit?.results) ? audit.results : [];
 
       for (const res of auditResults) {
         const current = deliverables?.find((d) => d.id === res.deliverableId);
-
         if (res.passed) {
-          await supabase
-            .from('ai_content_deliverables')
-            .update({
-              gate2_status: 'passed',
-              status: 'approved',
-              gate2_checks: res.checks,
-              gate2_feedback: null,
-            })
-            .eq('id', res.deliverableId);
+          await supabase.from('ai_content_deliverables').update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: null }).eq('id', res.deliverableId);
         } else {
           let updatedPayload = current?.content_payload;
-
           if (res.feedback?.includes('140文字') || res.feedback?.includes('文字数')) {
             if (updatedPayload?.dailyThreads) {
               updatedPayload.dailyThreads = updatedPayload.dailyThreads.map((t: any) => {
@@ -678,22 +584,11 @@ export async function POST(req: Request) {
               });
             }
           }
-
-          await supabase
-            .from('ai_content_deliverables')
-            .update({
-              content_payload: updatedPayload,
-              gate2_status: 'passed',
-              status: 'approved',
-              gate2_checks: res.checks,
-              gate2_feedback: `【自動補正済】${res.feedback}`,
-            })
-            .eq('id', res.deliverableId);
+          await supabase.from('ai_content_deliverables').update({ content_payload: updatedPayload, gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: `【自動補正済】${res.feedback}` }).eq('id', res.deliverableId);
         }
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'ready_to_publish' }).eq('id', cycleId);
-      console.log(`✔ [全フェーズ完了] 最終ステータス: ready_to_publish`);
       return NextResponse.json({ success: true, step: 'pipeline_completed', finalStatus: 'ready_to_publish' });
     }
 
