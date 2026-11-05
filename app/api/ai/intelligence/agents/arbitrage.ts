@@ -30,22 +30,41 @@ export interface ArbitrageSlotReport {
 }
 
 const REGION_CURRENCIES: Record<string, { currency: string; name: string; targetPlatforms: string[] }> = {
-  us: { 
-    currency: 'USD', 
-    name: '北米（アメリカ）市場',
-    targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
-  },
-  eu: { 
-    currency: 'EUR', 
-    name: '欧州（ヨーロッパ）市場',
-    targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
-  },
-  asia: { 
-    currency: 'SGD', 
-    name: 'アジア（シンガポール・台湾・香港等）市場',
-    targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
-  },
-};
+    us: { 
+      currency: 'USD', 
+      name: '北米（アメリカ）市場',
+      targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
+    },
+    eu: { 
+      currency: 'EUR', 
+      name: '欧州（ヨーロッパ）市場',
+      targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
+    },
+    asia: { 
+      currency: 'SGD', 
+      name: 'アジア（シンガポール・台湾・香港等）市場',
+      targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
+    },
+  };
+ // 🌟 リアルタイム為替レート取得ヘルパー（1 外貨 ➔ 日本円 JPY）
+ async function getRealtimeExchangeRate(currency: string): Promise<number> {
+   try {
+     const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, {
+       next: { revalidate: 3600 }, // 1時間キャッシュ
+     });
+     if (!res.ok) throw new Error('為替レート取得失敗');
+     const data = await res.json();
+     const rate = data?.rates?.JPY;
+     if (rate && typeof rate === 'number') {
+       return Math.round(rate * 100) / 100;
+     }
+   } catch (err) {
+     console.warn(`[ExchangeRate] ${currency}のリアルタイム取得失敗（フォールバック適用）:`, err);
+   }
+   // 通信遮断時の安全フォールバック
+   const fallbacks: Record<string, number> = { USD: 155, EUR: 168, SGD: 118 };
+   return fallbacks[currency] || 150;
+ }
 
 const SLOTS = [
   { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版' },
@@ -60,12 +79,22 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
   const categoryName = getCategoryName(category);
 
-  const model = new ChatGoogleGenerativeAI({
+  // 🌟 リアルタイム為替レートを取得
+   const exchangeRateJPY = await getRealtimeExchangeRate(cur.currency);
+
+  const baseModel = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
     temperature: 0.1,
     maxOutputTokens: 8192,
     apiKey,
   });
+
+   // 🌟 Google Search Grounding を有効化したモデルを作成
+ const modelWithSearch = baseModel.bindTools([
+   {
+     googleSearch: {},
+   },
+ ]);
 
   // ==========================================================================
   // 【Step 0】Supabaseから直近の海外API成約・相場キャッシュを取得
@@ -95,7 +124,11 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   // ==========================================================================
   const slotPromises = SLOTS.map(async (slot) => {
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
-対象通貨: ${cur.currency}。
+対象通貨: ${cur.currency}（最新リアルタイム為替レート: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
+
+ 【重要: Google検索グラウンディングによる最新実勢相場リサーチ】
+ 必ずGoogle検索を実行し、日本国内の二次流通（メルカリ直近成約、ヤフオク落札相場、駿河屋・カドショ販売価格）の「現在の実売価格・安値相場」を実際に検索して確認した上で jpBuyPriceJPY を決定してください。 過去の記憶や架空の数値を推論することは厳禁です。
+
 
 【主要連携プラットフォーム基準】
 現地売価（targetSoldPrice）の算定にあたっては、以下の主要プラットフォームの相場を根拠としてください:
@@ -123,6 +156,12 @@ ${externalPriceContext}
 ・鑑定品: "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10"
 ・未開封: "Sealed Box", "Sealed Pack", "Sealed Promo"
 ※仕入れ側と現地販売側の状態は必ず同一基準で評価すること。
+
+【厳格な四則演算ルール（Gate 1 監査チェック用）】
+ ・targetSoldPrice の日本円換算値 ＝ 現地価格(${cur.currency}) × ${exchangeRateJPY}円
+ ・priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
+ ・spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
+ ※四則計算に矛盾があると後続の監査で即座に却下されます。数字の整合性を必ず守ってください。
 
 以下のJSON形式のみを出力してください:
 {
@@ -156,7 +195,7 @@ ${externalPriceContext}
   ]
 }`;
 
-    const res = await model.invoke(slotPrompt);
+    const res = await modelWithSearch.invoke(slotPrompt);
     return parseAIJson(res.content.toString());
   });
 
@@ -237,7 +276,7 @@ ${JSON.stringify(allDiscoveredItems, null, 2)}
   }
 }`;
 
-  const summaryRes = await model.invoke(summaryPrompt);
+  const summaryRes = await baseModel.invoke(summaryPrompt);
   const summaryParsed = parseAIJson(summaryRes.content.toString());
 
   return {
