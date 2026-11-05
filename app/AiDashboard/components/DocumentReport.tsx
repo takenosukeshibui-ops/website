@@ -57,7 +57,7 @@ export default function DocumentReportView({
     // 🌟 レポートの種別を正確に判定する
     const isTrendReport = Boolean(report.hypotheses && Array.isArray(report.hypotheses));
     const isArbitrageReport = Boolean(report.slots && Array.isArray(report.slots));
-    const isStrategicReport = Boolean(report.facts && report.soWhat); // SNSアナリストのデータか判定
+    const isStrategicReport = Boolean(report.facts && report.soWhat);
 
     const priceTiers = [
         { key: 'all', label: 'すべて表示' },
@@ -90,6 +90,13 @@ export default function DocumentReportView({
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
+    // 🌟 カードラッシュ検索用フォールバックURL生成関数
+    const getCardrushFallbackUrl = (cardName?: string) => {
+        if (!cardName) return 'https://www.cardrush-pokemon.jp/';
+        const clean = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+        return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(clean)}`;
+    };
+
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
     const summary = report.summary;
 
@@ -104,7 +111,6 @@ export default function DocumentReportView({
     else if (titleUpper.includes('ASIA') || titleUpper.includes('アジア')) regionName = 'アジア';
     else if (titleUpper.includes('US') || titleUpper.includes('北米')) regionName = '北米';
 
-    // 🌟 タイトルの動的出し分け
     let displayTitle = '';
     if (isStrategicReport) {
         displayTitle = `${formattedDate} ${report.title}`;
@@ -146,7 +152,6 @@ export default function DocumentReportView({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                 {/* 🌟 リアルタイム為替レートバッジ */}
                  {report.exchangeRate && (
                      <div className="shrink-0">
                          <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
@@ -306,6 +311,9 @@ export default function DocumentReportView({
                                         const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
                                         const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
                                         const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
+                                        
+                                        // 🌟 トレンド商品の国内調達エビデンスURL（Google検索結果 または フォールバック検索URL）
+                                        const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
 
                                         return (
                                             <div
@@ -372,9 +380,21 @@ export default function DocumentReportView({
                                                     )}
 
                                                     <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
-                                                        <div className="flex justify-between text-slate-400">
+                                                        <div className="flex justify-between items-center text-slate-400">
                                                             <span>JP 調達:</span>
-                                                            <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
+                                                                <a
+                                                                    href={jpShopUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
+                                                                    title="仕入れ元・検索エビデンスを確認"
+                                                                >
+                                                                    <span>[根拠]</span>
+                                                                    <span>↗</span>
+                                                                </a>
+                                                            </div>
                                                         </div>
                                                         <div className="flex justify-between text-slate-400">
                                                             <span>現地現在:</span>
@@ -561,6 +581,9 @@ export default function DocumentReportView({
                                                     const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
                                                     const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
 
+                                                    // 🌟 国内調達個別URL（Google検索結果 または フォールバック検索URL）
+                                                    const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || matchedTier.jpEvidenceUrl || matchedTier.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
+
                                                     return (
                                                         <div
                                                             key={itemIdx}
@@ -622,20 +645,18 @@ export default function DocumentReportView({
                                                                     <div className="flex justify-between items-center text-slate-400">
                                                                         <span>日本調達:</span>
                                                                         <div className="flex items-center gap-1.5">
-                                                                        <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
-                                                                        {(item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl) && (
+                                                                            <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
                                                                             <a
-                                                                                href={item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl}
+                                                                                href={jpShopUrl}
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
-                                                                                className="text-[10px] text-blue-400 hover:text-blue-300 underline font-sans flex items-center gap-0.5"
+                                                                                className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
                                                                                 title="仕入れ元・検索エビデンスを確認"
                                                                             >
                                                                                 <span>[根拠]</span>
                                                                                 <span>↗</span>
                                                                             </a>
-                                                                        )}
-                                                                    </div>
+                                                                        </div>
                                                                     </div>
                                                                     <div className="flex justify-between text-slate-400">
                                                                         <span>現地実成約:</span>
@@ -725,6 +746,9 @@ export default function DocumentReportView({
                                                     const evidenceNote = main.evidenceNote || tierCell.evidenceNote;
                                                     const evidenceUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl;
 
+                                                    // 🌟 本命の国内調達個別URL（Google検索結果 または フォールバック検索URL）
+                                                    const mainJpShopUrl = main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl || tierCell.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName);
+
                                                     return (
                                                         <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
                                                             <div className="space-y-2">
@@ -775,20 +799,18 @@ export default function DocumentReportView({
                                                                 <div className="flex justify-between text-xs font-mono border-t border-slate-800/60 pt-1.5">
                                                                     <span className="text-slate-400">日本調達:</span>
                                                                     <div className="flex items-center gap-1.5">
-                                                                    <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
-                                                                    {(main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl) && (
+                                                                        <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
                                                                         <a
-                                                                            href={main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl}
+                                                                            href={mainJpShopUrl}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
-                                                                            className="text-[10px] text-blue-400 hover:text-blue-300 underline font-sans flex items-center gap-0.5"
+                                                                            className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
                                                                             title="仕入れ元・検索エビデンスを確認"
                                                                         >
                                                                             <span>[根拠]</span>
                                                                             <span>↗</span>
                                                                         </a>
-                                                                    )}
-                                                                  </div>
+                                                                    </div>
                                                                 </div>
                                                                 <div className="flex justify-between text-xs font-mono">
                                                                     <span className="text-slate-400">現地実成約:</span>
@@ -827,6 +849,9 @@ export default function DocumentReportView({
                                                                                 const subEvidence = subItem.evidenceNote || subItem.raw_payload?.evidenceNote;
                                                                                 const subUrl = subItem.sourceEvidenceUrl || subItem.raw_payload?.sourceEvidenceUrl;
 
+                                                                                // 🌟 代替候補の国内調達個別URL（Google検索結果 または フォールバック検索URL）
+                                                                                const subJpShopUrl = subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(subItem.cardName);
+
                                                                                 return (
                                                                                     <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
                                                                                         <div className="flex justify-between items-center">
@@ -857,20 +882,19 @@ export default function DocumentReportView({
                                                                                         )}
 
                                                                                         <div className="flex justify-between items-center font-mono text-slate-400 text-[10px]">
-                                                                                        <div className="flex items-center gap-1">
-                                                                                            <span>調達: {subItem.jpBuyPriceJPY}</span>
-                                                                                            {(subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl) && (
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <span>調達: {subItem.jpBuyPriceJPY}</span>
                                                                                                 <a
-                                                                                                    href={subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl}
+                                                                                                    href={subJpShopUrl}
                                                                                                     target="_blank"
                                                                                                     rel="noopener noreferrer"
-                                                                                                    className="text-[9px] text-blue-400 hover:text-blue-300 underline font-sans"
+                                                                                                    className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
                                                                                                     title="仕入れ元エビデンスを確認"
                                                                                                 >
-                                                                                                    [根拠]↗
+                                                                                                    <span>[根拠]</span>
+                                                                                                    <span>↗</span>
                                                                                                 </a>
-                                                                                            )}
-                                                                                        </div>
+                                                                                            </div>
                                                                                             <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
                                                                                         </div>
                                                                                     </div>

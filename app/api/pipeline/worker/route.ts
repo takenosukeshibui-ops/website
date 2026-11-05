@@ -14,6 +14,17 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
+// 🌟 曜日と担当スロットのマッピング定義
+const DAY_SLOT_MAP: Record<string, string> = {
+  Monday: 'modern_meta',
+  Tuesday: 'modern_meta',
+  Wednesday: 'promos_exclusive',
+  Thursday: 'neo_vintage',
+  Friday: 'high_end_sealed',
+  Saturday: 'classic_vintage',
+  Sunday: 'modern_meta',
+};
+
 // ============================================================================
 // 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
 // ============================================================================
@@ -32,7 +43,7 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出（本命1商品のみ）
+  // 1. アービトラージ候補抽出（1枠につき本命1＋代替2 ＝ 3商品）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -44,8 +55,13 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        // 各価格帯の本命商品のみを対象化
-        const allItemsInTier = tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : [];
+        // 🌟 本命1商品 ＋ 代替候補2商品を展開（計3商品）
+        const allItemsInTier = [
+          ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
+          ...(Array.isArray(tier?.subItems)
+            ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
+            : []),
+        ];
 
         for (const item of allItemsInTier) {
           if (!item || !item.cardName) continue;
@@ -53,7 +69,7 @@ async function processAndSaveRegionResearch(
           const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-          // 全て本命のため、Google検索APIで1位の個別ページURLを取得
+          // 🌟 3商品すべてをGoogle検索APIで個別ページURL取得（1日合計45件消費）
           const evidenceUrl = await getTopShopUrlByGoogle(item.cardName, 'cardrush');
 
           researchRows.push({
@@ -92,7 +108,7 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 2. トレンド候補抽出
+  // 2. トレンド候補抽出（維持）
   if (trendReport?.hypotheses) {
     const hypotheses = Array.isArray(trendReport.hypotheses)
       ? trendReport.hypotheses
@@ -200,11 +216,18 @@ async function processAndSaveRegionResearch(
 // ============================================================================
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const { cycleId, action } = await req.json().catch(() => ({}));
+  const { cycleId, action, targetDay: bodyTargetDay } = await req.json().catch(() => ({}));
 
   if (!cycleId) {
     return NextResponse.json({ success: false, error: 'cycleId is required' }, { status: 400 });
   }
+
+  // 🌟 今日の曜日を取得（サイクル情報または実行日時から自動判定）
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayDayName = days[new Date().getDay()];
+  
+  const targetDay = bodyTargetDay || todayDayName;
+  const targetSlotKey = DAY_SLOT_MAP[targetDay] || 'modern_meta';
 
   // 強制停止アクションのハンドリング
   if (action === 'stop') {
@@ -224,7 +247,7 @@ export async function POST(req: Request) {
   }
 
   console.log(`\n==============================================`);
-  console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status}`);
+  console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status} | Target: ${targetSlotKey}`);
   console.log(`==============================================\n`);
 
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
@@ -232,7 +255,7 @@ export async function POST(req: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : 'http://localhost:3000');
 
   const dispatchNext = () => {
-    console.log(`📡 [Worker] フェーズ完了。次のステップはブラウザの Client Dispatch により安全に起動されます (Cycle: ${cycleId})`);
+    console.log(`📡 [Worker] フェーズ完了。次のステップはブラウザの Client Dispatch により安全に起動されます`);
   };
 
   try {
@@ -247,7 +270,7 @@ export async function POST(req: Request) {
       const igTactics = await runAccountAnalysis(cycle.category);
       const [trendUS, sayaUS] = await Promise.all([
         runMarketTrend('us', cycle.category),
-        runSayaAnalysis('us', cycle.category),
+        runSayaAnalysis('us', cycle.category, targetSlotKey),
       ]);
 
       await processAndSaveRegionResearch(supabase, cycleId, 'us', sayaUS, trendUS);
@@ -262,7 +285,6 @@ export async function POST(req: Request) {
         raw_insights: igTactics || {},
       }, { onConflict: 'cycle_id,platform' });
 
-      // 次の欧州(EU)フェーズへバトンタッチ
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_eu' as any }).eq('id', cycleId);
       console.log('✔ [Phase 1-A 完了] 北米リサーチ完了。ステータスを researching_eu に更新しました');
       dispatchNext();
@@ -277,12 +299,11 @@ export async function POST(req: Request) {
 
       const [trendEU, sayaEU] = await Promise.all([
         runMarketTrend('eu', cycle.category),
-        runSayaAnalysis('eu', cycle.category),
+        runSayaAnalysis('eu', cycle.category, targetSlotKey),
       ]);
 
       await processAndSaveRegionResearch(supabase, cycleId, 'eu', sayaEU, trendEU);
 
-      // 次のアジア(Asia)フェーズへバトンタッチ
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
       console.log('✔ [Phase 1-B 完了] 欧州リサーチ完了。ステータスを researching_asia に更新しました');
       dispatchNext();
@@ -304,13 +325,12 @@ export async function POST(req: Request) {
 
       const [trendAsia, sayaAsia, xTactics] = await Promise.all([
         runMarketTrend('asia', cycle.category),
-        runSayaAnalysis('asia', cycle.category),
+        runSayaAnalysis('asia', cycle.category, targetSlotKey),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
 
       await processAndSaveRegionResearch(supabase, cycleId, 'asia', sayaAsia, trendAsia);
 
-      // Xアナリスト結果を保存
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
         platform: 'x',
@@ -320,7 +340,6 @@ export async function POST(req: Request) {
         raw_insights: xTactics || {},
       }, { onConflict: 'cycle_id,platform' });
 
-      // Gate 1 監査へバトンタッチ
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate1_auditing' }).eq('id', cycleId);
       console.log('✔ [Phase 1-C 完了] アジアリサーチ＆X分析完了。ステータスを gate1_auditing に更新しました');
       dispatchNext();
@@ -366,7 +385,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 3: チーフ・キュレーター動的選定（堅牢化 ＆ 自動フォールバック版）
+    // Phase 3: チーフ・キュレーター動的選定（7つの型から自律選定）
     // ------------------------------------------------------------------------
     if (cycle.status === 'curating') {
       console.log('▶ [Phase 3] キュレーター動的編成（RSI適応 ＆ 3地域トリオ）を開始します...');
@@ -406,10 +425,9 @@ export async function POST(req: Request) {
         .update({ is_selected: false, is_mvp: false, assigned_day: null })
         .eq('cycle_id', cycleId);
 
-      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       let selectedCount = 0;
 
-      // 1. キュレーターの指定に沿って商品をマッチング＆更新
+      // キュレーターの指定に沿って商品をマッチング＆更新
       for (const daily of weeklyLineup) {
         for (const item of daily.items || []) {
           const anyItem = item as any;
@@ -437,18 +455,18 @@ export async function POST(req: Request) {
         }
       }
 
-      // フェイルセーフ: 万が一AIのID不一致で0件だった場合、Gate 1合格品の上位7件を月〜日に自動割り当て
+      // フェイルセーフ
       if (selectedCount === 0 && passedCandidates.length > 0) {
         console.warn('⚠️ キュレーターのマッチングが0件だったため、Gate 1合格品から上位7件を自動割り当てします');
         const fallbackTopItems = passedCandidates.slice(0, 7);
         for (let i = 0; i < fallbackTopItems.length; i++) {
-          const targetDay = days[i % days.length];
+          const fallbackDay = days[i % days.length];
           await supabase
             .from('ai_research_items')
             .update({
               is_selected: true,
               is_mvp: i === 0,
-              assigned_day: targetDay,
+              assigned_day: fallbackDay,
               core_hook_fact: '今週の注目カード',
               curator_rationale: '市場相場・粗利ROI基準での選定',
             })
@@ -457,16 +475,16 @@ export async function POST(req: Request) {
       }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'generating_content' }).eq('id', cycleId);
-      console.log('✔ [Phase 3 完了] 7日分動的ポートフォリオ選定完了。ステータスを generating_content に更新しました');
+      console.log('✔ [Phase 3 完了] 動的ポートフォリオ選定完了。ステータスを generating_content に更新しました');
       dispatchNext();
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
     // ------------------------------------------------------------------------
-    // Phase 4: 原稿生成（weeklyLineup に完全追従した IG / X / Discord執筆）
+    // Phase 4: 原稿生成
     // ------------------------------------------------------------------------
     if (cycle.status === 'generating_content') {
-      console.log('▶ [Phase 4] 動的週間編成に沿った SNS原稿 ＆ Discordオファー制作を開始します...');
+      console.log('▶ [Phase 4] SNS原稿 ＆ Discordオファー制作を開始します...');
       
       let { data: approvedItems } = await supabase
         .from('ai_research_items')
@@ -591,7 +609,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // Phase 5: Gate 2 (表現・規約・撒き餌) 監査 ＆ 自動自己修正・完走版
+    // Phase 5: Gate 2 監査 ＆ 自動自己修正・完走版
     // ------------------------------------------------------------------------
     if (cycle.status === 'gate2_auditing') {
       console.log('▶ [Phase 5] Gate 2 表現・撒き餌原則監査を開始します...');
