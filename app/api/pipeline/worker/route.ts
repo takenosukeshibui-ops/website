@@ -14,16 +14,19 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
-// 🌟 曜日と担当スロットのマッピング定義
-const DAY_SLOT_MAP: Record<string, string> = {
-  Monday: 'modern_meta',
-  Tuesday: 'modern_meta',
-  Wednesday: 'promos_exclusive',
-  Thursday: 'neo_vintage',
-  Friday: 'high_end_sealed',
-  Saturday: 'classic_vintage',
-  Sunday: 'modern_meta',
-};
+// 🌟 カードラッシュで「通常美品ページ」を優先ヒットさせるクエリビルダー
+function buildSearchQuery(cardName: string, cardNumber?: string, conditionGrade?: string): string {
+  const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+  let query = cardNumber ? `${cleanName} ${cardNumber}`.trim() : cleanName;
+
+  if (conditionGrade?.includes('PSA 10') || conditionGrade?.includes('PSA10')) {
+    query += ' PSA10';
+  } else {
+    // 状態Bやキズありのページが1位に来るのを強制的に防ぐマイナス検索
+    query += ' -状態B -状態C -状態A- -キズ -プレイ用';
+  }
+  return query;
+}
 
 // ============================================================================
 // 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
@@ -43,7 +46,7 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出（1枠につき本命1＋代替2 ＝ 3商品）
+  // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品 ＝ 15枠）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -55,26 +58,16 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        const allItemsInTier = [
-          ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
-          ...(Array.isArray(tier?.subItems)
-            ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
-            : []),
-        ];
-
-        for (const item of allItemsInTier) {
-          if (!item || !item.cardName) continue;
-          const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-          const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
+        // A. 本命商品の個別URL取得＆代入
+        if (tier?.mainItem && tier.mainItem.cardName) {
+          const mainItem = tier.mainItem;
+          const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+          const spread = parseInt(String(mainItem.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-          // 🌟 カード名と型番を結合して検索キーワードを生成（例: "ナンジャモ SAR 096/071"）
-          const fullSearchKeyword = item.cardNumber 
-            ? `${item.cardName} ${item.cardNumber}`.trim()
-            : item.cardName;
-
-          // Google検索APIで個別ページURLを取得
-          const evidenceUrl = await getTopShopUrlByGoogle(fullSearchKeyword, 'cardrush');
+          const mainQuery = buildSearchQuery(mainItem.cardName, mainItem.cardNumber, mainItem.conditionGrade);
+          const mainEvidenceUrl = await getTopShopUrlByGoogle(mainQuery, 'cardrush');
+          mainItem.jpEvidenceUrl = mainEvidenceUrl; // 🌟 本命オブジェクト自身に直接URLを代入！
 
           researchRows.push({
             cycle_id: cycleId,
@@ -82,32 +75,77 @@ async function processAndSaveRegionResearch(
             region,
             slot_key: slot.slotKey || 'arbitrage_slot',
             price_tier: tier.priceTier || 'middle',
-            card_name: fullSearchKeyword,
-            condition_grade: item.conditionGrade || 'Raw NM',
+            card_name: mainItem.cardNumber ? `${mainItem.cardName} ${mainItem.cardNumber}`.trim() : mainItem.cardName,
+            condition_grade: mainItem.conditionGrade || 'Raw NM',
             jp_buy_price_jpy: buy,
-            target_sold_price_local: item.targetSoldPrice || '$0',
+            target_sold_price_local: mainItem.targetSoldPrice || '$0',
             target_sold_price_jpy: buy + spread,
             price_spread_jpy: spread,
             spread_roi_percent: roi,
-            liquidity_indicator: item.liquidity || '直近成約あり',
-            research_insight: item.insight || '',
+            liquidity_indicator: mainItem.liquidity || '直近成約あり',
+            research_insight: mainItem.insight || '',
             raw_payload: {
               ...tier,
               reportSummary: sayaReport.summary,
               exchangeRate: sayaReport.exchangeRate,
-              jpEvidenceUrl: evidenceUrl,
+              jpEvidenceUrl: mainEvidenceUrl,
               currentItem: {
-                ...item,
-                cardNumber: item.cardNumber || '',
-                jpEvidenceUrl: evidenceUrl,
+                ...mainItem,
+                jpEvidenceUrl: mainEvidenceUrl,
               },
-              sourcePlatform: item.sourcePlatform || platformDefault,
-              evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',
-              sourceEvidenceUrl: item.sourceEvidenceUrl || null,
+              sourcePlatform: mainItem.sourcePlatform || platformDefault,
+              evidenceNote: mainItem.evidenceNote || '主要プラットフォーム成約基準',
+              sourceEvidenceUrl: mainItem.sourceEvidenceUrl || null,
             },
             gate1_status: 'pending',
             is_selected: false,
           });
+        }
+
+        // B. 代替候補商品（2商品）の個別URL取得＆代入
+        if (Array.isArray(tier?.subItems)) {
+          for (const subItem of tier.subItems) {
+            if (!subItem || !subItem.cardName) continue;
+            const buy = parseInt(String(subItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
+            const spread = parseInt(String(subItem.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
+            const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
+
+            const subQuery = buildSearchQuery(subItem.cardName, subItem.cardNumber, subItem.conditionGrade);
+            const subEvidenceUrl = await getTopShopUrlByGoogle(subQuery, 'cardrush');
+            subItem.jpEvidenceUrl = subEvidenceUrl; // 🌟 代替候補オブジェクト自身に固有のURLを直接代入！
+
+            researchRows.push({
+              cycle_id: cycleId,
+              agent_key: 'arbitrage',
+              region,
+              slot_key: slot.slotKey || 'arbitrage_slot',
+              price_tier: tier.priceTier || 'middle',
+              card_name: subItem.cardNumber ? `${subItem.cardName} ${subItem.cardNumber}`.trim() : subItem.cardName,
+              condition_grade: subItem.conditionGrade || 'Raw NM',
+              jp_buy_price_jpy: buy,
+              target_sold_price_local: subItem.targetSoldPrice || '$0',
+              target_sold_price_jpy: buy + spread,
+              price_spread_jpy: spread,
+              spread_roi_percent: roi,
+              liquidity_indicator: subItem.liquidity || '直近成約あり',
+              research_insight: subItem.insight || '',
+              raw_payload: {
+                ...tier,
+                reportSummary: sayaReport.summary,
+                exchangeRate: sayaReport.exchangeRate,
+                jpEvidenceUrl: subEvidenceUrl,
+                currentItem: {
+                  ...subItem,
+                  jpEvidenceUrl: subEvidenceUrl,
+                },
+                sourcePlatform: subItem.sourcePlatform || platformDefault,
+                evidenceNote: subItem.evidenceNote || '主要プラットフォーム成約基準',
+                sourceEvidenceUrl: subItem.sourceEvidenceUrl || null,
+              },
+              gate1_status: 'pending',
+              is_selected: false,
+            });
+          }
         }
       }
     }
@@ -229,9 +267,7 @@ export async function POST(req: Request) {
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayDayName = days[new Date().getDay()];
-  
   const targetDay = bodyTargetDay || todayDayName;
-  const targetSlotKey = DAY_SLOT_MAP[targetDay] || 'modern_meta';
 
   if (action === 'stop') {
     await supabase.from('ai_pipeline_cycles').update({ status: 'partially_failed' }).eq('id', cycleId);
@@ -250,7 +286,7 @@ export async function POST(req: Request) {
   }
 
   console.log(`\n==============================================`);
-  console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status} | Target: ${targetSlotKey}`);
+  console.log(`🚀 [Worker Started] Cycle: ${cycleId} | Status: ${cycle.status} | Target Day: ${targetDay}`);
   console.log(`==============================================\n`);
 
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
@@ -271,9 +307,10 @@ export async function POST(req: Request) {
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
 
       const igTactics = await runAccountAnalysis(cycle.category);
+      // 🌟 targetSlotKey ではなく targetDay を渡し、全5スロットを網羅調査！
       const [trendUS, sayaUS] = await Promise.all([
         runMarketTrend('us', cycle.category),
-        runSayaAnalysis('us', cycle.category, targetSlotKey),
+        runSayaAnalysis('us', cycle.category, targetDay),
       ]);
 
       await processAndSaveRegionResearch(supabase, cycleId, 'us', sayaUS, trendUS);
@@ -301,7 +338,7 @@ export async function POST(req: Request) {
 
       const [trendEU, sayaEU] = await Promise.all([
         runMarketTrend('eu', cycle.category),
-        runSayaAnalysis('eu', cycle.category, targetSlotKey),
+        runSayaAnalysis('eu', cycle.category, targetDay),
       ]);
 
       await processAndSaveRegionResearch(supabase, cycleId, 'eu', sayaEU, trendEU);
@@ -327,7 +364,7 @@ export async function POST(req: Request) {
 
       const [trendAsia, sayaAsia, xTactics] = await Promise.all([
         runMarketTrend('asia', cycle.category),
-        runSayaAnalysis('asia', cycle.category, targetSlotKey),
+        runSayaAnalysis('asia', cycle.category, targetDay),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
 

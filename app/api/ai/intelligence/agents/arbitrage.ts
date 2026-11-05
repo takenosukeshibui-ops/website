@@ -49,7 +49,17 @@ const REGION_CURRENCIES: Record<string, { currency: string; name: string; target
   },
 };
 
-// リアルタイム為替レート取得ヘルパー
+// 🌟 曜日ごとの対象価格帯ローテーション定義（1日1価格帯）
+export const DAY_PRICE_TIER_MAP: Record<string, { key: string; label: string; desc: string; criteria: string }> = {
+  Monday: { key: 'under_3k', label: '〜3千円', desc: '超高回転・エントリー枠', criteria: '最低差額 +¥1,000以上、現地直近7日成約 5件以上' },
+  Tuesday: { key: 'under_10k', label: '3千〜1万円', desc: '定番コレクション枠', criteria: '最低差額 +¥2,500以上、現地直近7日成約 3件以上' },
+  Wednesday: { key: 'middle', label: '1万〜3万円', desc: '中核プロモ・高需要SAR枠', criteria: '最低差額 +¥6,000以上、現地直近14日成約 2件以上' },
+  Thursday: { key: 'upper', label: '3万〜8万円', desc: '準高額鑑定・上位絶版枠', criteria: '最低差額 +¥15,000以上、現地直近30日成約 2件以上' },
+  Friday: { key: 'top_end', label: '8万円〜', desc: '資産性PSA10・絶版BOX枠', criteria: '最低差額 +¥30,000以上、現地直近30日成約 1件以上' },
+  Saturday: { key: 'middle', label: '1万〜3万円', desc: '週末高需要コレクション枠', criteria: '最低差額 +¥6,000以上、現地直近14日成約 2件以上' },
+  Sunday: { key: 'under_10k', label: '3千〜1万円', desc: '週明け即売れ回転枠', criteria: '最低差額 +¥2,500以上、現地直近7日成約 3件以上' },
+};
+
 async function getRealtimeExchangeRate(currency: string): Promise<number> {
   try {
     const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, {
@@ -62,12 +72,13 @@ async function getRealtimeExchangeRate(currency: string): Promise<number> {
       return Math.round(rate * 100) / 100;
     }
   } catch (err) {
-    console.warn(`[ExchangeRate] ${currency}のリアルタイム取得失敗（フォールバック適用）:`, err);
+    console.warn(`[ExchangeRate] ${currency}のリアルタイム取得失敗:`, err);
   }
   const fallbacks: Record<string, number> = { USD: 155, EUR: 168, SGD: 118 };
   return fallbacks[currency] || 150;
 }
 
+// 🌟 常に全5スロットを網羅
 const SLOTS = [
   { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版' },
   { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY' },
@@ -79,13 +90,14 @@ const SLOTS = [
 export async function runSayaAnalysis(
   region: 'us' | 'eu' | 'asia', 
   category: string = 'pokemon',
-  targetSlotKey?: string
+  targetDay: string = 'Thursday'
 ) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
   const categoryName = getCategoryName(category);
-
   const exchangeRateJPY = await getRealtimeExchangeRate(cur.currency);
+
+  const todayTier = DAY_PRICE_TIER_MAP[targetDay] || DAY_PRICE_TIER_MAP.Thursday;
 
   const baseModel = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
@@ -94,82 +106,46 @@ export async function runSayaAnalysis(
     apiKey,
   });
 
-  const modelWithSearch = baseModel.bindTools([
-    {
-      googleSearch: {},
-    },
-  ]);
+  const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
-  let externalPriceContext = '※外部APIデータ未取得のため、各主要プラットフォームの公的成約基準に基づき推論';
+  let externalPriceContext = '※主要プラットフォーム成約基準に基づき推論';
   try {
     const supabase = await createClient();
-    const { data: cachedPrices, error: cacheErr } = await supabase
+    const { data: cachedPrices } = await supabase
       .from('overseas_market_prices')
-      .select('platform, card_name, condition_grade, sold_price_local, currency, sold_price_jpy, volume_indicator, source_evidence_url')
+      .select('platform, card_name, condition_grade, sold_price_local, currency, sold_price_jpy, volume_indicator')
       .eq('region', region)
       .eq('category', category)
       .order('updated_at', { ascending: false })
       .limit(30);
 
-    if (!cacheErr && cachedPrices && cachedPrices.length > 0) {
+    if (cachedPrices && cachedPrices.length > 0) {
       externalPriceContext = cachedPrices.map((p: any) => 
-        `- [${p.platform}] ${p.card_name} (${p.condition_grade}): 売価 ${p.currency} ${p.sold_price_local} (約¥${Number(p.sold_price_jpy).toLocaleString()}) | 流動性: ${p.volume_indicator || '直近成約あり'}`
+        `- [${p.platform}] ${p.card_name} (${p.condition_grade}): 売価 ${p.currency} ${p.sold_price_local} (約¥${Number(p.sold_price_jpy).toLocaleString()})`
       ).join('\n');
     }
   } catch (err) {
     console.warn('[Arbitrage] Overseas price fetch warning:', err);
   }
 
-  // 🌟 targetSlotKeyが指定されている場合は、その1スロットのみに絞り込んでGoogle API消費を抑制
-  const targetSlots = targetSlotKey ? SLOTS.filter(s => s.key === targetSlotKey) : SLOTS;
-  const effectiveSlots = targetSlots.length > 0 ? targetSlots : SLOTS;
+  // 🌟 全5スロットすべてを並列調査（スロットは削らず、価格帯を本日の指定枠1つに絞る）
+  const slotPromises = SLOTS.map(async (slot) => {
+    const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
+対象通貨: ${cur.currency}（最新リアルタイム為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
-  // ==========================================================================
-  // 【Step 1】対象スロットの調査（1スロットにつき1つの価格帯×3商品 ＝ 1地域あたり最大15商品を発掘）
-  // ==========================================================================
-  const slotPromises = effectiveSlots.map(async (slot) => {
-    const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
-対象通貨: ${cur.currency}（最新リアルタイム為替レート: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
-
-【重要: 大手トレカ通販専門サイトの実勢相場リサーチ】
-必ずGoogle検索を実行し、カードラッシュ・晴れる屋2・駿河屋等の大手専門店の現在実売相場を確認した上で jpBuyPriceJPY を決定してください。
-（※個別商品ページのURL特定は後続システムが自動で行うため、プロンプト内でのURL出力は不要です）
-
-■ 検索対象ショップ（大手トレカ通販のみに限定）:
-・カードラッシュ (cardrush-pokemon.jp / cardrush.jp)
-・遊々亭 (yuyu-tei.jp)
-・駿河屋 (suruga-ya.jp) ※中古在庫あり品
-・晴れる屋2 (hareruya2.com)
-・ドラゴンスター (dorasuta.jp)
-・ホビーステーション (hobbystation.com)
-・フルコンプ (fullcomp-online.com)
-※メルカリ等のCtoCフリマ相場は絶対に含めないこと。
+【超重要: 状態NM（美品）基準の厳格遵守】
+仕入れ価格（jpBuyPriceJPY）には、カードラッシュ等の大手通販サイトにおける【通常美品（NM / 状態A）の正規販売価格】を必ず設定してください。
+※「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
 
 【重要: 型番（コレクションナンバー）の出力義務】
-後続の検索システムが個別商品ページをピンポイント特定するため、【型番（例: 096/071, 134/108, 001/SV-P, S8b 205/184 等）】を必ず cardNumber フィールドに明記してください。型番の省略は厳禁です。
+特定ショップの個別詳細ページをピンポイント特定するため、【型番（例: 096/071, 134/108, PROMO 001/SV-P, S8b 205/184 等）】を必ず cardNumber フィールドに明記してください。型番の省略は厳禁です。
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
+【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】 / 判定基準: ${todayTier.criteria}
 
 【調達リサーチ任務】
-本日の市場動向から、このスロットにおいて最も利ざやと回転率が高い【最適な1つの価格帯（under_3k / under_10k / middle / upper / top_end のいずれか）】を自律的に選び、
-その価格帯に属する【本命1商品 ＋ 代替候補2商品（計3商品）】を厳選抽出してください。
-
-■ 5つの価格帯と調達・合格基準:
-1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、現地直近7日成約 5件以上（超高回転・エントリー枠）
-2. under_10k（¥3,000〜¥10,000）: 最低差額 +¥2,500以上、現地直近7日成約 3件以上（定番コレクション枠）
-3. middle（¥10,000〜¥30,000）: 最低差額 +¥6,000以上、現地直近14日成約 2件以上（中核プロモ・人気SR枠）
-4. upper（¥30,000〜¥80,000）: 最低差額 +¥15,000以上、現地直近30日成約 2件以上（高額鑑定・上位絶版枠）
-5. top_end（¥80,000以上）: 最低差額 +¥30,000以上、現地直近30日成約 1件以上（資産性・未開封BOX枠）
-
-【指定コンディション・マスター（※商材の性質に応じ、以下から厳格に選定すること）】
-・素体: "Raw NM", "Raw LP", "Raw Played"
-・鑑定品: "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10"
-・未開封: "Sealed Box", "Sealed Pack", "Sealed Promo"
-
-【厳格な四則演算ルール】
-・targetSoldPrice の日本円換算値 ＝ 現地価格(${cur.currency}) × ${exchangeRateJPY}円
-・priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
-・spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
+このスロットの中から、本日の指定価格帯【${todayTier.label}】に合致するカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選抽出してください。
+（※他タイトルのカードやフリマCtoC相場は絶対に含めないこと）
 
 以下のJSON形式のみを出力してください:
 {
@@ -177,13 +153,13 @@ export async function runSayaAnalysis(
   "slotLabel": "${slot.label}",
   "tiers": [
     {
-      "priceTier": "選定した価格帯のキー (例: middle)",
-      "priceTierLabel": "選定した価格帯のラベル (例: 1万〜3万円)",
+      "priceTier": "${todayTier.key}",
+      "priceTierLabel": "${todayTier.label}",
       "mainItem": {
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
-        "conditionGrade": "コンディションマスターから選定",
-        "jpBuyPriceJPY": "¥X,XXX",
+        "conditionGrade": "コンディション (通常は Raw NM または PSA 10)",
+        "jpBuyPriceJPY": "¥X,XXX (※通常美品/状態Aの正規価格)",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
@@ -196,7 +172,7 @@ export async function runSayaAnalysis(
         {
           "cardName": "候補2のカード名とレアリティ",
           "cardNumber": "候補2の正確な型番 (例: 134/108)",
-          "conditionGrade": "コンディションマスターから選定",
+          "conditionGrade": "Raw NM または PSA 10",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
@@ -209,7 +185,7 @@ export async function runSayaAnalysis(
         {
           "cardName": "候補3のカード名とレアリティ",
           "cardNumber": "候補3の正確な型番 (例: 205/172)",
-          "conditionGrade": "コンディションマスターから選定",
+          "conditionGrade": "Raw NM または PSA 10",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
@@ -230,81 +206,15 @@ export async function runSayaAnalysis(
 
   const slotResults = await Promise.all(slotPromises);
 
-  // ==========================================================================
-  // 【Step 2】発掘した商品を要約し、サマリーAIへ渡してデータ駆動分析
-  // ==========================================================================
-  const allDiscoveredItems: any[] = [];
-  for (const slot of slotResults) {
-    if (!slot?.tiers) continue;
-    for (const tier of slot.tiers) {
-      if (tier.mainItem) {
-        allDiscoveredItems.push({
-          slot: slot.slotLabel,
-          tier: tier.priceTierLabel,
-          role: '本命',
-          ...tier.mainItem,
-        });
-      }
-      if (Array.isArray(tier.subItems)) {
-        for (const sub of tier.subItems) {
-          allDiscoveredItems.push({
-            slot: slot.slotLabel,
-            tier: tier.priceTierLabel,
-            role: '代替候補',
-            ...sub,
-          });
-        }
-      }
-    }
-  }
-
-  const summaryPrompt = `あなたは【${cur.name}】専属の最高調達投資責任者（CIO）です。
-リサーチチームが日本市場をスクリーニングし、現地主要プラットフォーム（${cur.targetPlatforms.join(' / ')}）で利ざやの取れる【最新の調達候補リスト（計${allDiscoveredItems.length}商品）】を発掘しました。
-
-【今週発掘された調達・価格差データ】:
-${JSON.stringify(allDiscoveredItems, null, 2)}
-
-【任務】
-上記データ群をフラットかつ客観的に観察し、海外現地ショップオーナーに向けた【データ駆動型エグゼクティブ・サマリー】を作成してください。
-
-以下のJSON形式のみを出力してください:
-{
-  "title": "【${region.toUpperCase()}】アービトラージレポート",
-  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略",
-  "summary": {
-    "headline": "データから浮かび上がった、最も特筆すべき市場動向や歪みの核心",
-    "macroAnalysis": {
-      "japanSourcingClimate": "仕入れ値・在庫動向から読み解く、日本国内市場の調達環境分析",
-      "localMarketDemand": "現地売価・成約速度から浮き彫りになる、現地需要の偏り"
-    },
-    "microAnalysis": {
-      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠",
-      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠",
-      "conditionGradingInsight": "データ構成から見えてくる独自のインサイト"
-    },
-    "riskAlert": {
-      "sourcingQualityTrap": "今回選定された商材を日本から仕入れる際の注意点",
-      "localInventoryRisk": "現地での在庫滞留・急落リスクを避けるための回転戦略"
-    },
-    "actionDirectives": [
-      "短期的な重点回収＆スピード販売アクション",
-      "中・高額帯のプレミアム販売＆利ざや確保アクション"
-    ]
-  }
-}`;
-
-  const summaryRes = await baseModel.invoke(summaryPrompt);
-  const summaryParsed = parseAIJson(summaryRes.content.toString());
-
   return {
-    title: summaryParsed?.title || `【${region.toUpperCase()}】アービトラージレポート`,
-    claim: summaryParsed?.claim || `${cur.name}向け調達レポート`,
+    title: `【${region.toUpperCase()}】アービトラージレポート`,
+    claim: `今週の${cur.name}向け日本語版カード輸入調達戦略（全5スロット網羅）`,
     exchangeRate: {
       currency: cur.currency,
       rateJPY: exchangeRateJPY,
       label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`
     },
-    summary: summaryParsed?.summary || null,
+    summary: null,
     slots: slotResults,
   };
 }
