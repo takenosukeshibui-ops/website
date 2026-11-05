@@ -70,6 +70,7 @@ export async function GET(req: Request) {
 
       const slotMap: Record<string, any> = {};
       let summaryObj: any = null;
+      let exchangeRateObj: any = null;
 
       for (const item of items) {
         if (!slotMap[item.slot_key]) {
@@ -110,12 +111,15 @@ export async function GET(req: Request) {
           if (item.raw_payload.reportSummary && !summaryObj) {
             summaryObj = item.raw_payload.reportSummary;
           }
+          if (item.raw_payload.exchangeRate && !exchangeRateObj) {
+           exchangeRateObj = item.raw_payload.exchangeRate;
+         }
         }
       }
-
       return {
         title: `【${regionKey.toUpperCase()}】アービトラージレポート`,
         claim: `${regionKey.toUpperCase()}市場向け輸入調達レポート`,
+        exchangeRate: exchangeRateObj,
         summary: summaryObj,
         slots: Object.values(slotMap),
       };

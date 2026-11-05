@@ -145,6 +145,15 @@ export default function DocumentReportView({
                         </h3>
                     </div>
                 </div>
+                <div className="flex items-center gap-2">
+                 {/* 🌟 リアルタイム為替レートバッジ */}
+                 {report.exchangeRate && (
+                     <div className="shrink-0">
+                         <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
+                             💱 為替基準: {report.exchangeRate.label}
+                         </span>
+                     </div>
+                 )}
                 {isStrategicReport && (
                     <div className="shrink-0">
                         <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
@@ -166,6 +175,7 @@ export default function DocumentReportView({
                         </span>
                     </div>
                 )}
+                </div>
             </div>
 
             <div className="p-4 sm:p-6 space-y-6">
@@ -609,9 +619,23 @@ export default function DocumentReportView({
                                                                 )}
 
                                                                 <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
-                                                                    <div className="flex justify-between text-slate-400">
+                                                                    <div className="flex justify-between items-center text-slate-400">
                                                                         <span>日本調達:</span>
+                                                                        <div className="flex items-center gap-1.5">
                                                                         <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY || item.currentJpPriceJPY}</span>
+                                                                        {(item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl) && (
+                                                                            <a
+                                                                                href={item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-[10px] text-blue-400 hover:text-blue-300 underline font-sans flex items-center gap-0.5"
+                                                                                title="仕入れ元・検索エビデンスを確認"
+                                                                            >
+                                                                                <span>[根拠]</span>
+                                                                                <span>↗</span>
+                                                                            </a>
+                                                                        )}
+                                                                    </div>
                                                                     </div>
                                                                     <div className="flex justify-between text-slate-400">
                                                                         <span>現地実成約:</span>
@@ -750,7 +774,21 @@ export default function DocumentReportView({
 
                                                                 <div className="flex justify-between text-xs font-mono border-t border-slate-800/60 pt-1.5">
                                                                     <span className="text-slate-400">日本調達:</span>
+                                                                    <div className="flex items-center gap-1.5">
                                                                     <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY || main.currentJpPriceJPY}</span>
+                                                                    {(main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl) && (
+                                                                        <a
+                                                                            href={main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-[10px] text-blue-400 hover:text-blue-300 underline font-sans flex items-center gap-0.5"
+                                                                            title="仕入れ元・検索エビデンスを確認"
+                                                                        >
+                                                                            <span>[根拠]</span>
+                                                                            <span>↗</span>
+                                                                        </a>
+                                                                    )}
+                                                                  </div>
                                                                 </div>
                                                                 <div className="flex justify-between text-xs font-mono">
                                                                     <span className="text-slate-400">現地実成約:</span>
@@ -818,8 +856,21 @@ export default function DocumentReportView({
                                                                                             </div>
                                                                                         )}
 
-                                                                                        <div className="flex justify-between font-mono text-slate-400 text-[10px]">
+                                                                                        <div className="flex justify-between items-center font-mono text-slate-400 text-[10px]">
+                                                                                        <div className="flex items-center gap-1">
                                                                                             <span>調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                            {(subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl) && (
+                                                                                                <a
+                                                                                                    href={subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="text-[9px] text-blue-400 hover:text-blue-300 underline font-sans"
+                                                                                                    title="仕入れ元エビデンスを確認"
+                                                                                                >
+                                                                                                    [根拠]↗
+                                                                                                </a>
+                                                                                            )}
+                                                                                        </div>
                                                                                             <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
                                                                                         </div>
                                                                                     </div>

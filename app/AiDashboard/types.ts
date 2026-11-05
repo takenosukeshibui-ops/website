@@ -32,6 +32,10 @@ export interface StrategicReport {
   soWhat: string;
   riskAndMitigation: RiskAndMitigation;
   verificationChecklist: string[];
+  curatorDirectives?: {
+    recommendedTrendDay: string;
+    slotWeights: Record<string, string>;
+  };
 }
 
 // ==========================================
@@ -43,11 +47,15 @@ export interface ArbitrageItemData {
   cardName: string;              // 実在カード名・型番
   conditionGrade: string;        // 状態（PSA10, Raw NM等）
   jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+  jpEvidenceUrl?: string;        // 🌟 日本市場の証拠URL
   targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
   priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
   spreadROI: string;             // 粗利比率（例: "122%"）
   liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
   insight: string;               // 現地顧客需要・買い付け狙い目メモ
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
 }
 
 export interface ArbitragePriceTierCell {
@@ -85,6 +93,7 @@ export interface ArbitrageExecutiveSummary {
 export interface MultiSlotArbitrageReport {
   title: string;
   claim?: string;
+  exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
   summary?: ArbitrageExecutiveSummary;
   slots: ArbitrageSlotReport[];
   reasons?: string[];
@@ -103,45 +112,62 @@ export type CardCondition = 'Raw NM' | 'PSA10';
 export interface MarketTrendCardItem {
   rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
   cardName: string;           // 実在カード名 (型番 / レアリティ)
-  condition: CardCondition;   // 推奨状態 (Raw NM / PSA10)
-  conviction: ConvictionLevel;// 確信度 (High / Mid / Speculative)
+  condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
+  conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
   jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
   currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-  timeframe: string;          // 売り時目安 (例: "【短期】約2週間後（北米大会前）")
-  exitStrategy: string;       // 推奨出口戦略 (例: "入荷後、大会前週末の現地店頭・ECで即出し")
-  impactLogic: string;        // 波及ロジック（なぜ跳ねるのか・日本の相場ラグ理由）
+  timeframe?: string;         // 売り時目安
+  exitStrategy?: string;      // 推奨出口戦略
+  impactLogic?: string;       // 波及ロジック
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
 }
 
 export interface MarketTrendHypothesis {
-  headline: string;             // トレンド核心タイトル
-  signal: string;               // 検知された客観的シグナル・事実
-  timeframe: string;            // トレンド全体の想定ピーク時期
+  headline: string;           // トレンド核心タイトル
+  signal: string;             // 検知された客観的シグナル・事実
+  timeframe: string;          // トレンド全体の想定ピーク時期
   items: MarketTrendCardItem[]; // トレンド合致銘柄
 }
 
 export interface MarketTrendExecutiveSummary {
-  headline: string; // 今週のトレンド総括見出し
+  headline: string;
   trendDynamics: {
-    catalystOverview: string; // 海外の急騰トリガー・資金流入口
-    japanPriceLag: string;    // 日本国内での安値放置理由・相場ラグ
+    catalystOverview: string;
+    japanPriceLag: string;
   };
   strategicHighlights: {
-    mvpCatalystCard: string;  // 最注目カタリスト銘柄（MVP）
-    optimalExitWindow: string;// 全体的な売り抜け推奨期間・時間軸
+    mvpCatalystCard: string;
+    optimalExitWindow: string;
   };
   riskAlert: {
-    hypeTrapWarning: string;  // 一時的バブル・過熱リスクへの警告
-    gradingVsRawStrategy: string; // 素体NM即売りかPSA10鑑定出しかの指針
+    hypeTrapWarning: string;
+    gradingVsRawStrategy: string;
   };
-  actionDirectives: string[]; // 今週の先回り仕込みアクション指針
+  actionDirectives: string[];
 }
 
 export interface MarketTrendReport {
   title: string;
   claim: string;
-  createdAt: string;
+  createdAt?: string;
   summary?: MarketTrendExecutiveSummary;
   hypotheses: MarketTrendHypothesis[];
+}
+
+// ==========================================
+// 🌟 インフォグラフィック・画像生成共通型定義
+// ==========================================
+export interface InfographicData {
+  type: 'arbitrage' | 'trend';
+  cardName: string;
+  region?: RegionKey | string;
+  jpPrice: string;
+  overseasPrice: string;
+  spread: string;
+  roi: string;
+  hookText: string;
 }
 
 // ==========================================
@@ -158,7 +184,10 @@ export interface ContentCalendarItem {
   dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   dayLabelJa: string;
   postType: string;
-  items: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
+  selectedCardOrTopic?: string;
+  hookFact?: string;
+  hiddenActionReason?: string;
+  items?: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
   directiveForCreator?: {
     instagramAngle: string;
     xTwitterAngle: string;
@@ -177,7 +206,7 @@ export interface ChiefPackageData {
   winningRegion?: 'us' | 'eu' | 'asia' | 'global';
   leadMagnetTitle?: string;
   chosenCardOrItem?: string;
-  strategyBlueprint?: CuratorStrategyBlueprint | null; // 🌟 RSI動的編成方針
+  strategyBlueprint?: CuratorStrategyBlueprint | null;
   mvpHighlight?: {
     cardName: string;
     region: RegionKey | string;
@@ -220,27 +249,40 @@ export interface ProofPackageData {
 }
 
 export interface SnsPostsData {
-    theme: string;
-    recommendedTiming: string;
-    hashtags?: string[];
-    discordCTA: string;
-    dailyPosts?: {
-        day: string;
-        theme: string;
-        caption: string;
-        infographicData: InfographicData; 
-    }[];
+  theme: string;
+  recommendedTiming: string;
+  hashtags?: string[];
+  visualGuideline?: {
+    coverSlide: string;
+    carouselSlides: string[];
+  };
+  posts?: {
+    hybridPost: string;
+    arbitragePost: string;
+    trendPost: string;
+  };
+  discordCTA: string;
+  dailyPosts?: {
+    day: string;
+    theme?: string;
+    caption: string;
+    slides?: string[];
+    infographicData?: InfographicData;
+  }[];
 }
 
 export interface XPostsData {
-    theme: string;
-    xCallToAction: string;
-    dailyThreads?: {
-        day: string;
-        mainPost: string;
-        threadPosts: string[];
-        infographicData: InfographicData; 
-    }[];
+  theme: string;
+  mainPost?: string;
+  threadPosts?: string[];
+  imageGuideline?: string[];
+  xCallToAction: string;
+  dailyThreads?: {
+    day: string;
+    mainPost: string;
+    threadPosts: string[];
+    infographicData?: InfographicData;
+  }[];
 }
 
 export interface SalesDMData {
@@ -349,18 +391,4 @@ export interface PipelineProgressState {
   status: PipelinePhase | null;
   gate1Audits: Gate1AuditItem[];
   gate2Audits: Gate2AuditItem[];
-}
-
-// app/AiDashboard/types.ts
-
-// 共通のインフォグラフィックデータ型を新規追加
-export interface InfographicData {
-    type: 'arbitrage' | 'trend';
-    cardName: string;
-    region?: RegionKey | string;
-    jpPrice: string;
-    overseasPrice: string;
-    spread: string;
-    roi: string;
-    hookText: string;
 }

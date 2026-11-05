@@ -74,6 +74,8 @@ async function processAndSaveRegionResearch(
             raw_payload: {
               ...tier,
               reportSummary: sayaReport.summary,
+              exchangeRate: sayaReport.exchangeRate, // 🌟 sayaReport から参照
+              jpEvidenceUrl: item.jpEvidenceUrl || null,
               currentItem: item,
               sourcePlatform: item.sourcePlatform || platformDefault,
               evidenceNote: item.evidenceNote || '主要プラットフォーム成約基準',

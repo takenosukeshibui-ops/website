@@ -7,6 +7,7 @@ export interface ArbitrageItem {
   cardName: string;
   conditionGrade: string;
   jpBuyPriceJPY: string;
+  jpEvidenceUrl?: string;        // 🌟 追加: 国内仕入れ値の根拠URL（Google検索でヒットした商品/成約URL）
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
@@ -128,6 +129,7 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
 
  【重要: Google検索グラウンディングによる最新実勢相場リサーチ】
  必ずGoogle検索を実行し、日本国内の二次流通（メルカリ直近成約、ヤフオク落札相場、駿河屋・カドショ販売価格）の「現在の実売価格・安値相場」を実際に検索して確認した上で jpBuyPriceJPY を決定してください。 過去の記憶や架空の数値を推論することは厳禁です。
+ また、検索結果で確認した国内の販売・成約ページURL（または出品一覧URL）を jpEvidenceUrl に正確に記録してください。
 
 
 【主要連携プラットフォーム基準】
@@ -175,6 +177,7 @@ ${externalPriceContext}
         "cardName": "実在カード名 (型番/弾名)",
         "conditionGrade": "コンディションマスターから選定",
         "jpBuyPriceJPY": "¥X,XXX",
+        "jpEvidenceUrl": "https://...",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
@@ -184,8 +187,8 @@ ${externalPriceContext}
         "insight": "現地需要動向と輸入推奨理由（1行）"
       },
       "subItems": [
-        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
+        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "jpEvidenceUrl": "https://...", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
+        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "jpEvidenceUrl": "https://...", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
       ]
     },
     { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
@@ -282,6 +285,11 @@ ${JSON.stringify(allDiscoveredItems, null, 2)}
   return {
     title: summaryParsed?.title || `【${region.toUpperCase()}】アービトラージレポート`,
     claim: summaryParsed?.claim || `${cur.name}向け調達レポート`,
+    exchangeRate: {
+       currency: cur.currency,
+       rateJPY: exchangeRateJPY,
+       label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`
+     },
     summary: summaryParsed?.summary || null,
     slots: slotResults,
   };
