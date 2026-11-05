@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export interface ArbitrageItem {
   cardName: string;
+  cardNumber: string; // 🌟 必須の型番（例: "096/071", "sv2D" 等）
   conditionGrade: string;
   jpBuyPriceJPY: string;
   jpEvidenceUrl?: string;
@@ -119,7 +120,7 @@ export async function runSayaAnalysis(
     console.warn('[Arbitrage] Overseas price fetch warning:', err);
   }
 
-  // 🌟 targetSlotKeyが指定されている場合は、その1スロットのみに絞り込んでGoogle API消費を激減させる
+  // 🌟 targetSlotKeyが指定されている場合は、その1スロットのみに絞り込んでGoogle API消費を抑制
   const targetSlots = targetSlotKey ? SLOTS.filter(s => s.key === targetSlotKey) : SLOTS;
   const effectiveSlots = targetSlots.length > 0 ? targetSlots : SLOTS;
 
@@ -144,6 +145,9 @@ export async function runSayaAnalysis(
 ・フルコンプ (fullcomp-online.com)
 ※メルカリ等のCtoCフリマ相場は絶対に含めないこと。
 
+【重要: 型番（コレクションナンバー）の出力義務】
+後続の検索システムが個別商品ページをピンポイント特定するため、【型番（例: 096/071, 134/108, 001/SV-P, S8b 205/184 等）】を必ず cardNumber フィールドに明記してください。型番の省略は厳禁です。
+
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
 【調達リサーチ任務】
@@ -157,6 +161,16 @@ export async function runSayaAnalysis(
 4. upper（¥30,000〜¥80,000）: 最低差額 +¥15,000以上、現地直近30日成約 2件以上（高額鑑定・上位絶版枠）
 5. top_end（¥80,000以上）: 最低差額 +¥30,000以上、現地直近30日成約 1件以上（資産性・未開封BOX枠）
 
+【指定コンディション・マスター（※商材の性質に応じ、以下から厳格に選定すること）】
+・素体: "Raw NM", "Raw LP", "Raw Played"
+・鑑定品: "PSA 10", "PSA 9", "BGS 9.5", "BGS 10", "CGC 10", "ARS 10"
+・未開封: "Sealed Box", "Sealed Pack", "Sealed Promo"
+
+【厳格な四則演算ルール】
+・targetSoldPrice の日本円換算値 ＝ 現地価格(${cur.currency}) × ${exchangeRateJPY}円
+・priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
+・spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
+
 以下のJSON形式のみを出力してください:
 {
   "slotKey": "${slot.key}",
@@ -166,7 +180,8 @@ export async function runSayaAnalysis(
       "priceTier": "選定した価格帯のキー (例: middle)",
       "priceTierLabel": "選定した価格帯のラベル (例: 1万〜3万円)",
       "mainItem": {
-        "cardName": "本命の実在カード名 (型番/弾名)",
+        "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
+        "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
         "conditionGrade": "コンディションマスターから選定",
         "jpBuyPriceJPY": "¥X,XXX",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
@@ -179,7 +194,8 @@ export async function runSayaAnalysis(
       },
       "subItems": [
         {
-          "cardName": "候補2 (型番/弾名)",
+          "cardName": "候補2のカード名とレアリティ",
+          "cardNumber": "候補2の正確な型番 (例: 134/108)",
           "conditionGrade": "コンディションマスターから選定",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
@@ -191,8 +207,17 @@ export async function runSayaAnalysis(
           "insight": "特徴1行"
         },
         {
-          "cardName": "候補3 (型番/弾名)",
-          /* 同様 */
+          "cardName": "候補3のカード名とレアリティ",
+          "cardNumber": "候補3の正確な型番 (例: 205/172)",
+          "conditionGrade": "コンディションマスターから選定",
+          "jpBuyPriceJPY": "¥X,XXX",
+          "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
+          "priceSpreadJPY": "¥X,XXX",
+          "spreadROI": "XX%",
+          "liquidity": "直近7日 X件",
+          "sourcePlatform": "参照プラットフォーム名",
+          "evidenceNote": "売価根拠",
+          "insight": "特徴1行"
         }
       ]
     }
@@ -247,15 +272,15 @@ ${JSON.stringify(allDiscoveredItems, null, 2)}
   "title": "【${region.toUpperCase()}】アービトラージレポート",
   "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略",
   "summary": {
-    "headline": "データから浮かび上がった、最も特筆すべき市場動向や歪みの核心（発見したパターンを記述）",
+    "headline": "データから浮かび上がった、最も特筆すべき市場動向や歪みの核心",
     "macroAnalysis": {
       "japanSourcingClimate": "仕入れ値・在庫動向から読み解く、日本国内市場の調達環境分析",
       "localMarketDemand": "現地売価・成約速度から浮き彫りになる、現地需要の偏り"
     },
     "microAnalysis": {
-      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠（上記商品から引用）",
-      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠（上記商品から引用）",
-      "conditionGradingInsight": "データ構成から見えてくる独自のインサイト（データ分析から判明した事実を記述）"
+      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠",
+      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠",
+      "conditionGradingInsight": "データ構成から見えてくる独自のインサイト"
     },
     "riskAlert": {
       "sourcingQualityTrap": "今回選定された商材を日本から仕入れる際の注意点",

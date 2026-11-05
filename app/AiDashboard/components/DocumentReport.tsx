@@ -1,7 +1,6 @@
 // app/AiDashboard/components/DocumentReport.tsx
 import React, { useState } from 'react';
 
-// 🌟 指定順序に合わせた5スロットの［ラベル］［説明］［ソート順］マッピング
 const SLOT_METADATA: Record<string, { badge: string; desc: string; order: number }> = {
     classic_vintage: {
         badge: 'クラシック・ヴィンテージ',
@@ -54,7 +53,6 @@ export default function DocumentReportView({
 
     if (!report || !report.title) return <div className="text-slate-500 text-xs italic">レポートデータがありません</div>;
 
-    // 🌟 レポートの種別を正確に判定する
     const isTrendReport = Boolean(report.hypotheses && Array.isArray(report.hypotheses));
     const isArbitrageReport = Boolean(report.slots && Array.isArray(report.slots));
     const isStrategicReport = Boolean(report.facts && report.soWhat);
@@ -90,11 +88,12 @@ export default function DocumentReportView({
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
-    // 🌟 カードラッシュ検索用フォールバックURL生成関数
-    const getCardrushFallbackUrl = (cardName?: string) => {
+    // 🌟 カードラッシュ検索用フォールバックURL生成関数（型番もキーワードに結合）
+    const getCardrushFallbackUrl = (cardName?: string, cardNumber?: string) => {
         if (!cardName) return 'https://www.cardrush-pokemon.jp/';
-        const clean = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-        return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(clean)}`;
+        const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+        const keyword = cardNumber ? `${cleanName} ${cardNumber}` : cleanName;
+        return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(keyword.trim())}`;
     };
 
     const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
@@ -176,7 +175,7 @@ export default function DocumentReportView({
                 {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="shrink-0">
                         <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                            {hasArbitrageTiers ? '5スロット × 5価格帯 (25枠)' : `5スロット網羅 (${sortedSlots.length}枠)`}
+                            {hasArbitrageTiers ? '5スロット × 本日の指定価格帯 (各3商品)' : `5スロット網羅 (${sortedSlots.length}枠)`}
                         </span>
                     </div>
                 )}
@@ -184,9 +183,8 @@ export default function DocumentReportView({
             </div>
 
             <div className="p-4 sm:p-6 space-y-6">
-                
                 {/* ========================================================= */}
-                {/* 🌟 1. SNSアナリスト（戦略レポート）描画ブロック */}
+                {/* 1. SNSアナリスト（戦略レポート）描画ブロック */}
                 {/* ========================================================= */}
                 {isStrategicReport && (
                     <div className="space-y-5 animate-fadeIn">
@@ -255,35 +253,6 @@ export default function DocumentReportView({
                                 </p>
                             </div>
                         )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {report.riskAndMitigation && (
-                                <div className="bg-slate-950 border border-rose-900/30 rounded-xl p-4 space-y-2">
-                                    <h4 className="text-xs font-bold text-rose-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                                        <span>🚨</span> 警戒すべきリスクと回避策
-                                    </h4>
-                                    <div className="space-y-1.5 text-[11px] text-slate-300 leading-relaxed">
-                                        <p><strong className="text-rose-400">リスク: </strong>{report.riskAndMitigation.risk}</p>
-                                        <p><strong className="text-emerald-400">回避策: </strong>{report.riskAndMitigation.mitigation}</p>
-                                    </div>
-                                </div>
-                            )}
-                            {report.verificationChecklist && (
-                                <div className="bg-slate-950 border border-emerald-900/30 rounded-xl p-4 space-y-2">
-                                    <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                                        <span>✅</span> Gate 2 監査チェックリスト
-                                    </h4>
-                                    <ul className="space-y-1.5 text-[11px] text-slate-300">
-                                        {report.verificationChecklist.map((chk: string, idx: number) => (
-                                            <li key={idx} className="flex items-start gap-1.5">
-                                                <span className="text-emerald-400 font-bold shrink-0">✔</span>
-                                                <span>{chk}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 )}
 
@@ -312,7 +281,6 @@ export default function DocumentReportView({
                                         const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
                                         const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
                                         
-                                        // 🌟 トレンド商品の国内調達エビデンスURL（Google検索結果 または フォールバック検索URL）
                                         const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
 
                                         return (
@@ -353,7 +321,6 @@ export default function DocumentReportView({
                                                         </h5>
                                                     </div>
 
-                                                    {/* 🌟 外部API連携プラットフォームバッジ ＆ エビデンスURL */}
                                                     {(platformName || evidenceNote || evidenceUrl) && (
                                                         <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
                                                             <div className="flex items-center justify-between gap-1">
@@ -401,113 +368,13 @@ export default function DocumentReportView({
                                                             <span className="text-emerald-400 font-bold">{item.currentLocalPrice}</span>
                                                         </div>
                                                     </div>
-
-                                                    {(item.timeframe || item.exitStrategy) && (
-                                                        <div className="text-[11px] bg-slate-950/70 p-2 rounded border border-slate-800/80 space-y-1">
-                                                            {item.timeframe && (
-                                                                <div className="text-slate-300 text-[10px] truncate">
-                                                                    <span className="text-amber-400 font-bold mr-1">⏳</span>{item.timeframe}
-                                                                </div>
-                                                            )}
-                                                            {item.exitStrategy && (
-                                                                <div className="text-slate-400 text-[10px] leading-tight">
-                                                                    <span className="text-sky-400 font-bold mr-1">🎯</span>{item.exitStrategy}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
                                                 </div>
-
-                                                {item.impactLogic && (
-                                                    <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/90 p-2 rounded border border-slate-800/60 leading-relaxed">
-                                                        <span className="text-amber-400 font-bold mr-1">💡</span>{item.impactLogic}
-                                                    </div>
-                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
                         ))}
-
-                        <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-6 shadow-lg">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                                <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                    <span>📈</span> トレンド分析 ＆ 先行シグナルサマリー
-                                </h4>
-                            </div>
-
-                            <div className="space-y-3">
-                                {report.hypotheses?.map((hypo: any, hIdx: number) => (
-                                    <div key={hIdx} className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-2.5">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
-                                            <span className="text-sm font-bold text-white leading-snug">
-                                                {hypo.headline}
-                                            </span>
-                                            {hypo.timeframe && (
-                                                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30 shrink-0 self-start sm:self-auto">
-                                                    ⏳ {hypo.timeframe}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {hypo.signal && (
-                                            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/70 p-3 rounded-lg border border-slate-800/80">
-                                                <span className="text-sky-400 font-bold mr-1.5">🔍 検知シグナル:</span>
-                                                {hypo.signal}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {summary && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
-                                        <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                            <span>🌐</span> 1. 潮流・資金動向分析
-                                        </h5>
-                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
-                                            <p><strong className="text-slate-400">急騰トリガー: </strong>{summary.trendDynamics?.catalystOverview}</p>
-                                            <p><strong className="text-slate-400">国内相場ラグ: </strong>{summary.trendDynamics?.japanPriceLag}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-2">
-                                        <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                            <span>🔍</span> 2. 突出セクター ＆ 時間軸
-                                        </h5>
-                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
-                                            <p><strong className="text-slate-400">最注目カタリスト: </strong>{summary.strategicHighlights?.mvpCatalystCard}</p>
-                                            <p><strong className="text-slate-400">売り時ウィンドウ: </strong>{summary.strategicHighlights?.optimalExitWindow}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-900/80 border border-rose-900/30 rounded-xl p-3.5 space-y-2">
-                                        <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                            <span>🚨</span> 3. トレンド警戒アラート
-                                        </h5>
-                                        <div className="space-y-1 text-xs text-slate-300 leading-relaxed">
-                                            <p><strong className="text-rose-400">バブル・再販警戒: </strong>{summary.riskAlert?.hypeTrapWarning}</p>
-                                            <p><strong className="text-rose-400">状態・鑑定指針: </strong>{summary.riskAlert?.gradingVsRawStrategy}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-900/80 border border-emerald-900/30 rounded-xl p-3.5 space-y-2">
-                                        <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                            <span>🎯</span> 4. 今週の先回り仕込みアクション指針
-                                        </h5>
-                                        <ul className="space-y-1.5 text-xs text-slate-300">
-                                            {summary.actionDirectives?.map((action: string, i: number) => (
-                                                <li key={i} className="flex items-start gap-2">
-                                                    <span className="text-emerald-400 font-bold">✔</span>
-                                                    <span className="leading-relaxed">{action}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 )}
 
@@ -580,9 +447,9 @@ export default function DocumentReportView({
                                                     const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
                                                     const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
                                                     const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
+                                                    const cardNum = item.cardNumber || item.raw_payload?.currentItem?.cardNumber || '';
 
-                                                    // 🌟 国内調達個別URL（Google検索結果 または フォールバック検索URL）
-                                                    const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || matchedTier.jpEvidenceUrl || matchedTier.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
+                                                    const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || matchedTier.jpEvidenceUrl || matchedTier.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName, cardNum);
 
                                                     return (
                                                         <div
@@ -612,10 +479,14 @@ export default function DocumentReportView({
                                                                 <div className="min-h-[2.8rem]">
                                                                     <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
                                                                         {item.cardName}
+                                                                        {cardNum && (
+                                                                            <span className="ml-1.5 text-[10px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
+                                                                                {cardNum}
+                                                                            </span>
+                                                                        )}
                                                                     </h5>
                                                                 </div>
 
-                                                                {/* 🌟 連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
                                                                 {(platformName || evidenceNote || evidenceUrl) && (
                                                                     <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
                                                                         <div className="flex items-center justify-between gap-1">
@@ -668,20 +539,7 @@ export default function DocumentReportView({
                                                                     <span>利ざや: <strong>{item.priceSpreadJPY}</strong></span>
                                                                     <span className="font-bold">ROI: {item.spreadROI}</span>
                                                                 </div>
-
-                                                                {item.liquidity && (
-                                                                    <div className="text-[11px] font-mono text-slate-400 flex justify-between">
-                                                                        <span>現地回転:</span>
-                                                                        <span className="text-slate-300 font-bold">{item.liquidity}</span>
-                                                                    </div>
-                                                                )}
                                                             </div>
-
-                                                            {item.insight && (
-                                                                <div className="mt-2.5 text-[11px] text-slate-400 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
-                                                                    <span className="text-amber-400 font-bold mr-1">💡</span>{item.insight}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     );
                                                 })}
@@ -691,7 +549,7 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         ) : (
-                            /* 🌟 「すべて表示」選択時 */
+                            /* 「すべて表示」選択時 */
                             <div className="space-y-4">
                                 {sortedSlots.map((slot: any, sIdx: number) => {
                                     const rawTiers: any[] = slot.tiers || slot.items || [];
@@ -710,9 +568,7 @@ export default function DocumentReportView({
                                     const sortedTiers = deduplicatedTiers.sort((a, b) => {
                                         const orderA = getTierOrderScore(a);
                                         const orderB = getTierOrderScore(b);
-                                        if (orderA !== orderB) {
-                                            return orderA - orderB;
-                                        }
+                                        if (orderA !== orderB) return orderA - orderB;
                                         const buyA = parseInt(String(a.mainItem?.jpBuyPriceJPY || a.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
                                         const buyB = parseInt(String(b.mainItem?.jpBuyPriceJPY || b.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 0;
                                         return buyA - buyB;
@@ -732,7 +588,7 @@ export default function DocumentReportView({
                                                     )}
                                                 </div>
                                                 <span className="text-xs text-slate-500 font-mono">
-                                                    {sortedTiers.length}価格帯（安値順）
+                                                    {sortedTiers.length}枠
                                                 </span>
                                             </div>
 
@@ -745,9 +601,9 @@ export default function DocumentReportView({
                                                     const platformName = main.sourcePlatform || tierCell.sourcePlatform;
                                                     const evidenceNote = main.evidenceNote || tierCell.evidenceNote;
                                                     const evidenceUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl;
+                                                    const cardNum = main.cardNumber || tierCell.cardNumber || tierCell.currentItem?.cardNumber || '';
 
-                                                    // 🌟 本命の国内調達個別URL（Google検索結果 または フォールバック検索URL）
-                                                    const mainJpShopUrl = main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl || tierCell.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName);
+                                                    const mainJpShopUrl = main.jpEvidenceUrl || main.raw_payload?.jpEvidenceUrl || tierCell.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName, cardNum);
 
                                                     return (
                                                         <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -768,9 +624,13 @@ export default function DocumentReportView({
 
                                                                 <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2.5rem]" title={main.cardName}>
                                                                     {main.cardName}
+                                                                    {cardNum && (
+                                                                        <span className="ml-1.5 text-[10px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
+                                                                            {cardNum}
+                                                                        </span>
+                                                                    )}
                                                                 </h5>
 
-                                                                {/* 🌟 本命の連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
                                                                 {(platformName || evidenceNote || evidenceUrl) && (
                                                                     <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
                                                                         <div className="flex items-center justify-between gap-1">
@@ -823,12 +683,6 @@ export default function DocumentReportView({
                                                                         <span className="font-bold">ROI: {main.spreadROI}</span>
                                                                     </div>
                                                                 )}
-
-                                                                {main.insight && (
-                                                                    <p className="text-[10px] text-slate-400 bg-slate-950/60 p-2 rounded border border-slate-800/50 leading-relaxed line-clamp-3">
-                                                                        <span className="text-amber-400 font-bold mr-1">💡</span>{main.insight}
-                                                                    </p>
-                                                                )}
                                                             </div>
 
                                                             {subs.length > 0 && (
@@ -848,20 +702,24 @@ export default function DocumentReportView({
                                                                                 const subPlatform = subItem.sourcePlatform || subItem.raw_payload?.sourcePlatform;
                                                                                 const subEvidence = subItem.evidenceNote || subItem.raw_payload?.evidenceNote;
                                                                                 const subUrl = subItem.sourceEvidenceUrl || subItem.raw_payload?.sourceEvidenceUrl;
+                                                                                const subCardNum = subItem.cardNumber || subItem.raw_payload?.currentItem?.cardNumber || '';
 
-                                                                                // 🌟 代替候補の国内調達個別URL（Google検索結果 または フォールバック検索URL）
-                                                                                const subJpShopUrl = subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(subItem.cardName);
+                                                                                const subJpShopUrl = subItem.jpEvidenceUrl || subItem.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(subItem.cardName, subCardNum);
 
                                                                                 return (
                                                                                     <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
                                                                                         <div className="flex justify-between items-center">
                                                                                             <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
                                                                                                 {subItem.cardName}
+                                                                                                {subCardNum && (
+                                                                                                    <span className="ml-1 text-[9px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/30">
+                                                                                                        {subCardNum}
+                                                                                                    </span>
+                                                                                                )}
                                                                                             </span>
                                                                                             <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
                                                                                         </div>
 
-                                                                                        {/* 🌟 代替候補の連携先プラットフォーム ＆ 売価エビデンスバッジ ＆ URL */}
                                                                                         {(subPlatform || subEvidence || subUrl) && (
                                                                                             <div className="text-[9px] flex items-center justify-between bg-slate-900 px-2 py-1 rounded border border-slate-800">
                                                                                                 <div className="flex items-center gap-1 truncate">
@@ -913,91 +771,6 @@ export default function DocumentReportView({
                                 })}
                             </div>
                         )}
-                    </div>
-                )}
-
-                {/* サマリー描画 */}
-                {isArbitrageReport && (summary || hasArbitrageTiers) && (
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4 pt-5 mt-8 shadow-lg">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                <span>📈</span> 今週の調達・販売エグゼクティブ・サマリー
-                            </h4>
-                        </div>
-
-                        {summary?.headline && (
-                            <div className="text-sm font-bold text-white bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg leading-relaxed">
-                                📌 {summary.headline}
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-sky-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🌐</span> 1. マクロ環境分析（日本調達環境 ＆ 現地需要）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-slate-400">日本調達環境: </strong>
-                                        {summary?.macroAnalysis?.japanSourcingClimate || '為替水準により日本国内の調達コストが優位に推移。フリマや専門店に美品在庫が充実。'}
-                                    </p>
-                                    <p>
-                                        <strong className="text-slate-400">現地市場需要: </strong>
-                                        {summary?.macroAnalysis?.localMarketDemand || '現行モダンAR/CHRの現地人気が極めて高く、手頃な絶版シングルへのコレクション需要も安定。'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-900/90 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🔍</span> 2. ミクロ分析（突出銘柄 ＆ 状態特性）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-slate-400">最高利ざや銘柄: </strong>
-                                        {summary?.microAnalysis?.topImportMarginCard || '限定プロモ枠および準高額PSA10で30%〜50%超の現地販売マージンを確保可能。'}
-                                    </p>
-                                    <p>
-                                        <strong className="text-slate-400">最高回転銘柄: </strong>
-                                        {summary?.microAnalysis?.topLocalVelocityCard || '現行ARおよび世界大会メタの汎用カードが現地入荷から即売れペースを維持。'}
-                                    </p>
-                                    <p>
-                                        <strong className="text-slate-400">状態特性: </strong>
-                                        {summary?.microAnalysis?.conditionGradingInsight || '日本版は海外顧客から印刷品質が高く評価されており、素体NMでも高い成約率を維持。'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-900/90 border border-rose-900/40 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-rose-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🚨</span> 3. 警戒アラート（調達品質リスク ＆ 現地在庫リスク）
-                                </h5>
-                                <div className="space-y-1.5 text-xs text-slate-300 leading-relaxed">
-                                    <p>
-                                        <strong className="text-rose-400">買い付け品質リスク: </strong>
-                                        {summary?.riskAlert?.sourcingQualityTrap || '日本のフリマ個人間取引における白かけ・初期傷の見落としに警戒。検品体制の敷かれた専門店在庫を優先。'}
-                                    </p>
-                                    <p>
-                                        <strong className="text-rose-400">現地在庫滞留リスク: </strong>
-                                        {summary?.riskAlert?.localInventoryRisk || '新弾再販による国内相場の下落に備え、入荷から現地販売までのリードタイムを最短化すること。'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-900/90 border border-emerald-900/40 rounded-xl p-3.5 space-y-2">
-                                <h5 className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                                    <span>🎯</span> 4. 今週の輸入調達・現地販売アクション指針
-                                </h5>
-                                <ul className="space-y-1.5 text-xs text-slate-300">
-                                    {summary?.actionDirectives?.map((action: string, i: number) => (
-                                        <li key={i} className="flex items-start gap-2">
-                                            <span className="text-emerald-400 font-bold">✔</span>
-                                            <span className="leading-relaxed">{action}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>
