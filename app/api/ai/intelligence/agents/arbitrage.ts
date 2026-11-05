@@ -7,21 +7,21 @@ export interface ArbitrageItem {
   cardName: string;
   conditionGrade: string;
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;        // 🌟 追加: 国内仕入れ値の根拠URL（Google検索でヒットした商品/成約URL）
+  jpEvidenceUrl?: string;
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
   liquidity: string;
   insight: string;
-  sourcePlatform?: string;       // 参照先（eBay US, TCGplayer, Cardmarket, eBay UK/DE 等）
-  evidenceNote?: string;         // 売価の根拠（実成約、Market Price等）
+  sourcePlatform?: string;
+  evidenceNote?: string;
 }
 
 export interface ArbitrageTier {
   priceTier: string;
   priceTierLabel: string;
   mainItem: ArbitrageItem;
-  subItems: ArbitrageItem[];
+  subItems?: ArbitrageItem[];
 }
 
 export interface ArbitrageSlotReport {
@@ -31,41 +31,41 @@ export interface ArbitrageSlotReport {
 }
 
 const REGION_CURRENCIES: Record<string, { currency: string; name: string; targetPlatforms: string[] }> = {
-    us: { 
-      currency: 'USD', 
-      name: '北米（アメリカ）市場',
-      targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
-    },
-    eu: { 
-      currency: 'EUR', 
-      name: '欧州（ヨーロッパ）市場',
-      targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
-    },
-    asia: { 
-      currency: 'SGD', 
-      name: 'アジア（シンガポール・台湾・香港等）市場',
-      targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
-    },
-  };
- // 🌟 リアルタイム為替レート取得ヘルパー（1 外貨 ➔ 日本円 JPY）
- async function getRealtimeExchangeRate(currency: string): Promise<number> {
-   try {
-     const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, {
-       next: { revalidate: 3600 }, // 1時間キャッシュ
-     });
-     if (!res.ok) throw new Error('為替レート取得失敗');
-     const data = await res.json();
-     const rate = data?.rates?.JPY;
-     if (rate && typeof rate === 'number') {
-       return Math.round(rate * 100) / 100;
-     }
-   } catch (err) {
-     console.warn(`[ExchangeRate] ${currency}のリアルタイム取得失敗（フォールバック適用）:`, err);
-   }
-   // 通信遮断時の安全フォールバック
-   const fallbacks: Record<string, number> = { USD: 155, EUR: 168, SGD: 118 };
-   return fallbacks[currency] || 150;
- }
+  us: { 
+    currency: 'USD', 
+    name: '北米（アメリカ）市場',
+    targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
+  },
+  eu: { 
+    currency: 'EUR', 
+    name: '欧州（ヨーロッパ）市場',
+    targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
+  },
+  asia: { 
+    currency: 'SGD', 
+    name: 'アジア（シンガポール・台湾・香港等）市場',
+    targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
+  },
+};
+
+// リアルタイム為替レート取得ヘルパー（1 外貨 ➔ 日本円 JPY）
+async function getRealtimeExchangeRate(currency: string): Promise<number> {
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) throw new Error('為替レート取得失敗');
+    const data = await res.json();
+    const rate = data?.rates?.JPY;
+    if (rate && typeof rate === 'number') {
+      return Math.round(rate * 100) / 100;
+    }
+  } catch (err) {
+    console.warn(`[ExchangeRate] ${currency}のリアルタイム取得失敗（フォールバック適用）:`, err);
+  }
+  const fallbacks: Record<string, number> = { USD: 155, EUR: 168, SGD: 118 };
+  return fallbacks[currency] || 150;
+}
 
 const SLOTS = [
   { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版' },
@@ -80,8 +80,7 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
   const categoryName = getCategoryName(category);
 
-  // 🌟 リアルタイム為替レートを取得
-   const exchangeRateJPY = await getRealtimeExchangeRate(cur.currency);
+  const exchangeRateJPY = await getRealtimeExchangeRate(cur.currency);
 
   const baseModel = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
@@ -90,12 +89,11 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
     apiKey,
   });
 
-   // 🌟 Google Search Grounding を有効化したモデルを作成
- const modelWithSearch = baseModel.bindTools([
-   {
-     googleSearch: {},
-   },
- ]);
+  const modelWithSearch = baseModel.bindTools([
+    {
+      googleSearch: {},
+    },
+  ]);
 
   // ==========================================================================
   // 【Step 0】Supabaseから直近の海外API成約・相場キャッシュを取得
@@ -121,25 +119,25 @@ export async function runSayaAnalysis(region: 'us' | 'eu' | 'asia', category: st
   }
 
   // ==========================================================================
-  // 【Step 1】5スロット並列調査（計75商品を発掘）
+  // 【Step 1】5スロット並列調査（本命各1商品・計25商品を発掘）
   // ==========================================================================
   const slotPromises = SLOTS.map(async (slot) => {
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する現地事業者専属の調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新リアルタイム為替レート: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
-重要: 大手トレカ通販専門サイトの実勢相場リサーチ】
+【重要: 大手トレカ通販専門サイトの実勢相場リサーチ】
 必ずGoogle検索を実行し、カードラッシュ・晴れる屋2・駿河屋等の大手専門店の現在実売相場を確認した上で jpBuyPriceJPY を決定してください。
 （※個別商品ページのURL特定は後続システムが自動で行うため、プロンプト内でのURL出力は不要です）
 
 ■ 検索対象ショップ（大手トレカ通販のみに限定）:
-  ・カードラッシュ (cardrush-pokemon.jp / cardrush.jp)
-  ・遊々亭 (yuyu-tei.jp)
-  ・駿河屋 (suruga-ya.jp) ※中古在庫あり品
-  ・晴れる屋2 (hareruya2.com)
-  ・ドラゴンスター (dorasuta.jp)
-  ・ホビーステーション (hobbystation.com)
-  ・フルコンプ (fullcomp-online.com)
-  ※メルカリ、ヤフオク、楽天ラクマ、Yahoo!フリマ等の個人CtoCフリマ・オークションサイトは検索・引用厳禁です。
+・カードラッシュ (cardrush-pokemon.jp / cardrush.jp)
+・遊々亭 (yuyu-tei.jp)
+・駿河屋 (suruga-ya.jp) ※中古在庫あり品
+・晴れる屋2 (hareruya2.com)
+・ドラゴンスター (dorasuta.jp)
+・ホビーステーション (hobbystation.com)
+・フルコンプ (fullcomp-online.com)
+※メルカリ、ヤフオク、楽天ラクマ、Yahoo!フリマ等の個人CtoCフリマ・オークションサイトは検索・引用厳禁です。
 
 【主要連携プラットフォーム基準】
 現地売価（targetSoldPrice）の算定にあたっては、以下の主要プラットフォームの相場を根拠としてください:
@@ -151,9 +149,9 @@ ${externalPriceContext}
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 
 【調達リサーチ任務】
-以下の【5つの価格帯】すべてについて、日本から輸入・調達して現地で売却するのに適したカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選してください。
-（※他タイトルのカードは絶対に含めないこと）
-（このスロット全体で 5価格帯 × 3商品 ＝ 合計15商品）
+以下の【5つの価格帯】すべてについて、日本から輸入・調達して現地で売却するのに最も適したカードを【本命1商品のみ】厳選抽出してください。
+（※他タイトルのカードやCtoC相場は絶対に含めないこと）
+（このスロット全体で 5価格帯 × 1商品 ＝ 合計5商品）
 
 ■ 5つの価格帯と調達・合格基準:
 1. under_3k（〜¥3,000）: 最低差額 +¥1,000以上、現地直近7日成約 5件以上（超高回転・エントリー枠）
@@ -169,10 +167,10 @@ ${externalPriceContext}
 ※仕入れ側と現地販売側の状態は必ず同一基準で評価すること。
 
 【厳格な四則演算ルール（Gate 1 監査チェック用）】
- ・targetSoldPrice の日本円換算値 ＝ 現地価格(${cur.currency}) × ${exchangeRateJPY}円
- ・priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
- ・spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
- ※四則計算に矛盾があると後続の監査で即座に却下されます。数字の整合性を必ず守ってください。
+・targetSoldPrice の日本円換算値 ＝ 現地価格(${cur.currency}) × ${exchangeRateJPY}円
+・priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
+・spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
+※四則計算に矛盾があると後続の監査で即座に却下されます。数字の整合性を必ず守ってください。
 
 以下のJSON形式のみを出力してください:
 {
@@ -193,16 +191,12 @@ ${externalPriceContext}
         "sourcePlatform": "参照プラットフォーム名（例: eBay US / TCGplayer / Cardmarket 等）",
         "evidenceNote": "売価根拠（例: 直近Sold成約中央値、TCGplayer Market Price等）",
         "insight": "現地需要動向と輸入推奨理由（1行）"
-      },
-      "subItems": [
-        { "cardName": "候補2 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" },
-        { "cardName": "候補3 (型番)", "conditionGrade": "選定表記", "jpBuyPriceJPY": "¥X,XXX", "targetSoldPrice": "${cur.currency} XX", "priceSpreadJPY": "¥X,XXX", "spreadROI": "XX%", "liquidity": "直近7日 X件", "sourcePlatform": "プラットフォーム名", "evidenceNote": "売価根拠", "insight": "特徴1行" }
-      ]
+      }
     },
-    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
-    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
-    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] },
-    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ }, "subItems": [ /* 2商品 */ ] }
+    { "priceTier": "under_10k", "priceTierLabel": "3千〜1万円", "mainItem": { /* 同様 */ } },
+    { "priceTier": "middle", "priceTierLabel": "1万〜3万円", "mainItem": { /* 同様 */ } },
+    { "priceTier": "upper", "priceTierLabel": "3万〜8万円", "mainItem": { /* 同様 */ } },
+    { "priceTier": "top_end", "priceTierLabel": "8万円〜", "mainItem": { /* 同様 */ } }
   ]
 }`;
 
@@ -210,11 +204,11 @@ ${externalPriceContext}
     return parseAIJson(res.content.toString());
   });
 
-  // 5スロットの調査完了を待つ（計75商品が揃う）
+  // 5スロットの調査完了を待つ（計25商品）
   const slotResults = await Promise.all(slotPromises);
 
   // ==========================================================================
-  // 【Step 2】発掘した75商品を要約し、サマリーAIへ渡してデータ駆動分析
+  // 【Step 2】発掘した25商品を要約し、サマリーAIへ渡してデータ駆動分析
   // ==========================================================================
   const allDiscoveredItems: any[] = [];
   for (const slot of slotResults) {
@@ -228,53 +222,43 @@ ${externalPriceContext}
           ...tier.mainItem,
         });
       }
-      if (Array.isArray(tier.subItems)) {
-        for (const sub of tier.subItems) {
-          allDiscoveredItems.push({
-            slot: slot.slotLabel,
-            tier: tier.priceTierLabel,
-            role: '代替候補',
-            ...sub,
-          });
-        }
-      }
     }
   }
 
   const summaryPrompt = `あなたは【${cur.name}】専属の最高調達投資責任者（CIO）です。
-リサーチチームが日本市場をスクリーニングし、現地主要プラットフォーム（${cur.targetPlatforms.join(' / ')}）で利ざやの取れる【全75商品（本命25＋代替50）】を発掘しました。
+リサーチチームが日本市場をスクリーニングし、現地主要プラットフォーム（${cur.targetPlatforms.join(' / ')}）で利ざやの取れる【全25商品（各スロット・価格帯の本命）】を発掘しました。
 
-【今週発掘された全75商品の調達・価格差データ】:
+【今週発掘された全25商品の調達・価格差データ】:
 ${JSON.stringify(allDiscoveredItems, null, 2)}
 
 【任務】
-上記75商品のデータ群をフラットかつ客観的に観察し、海外現地ショップオーナーに向けた【データ駆動型エグゼクティブ・サマリー】を作成してください。
+上記25商品のデータ群をフラットかつ客観的に観察し、海外現地ショップオーナーに向けた【データ駆動型エグゼクティブ・サマリー】を作成してください。
 
 ■ 分析・執筆における絶対ルール:
 1. 先入観を持たず、データ全体の「共通点・差異・異常値」を帰納的に抽出すること:
-   - 特定の切り口に誘導する具体例は一切与えません。75行のレコードを比較対照したときに、データ自身が示している客観的事実や顕著なパターンをアナリスト自身の洞察力で導き出してください。
+   - 特定の切り口に誘導する具体例は一切与えません。25行のレコードを比較対照したときに、データ自身が示している客観的事実や顕著なパターンをアナリスト自身の洞察力で導き出してください。
    - 以下の「問い」を手がかりに、発見した構造的特徴を言語化してください:
      * 数値の分布: リスト全体の中で、極端な数値（飛び抜けて高い/低いROI、成約数、価格差など）を示しているグループにはどのような共通項があるか？
      * 属性間の関係: スロット区分、価格帯、コンディション、商材の年代や種別などの間で、どのような相関や対比が見られるか？
      * 現地需給の歪み: 現地の販売価格や成約ペースから、バイヤーの行動や市場の歪みについて何が推察できるか？
-2. 注目銘柄は必ず上記75商品の中から選出すること:
+2. 注目銘柄は必ず上記25商品の中から選出すること:
    - topImportMarginCard（最大利ざや銘柄）および topLocalVelocityCard（最高流動性銘柄）は、リストに実在するカード名・価格差をそのまま引用して解説すること。架空のカードやリスト外のカードへの言及は厳禁。
 3. 機密保持: メルカリやカドショなどの国内仕入れ先ワードは絶対に使用せず、「日本国内流通」「国内二次流通」と抽象化すること。
 
 以下のJSON形式のみを出力してください:
 {
   "title": "【${region.toUpperCase()}】アービトラージレポート",
-  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（75銘柄の実成約スクリーニング分析）",
+  "claim": "今週の${cur.name}向け日本語版カード輸入調達戦略（25銘柄の実成約スクリーニング分析）",
   "summary": {
-    "headline": "75商品のデータから浮かび上がった、今週最も特筆すべき市場動向や歪みの核心（発見したパターンを記述）",
+    "headline": "25商品のデータから浮かび上がった、今週最も特筆すべき市場動向や歪みの核心（発見したパターンを記述）",
     "macroAnalysis": {
-      "japanSourcingClimate": "今回発掘された75商品の仕入れ値・在庫動向から読み解く、日本国内市場の調達環境分析",
-      "localMarketDemand": "75商品の現地売価・成約速度から浮き彫りになる、現地バイヤーの心理と需要の偏り"
+      "japanSourcingClimate": "今回発掘された25商品の仕入れ値・在庫動向から読み解く、日本国内市場の調達環境分析",
+      "localMarketDemand": "25商品の現地売価・成約速度から浮き彫りになる、現地バイヤーの心理と需要の偏り"
     },
     "microAnalysis": {
-      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠（上記75商品から引用）",
-      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠（上記75商品から引用）",
-      "conditionGradingInsight": "75商品のデータ構成から見えてくる独自のインサイト（データ分析から判明した事実を記述）"
+      "topImportMarginCard": "リスト中【最も利ざや・価格ギャップが顕著なカード名】とその選定根拠（上記25商品から引用）",
+      "topLocalVelocityCard": "リスト中【最も成約件数・回転が速いカード名】とその選定根拠（上記25商品から引用）",
+      "conditionGradingInsight": "25商品のデータ構成から見えてくる独自のインサイト（データ分析から判明した事実を記述）"
     },
     "riskAlert": {
       "sourcingQualityTrap": "今回選定された商材を日本から仕入れる際の注意点（偽物・状態・シュリンク詐欺等）",
@@ -294,10 +278,10 @@ ${JSON.stringify(allDiscoveredItems, null, 2)}
     title: summaryParsed?.title || `【${region.toUpperCase()}】アービトラージレポート`,
     claim: summaryParsed?.claim || `${cur.name}向け調達レポート`,
     exchangeRate: {
-       currency: cur.currency,
-       rateJPY: exchangeRateJPY,
-       label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`
-     },
+      currency: cur.currency,
+      rateJPY: exchangeRateJPY,
+      label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`
+    },
     summary: summaryParsed?.summary || null,
     slots: slotResults,
   };

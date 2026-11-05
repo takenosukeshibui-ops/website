@@ -32,7 +32,7 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出
+  // 1. アービトラージ候補抽出（本命1商品のみ）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -44,12 +44,8 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        const allItemsInTier = [
-          ...(tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : []),
-          ...(Array.isArray(tier?.subItems)
-            ? tier.subItems.map((s: any) => ({ ...s, isMain: false }))
-            : []),
-        ];
+        // 各価格帯の本命商品のみを対象化
+        const allItemsInTier = tier?.mainItem ? [{ ...tier.mainItem, isMain: true }] : [];
 
         for (const item of allItemsInTier) {
           if (!item || !item.cardName) continue;
@@ -57,14 +53,8 @@ async function processAndSaveRegionResearch(
           const spread = parseInt(String(item.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-          // 🌟 本命商品はGoogle検索1位の個別URLを取得、代替候補は検索一覧URLを割り当て
-          let evidenceUrl: string;
-          if (item.isMain) {
-            evidenceUrl = await getTopShopUrlByGoogle(item.cardName, 'cardrush');
-          } else {
-            const clean = item.cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-            evidenceUrl = `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(clean)}`;
-          }
+          // 全て本命のため、Google検索APIで1位の個別ページURLを取得
+          const evidenceUrl = await getTopShopUrlByGoogle(item.cardName, 'cardrush');
 
           researchRows.push({
             cycle_id: cycleId,
