@@ -178,9 +178,50 @@ export default function AiDashboard() {
         loadCycleData(target.id);
     };
 
-    const runSingleAi = async (_action: string, _region?: RegionKey) => {
-        if (!window.confirm('全AIパイプラインを一斉実行し、二重監査（Gate 1 / Gate 2）を通して成果物を最新化しますか？')) return;
-        runIntelligenceAnalysis();
+    // 🌟 各AIデスクごとの完全単独再実行ハンドラー
+    const runSingleAi = async (action: string, region?: RegionKey) => {
+        const targetCycleId = selectedRecordId || pipelineProgress.cycleId;
+        if (!targetCycleId) {
+            alert('対象のサイクルが選択されていません。');
+            return;
+        }
+
+        const deskNames: Record<string, string> = {
+            chief: 'チーフ（AIキュレーター選定）',
+            trend: `市場トレンドアナリスト (${region?.toUpperCase() || ''})`,
+            arbitrage: `アービトラージアナリスト (${region?.toUpperCase() || ''})`,
+            account: '自社Instagramアナリスト',
+            x_account: '自社Xアナリスト',
+            sns: 'Instagramクリエイター (原稿制作)',
+            x_posts: 'Xクリエイター (スレッド制作)',
+            x: 'Xクリエイター (スレッド制作)',
+            sales: 'コミュニティ営業 (Discordオファー)'
+        };
+        const targetName = deskNames[action] || action;
+        if (!window.confirm(`【${targetName}】のみを単独再実行しますか？\n（他のAIデータや全体パイプラインは維持されます）`)) return;
+
+        setRunningAction(`${action}_${region || ''}`);
+        try {
+            const res = await fetch('/api/pipeline/single-run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cycleId: targetCycleId,
+                    action,
+                    region,
+                    category: activeCategory
+                })
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || '単独実行に失敗しました');
+
+            await loadCycleData(targetCycleId);
+            alert(`✔ 【${targetName}】の更新が完了しました！`);
+        } catch (err: any) {
+            alert(`単独実行エラー: ${err.message}`);
+        } finally {
+            setRunningAction(null);
+        }
     };
 
     // 強制停止ハンドラー

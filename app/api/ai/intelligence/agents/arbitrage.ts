@@ -77,7 +77,7 @@ async function getRealtimeExchangeRate(currency: string): Promise<number> {
   return fallbacks[currency] || 150;
 }
 
-// 🌟 スロットごとの許容コンディションルールを定義
+// 🌟 スロットごとのコンディション制限（スロット5のみPSA/BOX許可）
 const SLOTS = [
   { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版', isGradedOrSealed: false },
   { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY', isGradedOrSealed: false },
@@ -107,15 +107,15 @@ export async function runSayaAnalysis(
 
   const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
+  // 🌟 全5スロットすべてを並列調査
   const slotPromises = SLOTS.map(async (slot) => {
-    // 🌟 スロットごとにコンディション条件を分岐
     const conditionRule = slot.isGradedOrSealed
-      ? `【コンディション厳格ルール（高額鑑定・未開封専用）】
+      ? `【コンディション厳格ルール（高額鑑定・未開封専用枠）】
 ・このスロットは【鑑定品 ("PSA 10", "PSA 9", "BGS 9.5", "ARS 10") または 未開封 ("Sealed Box", "Sealed Pack")】のみを選定してください。
 ・素体（Raw）の選定は厳禁です。`
-      : `【コンディション厳格ルール（素体・美品限定）】
+      : `【コンディション厳格ルール（素体・美品限定枠）】
 ・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
-・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名にPSAをつけたり、conditionGradeにPSAを指定することは厳禁です。`;
+・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名に「PSA」を含めたり、conditionGradeに「PSA」を指定することは厳禁です。`;
 
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新リアルタイム為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
@@ -127,14 +127,13 @@ ${conditionRule}
 ※「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
 
 【重要: 型番（コレクションナンバー）の出力義務】
-特定ショップの個別詳細ページをピンポイント特定するため、【型番（例: 096/071, 134/108, PROMO 001/SV-P, S8b 205/184 等）】を必ず cardNumber フィールドに明記してください。型番の省略は厳禁です。
+個別商品ページを特定するため、【型番（例: 096/071, 134/108, PROMO 001/SV-P, S8b 205/184 等）】を必ず cardNumber フィールドに明記してください。型番の省略は厳禁です。
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】 / 判定基準: ${todayTier.criteria}
 
 【調達リサーチ任務】
 このスロットの中から、本日の指定価格帯【${todayTier.label}】に合致するカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選抽出してください。
-（※他タイトルのカードやフリマCtoC相場は絶対に含めないこと）
 
 以下のJSON形式のみを出力してください:
 {
@@ -147,7 +146,7 @@ ${conditionRule}
       "mainItem": {
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
-        "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10 または Sealed Box' : 'Raw NM'}",
+        "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
         "jpBuyPriceJPY": "¥X,XXX (※通常美品/状態Aの正規価格)",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
@@ -192,7 +191,7 @@ ${conditionRule}
     const res = await modelWithSearch.invoke(slotPrompt);
     const parsed = parseAIJson(res.content.toString());
 
-    // 🌟 コード側フェイルセーフ: スロット1〜4でAIが万が一PSAを出力した場合、強制的に素体(Raw NM)に補正
+    // 🌟 コード側フェイルセーフ: スロット1〜4でAIが万が一PSAを出力した場合、強制的にRaw NMにサニタイズ
     if (!slot.isGradedOrSealed && parsed?.tiers) {
       for (const tier of parsed.tiers) {
         if (tier.mainItem) {
