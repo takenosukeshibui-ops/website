@@ -49,7 +49,6 @@ const REGION_CURRENCIES: Record<string, { currency: string; name: string; target
   },
 };
 
-// 🌟 曜日ごとの対象価格帯ローテーション定義（1日1価格帯）
 export const DAY_PRICE_TIER_MAP: Record<string, { key: string; label: string; desc: string; criteria: string }> = {
   Monday: { key: 'under_3k', label: '〜3千円', desc: '超高回転・エントリー枠', criteria: '最低差額 +¥1,000以上、現地直近7日成約 5件以上' },
   Tuesday: { key: 'under_10k', label: '3千〜1万円', desc: '定番コレクション枠', criteria: '最低差額 +¥2,500以上、現地直近7日成約 3件以上' },
@@ -78,13 +77,13 @@ async function getRealtimeExchangeRate(currency: string): Promise<number> {
   return fallbacks[currency] || 150;
 }
 
-// 🌟 常に全5スロットを網羅
+// 🌟 スロットごとの許容コンディションルールを定義
 const SLOTS = [
-  { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版' },
-  { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY' },
-  { key: 'promos_exclusive', label: '限定プロモ・配布品', desc: '大会プロモ・ジムプロモ・企業コラボ・プレイヤーズ' },
-  { key: 'modern_meta', label: '現行モダン・高需要枠', desc: 'サン＆ムーン・ソード＆シールド・スカーレット＆バイオレット（SAR・SR・AR・CHR）' },
-  { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封' }
+  { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版', isGradedOrSealed: false },
+  { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY', isGradedOrSealed: false },
+  { key: 'promos_exclusive', label: '限定プロモ・配布品', desc: '大会プロモ・ジムプロモ・企業コラボ・プレイヤーズ', isGradedOrSealed: false },
+  { key: 'modern_meta', label: '現行モダン・高需要枠', desc: 'サン＆ムーン・ソード＆シールド・スカーレット＆バイオレット（SAR・SR・AR・CHR）', isGradedOrSealed: false },
+  { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封', isGradedOrSealed: true }
 ];
 
 export async function runSayaAnalysis(
@@ -108,30 +107,20 @@ export async function runSayaAnalysis(
 
   const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
-  let externalPriceContext = '※主要プラットフォーム成約基準に基づき推論';
-  try {
-    const supabase = await createClient();
-    const { data: cachedPrices } = await supabase
-      .from('overseas_market_prices')
-      .select('platform, card_name, condition_grade, sold_price_local, currency, sold_price_jpy, volume_indicator')
-      .eq('region', region)
-      .eq('category', category)
-      .order('updated_at', { ascending: false })
-      .limit(30);
-
-    if (cachedPrices && cachedPrices.length > 0) {
-      externalPriceContext = cachedPrices.map((p: any) => 
-        `- [${p.platform}] ${p.card_name} (${p.condition_grade}): 売価 ${p.currency} ${p.sold_price_local} (約¥${Number(p.sold_price_jpy).toLocaleString()})`
-      ).join('\n');
-    }
-  } catch (err) {
-    console.warn('[Arbitrage] Overseas price fetch warning:', err);
-  }
-
-  // 🌟 全5スロットすべてを並列調査（スロットは削らず、価格帯を本日の指定枠1つに絞る）
   const slotPromises = SLOTS.map(async (slot) => {
+    // 🌟 スロットごとにコンディション条件を分岐
+    const conditionRule = slot.isGradedOrSealed
+      ? `【コンディション厳格ルール（高額鑑定・未開封専用）】
+・このスロットは【鑑定品 ("PSA 10", "PSA 9", "BGS 9.5", "ARS 10") または 未開封 ("Sealed Box", "Sealed Pack")】のみを選定してください。
+・素体（Raw）の選定は厳禁です。`
+      : `【コンディション厳格ルール（素体・美品限定）】
+・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
+・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名にPSAをつけたり、conditionGradeにPSAを指定することは厳禁です。`;
+
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新リアルタイム為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
+
+${conditionRule}
 
 【超重要: 状態NM（美品）基準の厳格遵守】
 仕入れ価格（jpBuyPriceJPY）には、カードラッシュ等の大手通販サイトにおける【通常美品（NM / 状態A）の正規販売価格】を必ず設定してください。
@@ -158,7 +147,7 @@ export async function runSayaAnalysis(
       "mainItem": {
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
-        "conditionGrade": "コンディション (通常は Raw NM または PSA 10)",
+        "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10 または Sealed Box' : 'Raw NM'}",
         "jpBuyPriceJPY": "¥X,XXX (※通常美品/状態Aの正規価格)",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
@@ -171,8 +160,8 @@ export async function runSayaAnalysis(
       "subItems": [
         {
           "cardName": "候補2のカード名とレアリティ",
-          "cardNumber": "候補2の正確な型番 (例: 134/108)",
-          "conditionGrade": "Raw NM または PSA 10",
+          "cardNumber": "候補2の正確な型番",
+          "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
@@ -184,8 +173,8 @@ export async function runSayaAnalysis(
         },
         {
           "cardName": "候補3のカード名とレアリティ",
-          "cardNumber": "候補3の正確な型番 (例: 205/172)",
-          "conditionGrade": "Raw NM または PSA 10",
+          "cardNumber": "候補3の正確な型番",
+          "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
@@ -201,7 +190,25 @@ export async function runSayaAnalysis(
 }`;
 
     const res = await modelWithSearch.invoke(slotPrompt);
-    return parseAIJson(res.content.toString());
+    const parsed = parseAIJson(res.content.toString());
+
+    // 🌟 コード側フェイルセーフ: スロット1〜4でAIが万が一PSAを出力した場合、強制的に素体(Raw NM)に補正
+    if (!slot.isGradedOrSealed && parsed?.tiers) {
+      for (const tier of parsed.tiers) {
+        if (tier.mainItem) {
+          tier.mainItem.conditionGrade = 'Raw NM';
+          tier.mainItem.cardName = tier.mainItem.cardName.replace(/PSA\s*\d+/gi, '').trim();
+        }
+        if (Array.isArray(tier.subItems)) {
+          for (const sub of tier.subItems) {
+            sub.conditionGrade = 'Raw NM';
+            sub.cardName = sub.cardName.replace(/PSA\s*\d+/gi, '').trim();
+          }
+        }
+      }
+    }
+
+    return parsed;
   });
 
   const slotResults = await Promise.all(slotPromises);
