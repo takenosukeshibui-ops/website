@@ -16,7 +16,7 @@ export interface ArbitrageItem {
   insight: string;
   sourcePlatform?: string;
   evidenceNote?: string;
-  sourceEvidenceUrl?: string; // 🌟 必須: AIが実際に確認した海外実売の個別URL
+  sourceEvidenceUrl?: string; // 🌟 個別成約詳細ページURL (https://www.ebay.com/itm/数字...)
 }
 
 export interface ArbitrageTier {
@@ -125,9 +125,10 @@ ${conditionRule}
 仕入れ価格（jpBuyPriceJPY）には、カードラッシュ等の大手通販サイトにおける【通常美品（NM / 状態A）の正規販売価格】を必ず設定してください。
 ※「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
 
-【重要: 型番および実売URLの出力義務】
+【重要: 個別成約URL (sourceEvidenceUrl) の出力ルール】
+・eBay等の検索結果一覧ページ（URLに "/sch/" が含まれるもの）は【出力禁止】です！
+・必ず実際に取引された個別の商品・成約詳細ページURL（例: "https://www.ebay.com/itm/123456789012" のように "/itm/" を含む個別URL）を sourceEvidenceUrl に出力してください。
 ・個別商品ページを特定するため、【型番（例: 096/071, PROMO 001/SV-P 等）】を必ず cardNumber フィールドに明記してください。
-・相場調査の際にAIが参照したeBay等における【個別の実成約（Sold Listings）URL】を sourceEvidenceUrl フィールドへ確実に抽出してください。
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】 / 判定基準: ${todayTier.criteria}
@@ -153,8 +154,8 @@ ${conditionRule}
         "spreadROI": "XX%",
         "liquidity": "直近7日 X件",
         "sourcePlatform": "参照プラットフォーム名 (例: eBay)",
-        "evidenceNote": "売価根拠 (例: 11/15 Sold Listing)",
-        "sourceEvidenceUrl": "AIが確認したeBay等の個別実成約URL (※省略厳禁)",
+        "evidenceNote": "売価根拠 (例: 直近Sold成約)",
+        "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID (※/sch/の検索URLは禁止、必ず/itm/の個別URL)",
         "insight": "現地需要動向と輸入推奨理由（1行）"
       },
       "subItems": [
@@ -169,7 +170,7 @@ ${conditionRule}
           "liquidity": "直近7日 X件",
           "sourcePlatform": "参照プラットフォーム名",
           "evidenceNote": "売価根拠",
-          "sourceEvidenceUrl": "AIが確認した個別の実成約URL",
+          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID",
           "insight": "特徴1行"
         },
         {
@@ -183,7 +184,7 @@ ${conditionRule}
           "liquidity": "直近7日 X件",
           "sourcePlatform": "参照プラットフォーム名",
           "evidenceNote": "売価根拠",
-          "sourceEvidenceUrl": "AIが確認した個別の実成約URL",
+          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID",
           "insight": "特徴1行"
         }
       ]

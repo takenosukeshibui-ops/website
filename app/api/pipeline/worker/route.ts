@@ -14,13 +14,31 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
-// 🌟 純粋な検索キーワード生成（余計なマイナス除外文字列は一切入れない）
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
   if (cardNumber) {
     return `${cleanName} ${cardNumber}`.trim();
   }
   return cleanName;
+}
+
+// 🌟 個別商品URL (/itm/) の自動確保ヘルパー
+async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string> {
+  // すでに有効な個別出品ページ (/itm/) である場合はそのまま採用
+  if (aiUrl && aiUrl.includes('/itm/')) {
+    return aiUrl;
+  }
+  // /sch/ (検索結果一覧) や 空文字の場合は Google Search API で個別ページ (/itm/) をピンポイント取得
+  const kw = buildCleanSearchKeyword(cardName, cardNumber);
+  try {
+    const itemUrl = await getTopShopUrlByGoogle(`site:ebay.com/itm/ ${kw}`);
+    if (itemUrl && itemUrl.includes('/itm/')) {
+      return itemUrl;
+    }
+  } catch (err) {
+    console.warn(`[eBay Resolver] 個別URL取得フォールバック:`, err);
+  }
+  return aiUrl || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
 }
 
 // ============================================================================
@@ -54,17 +72,19 @@ async function processAndSaveRegionResearch(
 
       for (const tier of tiers) {
         // A. 本命商品の個別URL取得
-        let mainEvidenceUrl = '';
         if (tier?.mainItem && tier.mainItem.cardName) {
           const mainItem = tier.mainItem;
           const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
           const spread = parseInt(String(mainItem.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-          // 🌟 クリーンな検索キーワード（例: "ひかるライチュウ No.026"）
           const searchKeyword = buildCleanSearchKeyword(mainItem.cardName, mainItem.cardNumber);
-          mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, 'cardrush');
+          const mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, 'cardrush');
           mainItem.jpEvidenceUrl = mainEvidenceUrl;
+
+          // 🌟 eBayの個別出品ページURL (/itm/...) を確実に解決
+          const resolvedEbayUrl = await resolveIndividualEbayUrl(mainItem.sourceEvidenceUrl, mainItem.cardName, mainItem.cardNumber);
+          mainItem.sourceEvidenceUrl = resolvedEbayUrl;
 
           researchRows.push({
             cycle_id: cycleId,
@@ -88,13 +108,13 @@ async function processAndSaveRegionResearch(
               slotLabel: slot.slotLabel,
               isMain: true,
               role: '本命',
-              mainItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl },
+              mainItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl, sourceEvidenceUrl: resolvedEbayUrl },
               subItems: tier.subItems || [],
-              currentItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl },
+              currentItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl, sourceEvidenceUrl: resolvedEbayUrl },
               jpEvidenceUrl: mainEvidenceUrl,
               sourcePlatform: mainItem.sourcePlatform || platformDefault,
               evidenceNote: mainItem.evidenceNote || '主要プラットフォーム成約基準',
-              sourceEvidenceUrl: mainItem.sourceEvidenceUrl || null,
+              sourceEvidenceUrl: resolvedEbayUrl,
             },
             gate1_status: 'pending',
             is_selected: false,
@@ -113,6 +133,10 @@ async function processAndSaveRegionResearch(
             const subKeyword = buildCleanSearchKeyword(subItem.cardName, subItem.cardNumber);
             const subEvidenceUrl = await getTopShopUrlByGoogle(subKeyword, 'cardrush');
             subItem.jpEvidenceUrl = subEvidenceUrl;
+
+            // 🌟 代替候補の個別eBay URL (/itm/...) も同様に解決
+            const resolvedSubEbayUrl = await resolveIndividualEbayUrl(subItem.sourceEvidenceUrl, subItem.cardName, subItem.cardNumber);
+            subItem.sourceEvidenceUrl = resolvedSubEbayUrl;
 
             researchRows.push({
               cycle_id: cycleId,
@@ -136,11 +160,11 @@ async function processAndSaveRegionResearch(
                 slotLabel: slot.slotLabel,
                 isMain: false,
                 role: `候補${sIdx + 2}`,
-                currentItem: { ...subItem, jpEvidenceUrl: subEvidenceUrl },
+                currentItem: { ...subItem, jpEvidenceUrl: subEvidenceUrl, sourceEvidenceUrl: resolvedSubEbayUrl },
                 jpEvidenceUrl: subEvidenceUrl,
                 sourcePlatform: subItem.sourcePlatform || platformDefault,
                 evidenceNote: subItem.evidenceNote || '主要プラットフォーム成約基準',
-                sourceEvidenceUrl: subItem.sourceEvidenceUrl || null,
+                sourceEvidenceUrl: resolvedSubEbayUrl,
               },
               gate1_status: 'pending',
               is_selected: false,
@@ -170,6 +194,7 @@ async function processAndSaveRegionResearch(
 
         const trendKeyword = buildCleanSearchKeyword(item.cardName);
         const trendEvidenceUrl = await getTopShopUrlByGoogle(trendKeyword, 'cardrush');
+        const resolvedTrendEbayUrl = await resolveIndividualEbayUrl(item.sourceEvidenceUrl, item.cardName);
 
         researchRows.push({
           cycle_id: cycleId,
@@ -184,7 +209,7 @@ async function processAndSaveRegionResearch(
           target_sold_price_jpy: targetJpy,
           price_spread_jpy: spread,
           spread_roi_percent: roi,
-          liquidity_indicator: item.timeframe || hypo.timeframe || '約2週間後',
+          liquidity_indicator: hypo.timeframe || '約2週間後',
           research_insight: item.impactLogic || hypo.signal || '',
           raw_payload: {
             ...item,
@@ -193,7 +218,7 @@ async function processAndSaveRegionResearch(
             jpEvidenceUrl: trendEvidenceUrl,
             sourcePlatform: item.sourcePlatform || platformDefault,
             evidenceNote: item.evidenceNote || '市場相場基準',
-            sourceEvidenceUrl: item.sourceEvidenceUrl || null,
+            sourceEvidenceUrl: resolvedTrendEbayUrl,
           },
           gate1_status: 'pending',
           is_selected: false,
