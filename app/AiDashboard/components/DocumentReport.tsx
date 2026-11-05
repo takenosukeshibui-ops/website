@@ -90,7 +90,19 @@ export default function DocumentReportView({
         return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(keyword.trim())}`;
     };
 
-    const hasArbitrageTiers = report.slots?.some((s: any) => (s.tiers && s.tiers.length > 0) || (s.items && s.items.length > 0 && s.items[0]?.priceTier));
+    // 🌟 eBay公式成約実績（Sold & Completed Listings）直行URL生成関数
+    const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
+        if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
+        const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+        const parts = [cleanName];
+        if (cardNumber) parts.push(cardNumber.trim());
+        if (conditionGrade && (conditionGrade.includes('PSA 10') || conditionGrade.includes('PSA10'))) {
+            parts.push('PSA 10');
+        }
+        const query = parts.join(' ').trim();
+        return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1`;
+    };
+
     const summary = report.summary;
 
     const dateObj = report.createdAt ? new Date(report.createdAt) : new Date();
@@ -212,17 +224,6 @@ export default function DocumentReportView({
                                 </div>
                             )}
                         </div>
-
-                        {report.soWhat && (
-                            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
-                                <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
-                                    <span>🎨</span> クリエイター向け制作レギュレーション
-                                </h4>
-                                <p className="text-xs text-slate-300 leading-relaxed p-2 bg-slate-900/60 rounded border border-slate-800/50">
-                                    {report.soWhat}
-                                </p>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -245,11 +246,8 @@ export default function DocumentReportView({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
                                     {hypo.items?.map((item: any, iIdx: number) => {
                                         const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
-                                        const platformName = item.sourcePlatform || item.raw_payload?.sourcePlatform;
-                                        const evidenceNote = item.evidenceNote || item.raw_payload?.evidenceNote;
-                                        const evidenceUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl;
-                                        
                                         const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
+                                        const ebayUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, '', item.condition);
 
                                         return (
                                             <div
@@ -271,16 +269,9 @@ export default function DocumentReportView({
                                                         >
                                                             {item.rankLabel || `Rank ${iIdx + 1}`}
                                                         </span>
-                                                        <div className="flex items-center gap-1">
-                                                            {item.conviction && (
-                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getConvictionBadgeClass(item.conviction)}`}>
-                                                                    {item.conviction}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
-                                                                {item.condition || 'Raw NM'}
-                                                            </span>
-                                                        </div>
+                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
+                                                            {item.condition || 'Raw NM'}
+                                                        </span>
                                                     </div>
 
                                                     <div className="min-h-[2.6rem]">
@@ -288,31 +279,6 @@ export default function DocumentReportView({
                                                             {item.cardName}
                                                         </h5>
                                                     </div>
-
-                                                    {(platformName || evidenceNote || evidenceUrl) && (
-                                                        <div className="flex flex-col gap-1 bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px]">
-                                                            <div className="flex items-center justify-between gap-1">
-                                                                <span className="font-mono text-amber-400 font-bold truncate">
-                                                                    🌐 {platformName || '海外成約相場'}
-                                                                </span>
-                                                                {evidenceUrl && (
-                                                                    <a
-                                                                        href={evidenceUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-sky-400 hover:text-sky-300 underline font-mono text-[9px] shrink-0"
-                                                                    >
-                                                                        成約URL ↗
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                            {evidenceNote && (
-                                                                <span className="text-slate-400 truncate text-[9px]" title={evidenceNote}>
-                                                                    📌 {evidenceNote}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
 
                                                     <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
                                                         <div className="flex justify-between items-center text-slate-400">
@@ -331,9 +297,21 @@ export default function DocumentReportView({
                                                                 </a>
                                                             </div>
                                                         </div>
-                                                        <div className="flex justify-between text-slate-400">
+                                                        <div className="flex justify-between items-center text-slate-400">
                                                             <span>現地現在:</span>
-                                                            <span className="text-emerald-400 font-bold">{item.currentLocalPrice}</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-emerald-400 font-bold">{item.currentLocalPrice}</span>
+                                                                <a
+                                                                    href={ebayUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
+                                                                    title="eBay成約実績（Sold Listings）を確認"
+                                                                >
+                                                                    <span>[実売]</span>
+                                                                    <span>↗</span>
+                                                                </a>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -380,8 +358,11 @@ export default function DocumentReportView({
                                                 const subs: any[] = tierCell.subItems || [];
                                                 const cardNum = main.cardNumber || tierCell.cardNumber || '';
 
-                                                // 🌟 本命固有のURL（mainItem.jpEvidenceUrlを直結）
+                                                // 🌟 日本仕入れ個別URL（カードラッシュ）
                                                 const mainJpShopUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName, cardNum);
+
+                                                // 🌟 海外実売根拠URL（eBay成約履歴 / TCGplayer / API確定URL）
+                                                const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || tierCell.currentItem?.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
 
                                                 return (
                                                     <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -409,6 +390,7 @@ export default function DocumentReportView({
                                                                 )}
                                                             </h5>
 
+                                                            {/* 日本調達価格 ＆ エビデンス */}
                                                             <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
                                                                 <span className="text-slate-400">日本調達:</span>
                                                                 <div className="flex items-center gap-1.5">
@@ -426,9 +408,22 @@ export default function DocumentReportView({
                                                                 </div>
                                                             </div>
 
-                                                            <div className="flex justify-between text-xs font-mono">
+                                                            {/* 🌟 現地実成約価格 ＆ eBay実売成約エビデンスURL */}
+                                                            <div className="flex justify-between items-center text-xs font-mono">
                                                                 <span className="text-slate-400">現地実成約:</span>
-                                                                <span className="text-emerald-400 font-bold">{main.targetSoldPrice}</span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-emerald-400 font-bold">{main.targetSoldPrice}</span>
+                                                                    <a
+                                                                        href={mainEbayUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
+                                                                        title="eBay実成約履歴（Sold Listings）を開く"
+                                                                    >
+                                                                        <span>[実売]</span>
+                                                                        <span>↗</span>
+                                                                    </a>
+                                                                </div>
                                                             </div>
 
                                                             <div className="flex justify-between text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-emerald-300">
@@ -452,8 +447,8 @@ export default function DocumentReportView({
                                                                     <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
                                                                         {subs.map((subItem: any, subIdx: number) => {
                                                                             const subCardNum = subItem.cardNumber || '';
-                                                                            // 🌟 代替候補固有のURL（subItem.jpEvidenceUrlを直結）
                                                                             const subJpShopUrl = subItem.jpEvidenceUrl || getCardrushFallbackUrl(subItem.cardName, subCardNum);
+                                                                            const subEbayUrl = subItem.sourceEvidenceUrl || getEbaySoldFallbackUrl(subItem.cardName, subCardNum, subItem.conditionGrade);
 
                                                                             return (
                                                                                 <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
@@ -483,7 +478,19 @@ export default function DocumentReportView({
                                                                                                 <span>↗</span>
                                                                                             </a>
                                                                                         </div>
-                                                                                        <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <span className="text-emerald-400 font-bold">{subItem.targetSoldPrice ? subItem.targetSoldPrice : `利ざや: ${subItem.priceSpreadJPY}`}</span>
+                                                                                            <a
+                                                                                                href={subEbayUrl}
+                                                                                                target="_blank"
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5"
+                                                                                                title="eBay実成約履歴を開く"
+                                                                                            >
+                                                                                                <span>[実売]</span>
+                                                                                                <span>↗</span>
+                                                                                            </a>
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             );
