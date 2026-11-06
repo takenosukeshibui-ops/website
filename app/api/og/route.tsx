@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const hookText = searchParams.get('hookText') || 'Sealed Box Investment Opportunity';
 
     // =========================================================================
-    // 1. カルーセル2枚目: 2股導線 CTA スライド (?type=cta)
+    // 1. カルーセル2枚目: 日本語版ポケカ事業者向け 代理購入特化スライド (?type=cta)
     // =========================================================================
     if (type === 'cta') {
       return new ImageResponse(
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
               flexDirection: 'column',
               justifyContent: 'space-between',
               backgroundColor: '#030712',
-              backgroundImage: 'radial-gradient(circle at 50% 30%, #1e1b4b 0%, #030712 70%)',
-              padding: '80px 70px',
+              backgroundImage: 'radial-gradient(circle at 50% 15%, #064e3b 0%, #030712 65%)',
+              padding: '64px',
               color: '#ffffff',
               fontFamily: 'sans-serif',
             }}
@@ -42,86 +42,207 @@ export async function GET(req: NextRequest) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  fontSize: '22px',
+                  fontSize: '20px',
                   fontWeight: 800,
-                  letterSpacing: '0.2em',
-                  color: '#a855f7',
-                  marginBottom: '16px',
+                  letterSpacing: '0.15em',
+                  color: '#34d399',
+                  marginBottom: '10px',
                 }}
               >
-                NEXT ACTION / NEXT STEP
+                FOR JAPANESE POKÉMON CARD RESELLERS & SHOPS
               </div>
               <div
                 style={{
                   display: 'flex',
-                  fontSize: '52px',
+                  fontSize: '44px',
                   fontWeight: 900,
                   lineHeight: 1.2,
                   color: '#ffffff',
+                  marginBottom: '6px',
                 }}
               >
-                利益を最大化する2つの選択肢
+                日本語版ポケカ仕入れ・代理購入サービス
               </div>
-            </div>
-
-            {/* 中央: 2股導線カード比較 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-              {/* Option 1: VIP Discord */}
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  backgroundColor: 'rgba(88, 101, 242, 0.12)',
-                  border: '2px solid rgba(88, 101, 242, 0.5)',
-                  borderRadius: '24px',
-                  padding: '36px 40px',
+                  fontSize: '20px',
+                  color: '#9ca3af',
+                  fontWeight: 500,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', fontSize: '20px', fontWeight: 800, color: '#818cf8', letterSpacing: '0.1em' }}>
-                    OPTION 01: 先行急騰シグナル・市場データ
-                  </div>
-                  <div style={{ display: 'flex', backgroundColor: '#5865F2', padding: '6px 18px', borderRadius: '999px', fontSize: '18px', fontWeight: 800 }}>
-                    VIP Discord ➔
-                  </div>
-                </div>
-                <div style={{ display: 'flex', fontSize: '28px', fontWeight: 800, color: '#ffffff' }}>
-                  なぜこの価格差が生まれたのか？次の急騰銘柄を知りたい方へ
-                </div>
+                日本のフリマ・専門店・問屋から直接買い付け、あなたの国へ最安コストで安全直送
               </div>
+            </div>
 
-              {/* Option 2: 代理購入サイト */}
+            {/* 中央: 3大ベネフィット */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* ポイント1: 手数料5% */}
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                  border: '2px solid rgba(16, 185, 129, 0.5)',
-                  borderRadius: '24px',
-                  padding: '36px 40px',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: '20px',
+                  padding: '20px 24px',
+                  gap: '20px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', fontSize: '20px', fontWeight: 800, color: '#34d399', letterSpacing: '0.1em' }}>
-                    OPTION 02: 最速直送・調達手配
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10b981',
+                    color: '#000000',
+                    fontSize: '24px',
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  %
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff' }}>
+                      代行手数料は基本【5%】のみ
+                    </span>
+                    <span style={{ fontSize: '15px', fontWeight: 800, backgroundColor: '#065f46', color: '#34d399', padding: '2px 10px', borderRadius: '6px' }}>
+                      追加料金ゼロ
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', backgroundColor: '#10b981', padding: '6px 18px', borderRadius: '999px', fontSize: '18px', fontWeight: 800 }}>
-                    自社代理購入 ➔
+                  <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
+                    オプション料金・保管料・同梱費用などの隠れコストなし。極めて透明な価格設計。
                   </div>
                 </div>
-                <div style={{ display: 'flex', fontSize: '28px', fontWeight: 800, color: '#ffffff' }}>
-                  この価格差のまま、日本から直接安全に買い付け・発送手配したい方へ
+              </div>
+
+              {/* ポイント2: 国際送料 1枚あたり約3円 */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: '20px',
+                  padding: '20px 24px',
+                  gap: '20px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10b981',
+                    color: '#000000',
+                    fontSize: '24px',
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✈️
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff' }}>
+                      国際送料はカード1枚あたり【約3円〜】
+                    </span>
+                    <span style={{ fontSize: '15px', fontWeight: 800, backgroundColor: '#065f46', color: '#34d399', padding: '2px 10px', borderRadius: '6px' }}>
+                      業界最安級
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
+                    まとめ同梱＆容積最適化で送料を圧縮（※米国宛・18kg / 約10,000枚発送時の実績水準）。
+                  </div>
+                </div>
+              </div>
+
+              {/* ポイント3: 国内複数ショップからの一括調達 */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: '20px',
+                  padding: '20px 24px',
+                  gap: '20px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10b981',
+                    color: '#000000',
+                    fontSize: '22px',
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                >
+                  📦
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', fontSize: '24px', fontWeight: 900, color: '#ffffff', marginBottom: '2px' }}>
+                    日本全国のフリマ・専門店・問屋から代理調達
+                  </div>
+                  <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
+                    URLを送るだけで買い付け代行。複数ショップの荷物を1つにまとめて直送。
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* フッター */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid #1f2937', paddingTop: '30px' }}>
-              <div style={{ display: 'flex', fontSize: '24px', color: '#9ca3af', fontWeight: 600 }}>
-                詳細はプロフィールリンクのURLをタップ
+            {/* 下部: CTAボタン */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: '#10b981',
+                  borderRadius: '18px',
+                  padding: '22px',
+                  gap: '12px',
+                }}
+              >
+                <span style={{ fontSize: '26px', fontWeight: 900, color: '#030712' }}>
+                  プロフィールリンクから仕入れ・お見積もり依頼
+                </span>
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#030712"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
               </div>
-              <div style={{ display: 'flex', fontSize: '26px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.08em' }}>
-                WORLDWIDE JAPAN
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', fontSize: '18px', color: '#6b7280', fontWeight: 600 }}>
+                  1点・シングルカードから1万枚規模の大量ロットまで対応
+                </div>
+                <div style={{ display: 'flex', fontSize: '22px', fontWeight: 900, color: '#4b5563', letterSpacing: '0.08em' }}>
+                  WORLDWIDE JAPAN
+                </div>
               </div>
             </div>
           </div>

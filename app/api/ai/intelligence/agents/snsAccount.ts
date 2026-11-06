@@ -17,9 +17,9 @@ export async function runAccountAnalysis(category: string = 'pokemon') {
   const prompt = `あなたは越境【${categoryName}】事業における【自社Instagram専任アカウントアナリスト＆グロースディレクター】です。
 
 【私たちの最終ゴール（KGI）】
-1. 「先行情報・相場データ（Reason）」を求めるユーザーを【有料VIP Discord】へ誘導すること。
-2. 「今すぐ利ざやを抜くための直送手配（Action）」を求めるユーザーを【自社代理購入サイト】へ誘導すること。
-※Instagram投稿はすべてこの2股導線への「撒き餌」であり、プロフ遷移率と保存（Save）率の最大化が至上命題です。
+海外で日本語版ポケモンカードを仕入れて自国で販売している事業者（カードショップ・リセラー）に向け、
+自社の【越境代理購入サービス】への利用・見積もり依頼を促すこと（プロフィールリンクへ誘導）。
+※Instagram投稿はすべて代理購入利用への「撒き餌」であり、プロフ遷移と保存（Save）の最大化を狙って制作してください。
 
 【直近のアカウント実績データ（Meta Graph API）】:
 ${JSON.stringify(rawInsights)}
