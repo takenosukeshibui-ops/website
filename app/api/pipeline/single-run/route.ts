@@ -17,6 +17,28 @@ function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string 
   return cleanName;
 }
 
+function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp' {
+  if (shopName?.includes('晴れる屋')) return 'hareruya2';
+  if (shopName?.includes('キャンプ')) return 'torecacamp';
+  return 'cardrush';
+}
+
+async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string> {
+  if (aiUrl && aiUrl.includes('/itm/')) {
+    return aiUrl;
+  }
+  const kw = buildCleanSearchKeyword(cardName, cardNumber);
+  try {
+    const itemUrl = await getTopShopUrlByGoogle(`site:ebay.com/itm/ ${kw}`);
+    if (itemUrl && itemUrl.includes('/itm/')) {
+      return itemUrl;
+    }
+  } catch (err) {
+    console.warn(`[eBay Resolver] 個別URL取得フォールバック:`, err);
+  }
+  return aiUrl || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
+}
+
 export async function POST(req: Request) {
   try {
     const { cycleId, action, region, category } = await req.json();
@@ -47,22 +69,38 @@ export async function POST(req: Request) {
       const researchRows: any[] = [];
       const platformDefault = region === 'us' ? 'eBay US / TCGplayer' : region === 'eu' ? 'Cardmarket' : 'Shopee';
 
-      if (sayaReport?.slots) {
+      if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
         for (const slot of sayaReport.slots) {
-          for (const tier of slot.tiers || []) {
-            if (tier.mainItem) {
+          // 🌟 安全ガード: slot が null または tiers がない場合はスキップ
+          if (!slot || !slot.tiers) continue;
+
+          let tiers: any[] = [];
+          if (Array.isArray(slot.tiers)) {
+            tiers = slot.tiers;
+          } else if (typeof slot.tiers === 'object') {
+            tiers = Object.values(slot.tiers);
+          }
+
+          for (const tier of tiers) {
+            if (!tier) continue;
+
+            // 本命
+            if (tier.mainItem && tier.mainItem.cardName) {
               const main = tier.mainItem;
               const buy = parseInt(String(main.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
               const spread = parseInt(String(main.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
               const kw = buildCleanSearchKeyword(main.cardName, main.cardNumber);
-              const url = await getTopShopUrlByGoogle(kw, 'cardrush');
+              const targetShop = getTargetShop(main.jpShopName);
+              const url = await getTopShopUrlByGoogle(kw, targetShop);
+              const resolvedEbayUrl = await resolveIndividualEbayUrl(main.sourceEvidenceUrl, main.cardName, main.cardNumber);
+              const liquidityStr = `7日: ${main.salesVolume7d || '確認中'} / 30日: ${main.salesVolume30d || '1件以上'}`;
 
               researchRows.push({
                 cycle_id: cycleId,
                 agent_key: 'arbitrage',
                 region,
-                slot_key: slot.slotKey,
-                price_tier: tier.priceTier,
+                slot_key: slot.slotKey || 'arbitrage_slot',
+                price_tier: tier.priceTier || 'middle',
                 card_name: kw,
                 condition_grade: main.conditionGrade || 'Raw NM',
                 jp_buy_price_jpy: buy,
@@ -70,7 +108,7 @@ export async function POST(req: Request) {
                 target_sold_price_jpy: buy + spread,
                 price_spread_jpy: spread,
                 spread_roi_percent: buy > 0 ? Math.round((spread / buy) * 100) : 30,
-                liquidity_indicator: main.liquidity || '直近成約あり',
+                liquidity_indicator: liquidityStr,
                 research_insight: main.insight || '',
                 raw_payload: {
                   priceTier: tier.priceTier,
@@ -79,31 +117,54 @@ export async function POST(req: Request) {
                   slotLabel: slot.slotLabel,
                   isMain: true,
                   role: '本命',
-                  mainItem: { ...main, jpEvidenceUrl: url },
-                  currentItem: { ...main, jpEvidenceUrl: url },
+                  mainItem: {
+                    ...main,
+                    jpShopName: main.jpShopName || '国内大手',
+                    jpEvidenceUrl: url,
+                    sourceEvidenceUrl: resolvedEbayUrl,
+                    salesVolume7d: main.salesVolume7d || '',
+                    salesVolume30d: main.salesVolume30d || '',
+                  },
+                  subItems: tier.subItems || [],
+                  currentItem: {
+                    ...main,
+                    jpShopName: main.jpShopName || '国内大手',
+                    jpEvidenceUrl: url,
+                    sourceEvidenceUrl: resolvedEbayUrl,
+                    salesVolume7d: main.salesVolume7d || '',
+                    salesVolume30d: main.salesVolume30d || '',
+                  },
                   jpEvidenceUrl: url,
                   sourcePlatform: main.sourcePlatform || platformDefault,
-                  evidenceNote: main.evidenceNote || '主要プラットフォーム成約基準',
+                  evidenceNote: main.evidenceNote || '成約実績基準',
+                  sourceEvidenceUrl: resolvedEbayUrl,
+                  exchangeRate: sayaReport.exchangeRate,
+                  reportSummary: sayaReport.summary,
                 },
                 gate1_status: 'passed',
                 is_selected: false,
               });
             }
 
+            // 代替候補
             if (Array.isArray(tier.subItems)) {
               for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
                 const sub = tier.subItems[sIdx];
+                if (!sub || !sub.cardName) continue;
                 const buy = parseInt(String(sub.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
                 const spread = parseInt(String(sub.priceSpreadJPY || 0).replace(/[^0-9]/g, '')) || 500;
                 const kw = buildCleanSearchKeyword(sub.cardName, sub.cardNumber);
-                const url = await getTopShopUrlByGoogle(kw, 'cardrush');
+                const subTargetShop = getTargetShop(sub.jpShopName);
+                const url = await getTopShopUrlByGoogle(kw, subTargetShop);
+                const resolvedSubEbayUrl = await resolveIndividualEbayUrl(sub.sourceEvidenceUrl, sub.cardName, sub.cardNumber);
+                const subLiquidityStr = `7日: ${sub.salesVolume7d || '確認中'} / 30日: ${sub.salesVolume30d || '1件以上'}`;
 
                 researchRows.push({
                   cycle_id: cycleId,
                   agent_key: 'arbitrage',
                   region,
-                  slot_key: slot.slotKey,
-                  price_tier: tier.priceTier,
+                  slot_key: slot.slotKey || 'arbitrage_slot',
+                  price_tier: tier.priceTier || 'middle',
                   card_name: kw,
                   condition_grade: sub.conditionGrade || 'Raw NM',
                   jp_buy_price_jpy: buy,
@@ -111,7 +172,7 @@ export async function POST(req: Request) {
                   target_sold_price_jpy: buy + spread,
                   price_spread_jpy: spread,
                   spread_roi_percent: buy > 0 ? Math.round((spread / buy) * 100) : 30,
-                  liquidity_indicator: sub.liquidity || '直近成約あり',
+                  liquidity_indicator: subLiquidityStr,
                   research_insight: sub.insight || '',
                   raw_payload: {
                     priceTier: tier.priceTier,
@@ -120,10 +181,20 @@ export async function POST(req: Request) {
                     slotLabel: slot.slotLabel,
                     isMain: false,
                     role: `候補${sIdx + 2}`,
-                    currentItem: { ...sub, jpEvidenceUrl: url },
+                    currentItem: {
+                      ...sub,
+                      jpShopName: sub.jpShopName || '国内大手',
+                      jpEvidenceUrl: url,
+                      sourceEvidenceUrl: resolvedSubEbayUrl,
+                      salesVolume7d: sub.salesVolume7d || '',
+                      salesVolume30d: sub.salesVolume30d || '',
+                    },
                     jpEvidenceUrl: url,
                     sourcePlatform: sub.sourcePlatform || platformDefault,
-                    evidenceNote: sub.evidenceNote || '主要プラットフォーム成約基準',
+                    evidenceNote: sub.evidenceNote || '成約実績基準',
+                    sourceEvidenceUrl: resolvedSubEbayUrl,
+                    exchangeRate: sayaReport.exchangeRate,
+                    reportSummary: sayaReport.summary,
                   },
                   gate1_status: 'passed',
                   is_selected: false,
@@ -154,12 +225,15 @@ export async function POST(req: Request) {
 
       const researchRows: any[] = [];
       for (const hypo of trendReport?.hypotheses || []) {
+        if (!hypo) continue;
         for (const item of hypo.items || []) {
+          if (!item) continue;
           const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
           const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
           const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
           const spread = Math.max(0, targetJpy - buy);
           const url = await getTopShopUrlByGoogle(buildCleanSearchKeyword(item.cardName), 'cardrush');
+          const resolvedTrendEbayUrl = await resolveIndividualEbayUrl(item.sourceEvidenceUrl, item.cardName);
 
           researchRows.push({
             cycle_id: cycleId,
@@ -174,7 +248,6 @@ export async function POST(req: Request) {
             target_sold_price_jpy: targetJpy,
             price_spread_jpy: spread,
             spread_roi_percent: buy > 0 ? Math.round((spread / buy) * 100) : 30,
-            // 🌟 修正: item.timeframe ではなく hypo.timeframe を参照
             liquidity_indicator: hypo.timeframe || '約2週間後',
             research_insight: item.impactLogic || '',
             raw_payload: {
@@ -182,6 +255,7 @@ export async function POST(req: Request) {
               reportSummary: trendReport?.summary,
               hypothesis: hypo,
               jpEvidenceUrl: url,
+              sourceEvidenceUrl: resolvedTrendEbayUrl,
             },
             gate1_status: 'passed',
             is_selected: false,
@@ -238,8 +312,9 @@ export async function POST(req: Request) {
       await supabase.from('ai_research_items').update({ is_selected: false, is_mvp: false, assigned_day: null }).eq('cycle_id', cycleId);
 
       for (const daily of curationResult?.weeklyLineup || []) {
+        if (!daily) continue;
         for (const item of daily.items || []) {
-          // 🌟 修正: anyItem経由で cardName を安全に参照
+          if (!item) continue;
           const anyItem = item as any;
           const matched = candidates?.find(
             (c: any) => c.id === item.itemId || (anyItem.cardName && c.card_name?.includes(anyItem.cardName))
