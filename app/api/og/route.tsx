@@ -196,16 +196,16 @@ export async function GET(req: NextRequest) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', fontSize: '24px', fontWeight: 900, color: '#ffffff', marginBottom: '2px' }}>
-                    日本全国のフリマ・専門店・問屋から代理調達
+                    日本のフリマ・専門店から代理調達
                   </div>
                   <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
-                    URLを送るだけで買い付け代行。複数ショップの荷物を1つにまとめて直送。
+                    閲覧ページから1クリックでカート追加。複数ショップの荷物を1つにまとめて直送。
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 下部: CTAボタン */}
+            {/* 下部: CTAボタン & お問い合わせ案内 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div
                 style={{
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
                 }}
               >
                 <span style={{ fontSize: '26px', fontWeight: 900, color: '#030712' }}>
-                  プロフィールリンクから仕入れ・お見積もり依頼
+                  プロフリンクの公式サイトから無料アカウント登録
                 </span>
                 <svg
                   width="28"
@@ -237,11 +237,8 @@ export async function GET(req: NextRequest) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', fontSize: '18px', color: '#6b7280', fontWeight: 600 }}>
-                  1点・シングルカードから1万枚規模の大量ロットまで対応
-                </div>
-                <div style={{ display: 'flex', fontSize: '22px', fontWeight: 900, color: '#4b5563', letterSpacing: '0.08em' }}>
-                  WORLDWIDE JAPAN
+                <div style={{ display: 'flex', fontSize: '18px', color: '#9ca3af', fontWeight: 600 }}>
+                  お問い合わせ・ご相談はインスタDM または メールへ
                 </div>
               </div>
             </div>
@@ -391,10 +388,6 @@ export async function GET(req: NextRequest) {
                   ROI {roi}
                 </span>
               </div>
-            </div>
-
-            <div style={{ display: 'flex', fontSize: '28px', fontWeight: 900, color: '#6b7280', letterSpacing: '0.08em' }}>
-              WORLDWIDE JAPAN
             </div>
           </div>
         </div>
