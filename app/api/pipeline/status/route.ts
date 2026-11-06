@@ -2,6 +2,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string {
+  if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
+  const clean = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
+  const query = conditionGrade?.includes('PSA 10') ? `${clean} PSA 10` : clean;
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1`;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -63,7 +70,7 @@ export async function GET(req: Request) {
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
 
-    // 3. サヤ取りレポート復元（重複排除・1スロット1カードに正確に再構築）
+    // 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -85,35 +92,54 @@ export async function GET(req: Request) {
           exchangeRateObj = item.raw_payload.exchangeRate;
         }
 
-        // 🌟 重複排除: 本命アイテム（isMain === true）を親tierとして登録
         const isMain = Boolean(item.raw_payload?.isMain || item.raw_payload?.role === '本命');
         if (isMain) {
-          const mainItemData = item.raw_payload?.mainItem || item.raw_payload?.currentItem || {
+          const rawMain = item.raw_payload?.mainItem || item.raw_payload?.currentItem || {};
+          const ebayUrl = item.raw_payload?.sourceEvidenceUrl || rawMain.sourceEvidenceUrl || buildEbayFallbackUrl(item.card_name, item.condition_grade);
+
+          const mainItemData = {
             cardName: item.card_name,
+            cardNumber: rawMain.cardNumber || '',
             conditionGrade: item.condition_grade,
+            jpShopName: rawMain.jpShopName || '国内大手',
             jpBuyPriceJPY: `¥${item.jp_buy_price_jpy.toLocaleString()}`,
             targetSoldPrice: item.target_sold_price_local,
             priceSpreadJPY: `¥${item.price_spread_jpy.toLocaleString()}`,
             spreadROI: `${item.spread_roi_percent}%`,
+            salesVolume7d: rawMain.salesVolume7d || '',
+            salesVolume30d: rawMain.salesVolume30d || '',
             liquidity: item.liquidity_indicator,
             insight: item.research_insight,
-            jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl,
+            jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl || rawMain.jpEvidenceUrl,
+            sourceEvidenceUrl: ebayUrl,
+            sourcePlatform: item.raw_payload?.sourcePlatform || 'eBay',
+            evidenceNote: item.raw_payload?.evidenceNote || '成約実績基準',
           };
 
-          // 該当スロットの代替候補（subItems）を抽出してバインド
           const subItemsData = items
             .filter((sub) => sub.slot_key === slotKey && !sub.raw_payload?.isMain && sub.raw_payload?.role !== '本命')
-            .map((sub) => ({
-              cardName: sub.card_name,
-              conditionGrade: sub.condition_grade,
-              jpBuyPriceJPY: `¥${sub.jp_buy_price_jpy.toLocaleString()}`,
-              targetSoldPrice: sub.target_sold_price_local,
-              priceSpreadJPY: `¥${sub.price_spread_jpy.toLocaleString()}`,
-              spreadROI: `${sub.spread_roi_percent}%`,
-              liquidity: sub.liquidity_indicator,
-              insight: sub.research_insight,
-              jpEvidenceUrl: sub.raw_payload?.jpEvidenceUrl,
-            }));
+            .map((sub) => {
+              const rawSub = sub.raw_payload?.currentItem || {};
+              const subEbayUrl = sub.raw_payload?.sourceEvidenceUrl || rawSub.sourceEvidenceUrl || buildEbayFallbackUrl(sub.card_name, sub.condition_grade);
+              return {
+                cardName: sub.card_name,
+                cardNumber: rawSub.cardNumber || '',
+                conditionGrade: sub.condition_grade,
+                jpShopName: rawSub.jpShopName || '国内大手',
+                jpBuyPriceJPY: `¥${sub.jp_buy_price_jpy.toLocaleString()}`,
+                targetSoldPrice: sub.target_sold_price_local,
+                priceSpreadJPY: `¥${sub.price_spread_jpy.toLocaleString()}`,
+                spreadROI: `${sub.spread_roi_percent}%`,
+                salesVolume7d: rawSub.salesVolume7d || '',
+                salesVolume30d: rawSub.salesVolume30d || '',
+                liquidity: sub.liquidity_indicator,
+                insight: sub.research_insight,
+                jpEvidenceUrl: sub.raw_payload?.jpEvidenceUrl || rawSub.jpEvidenceUrl,
+                sourceEvidenceUrl: subEbayUrl,
+                sourcePlatform: sub.raw_payload?.sourcePlatform || 'eBay',
+                evidenceNote: sub.raw_payload?.evidenceNote || '成約実績基準',
+              };
+            });
 
           slotMap[slotKey].tiers = [
             {
@@ -153,6 +179,7 @@ export async function GET(req: Request) {
           };
         }
         if (item.raw_payload) {
+          const ebayUrl = item.raw_payload?.sourceEvidenceUrl || buildEbayFallbackUrl(item.card_name, item.condition_grade);
           hypoMap[headline].items.push({
             cardName: item.card_name,
             condition: item.condition_grade,
@@ -160,6 +187,7 @@ export async function GET(req: Request) {
             currentLocalPrice: item.target_sold_price_local,
             impactLogic: item.research_insight,
             jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl,
+            sourceEvidenceUrl: ebayUrl,
           });
           if (item.raw_payload.reportSummary && !summaryObj) {
             summaryObj = item.raw_payload.reportSummary;

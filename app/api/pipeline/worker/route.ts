@@ -22,13 +22,18 @@ function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string 
   return cleanName;
 }
 
-// 🌟 個別商品URL (/itm/) の自動確保ヘルパー
+// 🌟 ショップ名から検索ターゲット（カードラッシュ / 晴れる屋2 / トレカキャンプ）を判定
+function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp' {
+  if (shopName?.includes('晴れる屋')) return 'hareruya2';
+  if (shopName?.includes('キャンプ')) return 'torecacamp';
+  return 'cardrush';
+}
+
+// 🌟 個別成約詳細URL (/itm/...) の自動解決・フォールバック関数
 async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string> {
-  // すでに有効な個別出品ページ (/itm/) である場合はそのまま採用
   if (aiUrl && aiUrl.includes('/itm/')) {
     return aiUrl;
   }
-  // /sch/ (検索結果一覧) や 空文字の場合は Google Search API で個別ページ (/itm/) をピンポイント取得
   const kw = buildCleanSearchKeyword(cardName, cardNumber);
   try {
     const itemUrl = await getTopShopUrlByGoogle(`site:ebay.com/itm/ ${kw}`);
@@ -79,12 +84,14 @@ async function processAndSaveRegionResearch(
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
           const searchKeyword = buildCleanSearchKeyword(mainItem.cardName, mainItem.cardNumber);
-          const mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, 'cardrush');
+          const targetShop = getTargetShop(mainItem.jpShopName);
+          const mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, targetShop);
           mainItem.jpEvidenceUrl = mainEvidenceUrl;
 
-          // 🌟 eBayの個別出品ページURL (/itm/...) を確実に解決
           const resolvedEbayUrl = await resolveIndividualEbayUrl(mainItem.sourceEvidenceUrl, mainItem.cardName, mainItem.cardNumber);
           mainItem.sourceEvidenceUrl = resolvedEbayUrl;
+
+          const liquidityStr = `7日: ${mainItem.salesVolume7d || '確認中'} / 30日: ${mainItem.salesVolume30d || '1件以上'}`;
 
           researchRows.push({
             cycle_id: cycleId,
@@ -99,7 +106,7 @@ async function processAndSaveRegionResearch(
             target_sold_price_jpy: buy + spread,
             price_spread_jpy: spread,
             spread_roi_percent: roi,
-            liquidity_indicator: mainItem.liquidity || '直近成約あり',
+            liquidity_indicator: liquidityStr,
             research_insight: mainItem.insight || '',
             raw_payload: {
               priceTier: tier.priceTier,
@@ -108,13 +115,29 @@ async function processAndSaveRegionResearch(
               slotLabel: slot.slotLabel,
               isMain: true,
               role: '本命',
-              mainItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl, sourceEvidenceUrl: resolvedEbayUrl },
+              mainItem: {
+                ...mainItem,
+                jpShopName: mainItem.jpShopName || '国内大手',
+                jpEvidenceUrl: mainEvidenceUrl,
+                sourceEvidenceUrl: resolvedEbayUrl,
+                salesVolume7d: mainItem.salesVolume7d || '',
+                salesVolume30d: mainItem.salesVolume30d || '',
+              },
               subItems: tier.subItems || [],
-              currentItem: { ...mainItem, jpEvidenceUrl: mainEvidenceUrl, sourceEvidenceUrl: resolvedEbayUrl },
+              currentItem: {
+                ...mainItem,
+                jpShopName: mainItem.jpShopName || '国内大手',
+                jpEvidenceUrl: mainEvidenceUrl,
+                sourceEvidenceUrl: resolvedEbayUrl,
+                salesVolume7d: mainItem.salesVolume7d || '',
+                salesVolume30d: mainItem.salesVolume30d || '',
+              },
               jpEvidenceUrl: mainEvidenceUrl,
               sourcePlatform: mainItem.sourcePlatform || platformDefault,
-              evidenceNote: mainItem.evidenceNote || '主要プラットフォーム成約基準',
+              evidenceNote: mainItem.evidenceNote || '成約実績基準',
               sourceEvidenceUrl: resolvedEbayUrl,
+              exchangeRate: sayaReport.exchangeRate,
+              reportSummary: sayaReport.summary,
             },
             gate1_status: 'pending',
             is_selected: false,
@@ -131,12 +154,14 @@ async function processAndSaveRegionResearch(
             const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
             const subKeyword = buildCleanSearchKeyword(subItem.cardName, subItem.cardNumber);
-            const subEvidenceUrl = await getTopShopUrlByGoogle(subKeyword, 'cardrush');
+            const subTargetShop = getTargetShop(subItem.jpShopName);
+            const subEvidenceUrl = await getTopShopUrlByGoogle(subKeyword, subTargetShop);
             subItem.jpEvidenceUrl = subEvidenceUrl;
 
-            // 🌟 代替候補の個別eBay URL (/itm/...) も同様に解決
             const resolvedSubEbayUrl = await resolveIndividualEbayUrl(subItem.sourceEvidenceUrl, subItem.cardName, subItem.cardNumber);
             subItem.sourceEvidenceUrl = resolvedSubEbayUrl;
+
+            const subLiquidityStr = `7日: ${subItem.salesVolume7d || '確認中'} / 30日: ${subItem.salesVolume30d || '1件以上'}`;
 
             researchRows.push({
               cycle_id: cycleId,
@@ -151,7 +176,7 @@ async function processAndSaveRegionResearch(
               target_sold_price_jpy: buy + spread,
               price_spread_jpy: spread,
               spread_roi_percent: roi,
-              liquidity_indicator: subItem.liquidity || '直近成約あり',
+              liquidity_indicator: subLiquidityStr,
               research_insight: subItem.insight || '',
               raw_payload: {
                 priceTier: tier.priceTier,
@@ -160,11 +185,20 @@ async function processAndSaveRegionResearch(
                 slotLabel: slot.slotLabel,
                 isMain: false,
                 role: `候補${sIdx + 2}`,
-                currentItem: { ...subItem, jpEvidenceUrl: subEvidenceUrl, sourceEvidenceUrl: resolvedSubEbayUrl },
+                currentItem: {
+                  ...subItem,
+                  jpShopName: subItem.jpShopName || '国内大手',
+                  jpEvidenceUrl: subEvidenceUrl,
+                  sourceEvidenceUrl: resolvedSubEbayUrl,
+                  salesVolume7d: subItem.salesVolume7d || '',
+                  salesVolume30d: subItem.salesVolume30d || '',
+                },
                 jpEvidenceUrl: subEvidenceUrl,
                 sourcePlatform: subItem.sourcePlatform || platformDefault,
-                evidenceNote: subItem.evidenceNote || '主要プラットフォーム成約基準',
+                evidenceNote: subItem.evidenceNote || '成約実績基準',
                 sourceEvidenceUrl: resolvedSubEbayUrl,
+                exchangeRate: sayaReport.exchangeRate,
+                reportSummary: sayaReport.summary,
               },
               gate1_status: 'pending',
               is_selected: false,
@@ -446,7 +480,6 @@ export async function POST(req: Request) {
           const matched = passedCandidates.find(
             (c: any) =>
               c.id === item.itemId ||
-              c.id === anyItem.id ||
               (anyItem.cardName && c.card_name?.toLowerCase().includes(anyItem.cardName.toLowerCase()))
           );
 

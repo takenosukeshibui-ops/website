@@ -69,20 +69,10 @@ export default function DocumentReportView({
         return found?.badge || 'bg-slate-800 text-slate-300 border-slate-700';
     };
 
-    const getConvictionBadgeClass = (conviction?: string) => {
-        switch (conviction) {
-            case 'High': return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-            case 'Mid': return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-            case 'Speculative': return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
-            default: return 'bg-slate-800 text-slate-300 border-slate-700';
-        }
-    };
-
     const toggleSub = (cellId: string) => {
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
-    // 🌟 カードラッシュ検索用フォールバックURL生成関数
     const getCardrushFallbackUrl = (cardName?: string, cardNumber?: string) => {
         if (!cardName) return 'https://www.cardrush-pokemon.jp/';
         const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -90,7 +80,6 @@ export default function DocumentReportView({
         return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(keyword.trim())}`;
     };
 
-    // 🌟 eBay公式成約実績（Sold & Completed Listings）直行URL生成関数
     const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
         if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
         const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -102,8 +91,6 @@ export default function DocumentReportView({
         const query = parts.join(' ').trim();
         return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1`;
     };
-
-    const summary = report.summary;
 
     const dateObj = report.createdAt ? new Date(report.createdAt) : new Date();
     const formattedDate = !isNaN(dateObj.getTime())
@@ -157,24 +144,10 @@ export default function DocumentReportView({
                             </span>
                         </div>
                     )}
-                    {isStrategicReport && (
-                        <div className="shrink-0">
-                            <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
-                                AIアカウント分析完了
-                            </span>
-                        </div>
-                    )}
-                    {isTrendReport && (
-                        <div className="shrink-0">
-                            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
-                                厳選トレンド {report.hypotheses?.length || 0}本 (各5銘柄)
-                            </span>
-                        </div>
-                    )}
                     {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                         <div className="shrink-0">
                             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                全5スロット網羅（本日の指定価格帯）
+                                全5スロット網羅（eBay成約 × 国内3社最安）
                             </span>
                         </div>
                     )}
@@ -182,149 +155,7 @@ export default function DocumentReportView({
             </div>
 
             <div className="p-4 sm:p-6 space-y-6">
-                {/* 1. SNSアナリスト（戦略レポート）描画ブロック */}
-                {isStrategicReport && (
-                    <div className="space-y-5 animate-fadeIn">
-                        {report.claim && (
-                            <div className={`bg-${accentColor}-500/10 border border-${accentColor}-500/30 rounded-xl p-4 shadow-sm`}>
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="text-sm">🎯</span>
-                                    <h4 className={`text-sm font-bold text-${accentColor}-300`}>今週のSNS最重要ミッション</h4>
-                                </div>
-                                <p className="text-xs text-white font-bold leading-relaxed ml-6">{report.claim}</p>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {report.facts && report.facts.length > 0 && (
-                                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
-                                    <h4 className={`text-xs font-bold text-${accentColor}-400 flex items-center gap-1.5 border-b border-slate-800 pb-2`}>
-                                        <span>📊</span> アカウント実績データ ＆ 推奨設定
-                                    </h4>
-                                    <div className="space-y-2">
-                                        {report.facts.map((fact: any, idx: number) => (
-                                            <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800/60">
-                                                <span className="text-slate-400 font-bold">{fact.label}</span>
-                                                <span className="text-white font-mono">{fact.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {report.curatorDirectives && (
-                                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
-                                    <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                                        <span>👑</span> キュレーター向け編成ディレクション
-                                    </h4>
-                                    <div className="flex items-center justify-between text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800/60">
-                                        <span className="text-slate-400 font-bold">先行予測推奨曜日</span>
-                                        <span className="text-amber-400 font-mono font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{report.curatorDirectives.recommendedTrendDay}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* 2. 市場トレンドレポート描画ブロック */}
-                {isTrendReport && (
-                    <div className="space-y-6">
-                        {report.hypotheses.map((hypo: any, hIdx: number) => (
-                            <div key={hIdx} className="space-y-3">
-                                {report.hypotheses.length > 1 && (
-                                    <div className="flex items-center gap-2 px-1">
-                                        <span className="text-xs font-bold text-amber-400 font-mono">
-                                            [トレンド {hIdx + 1}]
-                                        </span>
-                                        <span className="text-xs font-bold text-slate-300 truncate">
-                                            {hypo.headline}
-                                        </span>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                                    {hypo.items?.map((item: any, iIdx: number) => {
-                                        const isRank1 = item.rankLabel?.includes('Rank 1') || iIdx === 0;
-                                        const jpShopUrl = item.jpEvidenceUrl || item.raw_payload?.jpEvidenceUrl || getCardrushFallbackUrl(item.cardName);
-                                        const ebayUrl = item.sourceEvidenceUrl || item.raw_payload?.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, '', item.condition);
-
-                                        return (
-                                            <div
-                                                key={iIdx}
-                                                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
-                                                    isRank1
-                                                        ? 'bg-slate-900 border-amber-500/50 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/20'
-                                                        : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
-                                                }`}
-                                            >
-                                                <div className="space-y-2.5">
-                                                    <div className="flex justify-between items-start gap-1">
-                                                        <span
-                                                            className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
-                                                                isRank1
-                                                                    ? 'bg-amber-400 text-slate-950 shadow-sm'
-                                                                    : 'bg-slate-800 text-slate-300 border border-slate-700'
-                                                            }`}
-                                                        >
-                                                            {item.rankLabel || `Rank ${iIdx + 1}`}
-                                                        </span>
-                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
-                                                            {item.condition || 'Raw NM'}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="min-h-[2.6rem]">
-                                                        <h5 className="text-xs font-bold text-white leading-snug line-clamp-2" title={item.cardName}>
-                                                            {item.cardName}
-                                                        </h5>
-                                                    </div>
-
-                                                    <div className="space-y-1 text-xs font-mono border-t border-slate-800 pt-2">
-                                                        <div className="flex justify-between items-center text-slate-400">
-                                                            <span>JP 調達:</span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
-                                                                <a
-                                                                    href={jpShopUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                    title="仕入れ元・検索エビデンスを確認"
-                                                                >
-                                                                    <span>[根拠]</span>
-                                                                    <span>↗</span>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-slate-400">
-                                                            <span>現地現在:</span>
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-emerald-400 font-bold">{item.currentLocalPrice}</span>
-                                                                <a
-                                                                    href={ebayUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                    title="eBay成約実績（Sold Listings）を確認"
-                                                                >
-                                                                    <span>[実売]</span>
-                                                                    <span>↗</span>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* 3. アービトラージレポート描画ブロック（全5スロット完全描画） */}
+                {/* アービトラージレポート描画ブロック */}
                 {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="space-y-4">
                         <div className="space-y-4">
@@ -358,11 +189,8 @@ export default function DocumentReportView({
                                                 const subs: any[] = tierCell.subItems || [];
                                                 const cardNum = main.cardNumber || tierCell.cardNumber || '';
 
-                                                // 🌟 日本仕入れ個別URL（カードラッシュ）
                                                 const mainJpShopUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName, cardNum);
-
-                                                // 🌟 海外実売根拠URL（eBay成約履歴 / TCGplayer / API確定URL）
-                                                const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || tierCell.currentItem?.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
+                                                const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
 
                                                 return (
                                                     <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -390,9 +218,19 @@ export default function DocumentReportView({
                                                                 )}
                                                             </h5>
 
-                                                            {/* 日本調達価格 ＆ エビデンス */}
+                                                            {/* 🌟 成約ボリューム実績 (7日 & 30日) */}
+                                                            <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px] font-mono flex items-center justify-between text-slate-400">
+                                                                <span className="text-amber-400 font-bold">📈 eBay成約:</span>
+                                                                <span className="text-slate-200">
+                                                                    7日: <strong className="text-white">{main.salesVolume7d || '確認中'}</strong> / 30日: <strong className="text-white">{main.salesVolume30d || '1件以上'}</strong>
+                                                                </span>
+                                                            </div>
+
+                                                            {/* 日本仕入れ（最安ショップ名つき） */}
                                                             <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
-                                                                <span className="text-slate-400">日本調達:</span>
+                                                                <span className="text-slate-400 truncate max-w-[120px]" title={main.jpShopName || '国内仕入'}>
+                                                                    仕入({main.jpShopName || '国内大手'}):
+                                                                </span>
                                                                 <div className="flex items-center gap-1.5">
                                                                     <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY}</span>
                                                                     <a
@@ -400,7 +238,7 @@ export default function DocumentReportView({
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                        title="個別商品ページ（通常美品）を開く"
+                                                                        title="最安ショップ詳細ページを開く"
                                                                     >
                                                                         <span>[根拠]</span>
                                                                         <span>↗</span>
@@ -408,9 +246,9 @@ export default function DocumentReportView({
                                                                 </div>
                                                             </div>
 
-                                                            {/* 🌟 現地実成約価格 ＆ eBay実売成約エビデンスURL */}
+                                                            {/* 海外実成約 ＆ 実売URL */}
                                                             <div className="flex justify-between items-center text-xs font-mono">
-                                                                <span className="text-slate-400">現地実成約:</span>
+                                                                <span className="text-slate-400">海外実売:</span>
                                                                 <div className="flex items-center gap-1.5">
                                                                     <span className="text-emerald-400 font-bold">{main.targetSoldPrice}</span>
                                                                     <a
@@ -418,7 +256,7 @@ export default function DocumentReportView({
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                        title="eBay実成約履歴（Sold Listings）を開く"
+                                                                        title="eBay成約実績を開く"
                                                                     >
                                                                         <span>[実売]</span>
                                                                         <span>↗</span>
@@ -426,6 +264,7 @@ export default function DocumentReportView({
                                                                 </div>
                                                             </div>
 
+                                                            {/* 単純利ざや */}
                                                             <div className="flex justify-between text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-emerald-300">
                                                                 <span>利ざや: <strong>{main.priceSpreadJPY}</strong></span>
                                                                 <span className="font-bold">ROI: {main.spreadROI}</span>
@@ -464,31 +303,34 @@ export default function DocumentReportView({
                                                                                         <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
                                                                                     </div>
 
+                                                                                    <div className="text-[10px] font-mono text-slate-400 flex justify-between">
+                                                                                        <span>成約: 7日 {subItem.salesVolume7d || '-'} / 30日 {subItem.salesVolume30d || '-'}</span>
+                                                                                        <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
+                                                                                    </div>
+
                                                                                     <div className="flex justify-between items-center font-mono text-slate-400 text-[10px]">
                                                                                         <div className="flex items-center gap-1">
-                                                                                            <span>調達: {subItem.jpBuyPriceJPY}</span>
+                                                                                            <span>仕入: {subItem.jpBuyPriceJPY}</span>
                                                                                             <a
                                                                                                 href={subJpShopUrl}
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"
-                                                                                                className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5"
-                                                                                                title="個別商品ページを開く"
+                                                                                                className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1 py-0.2 rounded font-sans"
+                                                                                                title="仕入れ元を開く"
                                                                                             >
-                                                                                                <span>[根拠]</span>
-                                                                                                <span>↗</span>
+                                                                                                [根拠]↗
                                                                                             </a>
                                                                                         </div>
                                                                                         <div className="flex items-center gap-1">
-                                                                                            <span className="text-emerald-400 font-bold">{subItem.targetSoldPrice ? subItem.targetSoldPrice : `利ざや: ${subItem.priceSpreadJPY}`}</span>
+                                                                                            <span className="text-emerald-400">{subItem.targetSoldPrice}</span>
                                                                                             <a
                                                                                                 href={subEbayUrl}
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"
-                                                                                                className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5"
-                                                                                                title="eBay実成約履歴を開く"
+                                                                                                className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.2 rounded font-sans"
+                                                                                                title="eBay実成約を開く"
                                                                                             >
-                                                                                                <span>[実売]</span>
-                                                                                                <span>↗</span>
+                                                                                                [実売]↗
                                                                                             </a>
                                                                                         </div>
                                                                                     </div>

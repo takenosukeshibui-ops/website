@@ -7,16 +7,18 @@ export interface ArbitrageItem {
   cardName: string;
   cardNumber: string;
   conditionGrade: string;
+  jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;
+  jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
-  liquidity: string;
-  insight: string;
+  salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
+  salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
   sourcePlatform?: string;
   evidenceNote?: string;
-  sourceEvidenceUrl?: string; // 🌟 個別成約詳細ページURL (https://www.ebay.com/itm/数字...)
+  sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
+  insight: string;
 }
 
 export interface ArbitrageTier {
@@ -36,28 +38,28 @@ const REGION_CURRENCIES: Record<string, { currency: string; name: string; target
   us: { 
     currency: 'USD', 
     name: '北米（アメリカ）市場',
-    targetPlatforms: ['eBay (US)', 'TCGplayer (Market Price)']
+    targetPlatforms: ['eBay (US)', 'TCGplayer']
   },
   eu: { 
     currency: 'EUR', 
     name: '欧州（ヨーロッパ）市場',
-    targetPlatforms: ['Cardmarket (MKM Trend/Low)', 'eBay UK', 'eBay DE']
+    targetPlatforms: ['Cardmarket', 'eBay UK', 'eBay DE']
   },
   asia: { 
     currency: 'SGD', 
     name: 'アジア（シンガポール・台湾・香港等）市場',
-    targetPlatforms: ['Shopee', 'Carousell', '現地専門店実勢価格']
+    targetPlatforms: ['Shopee', 'Carousell', 'eBay']
   },
 };
 
 export const DAY_PRICE_TIER_MAP: Record<string, { key: string; label: string; desc: string; criteria: string }> = {
-  Monday: { key: 'under_3k', label: '〜3千円', desc: '超高回転・エントリー枠', criteria: '最低差額 +¥1,000以上、現地直近7日成約 5件以上' },
-  Tuesday: { key: 'under_10k', label: '3千〜1万円', desc: '定番コレクション枠', criteria: '最低差額 +¥2,500以上、現地直近7日成約 3件以上' },
-  Wednesday: { key: 'middle', label: '1万〜3万円', desc: '中核プロモ・高需要SAR枠', criteria: '最低差額 +¥6,000以上、現地直近14日成約 2件以上' },
-  Thursday: { key: 'upper', label: '3万〜8万円', desc: '準高額鑑定・上位絶版枠', criteria: '最低差額 +¥15,000以上、現地直近30日成約 2件以上' },
-  Friday: { key: 'top_end', label: '8万円〜', desc: '資産性PSA10・絶版BOX枠', criteria: '最低差額 +¥30,000以上、現地直近30日成約 1件以上' },
-  Saturday: { key: 'middle', label: '1万〜3万円', desc: '週末高需要コレクション枠', criteria: '最低差額 +¥6,000以上、現地直近14日成約 2件以上' },
-  Sunday: { key: 'under_10k', label: '3千〜1万円', desc: '週明け即売れ回転枠', criteria: '最低差額 +¥2,500以上、現地直近7日成約 3件以上' },
+  Monday: { key: 'under_3k', label: '〜3千円', desc: '超高回転・エントリー枠', criteria: '直近7日成約 5件以上' },
+  Tuesday: { key: 'under_10k', label: '3千〜1万円', desc: '定番コレクション枠', criteria: '直近7日成約 3件以上' },
+  Wednesday: { key: 'middle', label: '1万〜3万円', desc: '中核プロモ・高需要SAR枠', criteria: '直近30日成約 3件以上' },
+  Thursday: { key: 'upper', label: '3万〜8万円', desc: '準高額鑑定・上位絶版枠', criteria: '直近30日成約 2件以上' },
+  Friday: { key: 'top_end', label: '8万円〜', desc: '資産性PSA10・絶版BOX枠', criteria: '直近30日成約 1件以上' },
+  Saturday: { key: 'middle', label: '1万〜3万円', desc: '週末高需要コレクション枠', criteria: '直近30日成約 3件以上' },
+  Sunday: { key: 'under_10k', label: '3千〜1万円', desc: '週明け即売れ回転枠', criteria: '直近7日成約 3件以上' },
 };
 
 async function getRealtimeExchangeRate(currency: string): Promise<number> {
@@ -114,27 +116,29 @@ export async function runSayaAnalysis(
 ・素体（Raw）の選定は厳禁です。`
       : `【コンディション厳格ルール（素体・美品限定枠）】
 ・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
-・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名に「PSA」を含めたり、conditionGradeに「PSA」を指定することは厳禁です。`;
+・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名やconditionGradeに「PSA」を含めることは厳禁です。`;
 
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
-対象通貨: ${cur.currency}（最新リアルタイム為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
+対象通貨: ${cur.currency}（最新為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
 ${conditionRule}
 
-【超重要: 状態NM（美品）基準の厳格遵守】
-仕入れ価格（jpBuyPriceJPY）には、カードラッシュ等の大手通販サイトにおける【通常美品（NM / 状態A）の正規販売価格】を必ず設定してください。
-※「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
-
-【重要: 個別成約URL (sourceEvidenceUrl) の出力ルール】
-・eBay等の検索結果一覧ページ（URLに "/sch/" が含まれるもの）は【出力禁止】です！
-・必ず実際に取引された個別の商品・成約詳細ページURL（例: "https://www.ebay.com/itm/123456789012" のように "/itm/" を含む個別URL）を sourceEvidenceUrl に出力してください。
-・個別商品ページを特定するため、【型番（例: 096/071, PROMO 001/SV-P 等）】を必ず cardNumber フィールドに明記してください。
+【リサーチ ＆ 利益計算ルール（シンプル差額方式）】
+1. 出口相場（eBay成約データ）:
+   - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を設定してください。
+   - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
+     （通常枠は複数件、高額枠は直近30日に1件以上あれば合格）
+   - eBay個別成約ページURL（"/itm/"を含むもの）を sourceEvidenceUrl に出力してください（"/sch/"の検索一覧URLは禁止）。
+2. 入口相場（国内大手3社在庫比較）:
+   - 【カードラッシュ】【晴れる屋2】【トレカキャンプ】の3社を検索比較し、現在在庫がある通常美品（状態A/NM）の「最安値」のショップ名（jpShopName）と仕入れ価格（jpBuyPriceJPY）を出力してください。
+   - 「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
+3. 単純利ざや計算:
+   - targetSoldPrice の日本円換算値 ＝ 現地売価(${cur.currency}) × ${exchangeRateJPY}円
+   - priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
+   - spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
-【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】 / 判定基準: ${todayTier.criteria}
-
-【調達リサーチ任務】
-このスロットの中から、本日の指定価格帯【${todayTier.label}】に合致するカードを【本命1商品 ＋ 代替候補2商品（計3商品）】厳選抽出してください。
+【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】
 
 以下のJSON形式のみを出力してください:
 {
@@ -148,43 +152,49 @@ ${conditionRule}
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
         "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-        "jpBuyPriceJPY": "¥X,XXX (※通常美品/状態Aの正規価格)",
+        "jpShopName": "最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)",
+        "jpBuyPriceJPY": "¥X,XXX (※3社中最安の通常美品価格)",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
-        "liquidity": "直近7日 X件",
-        "sourcePlatform": "参照プラットフォーム名 (例: eBay)",
-        "evidenceNote": "売価根拠 (例: 直近Sold成約)",
-        "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID (※/sch/の検索URLは禁止、必ず/itm/の個別URL)",
-        "insight": "現地需要動向と輸入推奨理由（1行）"
+        "salesVolume7d": "X件",
+        "salesVolume30d": "X件",
+        "sourcePlatform": "eBay",
+        "evidenceNote": "成約実績基準",
+        "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
+        "insight": "現地需要動向と3社比較における優位性（1行）"
       },
       "subItems": [
         {
           "cardName": "候補2のカード名とレアリティ",
           "cardNumber": "候補2の正確な型番",
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
+          "jpShopName": "最安ショップ名",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
-          "liquidity": "直近7日 X件",
-          "sourcePlatform": "参照プラットフォーム名",
-          "evidenceNote": "売価根拠",
-          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID",
+          "salesVolume7d": "X件",
+          "salesVolume30d": "X件",
+          "sourcePlatform": "eBay",
+          "evidenceNote": "成約実績基準",
+          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
           "insight": "特徴1行"
         },
         {
           "cardName": "候補3のカード名とレアリティ",
           "cardNumber": "候補3の正確な型番",
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
+          "jpShopName": "最安ショップ名",
           "jpBuyPriceJPY": "¥X,XXX",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
-          "liquidity": "直近7日 X件",
-          "sourcePlatform": "参照プラットフォーム名",
-          "evidenceNote": "売価根拠",
-          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する個別アイテムID",
+          "salesVolume7d": "X件",
+          "salesVolume30d": "X件",
+          "sourcePlatform": "eBay",
+          "evidenceNote": "成約実績基準",
+          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
           "insight": "特徴1行"
         }
       ]
