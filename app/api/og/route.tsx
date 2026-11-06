@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
                   marginBottom: '6px',
                 }}
               >
-                日本語版ポケカ仕入れ・代理購入サービス
+                Buy Cards Directly from Japan
               </div>
               <div
                 style={{
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
                   fontWeight: 500,
                 }}
               >
-                日本のフリマ・専門店・問屋から直接買い付け、あなたの国へ最安コストで安全直送
+                We buy from Japanese shops and ship directly to your door at Japanese prices.
               </div>
             </div>
 
@@ -109,14 +109,14 @@ export async function GET(req: NextRequest) {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
                     <span style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff' }}>
-                      代行手数料は基本【5%】のみ
+                      Only 5% Service Fee
                     </span>
                     <span style={{ fontSize: '15px', fontWeight: 800, backgroundColor: '#065f46', color: '#34d399', padding: '2px 10px', borderRadius: '6px' }}>
-                      追加料金ゼロ
+                      NO EXTRA FEES
                     </span>
                   </div>
                   <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
-                    オプション料金・保管料・同梱費用などの隠れコストなし。極めて透明な価格設計。
+                    No hidden costs. No storage fees. Simple 5% fee only.
                   </div>
                 </div>
               </div>
@@ -153,14 +153,14 @@ export async function GET(req: NextRequest) {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
                     <span style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff' }}>
-                      国際送料はカード1枚あたり【約3円〜】
+                      Shipping from $0.02 / Card【3jpy〜】
                     </span>
                     <span style={{ fontSize: '15px', fontWeight: 800, backgroundColor: '#065f46', color: '#34d399', padding: '2px 10px', borderRadius: '6px' }}>
-                      業界最安級
+                      FAST & LOW COSTS
                     </span>
                   </div>
                   <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
-                    まとめ同梱＆容積最適化で送料を圧縮（※米国宛・18kg / 約10,000枚発送時の実績水準）。
+                    We combine your orders into one box to cut shipping costs (~10,000 cards / 18kg to US)
                   </div>
                 </div>
               </div>
@@ -196,10 +196,10 @@ export async function GET(req: NextRequest) {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', fontSize: '24px', fontWeight: 900, color: '#ffffff', marginBottom: '2px' }}>
-                    日本のフリマ・専門店から代理調達
+                    We Buy from Japanese Card Shops & Flea Markets
                   </div>
                   <div style={{ display: 'flex', fontSize: '16px', color: '#9ca3af' }}>
-                    閲覧ページから1クリックでカート追加。複数ショップの荷物を1つにまとめて直送。
+                    Add items with 1 click while browsing Japanese sites. We buy and ship them all together.
                   </div>
                 </div>
               </div>
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
                 }}
               >
                 <span style={{ fontSize: '26px', fontWeight: 900, color: '#030712' }}>
-                  プロフリンクの公式サイトから無料アカウント登録
+                  Sign Up Free (Link in Bio)
                 </span>
                 <svg
                   width="28"
@@ -238,7 +238,7 @@ export async function GET(req: NextRequest) {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', fontSize: '18px', color: '#9ca3af', fontWeight: 600 }}>
-                  お問い合わせ・ご相談はインスタDM または メールへ
+                  Questions? DM us on Instagram or send an Email
                 </div>
               </div>
             </div>
