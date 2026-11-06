@@ -15,9 +15,9 @@ export async function runSnsPosts(chiefPackage: any, accountReport: any, categor
   const prompt = `あなたは越境【${categoryName}】事業における【Instagram専任のトップセールスクリエイター】です。
 
 【私たちの最終ゴール（KGI）】
-海外で日本語版ポケモンカードを仕入れて自国で販売している事業者（カードショップ・リセラー）に向け、
-自社の【越境代理購入サービス】への利用・見積もり依頼を促すこと（プロフィールリンクへ誘導）。
-※Instagram投稿はすべて代理購入利用への「撒き餌」であり、プロフ遷移と保存（Save）の最大化を狙って制作してください。
+海外で日本語版ポケモンカードを取り扱う事業者（カードショップ・リセラー・大口コレクター）に向け、
+自社の【越境代理購入サービス】への利用・アカウント登録を促すこと（プロフィールリンクへ誘導）。
+※海外バイヤー向けのため、【キャプション本文（caption）および hookText はすべて英語（English）で執筆すること】を厳守してください。英語非ネイティブのバイヤーでもスムーズに理解できるよう、難解な語彙を避けたシンプルで自然なビジネス英語を用いてください。
 
 【チーフ・キュレーター編成パッケージ（今週の動的週間ラインナップ）】:
 ${JSON.stringify(chiefPackage, null, 2)}
@@ -37,17 +37,21 @@ ${JSON.stringify(accountReport, null, 2)}
 2. 【答えを教えない撒き餌原則（Hook & Hold）】:
    - 投稿で開示するのは「確定価格差」「海外急騰率」「実成約事実（Fact & Result）」のみ。
    - 日本国内の仕入れ店舗名、仕入れルート、詳細ノウハウ（Action & Reason）は絶対に投稿本文に書かないこと（Gate 2 監査で弾かれます）。
-3. 【自社代理購入サービスへのCTA配置（最重要・定型文として厳守）】:
-   - 各曜日のキャプション本文の末尾には、以下のブロックをそのまま配置し、自社代理購入へのプロフィールリンクへ誘導すること:
+3. 【自社代理購入サービスへの英語CTA配置（最重要・各キャプション末尾にそのまま配置）】:
+   - 各曜日の caption 本文の末尾には、以下のブロックをそのまま配置すること:
 
 ━━━━━━━━━━━━━━━━━━━━━━
-【日本語版ポケカの仕入れ・代理購入サービス】
+【Japanese Pokémon Card Sourcing & Proxy Service】
 ━━━━━━━━━━━━━━━━━━━━━━
-海外で日本語版カードを販売されているカードショップ・セラー様向けに、日本国内からの代理購入・国際直送をサポートしています。
+Looking to source Japanese Pokémon cards for your shop or business?
+We buy directly from Japanese markets and ship worldwide to your door!
 
-✅ 代理購入手数料は【基本5%のみ】（追加オプション費用なし）
-✅ 国際送料はカード1枚あたり【約3円〜】（※米国宛・18kg / 約10,000枚発送時）
-✅ 日本のフリマ・カード専門店からまとめて買い付け＆同梱発送
+✅ Flat 5% proxy fee only (No hidden costs)
+✅ Low shipping rates: from ~$0.02 / card (approx. ¥3/card for bulk orders)
+✅ 1-Click sourcing (We combine items from multiple shops into 1 box)
+
+📌 Click the link in our bio to create your FREE account!
+📩 Questions or bulk inquiries? Feel free to DM us on Instagram or send an email!
 
 お問い合わせ・ご相談はインスタDMまたはメールよりお気軽にお問い合わせください。
 4. 【画像生成データの出力原則（最重要）】:
@@ -62,7 +66,6 @@ ${rules}
   "recommendedTiming": "アナリスト推奨に基づく最適な投稿時間帯（例: 日本時間 21:00）",
   "hashtags": [
     "#PokemonTCG", "#PokemonCards", "#PokemonWholesale", "#JapanesePokemonCards", "#B2B", "#PokemonReseller", "#WorldwideJaPan"
-  ],
   ],
   "discordCTA": "プロフリンク・ハイライトへ誘導する2股CTAテンプレート文",
   "dailyPosts": [
