@@ -14,7 +14,7 @@ interface DeskViewsProps {
     runSingleAi: (action: string, region?: RegionKey) => void;
     handleCopy: (text: string, key: string) => void;
     copiedKey: string | null;
-    handlePublishToInstagram: (content: string, typeKey: string, imageUrl?: string) => void;
+    handlePublishToInstagram: (content: string, typeKey: string, images?: string[] | string) => void;
     isPublishingInstagram: string | null;
     handlePublishToDiscord: (content: string) => void;
     isPublishingDiscord: boolean;
@@ -656,9 +656,24 @@ export default function DeskViews({
                                                 <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
                                                     {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
-                                                <button onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, igImageUrl)} className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">
-                                                    {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
-                                                </button>
+                                                {(() => {
+                                                    // カルーセル用スライド画像の組み立て
+                                                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                                                    const currentCardTitle = aiData?.chiefPackage?.mvpHighlight?.cardName || 'Featured Card';
+                                                    const slide1Url = `${baseUrl}/api/og?cardName=${encodeURIComponent(currentCardTitle)}&type=${selectedIgDay}`;
+                                                    const slide2Url = `${baseUrl}/api/og?type=cta`;
+                                                    const carouselSlideImages = [slide1Url, slide2Url];
+
+                                                    return (
+                                                        <button 
+                                                            onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, carouselSlideImages)} 
+                                                            disabled={Boolean(isPublishingInstagram)}
+                                                            className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95 disabled:opacity-50"
+                                                        >
+                                                            {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
+                                                        </button>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">

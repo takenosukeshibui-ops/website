@@ -136,6 +136,8 @@ app/
       gates/
         gate1.ts
         gate2.ts
+      single-run/
+        route.ts
       start/
         route.ts
       status/
@@ -2292,6 +2294,36 @@ export async function POST(req: Request)
 export async function DELETE(req: Request)
 </file>
 
+<file path="app/api/ai/publish/route.ts">
+// app/api/ai/publish/route.ts
+import { NextResponse } from 'next/server';
+import { publishThreadToX } from '@/lib/twitter';
+⋮----
+export async function POST(req: Request)
+⋮----
+// ==========================================
+// 1. Discord への送信
+// ==========================================
+⋮----
+// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
+⋮----
+// ==========================================
+// 2. Instagram への自動投稿 (Graph API)
+// ==========================================
+⋮----
+// ステップA: メディアコンテナ (Media Container) の作成
+⋮----
+// ステップB: Meta側の画像処理を待機 (4秒)
+⋮----
+// ステップC: 投稿 (Media Publish) の実行
+⋮----
+// ==========================================
+// 3. X (Twitter) へのスレッド自動投稿
+// ==========================================
+⋮----
+// 🌟 imageUrl を渡す
+</file>
+
 <file path="app/api/cron/intelligence/route.ts">
 // app/api/cron/intelligence/route.ts
 import { NextResponse } from 'next/server';
@@ -2745,6 +2777,46 @@ export async function getInstagramInsights(limit: number = 5)
 // トークン失効・無効時も例外をスローせず、安全に空配列を返してパイプラインを継続させる
 </file>
 
+<file path="lib/twitter.ts">
+// lib/twitter.ts
+import { TwitterApi } from 'twitter-api-v2';
+⋮----
+interface PublishXThreadParams {
+  mainPost: string;
+  threadPosts?: string[];
+  imageUrl?: string; // 🌟 エラー解消: imageUrlプロパティを定義に追加
+}
+⋮----
+imageUrl?: string; // 🌟 エラー解消: imageUrlプロパティを定義に追加
+⋮----
+interface PublishXResult {
+  success: boolean;
+  firstTweetId?: string;
+  error?: string;
+}
+⋮----
+/**
+ * X (Twitter) API v2 を使用して1ポスト目およびスレッドツリーを投稿する
+ */
+export async function publishThreadToX({
+  mainPost,
+  threadPosts = [],
+  imageUrl,
+}: PublishXThreadParams): Promise<PublishXResult>
+⋮----
+// 🌟 画像URLが渡された場合、FetchしてBuffer化しメディアアップロード
+⋮----
+// v1 API経由でメディアをアップロード
+⋮----
+// 1ポスト目（メディアがあれば添付） ＋ 2ポスト目以降のツリー配列を結合[cite: 3]
+⋮----
+// 1ポスト目
+⋮----
+// 2ポスト目以降のスレッド
+⋮----
+// tweetThread API で親ポストから順番にリプライ連鎖として自動投稿[cite: 3]
+</file>
+
 <file path="supabase/migrations/20260826000200_create_place_order_function.sql">
 -- Create a secure transaction function to place an order
 CREATE OR REPLACE FUNCTION public.place_order(user_id_input UUID)
@@ -2791,6 +2863,46 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public;
 </file>
 
+<file path="package.json">
+{
+  "name": "temp-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.3.1",
+    "@langchain/google-genai": "^2.3.4",
+    "@langchain/langgraph": "^1.5.3",
+    "@langchain/openai": "^1.8.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "@vercel/og": "^1.0.3",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "twitter-api-v2": "^1.31.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
 <file path="app/api/ai/intelligence/agents/snsAccount.ts">
 // app/api/ai/intelligence/agents/snsAccount.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -2825,36 +2937,6 @@ export function getCategoryName(category: string = 'pokemon'): string
 ⋮----
 // RSI学習ルールの取得ヘルパー
 export async function getAgentRules(agentKey: string): Promise<string>
-</file>
-
-<file path="app/api/ai/publish/route.ts">
-// app/api/ai/publish/route.ts
-import { NextResponse } from 'next/server';
-import { publishThreadToX } from '@/lib/twitter';
-⋮----
-export async function POST(req: Request)
-⋮----
-// ==========================================
-// 1. Discord への送信
-// ==========================================
-⋮----
-// Discordの1メッセージ上限（2000文字）に収めるため安全に切り詰め
-⋮----
-// ==========================================
-// 2. Instagram への自動投稿 (Graph API)
-// ==========================================
-⋮----
-// ステップA: メディアコンテナ (Media Container) の作成
-⋮----
-// ステップB: Meta側の画像処理を待機 (4秒)
-⋮----
-// ステップC: 投稿 (Media Publish) の実行
-⋮----
-// ==========================================
-// 3. X (Twitter) へのスレッド自動投稿
-// ==========================================
-⋮----
-// 🌟 imageUrl を渡す
 </file>
 
 <file path="app/api/cron/sync-overseas-prices/route.ts">
@@ -2896,6 +2978,66 @@ export async function POST(req: Request)
 const supabase = await createClient(); //[cite: 1]
 </file>
 
+<file path="app/api/pipeline/single-run/route.ts">
+// app/api/pipeline/single-run/route.ts
+⋮----
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
+import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
+import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
+import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
+import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
+import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
+import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
+⋮----
+function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
+⋮----
+function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp'
+⋮----
+async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string>
+⋮----
+export async function POST(req: Request)
+⋮----
+// ------------------------------------------------------------------------
+// 1. アービトラージアナリスト単独再実行 (US / EU / ASIA)
+// ------------------------------------------------------------------------
+⋮----
+// 🌟 安全ガード: slot が null または tiers がない場合はスキップ
+⋮----
+// 本命
+⋮----
+// 代替候補
+⋮----
+// ------------------------------------------------------------------------
+// 2. 市場トレンドアナリスト単独再実行 (US / EU / ASIA)
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 3. Instagramアナリスト単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 4. Xアナリスト単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 5. チーフマネージャー（キュレーター選定）単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 6. Instagramクリエイター（原稿）単独再生成
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 7. Xクリエイター（スレッド）単独再生成
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 8. コミュニティ営業 (Discord) 単独再生成
+// ------------------------------------------------------------------------
+</file>
+
 <file path="app/api/pipeline/start/route.ts">
 // app/api/pipeline/start/route.ts
 import { NextResponse, after } from 'next/server';
@@ -2935,86 +3077,6 @@ export async function fetchCardmarketPrice(
 next: { revalidate: 86400 }, // 1日キャッシュ
 ⋮----
 // フォールバック: Cardmarket公式検索URL
-</file>
-
-<file path="lib/twitter.ts">
-// lib/twitter.ts
-import { TwitterApi } from 'twitter-api-v2';
-⋮----
-interface PublishXThreadParams {
-  mainPost: string;
-  threadPosts?: string[];
-  imageUrl?: string; // 🌟 エラー解消: imageUrlプロパティを定義に追加
-}
-⋮----
-imageUrl?: string; // 🌟 エラー解消: imageUrlプロパティを定義に追加
-⋮----
-interface PublishXResult {
-  success: boolean;
-  firstTweetId?: string;
-  error?: string;
-}
-⋮----
-/**
- * X (Twitter) API v2 を使用して1ポスト目およびスレッドツリーを投稿する
- */
-export async function publishThreadToX({
-  mainPost,
-  threadPosts = [],
-  imageUrl,
-}: PublishXThreadParams): Promise<PublishXResult>
-⋮----
-// 🌟 画像URLが渡された場合、FetchしてBuffer化しメディアアップロード
-⋮----
-// v1 API経由でメディアをアップロード
-⋮----
-// 1ポスト目（メディアがあれば添付） ＋ 2ポスト目以降のツリー配列を結合[cite: 3]
-⋮----
-// 1ポスト目
-⋮----
-// 2ポスト目以降のスレッド
-⋮----
-// tweetThread API で親ポストから順番にリプライ連鎖として自動投稿[cite: 3]
-</file>
-
-<file path="package.json">
-{
-  "name": "temp-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@langchain/core": "^1.3.1",
-    "@langchain/google-genai": "^2.3.4",
-    "@langchain/langgraph": "^1.5.3",
-    "@langchain/openai": "^1.8.0",
-    "@supabase/ssr": "^0.12.5",
-    "@supabase/supabase-js": "^2.112.4",
-    "@vercel/og": "^1.0.3",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.2",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "server-only": "^0.0.1",
-    "twitter-api-v2": "^1.31.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
 </file>
 
 <file path="app/api/ai/intelligence/agents/curator.ts">
@@ -8592,7 +8654,8 @@ const loadCycleData = async (cycleId: string) =>
 ⋮----
 const handleSelectHistory = (target: any) =>
 ⋮----
-const runSingleAi = async (_action: string, _region?: RegionKey) =>
+// 🌟 各AIデスクごとの完全単独再実行ハンドラー
+const runSingleAi = async (action: string, region?: RegionKey) =>
 ⋮----
 // 強制停止ハンドラー
 const handleStopPipeline = async () =>
@@ -9117,18 +9180,16 @@ export async function runMarketTrend(
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 ⋮----
+function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string
+⋮----
 export async function GET(req: Request)
 ⋮----
 // 1. 履歴一覧返却
 ⋮----
 // 2. 特定サイクルの全データ取得
 ⋮----
-// 3. サヤ取りレポート復元（重複排除・1スロット1カードに正確に再構築）
+// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
 const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
-⋮----
-// 🌟 重複排除: 本命アイテム（isMain === true）を親tierとして登録
-⋮----
-// 該当スロットの代替候補（subItems）を抽出してバインド
 ⋮----
 // 4. トレンドレポート復元
 const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
@@ -9236,20 +9297,30 @@ import { createClient } from '@/lib/supabase/server';
 ⋮----
 export interface ArbitrageItem {
   cardName: string;
-  cardNumber: string; // 🌟 必須の型番（例: "096/071", "sv2D" 等）
+  cardNumber: string;
   conditionGrade: string;
+  jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;
+  jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
-  liquidity: string;
-  insight: string;
+  salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
+  salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
   sourcePlatform?: string;
   evidenceNote?: string;
+  sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
+  insight: string;
 }
 ⋮----
-cardNumber: string; // 🌟 必須の型番（例: "096/071", "sv2D" 等）
+jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
+⋮----
+jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
+⋮----
+salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
+salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
+⋮----
+sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
 ⋮----
 export interface ArbitrageTier {
   priceTier: string;
@@ -9266,17 +9337,11 @@ export interface ArbitrageSlotReport {
 ⋮----
 async function getRealtimeExchangeRate(currency: string): Promise<number>
 ⋮----
-// 🌟 スロットごとの許容コンディションルールを定義
-⋮----
 export async function runSayaAnalysis(
   region: 'us' | 'eu' | 'asia', 
   category: string = 'pokemon',
   targetDay: string = 'Thursday'
 )
-⋮----
-// 🌟 スロットごとにコンディション条件を分岐
-⋮----
-// 🌟 コード側フェイルセーフ: スロット1〜4でAIが万が一PSAを出力した場合、強制的に素体(Raw NM)に補正
 </file>
 
 <file path="app/AiDashboard/components/DocumentReport.tsx">
@@ -9285,26 +9350,21 @@ import React, { useState } from 'react';
 ⋮----
 const getTierBadgeClass = (tierKey?: string) =>
 ⋮----
-const getConvictionBadgeClass = (conviction?: string) =>
-⋮----
 const toggleSub = (cellId: string) =>
 ⋮----
-// 🌟 カードラッシュ検索用フォールバックURL生成関数
 const getCardrushFallbackUrl = (cardName?: string, cardNumber?: string) =>
+⋮----
+const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
 ⋮----
 const getSlotMeta = (slotKey: string, slotLabel?: string) =>
 ⋮----
 {/* 共通ヘッダー */}
 ⋮----
-{/* 1. SNSアナリスト（戦略レポート）描画ブロック */}
+{/* アービトラージレポート描画ブロック */}
 ⋮----
-{/* 2. 市場トレンドレポート描画ブロック */}
+{/* 🌟 成約ボリューム実績 (7日 & 30日) */}
 ⋮----
-{/* 3. アービトラージレポート描画ブロック（全5スロット完全描画） */}
-⋮----
-// 🌟 本命固有のURL（mainItem.jpEvidenceUrlを直結）
-⋮----
-// 🌟 代替候補固有のURL（subItem.jpEvidenceUrlを直結）
+{/* 日本仕入れ（最安ショップ名つき） */}
 </file>
 
 <file path="app/api/pipeline/worker/route.ts">
@@ -9323,8 +9383,13 @@ import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 ⋮----
-// 🌟 純粋な検索キーワード生成（余計なマイナス除外文字列は一切入れない）
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
+⋮----
+// 🌟 ショップ名から検索ターゲット（カードラッシュ / 晴れる屋2 / トレカキャンプ）を判定
+function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp'
+⋮----
+// 🌟 個別成約詳細URL (/itm/...) の自動解決・フォールバック関数
+async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string>
 ⋮----
 // ============================================================================
 // 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
@@ -9340,8 +9405,6 @@ async function processAndSaveRegionResearch(
 // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品）
 ⋮----
 // A. 本命商品の個別URL取得
-⋮----
-// 🌟 クリーンな検索キーワード（例: "ひかるライチュウ No.026"）
 ⋮----
 // B. 代替候補商品（2商品）の個別URL取得
 ⋮----

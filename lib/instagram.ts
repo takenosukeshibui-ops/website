@@ -3,6 +3,7 @@
 interface InstagramPostParams {
   caption: string;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 interface InstagramPostResult {
@@ -33,82 +34,108 @@ function getSanitizedCredentials() {
 export async function publishToInstagram({
   caption,
   imageUrl,
+  imageUrls, // 👈 引数に追加
 }: InstagramPostParams): Promise<InstagramPostResult> {
   const { accountId, accessToken } = getSanitizedCredentials();
-  const fallbackImage =
-    process.env.INSTAGRAM_DEFAULT_IMAGE_URL ||
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080';
 
   if (!accountId || !accessToken) {
-    return {
-      success: false,
-      error: 'INSTAGRAM_BUSINESS_ACCOUNT_ID または INSTAGRAM_ACCESS_TOKEN が未設定です。',
-    };
+    return { success: false, error: 'Instagram API認証情報が未設定です' };
   }
 
-  const targetImage = imageUrl || fallbackImage;
+  // 送信対象の画像URLリストを確定
+  const targetImages = Array.isArray(imageUrls) && imageUrls.length > 0
+    ? imageUrls
+    : imageUrl
+    ? [imageUrl]
+    : [process.env.INSTAGRAM_DEFAULT_IMAGE_URL || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1080'];
+
+  const isCarousel = targetImages.length >= 2;
 
   try {
-    // 1. メディアコンテナ (Media Container) の作成
-    const containerRes = await fetch(
-      `https://graph.facebook.com/v26.0/${accountId}/media`,
-      {
+    let finalCreationId = '';
+
+    if (isCarousel) {
+      // ----------------------------------------------------
+      // A. カルーセル投稿フロー
+      // ----------------------------------------------------
+      // 1. 各スライド画像の子コンテナを並列作成 (is_carousel_item: true)
+      const childIds: string[] = [];
+      for (const imgUrl of targetImages) {
+        const itemRes = await fetch(`https://graph.facebook.com/v26.0/${accountId}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image_url: imgUrl,
+            is_carousel_item: true,
+            access_token: accessToken,
+          }),
+        });
+        const itemData = await itemRes.json();
+        if (!itemRes.ok || !itemData.id) {
+          throw new Error(itemData.error?.message || 'カルーセル子スライドの作成に失敗しました');
+        }
+        childIds.push(itemData.id);
+      }
+
+      // 2. Meta側の画像処理を待機 (4秒)
+      await new Promise((r) => setTimeout(r, 4000));
+
+      // 3. 親カルーセルコンテナを作成して子スライド群を束ねる
+      const parentRes = await fetch(`https://graph.facebook.com/v26.0/${accountId}/media`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_url: targetImage,
-          caption: caption,
+          media_type: 'CAROUSEL',
+          children: childIds,
+          caption,
           access_token: accessToken,
         }),
+      });
+      const parentData = await parentRes.json();
+      if (!parentRes.ok || !parentData.id) {
+        throw new Error(parentData.error?.message || '親カルーセルコンテナの作成に失敗しました');
       }
-    );
-
-    const containerData = await containerRes.json();
-    if (!containerRes.ok || !containerData.id) {
-      console.error('Instagram container creation failed:', containerData);
-      return {
-        success: false,
-        error: containerData.error?.message || 'メディアコンテナ作成に失敗しました。',
-      };
+      finalCreationId = parentData.id;
+    } else {
+      // ----------------------------------------------------
+      // B. 従来の単一画像投稿フロー
+      // ----------------------------------------------------
+      const singleRes = await fetch(`https://graph.facebook.com/v26.0/${accountId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_url: targetImages[0],
+          caption,
+          access_token: accessToken,
+        }),
+      });
+      const singleData = await singleRes.json();
+      if (!singleRes.ok || !singleData.id) {
+        throw new Error(singleData.error?.message || '単一メディアコンテナの作成に失敗しました');
+      }
+      finalCreationId = singleData.id;
     }
 
-    const creationId = containerData.id;
+    // 4. Meta側の最適化完了を待機 (4秒)
+    await new Promise((r) => setTimeout(r, 4000));
 
-    // 2. メディア処理待機 (Meta サーバー側で画像のダウンロードと最適化が行われるため数秒待機)
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-
-    // 3. 投稿 (Publish) の実行
-    const publishRes = await fetch(
-      `https://graph.facebook.com/v26.0/${accountId}/media_publish`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          creation_id: creationId,
-          access_token: accessToken,
-        }),
-      }
-    );
-
+    // 5. 投稿 (media_publish) の実行
+    const publishRes = await fetch(`https://graph.facebook.com/v26.0/${accountId}/media_publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        creation_id: finalCreationId,
+        access_token: accessToken,
+      }),
+    });
     const publishData = await publishRes.json();
     if (!publishRes.ok || !publishData.id) {
-      console.error('Instagram publish failed:', publishData);
-      return {
-        success: false,
-        error: publishData.error?.message || '投稿の公開に失敗しました。',
-      };
+      throw new Error(publishData.error?.message || '投稿の公開に失敗しました');
     }
 
-    return {
-      success: true,
-      postId: publishData.id,
-    };
-  } catch (err: any) {
-    console.error('Instagram API Error:', err);
-    return {
-      success: false,
-      error: err.message || '通信エラーが発生しました。',
-    };
+    return { success: true, postId: publishData.id };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }
 

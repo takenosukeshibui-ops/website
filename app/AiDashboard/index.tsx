@@ -397,16 +397,36 @@ export default function AiDashboard() {
         } catch (err: any) { alert(`送信エラー: ${err.message}`); } finally { setIsPublishingDiscord(false); }
     };
 
-    const handlePublishToInstagram = async (content: string, typeKey: string, imageUrl?: string) => {
-        if (!window.confirm(`Instagram に【${typeKey}】原稿を自動投稿しますか？`)) return;
-        setIsPublishingInstagram(typeKey);
-        try {
-            const res = await fetch('/api/ai/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'instagram', content, imageUrl }) });
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error);
-            alert(`完了: ${json.message}`);
-        } catch (err: any) { alert(`投稿エラー: ${err.message}`); } finally { setIsPublishingInstagram(null); }
-    };
+    // app/AiDashboard/index.tsx 内
+const handlePublishToInstagram = async (
+    content: string, 
+    typeKey: string, 
+    images?: string[] | string
+) => {
+    if (!window.confirm(`Instagram に【${typeKey}】原稿を自動投稿しますか？`)) return;
+    setIsPublishingInstagram(typeKey);
+    try {
+        const payload: any = { platform: 'instagram', content };
+        if (Array.isArray(images)) {
+            payload.imageUrls = images;
+        } else if (images) {
+            payload.imageUrl = images;
+        }
+
+        const res = await fetch('/api/ai/publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        alert(`完了: ${json.message}`);
+    } catch (err: any) {
+        alert(`投稿エラー: ${err.message}`);
+    } finally {
+        setIsPublishingInstagram(null);
+    }
+};
 
     const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) => {
         if (!window.confirm('X (Twitter) 公式アカウントへスレッドを自動投稿しますか？')) return;
