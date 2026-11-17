@@ -27,6 +27,58 @@ const POKECAZILLA_TASK_ID = (
   'kempt_tapestry_mg3/pokemon-price-search'
 ).trim();
 
+interface DayUsdPriceRange {
+  minUsd: number;
+  maxUsd?: number;
+  minSpreadJpy: number;
+}
+
+/**
+ * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の USD 価格帯を算出する
+ */
+function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsdPriceRange {
+  switch (targetDay) {
+    case 'Monday': // 〜3千円（エントリー・超高回転枠）
+      return {
+        minUsd: Math.max(8, Math.floor(1500 / usdToJpyRate)),
+        maxUsd: Math.ceil(6000 / usdToJpyRate),
+        minSpreadJpy: 500,
+      };
+    case 'Tuesday': // 3千〜1万円（定番コレクション枠）
+    case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
+      return {
+        minUsd: Math.floor(3500 / usdToJpyRate),
+        maxUsd: Math.ceil(16000 / usdToJpyRate),
+        minSpreadJpy: 1000,
+      };
+    case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
+    case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
+      return {
+        minUsd: Math.floor(11000 / usdToJpyRate),
+        maxUsd: Math.ceil(45000 / usdToJpyRate),
+        minSpreadJpy: 1000,
+      };
+    case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
+      return {
+        minUsd: Math.floor(32000 / usdToJpyRate),
+        maxUsd: Math.ceil(120000 / usdToJpyRate),
+        minSpreadJpy: 1000,
+      };
+    case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
+      return {
+        minUsd: Math.floor(85000 / usdToJpyRate),
+        maxUsd: undefined, // 上限なし
+        minSpreadJpy: 1000,
+      };
+    default:
+      return {
+        minUsd: Math.floor(3500 / usdToJpyRate),
+        maxUsd: Math.ceil(45000 / usdToJpyRate),
+        minSpreadJpy: 1000,
+      };
+  }
+}
+
 /**
  * Apify API v2 同期実行ヘルパー
  * - Task (/v2/actor-tasks/) と Actor (/v2/acts/) の両方に自動対応
@@ -109,11 +161,12 @@ function detectConditionGrade(title: string): string {
 }
 
 /**
- * Apify 2段階スクレイピングを実行し、実売データに基づくサヤ取り候補一覧を返す
+ * Apify 2段階スクレイピングを実行し、曜日別価格帯に絞った実売サヤ取り候補一覧を返す
  */
 export async function fetchRealArbitrageCandidates(
   category: string = 'pokemon',
-  usdToJpyRate: number = 155
+  usdToJpyRate: number = 155,
+  targetDay: string = 'Thursday'
 ): Promise<VerifiedArbitrageCandidate[]> {
   if (!APIFY_TOKEN) {
     console.warn('[Apify] APIFY_API_TOKEN が未設定のため、実データ取得をスキップします');
@@ -121,6 +174,8 @@ export async function fetchRealArbitrageCandidates(
   }
 
   try {
+    const priceRange = getUsdPriceRangeForDay(targetDay, usdToJpyRate);
+
     const defaultEbayKeyword =
       category === 'onepiece'
         ? 'Japanese One Piece Card'
@@ -128,15 +183,27 @@ export async function fetchRealArbitrageCandidates(
         ? 'Japanese Yugioh Card'
         : 'Japanese Pokemon Card';
 
-    // 1. eBay Sold Listings を同期実行（Task / Actor 両対応）
+    // eBay 検索時の価格帯フィルタを構築（曜日ごとの価格帯のみをスクレイピング）
+    const ebayPriceFilter: Record<string, any> = {
+      minPrice: priceRange.minUsd,
+    };
+    if (priceRange.maxUsd !== undefined) {
+      ebayPriceFilter.maxPrice = priceRange.maxUsd;
+    }
+
+    // 1. eBay Sold Listings を曜日価格帯指定で同期実行
     const ebayItems = await runApifySync(
       EBAY_TASK_ID,
       APIFY_TOKEN,
-      {},
-      { keywords: [defaultEbayKeyword], maxItems: 50 }
+      ebayPriceFilter,
+      {
+        keywords: [defaultEbayKeyword],
+        maxItems: 50,
+        ...ebayPriceFilter,
+      }
     );
 
-    // 2. $50以上 かつ 型番が抽出できた成約のみフィルタリング
+    // 2. 指定価格帯内 かつ 型番が抽出できた成約のみフィルタリング
     const parsedEbay = ebayItems
       .map((item) => {
         const soldUsd = Number(item.soldPrice ?? item.price ?? 0) || 0;
@@ -151,7 +218,12 @@ export async function fetchRealArbitrageCandidates(
           ebayUrl: String(item.url || item.itemUrl || ''),
         };
       })
-      .filter((item) => item.soldUsd >= 50 && item.cardNumber !== null);
+      .filter((item) => {
+        if (item.cardNumber === null) return false;
+        if (item.soldUsd < priceRange.minUsd) return false;
+        if (priceRange.maxUsd !== undefined && item.soldUsd > priceRange.maxUsd) return false;
+        return true;
+      });
 
     if (parsedEbay.length === 0) return [];
 
@@ -236,8 +308,8 @@ export async function fetchRealArbitrageCandidates(
       const spreadJpy = avgJpy - jpData.minPrice;
       const roi = jpData.minPrice > 0 ? Math.round((spreadJpy / jpData.minPrice) * 100) : 0;
 
-      // 粗利 +1,000円以上 かつ ROI 15%以上のみ抽出
-      if (spreadJpy >= 1000 && roi >= 15) {
+      // 曜日別最低粗利 かつ ROI 15%以上のみ抽出
+      if (spreadJpy >= priceRange.minSpreadJpy && roi >= 15) {
         verifiedList.push({
           cardName: jpData.name,
           cardNumber,
