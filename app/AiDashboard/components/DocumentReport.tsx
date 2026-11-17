@@ -73,11 +73,14 @@ export default function DocumentReportView({
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
-    const getCardrushFallbackUrl = (cardName?: string, cardNumber?: string) => {
-        if (!cardName) return 'https://www.cardrush-pokemon.jp/';
-        const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-        const keyword = cardNumber ? `${cleanName} ${cardNumber}` : cleanName;
-        return `https://www.cardrush-pokemon.jp/product-list?keyword=${encodeURIComponent(keyword.trim())}`;
+    // 🌟 ポケカジラ個別URL優先・型番検索URLフォールバック（カードラッシュURLを完全排除）
+    const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) => {
+        if (rawUrl && rawUrl.startsWith('https://pokecazilla.com/')) {
+            return rawUrl;
+        }
+        const query = (cardNumber || cardName || '').replace(/\s*[\(（].*?[\)）]/g, '').trim();
+        if (!query) return 'https://pokecazilla.com/pokemon';
+        return `https://pokecazilla.com/pokemon/products/list?category_id=17&name=${encodeURIComponent(query)}`;
     };
 
     const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
@@ -147,7 +150,7 @@ export default function DocumentReportView({
                     {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                         <div className="shrink-0">
                             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                全5スロット網羅（eBay成約 × 国内3社最安）
+                                全5スロット網羅（eBay成約 × ポケカジラ最安）
                             </span>
                         </div>
                     )}
@@ -189,8 +192,13 @@ export default function DocumentReportView({
                                                 const subs: any[] = tierCell.subItems || [];
                                                 const cardNum = main.cardNumber || tierCell.cardNumber || '';
 
-                                                const mainJpShopUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl || getCardrushFallbackUrl(main.cardName, cardNum);
+                                                const rawMainJpUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
+                                                const mainJpShopUrl = resolvePokecazillaUrl(rawMainJpUrl, main.cardName, cardNum);
                                                 const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
+                                                const displayMainShopName =
+                                                    main.jpShopName && !main.jpShopName.includes('カードラッシュ')
+                                                        ? main.jpShopName
+                                                        : 'ポケカジラ最安';
 
                                                 return (
                                                     <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
@@ -218,7 +226,7 @@ export default function DocumentReportView({
                                                                 )}
                                                             </h5>
 
-                                                            {/* 🌟 成約ボリューム実績 (7日 & 30日) */}
+                                                            {/* 成約ボリューム実績 (7日 & 30日) */}
                                                             <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px] font-mono flex items-center justify-between text-slate-400">
                                                                 <span className="text-amber-400 font-bold">📈 eBay成約:</span>
                                                                 <span className="text-slate-200">
@@ -226,10 +234,10 @@ export default function DocumentReportView({
                                                                 </span>
                                                             </div>
 
-                                                            {/* 日本仕入れ（最安ショップ名つき） */}
+                                                            {/* 日本仕入れ（ポケカジラ最安値比較） */}
                                                             <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
-                                                                <span className="text-slate-400 truncate max-w-[120px]" title={main.jpShopName || '国内仕入'}>
-                                                                    仕入({main.jpShopName || '国内大手'}):
+                                                                <span className="text-slate-400 truncate max-w-[120px]" title={displayMainShopName}>
+                                                                    仕入({displayMainShopName}):
                                                                 </span>
                                                                 <div className="flex items-center gap-1.5">
                                                                     <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY}</span>
@@ -238,7 +246,7 @@ export default function DocumentReportView({
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                        title="最安ショップ詳細ページを開く"
+                                                                        title="ポケカジラ最安値ページを開く"
                                                                     >
                                                                         <span>[根拠]</span>
                                                                         <span>↗</span>
@@ -286,7 +294,7 @@ export default function DocumentReportView({
                                                                     <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
                                                                         {subs.map((subItem: any, subIdx: number) => {
                                                                             const subCardNum = subItem.cardNumber || '';
-                                                                            const subJpShopUrl = subItem.jpEvidenceUrl || getCardrushFallbackUrl(subItem.cardName, subCardNum);
+                                                                            const subJpShopUrl = resolvePokecazillaUrl(subItem.jpEvidenceUrl, subItem.cardName, subCardNum);
                                                                             const subEbayUrl = subItem.sourceEvidenceUrl || getEbaySoldFallbackUrl(subItem.cardName, subCardNum, subItem.conditionGrade);
 
                                                                             return (
@@ -316,7 +324,7 @@ export default function DocumentReportView({
                                                                                                 target="_blank"
                                                                                                 rel="noopener noreferrer"
                                                                                                 className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1 py-0.2 rounded font-sans"
-                                                                                                title="仕入れ元を開く"
+                                                                                                title="ポケカジラ最安値ページを開く"
                                                                                             >
                                                                                                 [根拠]↗
                                                                                             </a>
