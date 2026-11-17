@@ -2,6 +2,19 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getCategoryName } from '../helpers';
 import { createClient } from '@/lib/supabase/server';
+import { fetchRealArbitrageCandidates, VerifiedArbitrageCandidate,} from '@/lib/market-fetcher/apify-arbitrage';
+
+let cachedApifyData: { timestamp: number; rate: number; items: VerifiedArbitrageCandidate[] } | null = null;
+
+async function getCachedRealCandidates(category: string, exchangeRateJPY: number): Promise<VerifiedArbitrageCandidate[]> {
+  const now = Date.now();
+  if (cachedApifyData && cachedApifyData.rate === exchangeRateJPY && now - cachedApifyData.timestamp < 60_000) {
+    return cachedApifyData.items;
+  }
+  const items = await fetchRealArbitrageCandidates(category, exchangeRateJPY);
+  cachedApifyData = { timestamp: now, rate: exchangeRateJPY, items };
+  return items;
+}
 
 export interface ArbitrageItem {
   cardName: string;
@@ -109,6 +122,27 @@ export async function runSayaAnalysis(
 
   const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
+  const realCandidates = region === 'us' ? await getCachedRealCandidates(category, exchangeRateJPY) : [];
+  const realDataSection =
+    realCandidates.length > 0
+      ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（実在数値）】:
+${JSON.stringify(realCandidates, null, 2)}
+
+※上記の確定データに該当スロット・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、以下の対応ルール通りにJSONへ転記してください（数値の改変は禁止）:
+- cardName: 上記の cardName（型番を除いたカード名＋レアリティ）
+- cardNumber: 上記の cardNumber
+- conditionGrade: 上記の conditionGrade
+- jpShopName: "ポケカジラ最安値"
+- jpBuyPriceJPY: "¥" + 上記の jpBuyPriceJPY（カンマ区切り）
+- jpEvidenceUrl: 上記の pokecazillaUrl
+- targetSoldPrice: "USD " + 上記の ebaySoldUsd + " (約¥" + 上記の ebaySoldJpy + ")"
+- priceSpreadJPY: "¥" + 上記の priceSpreadJPY（カンマ区切り）
+- spreadROI: 上記の spreadROI + "%"
+- salesVolume7d / salesVolume30d: 上記の liquidity を参考に件数を記載
+- sourceEvidenceUrl: 上記の ebayUrl
+`
+      : '';
+
   const slotPromises = SLOTS.map(async (slot) => {
     const conditionRule = slot.isGradedOrSealed
       ? `【コンディション厳格ルール（高額鑑定・未開封専用枠）】
@@ -122,8 +156,10 @@ export async function runSayaAnalysis(
 対象通貨: ${cur.currency}（最新為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
 ${conditionRule}
-
+${realDataSection}
 【リサーチ ＆ 利益計算ルール（シンプル差額方式）】
+      
+  
 1. 出口相場（eBay成約データ）:
    - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を設定してください。
    - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
