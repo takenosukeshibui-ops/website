@@ -146,17 +146,31 @@ export function extractCardNumber(title: string): string | null {
 }
 
 /**
- * タイトルから状態グレードを推定
+ * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
  */
 function detectConditionGrade(title: string): string {
   const upper = title.toUpperCase();
-  if (upper.includes('PSA 10') || upper.includes('PSA10')) return 'PSA 10';
-  if (upper.includes('PSA 9') || upper.includes('PSA9')) return 'PSA 9';
-  if (upper.includes('BGS 10') || upper.includes('BGS10')) return 'BGS 10';
-  if (upper.includes('BGS 9.5')) return 'BGS 9.5';
-  if (upper.includes('CGC 10')) return 'CGC 10';
-  if (upper.includes('ARS 10')) return 'ARS 10';
-  if (upper.includes('SEALED') || upper.includes('BOX')) return 'Sealed Box';
+
+  const psaMatch = upper.match(/\bPSA\s*(\d+(?:\.\d+)?)\b/);
+  if (psaMatch) return `PSA ${psaMatch[1]}`;
+
+  const bgsMatch = upper.match(/\bBGS\s*(\d+(?:\.\d+)?)\b/);
+  if (bgsMatch) return `BGS ${bgsMatch[1]}`;
+
+  const cgcMatch = upper.match(/\bCGC\s*(\d+(?:\.\d+)?)\b/);
+  if (cgcMatch) return `CGC ${cgcMatch[1]}`;
+
+  const arsMatch = upper.match(/\bARS\s*(\d+(?:\.\d+)?)\b/);
+  if (arsMatch) return `ARS ${arsMatch[1]}`;
+
+  if (/\b(PSA|BGS|CGC|ARS|ACE|GRADED|SLAB|GEM\s*MINT)\b/.test(upper)) {
+    return 'Graded';
+  }
+
+  if (/\b(SEALED|BOOSTER\s*BOX|PACK)\b/.test(upper)) {
+    return 'Sealed Box';
+  }
+
   return 'Raw NM';
 }
 

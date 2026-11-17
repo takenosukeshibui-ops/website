@@ -1,18 +1,33 @@
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getCategoryName } from '../helpers';
-import { createClient } from '@/lib/supabase/server';
-import { fetchRealArbitrageCandidates, VerifiedArbitrageCandidate,} from '@/lib/market-fetcher/apify-arbitrage';
+import {
+  fetchRealArbitrageCandidates,
+  VerifiedArbitrageCandidate,
+} from '@/lib/market-fetcher/apify-arbitrage';
 
-let cachedApifyData: { timestamp: number; rate: number; items: VerifiedArbitrageCandidate[] } | null = null;
+let cachedApifyData: {
+  timestamp: number;
+  cacheKey: string;
+  items: VerifiedArbitrageCandidate[];
+} | null = null;
 
-async function getCachedRealCandidates(category: string, exchangeRateJPY: number): Promise<VerifiedArbitrageCandidate[]> {
+async function getCachedRealCandidates(
+  category: string,
+  exchangeRateJPY: number,
+  targetDay: string
+): Promise<VerifiedArbitrageCandidate[]> {
   const now = Date.now();
-  if (cachedApifyData && cachedApifyData.rate === exchangeRateJPY && now - cachedApifyData.timestamp < 60_000) {
+  const cacheKey = `${category}_${targetDay}_${exchangeRateJPY}`;
+  if (
+    cachedApifyData &&
+    cachedApifyData.cacheKey === cacheKey &&
+    now - cachedApifyData.timestamp < 60_000
+  ) {
     return cachedApifyData.items;
   }
-  const items = await fetchRealArbitrageCandidates(category, exchangeRateJPY);
-  cachedApifyData = { timestamp: now, rate: exchangeRateJPY, items };
+  const items = await fetchRealArbitrageCandidates(category, exchangeRateJPY, targetDay);
+  cachedApifyData = { timestamp: now, cacheKey, items };
   return items;
 }
 
@@ -20,9 +35,9 @@ export interface ArbitrageItem {
   cardName: string;
   cardNumber: string;
   conditionGrade: string;
-  jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
+  jpShopName: string;          // 🌟 国内最安ショップ名 (ポケカジラ最安値比較 / 晴れる屋2 / トレカキャンプ / カードラッシュ)
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
+  jpEvidenceUrl?: string;      // 🌟 最安ショップまたはポケカジラの個別商品ページURL
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
@@ -48,20 +63,20 @@ export interface ArbitrageSlotReport {
 }
 
 const REGION_CURRENCIES: Record<string, { currency: string; name: string; targetPlatforms: string[] }> = {
-  us: { 
-    currency: 'USD', 
+  us: {
+    currency: 'USD',
     name: '北米（アメリカ）市場',
-    targetPlatforms: ['eBay (US)', 'TCGplayer']
+    targetPlatforms: ['eBay (US)', 'TCGplayer'],
   },
-  eu: { 
-    currency: 'EUR', 
+  eu: {
+    currency: 'EUR',
     name: '欧州（ヨーロッパ）市場',
-    targetPlatforms: ['Cardmarket', 'eBay UK', 'eBay DE']
+    targetPlatforms: ['Cardmarket', 'eBay UK', 'eBay DE'],
   },
-  asia: { 
-    currency: 'SGD', 
+  asia: {
+    currency: 'SGD',
     name: 'アジア（シンガポール・台湾・香港等）市場',
-    targetPlatforms: ['Shopee', 'Carousell', 'eBay']
+    targetPlatforms: ['Shopee', 'Carousell', 'eBay'],
   },
 };
 
@@ -98,11 +113,11 @@ const SLOTS = [
   { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY', isGradedOrSealed: false },
   { key: 'promos_exclusive', label: '限定プロモ・配布品', desc: '大会プロモ・ジムプロモ・企業コラボ・プレイヤーズ', isGradedOrSealed: false },
   { key: 'modern_meta', label: '現行モダン・高需要枠', desc: 'サン＆ムーン・ソード＆シールド・スカーレット＆バイオレット（SAR・SR・AR・CHR）', isGradedOrSealed: false },
-  { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封', isGradedOrSealed: true }
+  { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封', isGradedOrSealed: true },
 ];
 
 export async function runSayaAnalysis(
-  region: 'us' | 'eu' | 'asia', 
+  region: 'us' | 'eu' | 'asia',
   category: string = 'pokemon',
   targetDay: string = 'Thursday'
 ) {
@@ -122,35 +137,44 @@ export async function runSayaAnalysis(
 
   const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
-  const realCandidates = region === 'us' ? await getCachedRealCandidates(category, exchangeRateJPY) : [];
-  const realDataSection =
-    realCandidates.length > 0
-      ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（実在数値）】:
-${JSON.stringify(realCandidates, null, 2)}
+  const realCandidates =
+    region === 'us' ? await getCachedRealCandidates(category, exchangeRateJPY, targetDay) : [];
 
-※上記の確定データに該当スロット・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、以下の対応ルール通りにJSONへ転記してください（数値の改変は禁止）:
+  const slotPromises = SLOTS.map(async (slot) => {
+    // スロット属性に合わせてApify実データを厳格フィルタリング（素体枠に鑑定品を絶対に渡さない）
+    const slotRealCandidates = realCandidates.filter((item) =>
+      slot.isGradedOrSealed
+        ? item.conditionGrade !== 'Raw NM'
+        : item.conditionGrade === 'Raw NM'
+    );
+
+    const realDataSection =
+      slotRealCandidates.length > 0
+        ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（実在数値）】:
+${JSON.stringify(slotRealCandidates, null, 2)}
+
+※上記の確定データに該当スロット（${slot.label}）・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、以下の対応ルール通りにJSONへ転記してください（数値・URLの改変は禁止）:
 - cardName: 上記の cardName（型番を除いたカード名＋レアリティ）
 - cardNumber: 上記の cardNumber
 - conditionGrade: 上記の conditionGrade
-- jpShopName: "ポケカジラ最安値"
+- jpShopName: "ポケカジラ最安値比較"
 - jpBuyPriceJPY: "¥" + 上記の jpBuyPriceJPY（カンマ区切り）
-- jpEvidenceUrl: 上記の pokecazillaUrl
+- jpEvidenceUrl: 上記の pokecazillaUrl（必ずそのまま出力）
 - targetSoldPrice: "USD " + 上記の ebaySoldUsd + " (約¥" + 上記の ebaySoldJpy + ")"
 - priceSpreadJPY: "¥" + 上記の priceSpreadJPY（カンマ区切り）
 - spreadROI: 上記の spreadROI + "%"
 - salesVolume7d / salesVolume30d: 上記の liquidity を参考に件数を記載
 - sourceEvidenceUrl: 上記の ebayUrl
 `
-      : '';
+        : '';
 
-  const slotPromises = SLOTS.map(async (slot) => {
     const conditionRule = slot.isGradedOrSealed
       ? `【コンディション厳格ルール（高額鑑定・未開封専用枠）】
 ・このスロットは【鑑定品 ("PSA 10", "PSA 9", "BGS 9.5", "ARS 10") または 未開封 ("Sealed Box", "Sealed Pack")】のみを選定してください。
 ・素体（Raw）の選定は厳禁です。`
       : `【コンディション厳格ルール（素体・美品限定枠）】
 ・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
-・PSA 10などの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名やconditionGradeに「PSA」を含めることは厳禁です。`;
+・PSA 10・BGS・CGC・ARSなどの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名やconditionGradeに「PSA」「BGS」「CGC」「ARS」「鑑定」を含めることは厳禁です。`;
 
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
@@ -158,15 +182,14 @@ ${JSON.stringify(realCandidates, null, 2)}
 ${conditionRule}
 ${realDataSection}
 【リサーチ ＆ 利益計算ルール（シンプル差額方式）】
-      
-  
 1. 出口相場（eBay成約データ）:
    - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を設定してください。
    - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
      （通常枠は複数件、高額枠は直近30日に1件以上あれば合格）
    - eBay個別成約ページURL（"/itm/"を含むもの）を sourceEvidenceUrl に出力してください（"/sch/"の検索一覧URLは禁止）。
-2. 入口相場（国内大手3社在庫比較）:
-   - 【カードラッシュ】【晴れる屋2】【トレカキャンプ】の3社を検索比較し、現在在庫がある通常美品（状態A/NM）の「最安値」のショップ名（jpShopName）と仕入れ価格（jpBuyPriceJPY）を出力してください。
+2. 入口相場（国内大手ショップ・ポケカジラ在庫比較）:
+   - 【ポケカジラ】【晴れる屋2】【トレカキャンプ】【カードラッシュ】を比較検索し、現在在庫がある通常美品（状態A/NM）の「最安値」のショップ名（jpShopName）、仕入れ価格（jpBuyPriceJPY）、およびその根拠となる個別商品ページURL（jpEvidenceUrl）を必ず出力してください。
+   - カードラッシュ1社に偏らず、実際に最安値を確認したショップ（晴れる屋2・トレカキャンプ・ポケカジラ個別ページ等）のURLを正確に出力してください。
    - 「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
 3. 単純利ざや計算:
    - targetSoldPrice の日本円換算値 ＝ 現地売価(${cur.currency}) × ${exchangeRateJPY}円
@@ -188,8 +211,9 @@ ${realDataSection}
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
         "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-        "jpShopName": "最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)",
-        "jpBuyPriceJPY": "¥X,XXX (※3社中最安の通常美品価格)",
+        "jpShopName": "最安ショップ名 (ポケカジラ最安値比較 / 晴れる屋2 / トレカキャンプ / カードラッシュ)",
+        "jpBuyPriceJPY": "¥X,XXX (※最安の通常美品価格)",
+        "jpEvidenceUrl": "https://pokecazilla.com/pokemon/products/detail/実在ID (最安ショップまたはポケカジラの個別商品ページURL)",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
@@ -198,7 +222,7 @@ ${realDataSection}
         "sourcePlatform": "eBay",
         "evidenceNote": "成約実績基準",
         "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
-        "insight": "現地需要動向と3社比較における優位性（1行）"
+        "insight": "現地需要動向とショップ比較における優位性（1行）"
       },
       "subItems": [
         {
@@ -207,6 +231,7 @@ ${realDataSection}
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
           "jpShopName": "最安ショップ名",
           "jpBuyPriceJPY": "¥X,XXX",
+          "jpEvidenceUrl": "最安ショップまたはポケカジラの個別商品ページURL",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
@@ -223,6 +248,7 @@ ${realDataSection}
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
           "jpShopName": "最安ショップ名",
           "jpBuyPriceJPY": "¥X,XXX",
+          "jpEvidenceUrl": "最安ショップまたはポケカジラの個別商品ページURL",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
@@ -245,12 +271,18 @@ ${realDataSection}
       for (const tier of parsed.tiers) {
         if (tier.mainItem) {
           tier.mainItem.conditionGrade = 'Raw NM';
-          tier.mainItem.cardName = tier.mainItem.cardName.replace(/PSA\s*\d+/gi, '').trim();
+          tier.mainItem.cardName = tier.mainItem.cardName
+            .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
+            .replace(/鑑定品?/g, '')
+            .trim();
         }
         if (Array.isArray(tier.subItems)) {
           for (const sub of tier.subItems) {
             sub.conditionGrade = 'Raw NM';
-            sub.cardName = sub.cardName.replace(/PSA\s*\d+/gi, '').trim();
+            sub.cardName = sub.cardName
+              .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
+              .replace(/鑑定品?/g, '')
+              .trim();
           }
         }
       }
@@ -267,7 +299,7 @@ ${realDataSection}
     exchangeRate: {
       currency: cur.currency,
       rateJPY: exchangeRateJPY,
-      label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`
+      label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`,
     },
     summary: null,
     slots: slotResults,
