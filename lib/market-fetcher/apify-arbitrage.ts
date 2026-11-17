@@ -15,9 +15,63 @@ export interface VerifiedArbitrageCandidate {
   ebayUrl: string;
 }
 
-const APIFY_TOKEN = process.env.APIFY_API_TOKEN;
-const EBAY_TASK_ID = process.env.APIFY_EBAY_TASK_ID || 'kempt_tapestry~ebay-sold-search';
-const POKECAZILLA_TASK_ID = process.env.APIFY_POKECAZILLA_TASK_ID || 'kempt_tapestry~Pokemon-Price-Searcch';
+const APIFY_TOKEN = (process.env.APIFY_API_TOKEN || '').trim();
+
+const EBAY_TASK_ID = (
+  process.env.APIFY_EBAY_TASK_ID || 'caffein.dev/ebay-sold-listings'
+).trim();
+
+const POKECAZILLA_TASK_ID = (
+  process.env.APIFY_POKEMON_TASK_ID ||
+  process.env.APIFY_POKECAZILLA_TASK_ID ||
+  'kempt_tapestry_mg3/pokemon-price-search'
+).trim();
+
+/**
+ * Apify API v2 同期実行ヘルパー
+ * - Task (/v2/actor-tasks/) と Actor (/v2/acts/) の両方に自動対応
+ * - URLパス仕様に合わせてリクエストURL生成時のみ '/' を '~' に安全エンコード
+ */
+async function runApifySync(
+  rawId: string,
+  token: string,
+  bodyPayload: Record<string, any>,
+  actorFallbackPayload?: Record<string, any>
+): Promise<any[]> {
+  const apiPathId = rawId.replace(/\//g, '~');
+
+  // 1. まず Task エンドポイントとして実行を試行
+  const taskUrl = `https://api.apify.com/v2/actor-tasks/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
+  const taskRes = await fetch(taskUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bodyPayload),
+    cache: 'no-store',
+  });
+
+  if (taskRes.ok) {
+    return await taskRes.json();
+  }
+
+  // 2. Task で 404 の場合、ストア公開 Actor (/v2/acts/) としてフォールバック実行
+  if (taskRes.status === 404) {
+    const actorUrl = `https://api.apify.com/v2/acts/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
+    const actorRes = await fetch(actorUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(actorFallbackPayload || bodyPayload),
+      cache: 'no-store',
+    });
+
+    if (actorRes.ok) {
+      return await actorRes.json();
+    }
+
+    throw new Error(`Apify API Error (${rawId}): ${actorRes.status} ${actorRes.statusText}`);
+  }
+
+  throw new Error(`Apify Task API Error (${rawId}): ${taskRes.status} ${taskRes.statusText}`);
+}
 
 /**
  * eBayタイトルからトレカ型番を抽出する
@@ -67,27 +121,25 @@ export async function fetchRealArbitrageCandidates(
   }
 
   try {
-    // 1. eBay Sold Listings Search Task を同期実行
-    const ebayRes = await fetch(
-      `https://api.apify.com/v2/actor-tasks/${EBAY_TASK_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        cache: 'no-store',
-      }
+    const defaultEbayKeyword =
+      category === 'onepiece'
+        ? 'Japanese One Piece Card'
+        : category === 'yugioh'
+        ? 'Japanese Yugioh Card'
+        : 'Japanese Pokemon Card';
+
+    // 1. eBay Sold Listings を同期実行（Task / Actor 両対応）
+    const ebayItems = await runApifySync(
+      EBAY_TASK_ID,
+      APIFY_TOKEN,
+      {},
+      { keywords: [defaultEbayKeyword], maxItems: 50 }
     );
-
-    if (!ebayRes.ok) {
-      throw new Error(`eBay Task API Error: ${ebayRes.status} ${ebayRes.statusText}`);
-    }
-
-    const ebayItems: any[] = await ebayRes.json();
 
     // 2. $50以上 かつ 型番が抽出できた成約のみフィルタリング
     const parsedEbay = ebayItems
       .map((item) => {
-        const soldUsd = Number(item.soldPrice) || 0;
+        const soldUsd = Number(item.soldPrice ?? item.price ?? 0) || 0;
         const title = String(item.title || '');
         const cardNumber = extractCardNumber(title);
         return {
@@ -141,22 +193,8 @@ export async function fetchRealArbitrageCandidates(
       url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(num)}`,
     }));
 
-    // 4. Cheerio Scraper Task を一括実行して国内最安値を取得
-    const jpRes = await fetch(
-      `https://api.apify.com/v2/actor-tasks/${POKECAZILLA_TASK_ID}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startUrls }),
-        cache: 'no-store',
-      }
-    );
-
-    if (!jpRes.ok) {
-      throw new Error(`Pokecazilla Task API Error: ${jpRes.status} ${jpRes.statusText}`);
-    }
-
-    const jpPages: any[] = await jpRes.json();
+    // 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
+    const jpPages = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
     // 型番ごとに「型番がカードコードに完全一致する」国内最安値レコードをマッピング
     const jpMap = new Map<string, { name: string; minPrice: number; detailUrl: string }>();
