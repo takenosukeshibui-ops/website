@@ -12,7 +12,6 @@ import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/content
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
-import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -22,28 +21,29 @@ function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string 
   return cleanName;
 }
 
-// 🌟 ショップ名から検索ターゲット（カードラッシュ / 晴れる屋2 / トレカキャンプ）を判定
-function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp' {
-  if (shopName?.includes('晴れる屋')) return 'hareruya2';
-  if (shopName?.includes('キャンプ')) return 'torecacamp';
-  return 'cardrush';
+// 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）
+function buildSafePokecazillaUrl(
+  aiUrl: string | undefined,
+  category: string,
+  cardName: string,
+  cardNumber?: string
+): string {
+  if (aiUrl && aiUrl.startsWith('https://pokecazilla.com/')) {
+    return aiUrl;
+  }
+  const categoryId = category === 'onepiece' ? 18 : 17;
+  const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
+  const query = (cardNumber || cardName).trim();
+  return `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(query)}`;
 }
 
-// 🌟 個別成約詳細URL (/itm/...) の自動解決・フォールバック関数
-async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string> {
-  if (aiUrl && aiUrl.includes('/itm/')) {
+// 🌟 個別成約詳細URL (/itm/...) の保持・フォールバック関数
+function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): string {
+  if (aiUrl && aiUrl.startsWith('http')) {
     return aiUrl;
   }
   const kw = buildCleanSearchKeyword(cardName, cardNumber);
-  try {
-    const itemUrl = await getTopShopUrlByGoogle(`site:ebay.com/itm/ ${kw}`);
-    if (itemUrl && itemUrl.includes('/itm/')) {
-      return itemUrl;
-    }
-  } catch (err) {
-    console.warn(`[eBay Resolver] 個別URL取得フォールバック:`, err);
-  }
-  return aiUrl || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
 }
 
 // ============================================================================
@@ -52,6 +52,7 @@ async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: str
 async function processAndSaveRegionResearch(
   supabase: any,
   cycleId: string,
+  category: string,
   region: 'us' | 'eu' | 'asia',
   sayaReport: any,
   trendReport: any
@@ -76,7 +77,7 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        // A. 本命商品の個別URL取得
+        // A. 本命商品のURL正規化（カードラッシュ上書きを廃止しポケカジラURLを保持）
         if (tier?.mainItem && tier.mainItem.cardName) {
           const mainItem = tier.mainItem;
           const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
@@ -84,11 +85,15 @@ async function processAndSaveRegionResearch(
           const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
           const searchKeyword = buildCleanSearchKeyword(mainItem.cardName, mainItem.cardNumber);
-          const targetShop = getTargetShop(mainItem.jpShopName);
-          const mainEvidenceUrl = await getTopShopUrlByGoogle(searchKeyword, targetShop);
+          const mainEvidenceUrl = buildSafePokecazillaUrl(
+            mainItem.jpEvidenceUrl,
+            category,
+            mainItem.cardName,
+            mainItem.cardNumber
+          );
           mainItem.jpEvidenceUrl = mainEvidenceUrl;
 
-          const resolvedEbayUrl = await resolveIndividualEbayUrl(mainItem.sourceEvidenceUrl, mainItem.cardName, mainItem.cardNumber);
+          const resolvedEbayUrl = resolveIndividualEbayUrl(mainItem.sourceEvidenceUrl, mainItem.cardName, mainItem.cardNumber);
           mainItem.sourceEvidenceUrl = resolvedEbayUrl;
 
           const liquidityStr = `7日: ${mainItem.salesVolume7d || '確認中'} / 30日: ${mainItem.salesVolume30d || '1件以上'}`;
@@ -117,7 +122,7 @@ async function processAndSaveRegionResearch(
               role: '本命',
               mainItem: {
                 ...mainItem,
-                jpShopName: mainItem.jpShopName || '国内大手',
+                jpShopName: mainItem.jpShopName || 'ポケカジラ最安値比較',
                 jpEvidenceUrl: mainEvidenceUrl,
                 sourceEvidenceUrl: resolvedEbayUrl,
                 salesVolume7d: mainItem.salesVolume7d || '',
@@ -126,7 +131,7 @@ async function processAndSaveRegionResearch(
               subItems: tier.subItems || [],
               currentItem: {
                 ...mainItem,
-                jpShopName: mainItem.jpShopName || '国内大手',
+                jpShopName: mainItem.jpShopName || 'ポケカジラ最安値比較',
                 jpEvidenceUrl: mainEvidenceUrl,
                 sourceEvidenceUrl: resolvedEbayUrl,
                 salesVolume7d: mainItem.salesVolume7d || '',
@@ -144,7 +149,7 @@ async function processAndSaveRegionResearch(
           });
         }
 
-        // B. 代替候補商品（2商品）の個別URL取得
+        // B. 代替候補商品（2商品）のURL正規化
         if (Array.isArray(tier?.subItems)) {
           for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
             const subItem = tier.subItems[sIdx];
@@ -154,11 +159,15 @@ async function processAndSaveRegionResearch(
             const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
             const subKeyword = buildCleanSearchKeyword(subItem.cardName, subItem.cardNumber);
-            const subTargetShop = getTargetShop(subItem.jpShopName);
-            const subEvidenceUrl = await getTopShopUrlByGoogle(subKeyword, subTargetShop);
+            const subEvidenceUrl = buildSafePokecazillaUrl(
+              subItem.jpEvidenceUrl,
+              category,
+              subItem.cardName,
+              subItem.cardNumber
+            );
             subItem.jpEvidenceUrl = subEvidenceUrl;
 
-            const resolvedSubEbayUrl = await resolveIndividualEbayUrl(subItem.sourceEvidenceUrl, subItem.cardName, subItem.cardNumber);
+            const resolvedSubEbayUrl = resolveIndividualEbayUrl(subItem.sourceEvidenceUrl, subItem.cardName, subItem.cardNumber);
             subItem.sourceEvidenceUrl = resolvedSubEbayUrl;
 
             const subLiquidityStr = `7日: ${subItem.salesVolume7d || '確認中'} / 30日: ${subItem.salesVolume30d || '1件以上'}`;
@@ -187,7 +196,7 @@ async function processAndSaveRegionResearch(
                 role: `候補${sIdx + 2}`,
                 currentItem: {
                   ...subItem,
-                  jpShopName: subItem.jpShopName || '国内大手',
+                  jpShopName: subItem.jpShopName || 'ポケカジラ最安値比較',
                   jpEvidenceUrl: subEvidenceUrl,
                   sourceEvidenceUrl: resolvedSubEbayUrl,
                   salesVolume7d: subItem.salesVolume7d || '',
@@ -220,15 +229,15 @@ async function processAndSaveRegionResearch(
       const items = Array.isArray(hypo.items) ? hypo.items : [];
       for (const item of items) {
         if (!item || !item.cardName) continue;
+        const anyItem = item as any;
         const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
         const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
         const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
         const spread = Math.max(0, targetJpy - buy);
         const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-        const trendKeyword = buildCleanSearchKeyword(item.cardName);
-        const trendEvidenceUrl = await getTopShopUrlByGoogle(trendKeyword, 'cardrush');
-        const resolvedTrendEbayUrl = await resolveIndividualEbayUrl(item.sourceEvidenceUrl, item.cardName);
+        const trendEvidenceUrl = buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, category, item.cardName);
+        const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);
 
         researchRows.push({
           cycle_id: cycleId,
@@ -250,8 +259,8 @@ async function processAndSaveRegionResearch(
             reportSummary: trendReport.summary,
             hypothesis: hypo,
             jpEvidenceUrl: trendEvidenceUrl,
-            sourcePlatform: item.sourcePlatform || platformDefault,
-            evidenceNote: item.evidenceNote || '市場相場基準',
+            sourcePlatform: anyItem.sourcePlatform || platformDefault,
+            evidenceNote: anyItem.evidenceNote || '市場相場基準',
             sourceEvidenceUrl: resolvedTrendEbayUrl,
           },
           gate1_status: 'pending',
@@ -362,7 +371,7 @@ export async function POST(req: Request) {
         runMarketTrend('us', cycle.category),
         runSayaAnalysis('us', cycle.category, targetDay),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, 'us', sayaUS, trendUS);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS, trendUS);
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
@@ -384,7 +393,7 @@ export async function POST(req: Request) {
         runMarketTrend('eu', cycle.category),
         runSayaAnalysis('eu', cycle.category, targetDay),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, 'eu', sayaEU, trendEU);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU, trendEU);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
       dispatchNext();
@@ -405,7 +414,7 @@ export async function POST(req: Request) {
         runSayaAnalysis('asia', cycle.category, targetDay),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, 'asia', sayaAsia, trendAsia);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia, trendAsia);
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,

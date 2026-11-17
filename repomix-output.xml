@@ -170,6 +170,7 @@ docs/
   ai_organization_frontend.md
 lib/
   market-fetcher/
+    apify-arbitrage.ts
     card-master.ts
     cardmarket.ts
     ebay.ts
@@ -8557,62 +8558,6 @@ export async function GET(req: Request) {
 }
 </file>
 
-<file path="app/AiDashboard/components/Sidebar.tsx">
-// app/AiDashboard/components/Sidebar.tsx
-import React from 'react';
-import { RegionKey, CategoryKey } from '../types';
-⋮----
-interface SidebarProps {
-    activeCategory: CategoryKey;
-    setActiveCategory: (category: CategoryKey) => void;
-    aiActiveDesk: string;
-    setAiActiveDesk: (desk: string) => void;
-    activeTrendRegion: RegionKey;
-    setActiveTrendRegion: (region: RegionKey) => void;
-    activeArbitrageRegion: RegionKey;
-    setActiveArbitrageRegion: (region: RegionKey) => void;
-    history: any[];
-    selectedRecordId: string | null;
-    onSelectHistory: (target: any) => void;
-    aiLoading: boolean;
-    runningAction: string | null;
-}
-⋮----
-export default function Sidebar({
-    activeCategory, setActiveCategory,
-    aiActiveDesk, setAiActiveDesk,
-    activeTrendRegion, setActiveTrendRegion,
-    activeArbitrageRegion, setActiveArbitrageRegion,
-    history, selectedRecordId, onSelectHistory,
-    aiLoading, runningAction
-}: SidebarProps)
-⋮----
-{/* 商材カテゴリー切り替え */}
-⋮----
-{/* メニューリスト本体（監査役もこの中に含める） */}
-⋮----
-{/* 🔮 市場トレンドリサーチチーム */}
-⋮----
-{/* 💎 アービトラージリサーチチーム */}
-⋮----
-{/* 🌟 アービトラージ監査担当 */}
-⋮----
-{/* 👑 キュレーター */}
-<div onClick={() =>
-⋮----
-{/* 📸 Instagram運営グループ */}
-⋮----
-{/* 🐦 X運営グループ */}
-⋮----
-{/* ✉️ 有料コミュニティ */}
-⋮----
-{/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
-⋮----
-{/* 過去サイクル履歴選択 */}
-⋮----
-<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
-</file>
-
 <file path="app/AiDashboard/types.ts">
 // app/AiDashboard/types.ts
 ⋮----
@@ -9048,6 +8993,166 @@ export interface PipelineProgressState {
 }
 </file>
 
+<file path="lib/market-fetcher/apify-arbitrage.ts">
+// lib/market-fetcher/apify-arbitrage.ts
+⋮----
+export interface VerifiedArbitrageCandidate {
+  cardName: string;
+  cardNumber: string;
+  conditionGrade: string;
+  jpBuyPriceJPY: number;
+  ebaySoldUsd: number;
+  ebaySoldJpy: number;
+  netProceedsJpy: number;
+  priceSpreadJPY: number;
+  spreadROI: number;
+  liquidity: string;
+  pokecazillaUrl: string;
+  ebayUrl: string;
+}
+⋮----
+interface DayUsdPriceRange {
+  minUsd: number;
+  maxUsd?: number;
+  minSpreadJpy: number;
+}
+⋮----
+/**
+ * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の USD 価格帯を算出する
+ */
+function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsdPriceRange
+⋮----
+case 'Monday': // 〜3千円（エントリー・超高回転枠）
+⋮----
+case 'Tuesday': // 3千〜1万円（定番コレクション枠）
+case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
+⋮----
+case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
+case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
+⋮----
+case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
+⋮----
+case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
+⋮----
+/**
+ * Apify API v2 同期実行ヘルパー
+ */
+async function runApifySync(
+  rawId: string,
+  token: string,
+  bodyPayload: Record<string, any>,
+  actorFallbackPayload?: Record<string, any>
+): Promise<any[]>
+⋮----
+/**
+ * eBayタイトルからトレカ型番を抽出する
+ */
+export function extractCardNumber(title: string): string | null
+⋮----
+/**
+ * タイトルからレアリティ・特殊仕様を抽出（同型番のノーマル誤爆を防止）
+ */
+function extractRaritySpec(title: string): string | null
+⋮----
+/**
+ * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
+ */
+function detectConditionGrade(title: string): string
+⋮----
+/**
+ * ポケカジラURLの正規化（相対パス補完・404防止）
+ */
+function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string
+⋮----
+/**
+ * eBay URLの正規化（実在URL保持・フォールバック検索URL生成）
+ */
+function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string): string
+⋮----
+/**
+ * Apify 2段階スクレイピングを実行し、曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
+ */
+export async function fetchRealArbitrageCandidates(
+  category: string = 'pokemon',
+  usdToJpyRate: number = 155,
+  targetDay: string = 'Thursday'
+): Promise<VerifiedArbitrageCandidate[]>
+⋮----
+// 1. eBay Sold Listings を曜日価格帯指定で同期実行
+⋮----
+// 2. 指定価格帯内 かつ 型番が抽出できた成約のみフィルタリング
+⋮----
+// 同じ型番・レアリティ・グレードが複数成約している場合は平均成約額と成約件数を集計
+⋮----
+// 3. ポケカジラ検索用の startUrls を重複なしで生成
+⋮----
+// 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
+⋮----
+// 型番ごとに候補カード一覧を保持（後段でレアリティ一致チェックを行う）
+⋮----
+// 5. eBay成約と国内最安値を「型番＋レアリティ一致」で突合
+⋮----
+// eBay側にレアリティ指定がある場合は、ポケカジラ側カード名にも同じレアリティを含むものに限定
+⋮----
+if (!specMatched) continue; // レアリティ不一致（例: SAR vs ノーマル）は誤爆防止のため除外
+</file>
+
+<file path="app/AiDashboard/components/Sidebar.tsx">
+// app/AiDashboard/components/Sidebar.tsx
+import React from 'react';
+import { RegionKey, CategoryKey } from '../types';
+⋮----
+interface SidebarProps {
+    activeCategory: CategoryKey;
+    setActiveCategory: (category: CategoryKey) => void;
+    aiActiveDesk: string;
+    setAiActiveDesk: (desk: string) => void;
+    activeTrendRegion: RegionKey;
+    setActiveTrendRegion: (region: RegionKey) => void;
+    activeArbitrageRegion: RegionKey;
+    setActiveArbitrageRegion: (region: RegionKey) => void;
+    history: any[];
+    selectedRecordId: string | null;
+    onSelectHistory: (target: any) => void;
+    aiLoading: boolean;
+    runningAction: string | null;
+}
+⋮----
+export default function Sidebar({
+    activeCategory, setActiveCategory,
+    aiActiveDesk, setAiActiveDesk,
+    activeTrendRegion, setActiveTrendRegion,
+    activeArbitrageRegion, setActiveArbitrageRegion,
+    history, selectedRecordId, onSelectHistory,
+    aiLoading, runningAction
+}: SidebarProps)
+⋮----
+{/* 商材カテゴリー切り替え */}
+⋮----
+{/* メニューリスト本体（監査役もこの中に含める） */}
+⋮----
+{/* 🔮 市場トレンドリサーチチーム */}
+⋮----
+{/* 💎 アービトラージリサーチチーム */}
+⋮----
+{/* 🌟 アービトラージ監査担当 */}
+⋮----
+{/* 👑 キュレーター */}
+<div onClick={() =>
+⋮----
+{/* 📸 Instagram運営グループ */}
+⋮----
+{/* 🐦 X運営グループ */}
+⋮----
+{/* ✉️ 有料コミュニティ */}
+⋮----
+{/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
+⋮----
+{/* 過去サイクル履歴選択 */}
+⋮----
+<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
+</file>
+
 <file path="app/api/ai/intelligence/agents/contentCreator.ts">
 // app/api/ai/intelligence/agents/contentCreator.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -9355,34 +9460,34 @@ const getSlotMeta = (slotKey: string, slotLabel?: string) =>
 // app/api/ai/intelligence/agents/arbitrage.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getCategoryName } from '../helpers';
-import { createClient } from '@/lib/supabase/server';
+import {
+  fetchRealArbitrageCandidates,
+  VerifiedArbitrageCandidate,
+} from '@/lib/market-fetcher/apify-arbitrage';
+⋮----
+async function getCachedRealCandidates(
+  category: string,
+  exchangeRateJPY: number,
+  targetDay: string
+): Promise<VerifiedArbitrageCandidate[]>
 ⋮----
 export interface ArbitrageItem {
   cardName: string;
   cardNumber: string;
   conditionGrade: string;
-  jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
+  jpShopName: string;
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
+  jpEvidenceUrl?: string;
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
-  salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
-  salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
+  salesVolume7d: string;
+  salesVolume30d: string;
   sourcePlatform?: string;
   evidenceNote?: string;
-  sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
+  sourceEvidenceUrl?: string;
   insight: string;
 }
-⋮----
-jpShopName: string;          // 🌟 国内最安ショップ名 (カードラッシュ / 晴れる屋2 / トレカキャンプ)
-⋮----
-jpEvidenceUrl?: string;      // 🌟 最安ショップの個別商品ページURL
-⋮----
-salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
-salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
-⋮----
-sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
 ⋮----
 export interface ArbitrageTier {
   priceTier: string;
@@ -9399,8 +9504,34 @@ export interface ArbitrageSlotReport {
 ⋮----
 async function getRealtimeExchangeRate(currency: string): Promise<number>
 ⋮----
+/**
+ * 出力アイテムのURL・価格・コンディションをプログラム側で厳格正規化する
+ * - Apify確定データと一致する場合は確定値・確定URLを直接上書き（転記ミス・価格ズレ防止）
+ * - AI独自調査データは架空IDによる404リンクを廃止し、確実に実在する検索比較ページURLを生成
+ */
+function enforceDataIntegrity(
+  item: ArbitrageItem | undefined,
+  isGradedOrSealed: boolean,
+  slotRealCandidates: VerifiedArbitrageCandidate[],
+  category: string,
+  currency: string,
+  exchangeRateJPY: number
+): void
+⋮----
+// 1. 素体枠のコンディション強制クリーンアップ
+⋮----
+// 確実に実在するポケカジラ型番検索一覧URL
+⋮----
+// 確実に実在するeBay Sold成約検索URL
+⋮----
+// 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入
+⋮----
+// 3. AI独自調査枠のURLを実在保証（AIが生成した架空の /detail/ID や /itm/ID による404を完全防止）
+⋮----
+// 4. 利ざや・ROIの四則演算を再計算して数値の整合性を保証
+⋮----
 export async function runSayaAnalysis(
-  region: 'us' | 'eu' | 'asia', 
+  region: 'us' | 'eu' | 'asia',
   category: string = 'pokemon',
   targetDay: string = 'Thursday'
 )
