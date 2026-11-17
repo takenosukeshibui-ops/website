@@ -35,17 +35,17 @@ export interface ArbitrageItem {
   cardName: string;
   cardNumber: string;
   conditionGrade: string;
-  jpShopName: string;          // 🌟 国内最安ショップ名 (ポケカジラ最安値比較 / 晴れる屋2 / トレカキャンプ / カードラッシュ)
+  jpShopName: string;
   jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;      // 🌟 最安ショップまたはポケカジラの個別商品ページURL
+  jpEvidenceUrl?: string;
   targetSoldPrice: string;
   priceSpreadJPY: string;
   spreadROI: string;
-  salesVolume7d: string;       // 🌟 直近7日間の成約件数 (例: "3件")
-  salesVolume30d: string;      // 🌟 直近30日間の成約件数 (例: "12件")
+  salesVolume7d: string;
+  salesVolume30d: string;
   sourcePlatform?: string;
   evidenceNote?: string;
-  sourceEvidenceUrl?: string;  // 🌟 eBayの個別実成約詳細ページURL (/itm/...)
+  sourceEvidenceUrl?: string;
   insight: string;
 }
 
@@ -116,6 +116,85 @@ const SLOTS = [
   { key: 'high_end_sealed', label: '高額鑑定品・未開封BOX', desc: '高額PSA10/BGS鑑定品、絶版未開封BOX、サプライ未開封', isGradedOrSealed: true },
 ];
 
+/**
+ * 出力アイテムのURL・価格・コンディションをプログラム側で厳格正規化する
+ * - Apify確定データと一致する場合は確定値・確定URLを直接上書き（転記ミス・価格ズレ防止）
+ * - AI独自調査データは架空IDによる404リンクを廃止し、確実に実在する検索比較ページURLを生成
+ */
+function enforceDataIntegrity(
+  item: ArbitrageItem | undefined,
+  isGradedOrSealed: boolean,
+  slotRealCandidates: VerifiedArbitrageCandidate[],
+  category: string,
+  currency: string,
+  exchangeRateJPY: number
+): void {
+  if (!item) return;
+
+  // 1. 素体枠のコンディション強制クリーンアップ
+  if (!isGradedOrSealed) {
+    item.conditionGrade = 'Raw NM';
+    item.cardName = String(item.cardName || '')
+      .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
+      .replace(/鑑定品?/g, '')
+      .trim();
+  }
+
+  const cardNum = String(item.cardNumber || '').trim();
+  const categoryId = category === 'onepiece' ? 18 : 17;
+  const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
+
+  // 確実に実在するポケカジラ型番検索一覧URL
+  const safePokecazillaSearchUrl = cardNum
+    ? `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(cardNum)}`
+    : `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(item.cardName)}`;
+
+  // 確実に実在するeBay Sold成約検索URL
+  const safeEbaySoldSearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(
+    `${cardNum || item.cardName} Japanese`
+  )}&LH_Sold=1&LH_Complete=1`;
+
+  // 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入
+  const matchedVerified = slotRealCandidates.find(
+    (c) => c.cardNumber.toUpperCase() === cardNum.toUpperCase()
+  );
+
+  if (matchedVerified) {
+    item.cardName = matchedVerified.cardName;
+    item.cardNumber = matchedVerified.cardNumber;
+    item.conditionGrade = matchedVerified.conditionGrade;
+    item.jpShopName = 'ポケカジラ最安値比較（実売検証済）';
+    item.jpBuyPriceJPY = `¥${matchedVerified.jpBuyPriceJPY.toLocaleString()}`;
+    item.jpEvidenceUrl = matchedVerified.pokecazillaUrl || safePokecazillaSearchUrl;
+    item.targetSoldPrice = `${currency} ${matchedVerified.ebaySoldUsd} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`;
+    item.priceSpreadJPY = `¥${matchedVerified.priceSpreadJPY.toLocaleString()}`;
+    item.spreadROI = `${matchedVerified.spreadROI}%`;
+    item.evidenceNote = `Apify実売検証済 (${matchedVerified.liquidity})`;
+    item.sourceEvidenceUrl = matchedVerified.ebayUrl || safeEbaySoldSearchUrl;
+    return;
+  }
+
+  // 3. AI独自調査枠のURLを実在保証（AIが生成した架空の /detail/ID や /itm/ID による404を完全防止）
+  item.jpShopName = 'ポケカジラ型番最安値検索';
+  item.jpEvidenceUrl = safePokecazillaSearchUrl;
+  item.sourceEvidenceUrl = safeEbaySoldSearchUrl;
+  item.evidenceNote = 'AI市場リサーチ（リンク先で最新在庫・成約要確認）';
+
+  // 4. 利ざや・ROIの四則演算を再計算して数値の整合性を保証
+  const buyNum = Number(String(item.jpBuyPriceJPY || '').replace(/[^\d]/g, '')) || 0;
+  const soldForeignMatch = String(item.targetSoldPrice || '').match(/([\d.]+)/);
+  const soldForeign = soldForeignMatch ? Number(soldForeignMatch[1]) : 0;
+
+  if (buyNum > 0 && soldForeign > 0) {
+    const soldJpy = Math.round(soldForeign * exchangeRateJPY);
+    const spread = soldJpy - buyNum;
+    const roi = Math.round((spread / buyNum) * 100);
+    item.targetSoldPrice = `${currency} ${soldForeign} (約¥${soldJpy.toLocaleString()})`;
+    item.priceSpreadJPY = `¥${spread.toLocaleString()}`;
+    item.spreadROI = `${roi}%`;
+  }
+}
+
 export async function runSayaAnalysis(
   region: 'us' | 'eu' | 'asia',
   category: string = 'pokemon',
@@ -141,7 +220,6 @@ export async function runSayaAnalysis(
     region === 'us' ? await getCachedRealCandidates(category, exchangeRateJPY, targetDay) : [];
 
   const slotPromises = SLOTS.map(async (slot) => {
-    // スロット属性に合わせてApify実データを厳格フィルタリング（素体枠に鑑定品を絶対に渡さない）
     const slotRealCandidates = realCandidates.filter((item) =>
       slot.isGradedOrSealed
         ? item.conditionGrade !== 'Raw NM'
@@ -153,18 +231,7 @@ export async function runSayaAnalysis(
         ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（実在数値）】:
 ${JSON.stringify(slotRealCandidates, null, 2)}
 
-※上記の確定データに該当スロット（${slot.label}）・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、以下の対応ルール通りにJSONへ転記してください（数値・URLの改変は禁止）:
-- cardName: 上記の cardName（型番を除いたカード名＋レアリティ）
-- cardNumber: 上記の cardNumber
-- conditionGrade: 上記の conditionGrade
-- jpShopName: "ポケカジラ最安値比較"
-- jpBuyPriceJPY: "¥" + 上記の jpBuyPriceJPY（カンマ区切り）
-- jpEvidenceUrl: 上記の pokecazillaUrl（必ずそのまま出力）
-- targetSoldPrice: "USD " + 上記の ebaySoldUsd + " (約¥" + 上記の ebaySoldJpy + ")"
-- priceSpreadJPY: "¥" + 上記の priceSpreadJPY（カンマ区切り）
-- spreadROI: 上記の spreadROI + "%"
-- salesVolume7d / salesVolume30d: 上記の liquidity を参考に件数を記載
-- sourceEvidenceUrl: 上記の ebayUrl
+※上記の確定データに該当スロット（${slot.label}）・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、cardNumber を正確に一致させて出力してください。
 `
         : '';
 
@@ -174,7 +241,7 @@ ${JSON.stringify(slotRealCandidates, null, 2)}
 ・素体（Raw）の選定は厳禁です。`
       : `【コンディション厳格ルール（素体・美品限定枠）】
 ・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
-・PSA 10・BGS・CGC・ARSなどの鑑定品や未開封BOXの選定は【絶対に禁止】です！カード名やconditionGradeに「PSA」「BGS」「CGC」「ARS」「鑑定」を含めることは厳禁です。`;
+・PSA 10・BGS・CGC・ARSなどの鑑定品や未開封BOXの選定は【絶対に禁止】です！`;
 
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
@@ -185,12 +252,9 @@ ${realDataSection}
 1. 出口相場（eBay成約データ）:
    - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を設定してください。
    - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
-     （通常枠は複数件、高額枠は直近30日に1件以上あれば合格）
-   - eBay個別成約ページURL（"/itm/"を含むもの）を sourceEvidenceUrl に出力してください（"/sch/"の検索一覧URLは禁止）。
 2. 入口相場（国内大手ショップ・ポケカジラ在庫比較）:
-   - 【ポケカジラ】【晴れる屋2】【トレカキャンプ】【カードラッシュ】を比較検索し、現在在庫がある通常美品（状態A/NM）の「最安値」のショップ名（jpShopName）、仕入れ価格（jpBuyPriceJPY）、およびその根拠となる個別商品ページURL（jpEvidenceUrl）を必ず出力してください。
-   - カードラッシュ1社に偏らず、実際に最安値を確認したショップ（晴れる屋2・トレカキャンプ・ポケカジラ個別ページ等）のURLを正確に出力してください。
-   - 「状態B」「状態C」「傷あり特価」「プレイ用」の安値を引用することは絶対に禁止です。
+   - 【ポケカジラ】【晴れる屋2】【トレカキャンプ】等の通常美品（状態A/NM）の最安値を確認し、正確な型番（cardNumber）と仕入れ価格（jpBuyPriceJPY）を出力してください。
+   - 「状態B」「状態C」「傷あり特価」の安値を引用することは禁止です。
 3. 単純利ざや計算:
    - targetSoldPrice の日本円換算値 ＝ 現地売価(${cur.currency}) × ${exchangeRateJPY}円
    - priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
@@ -211,9 +275,8 @@ ${realDataSection}
         "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
         "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
         "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-        "jpShopName": "最安ショップ名 (ポケカジラ最安値比較 / 晴れる屋2 / トレカキャンプ / カードラッシュ)",
-        "jpBuyPriceJPY": "¥X,XXX (※最安の通常美品価格)",
-        "jpEvidenceUrl": "https://pokecazilla.com/pokemon/products/detail/実在ID (最安ショップまたはポケカジラの個別商品ページURL)",
+        "jpShopName": "ポケカジラ最安値比較",
+        "jpBuyPriceJPY": "¥X,XXX",
         "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
         "priceSpreadJPY": "¥X,XXX",
         "spreadROI": "XX%",
@@ -221,7 +284,6 @@ ${realDataSection}
         "salesVolume30d": "X件",
         "sourcePlatform": "eBay",
         "evidenceNote": "成約実績基準",
-        "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
         "insight": "現地需要動向とショップ比較における優位性（1行）"
       },
       "subItems": [
@@ -229,9 +291,8 @@ ${realDataSection}
           "cardName": "候補2のカード名とレアリティ",
           "cardNumber": "候補2の正確な型番",
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-          "jpShopName": "最安ショップ名",
+          "jpShopName": "ポケカジラ最安値比較",
           "jpBuyPriceJPY": "¥X,XXX",
-          "jpEvidenceUrl": "最安ショップまたはポケカジラの個別商品ページURL",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
@@ -239,16 +300,14 @@ ${realDataSection}
           "salesVolume30d": "X件",
           "sourcePlatform": "eBay",
           "evidenceNote": "成約実績基準",
-          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
           "insight": "特徴1行"
         },
         {
           "cardName": "候補3のカード名とレアリティ",
           "cardNumber": "候補3の正確な型番",
           "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-          "jpShopName": "最安ショップ名",
+          "jpShopName": "ポケカジラ最安値比較",
           "jpBuyPriceJPY": "¥X,XXX",
-          "jpEvidenceUrl": "最安ショップまたはポケカジラの個別商品ページURL",
           "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
           "priceSpreadJPY": "¥X,XXX",
           "spreadROI": "XX%",
@@ -256,7 +315,6 @@ ${realDataSection}
           "salesVolume30d": "X件",
           "sourcePlatform": "eBay",
           "evidenceNote": "成約実績基準",
-          "sourceEvidenceUrl": "https://www.ebay.com/itm/実在する商品ID",
           "insight": "特徴1行"
         }
       ]
@@ -267,22 +325,26 @@ ${realDataSection}
     const res = await modelWithSearch.invoke(slotPrompt);
     const parsed = parseAIJson(res.content.toString());
 
-    if (!slot.isGradedOrSealed && parsed?.tiers) {
+    if (parsed?.tiers) {
       for (const tier of parsed.tiers) {
-        if (tier.mainItem) {
-          tier.mainItem.conditionGrade = 'Raw NM';
-          tier.mainItem.cardName = tier.mainItem.cardName
-            .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
-            .replace(/鑑定品?/g, '')
-            .trim();
-        }
+        enforceDataIntegrity(
+          tier.mainItem,
+          slot.isGradedOrSealed,
+          slotRealCandidates,
+          category,
+          cur.currency,
+          exchangeRateJPY
+        );
         if (Array.isArray(tier.subItems)) {
           for (const sub of tier.subItems) {
-            sub.conditionGrade = 'Raw NM';
-            sub.cardName = sub.cardName
-              .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
-              .replace(/鑑定品?/g, '')
-              .trim();
+            enforceDataIntegrity(
+              sub,
+              slot.isGradedOrSealed,
+              slotRealCandidates,
+              category,
+              cur.currency,
+              exchangeRateJPY
+            );
           }
         }
       }

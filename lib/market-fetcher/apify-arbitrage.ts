@@ -67,7 +67,7 @@ function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsd
     case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
       return {
         minUsd: Math.floor(85000 / usdToJpyRate),
-        maxUsd: undefined, // 上限なし
+        maxUsd: undefined,
         minSpreadJpy: 1000,
       };
     default:
@@ -81,8 +81,6 @@ function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsd
 
 /**
  * Apify API v2 同期実行ヘルパー
- * - Task (/v2/actor-tasks/) と Actor (/v2/acts/) の両方に自動対応
- * - URLパス仕様に合わせてリクエストURL生成時のみ '/' を '~' に安全エンコード
  */
 async function runApifySync(
   rawId: string,
@@ -92,7 +90,6 @@ async function runApifySync(
 ): Promise<any[]> {
   const apiPathId = rawId.replace(/\//g, '~');
 
-  // 1. まず Task エンドポイントとして実行を試行
   const taskUrl = `https://api.apify.com/v2/actor-tasks/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
   const taskRes = await fetch(taskUrl, {
     method: 'POST',
@@ -105,7 +102,6 @@ async function runApifySync(
     return await taskRes.json();
   }
 
-  // 2. Task で 404 の場合、ストア公開 Actor (/v2/acts/) としてフォールバック実行
   if (taskRes.status === 404) {
     const actorUrl = `https://api.apify.com/v2/acts/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
     const actorRes = await fetch(actorUrl, {
@@ -127,21 +123,38 @@ async function runApifySync(
 
 /**
  * eBayタイトルからトレカ型番を抽出する
- * 対応形式: 071/063, 018/017, 276/XY-P, OP05-119 など
  */
 export function extractCardNumber(title: string): string | null {
-  // ポケカ標準型番 (例: 071/063, 018/017)
   const slashMatch = title.match(/\b(\d{3}\/\d{3})\b/);
   if (slashMatch) return slashMatch[1];
 
-  // ポケカプロモ型番 (例: 276/XY-P, 001/SV-P)
   const promoMatch = title.match(/\b(\d{3}\/[A-Z0-9]+-P)\b/i);
   if (promoMatch) return promoMatch[1].toUpperCase();
 
-  // ワンピース/遊戯王型番 (例: OP05-119, ST01-001)
   const hyphenMatch = title.match(/\b([A-Z]{2,4}\d{2}-\d{3})\b/i);
   if (hyphenMatch) return hyphenMatch[1].toUpperCase();
 
+  return null;
+}
+
+/**
+ * タイトルからレアリティ・特殊仕様を抽出（同型番のノーマル誤爆を防止）
+ */
+function extractRaritySpec(title: string): string | null {
+  const upper = title.toUpperCase();
+  if (upper.includes('MASTER BALL') || upper.includes('MASTERBALL')) return 'マスターボール';
+  if (upper.includes('POKE BALL') || upper.includes('POKEBALL')) return 'モンスターボール';
+  if (/\bSAR\b/.test(upper)) return 'SAR';
+  if (/\bMUR\b/.test(upper)) return 'MUR';
+  if (/\bBWR\b/.test(upper)) return 'BWR';
+  if (/\bCSR\b/.test(upper)) return 'CSR';
+  if (/\bCHR\b/.test(upper)) return 'CHR';
+  if (/\bSSR\b/.test(upper)) return 'SSR';
+  if (/\bSR\b/.test(upper)) return 'SR';
+  if (/\bUR\b/.test(upper)) return 'UR';
+  if (/\bHR\b/.test(upper)) return 'HR';
+  if (/\bAR\b/.test(upper)) return 'AR';
+  if (/\bACE\b/.test(upper)) return 'ACE';
   return null;
 }
 
@@ -175,7 +188,32 @@ function detectConditionGrade(title: string): string {
 }
 
 /**
- * Apify 2段階スクレイピングを実行し、曜日別価格帯に絞った実売サヤ取り候補一覧を返す
+ * ポケカジラURLの正規化（相対パス補完・404防止）
+ */
+function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return fallbackSearchUrl;
+  const trimmed = rawUrl.trim();
+  if (trimmed.startsWith('https://pokecazilla.com/') || trimmed.startsWith('http://pokecazilla.com/')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/')) {
+    return `https://pokecazilla.com${trimmed}`;
+  }
+  return fallbackSearchUrl;
+}
+
+/**
+ * eBay URLの正規化（実在URL保持・フォールバック検索URL生成）
+ */
+function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string): string {
+  if (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
+    return rawUrl.trim();
+  }
+  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(`${cardNumber} Japanese Pokemon`)}&LH_Sold=1&LH_Complete=1`;
+}
+
+/**
+ * Apify 2段階スクレイピングを実行し、曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
  */
 export async function fetchRealArbitrageCandidates(
   category: string = 'pokemon',
@@ -197,7 +235,6 @@ export async function fetchRealArbitrageCandidates(
         ? 'Japanese Yugioh Card'
         : 'Japanese Pokemon Card';
 
-    // eBay 検索時の価格帯フィルタを構築（曜日ごとの価格帯のみをスクレイピング）
     const ebayPriceFilter: Record<string, any> = {
       minPrice: priceRange.minUsd,
     };
@@ -228,6 +265,7 @@ export async function fetchRealArbitrageCandidates(
           soldUsd,
           soldJpy: Math.round(soldUsd * usdToJpyRate),
           cardNumber,
+          raritySpec: extractRaritySpec(title),
           conditionGrade: detectConditionGrade(title),
           ebayUrl: String(item.url || item.itemUrl || ''),
         };
@@ -241,10 +279,12 @@ export async function fetchRealArbitrageCandidates(
 
     if (parsedEbay.length === 0) return [];
 
-    // 同じ型番・グレードが複数成約している場合は平均成約額と成約件数を集計
-    const groupedByNumber = new Map<
+    // 同じ型番・レアリティ・グレードが複数成約している場合は平均成約額と成約件数を集計
+    const groupedByKey = new Map<
       string,
       {
+        cardNumber: string;
+        raritySpec: string | null;
         sampleTitle: string;
         conditionGrade: string;
         totalUsd: number;
@@ -254,13 +294,15 @@ export async function fetchRealArbitrageCandidates(
     >();
 
     for (const item of parsedEbay) {
-      const key = `${item.cardNumber}_${item.conditionGrade}`;
-      const existing = groupedByNumber.get(key);
+      const key = `${item.cardNumber}_${item.raritySpec || 'NONE'}_${item.conditionGrade}`;
+      const existing = groupedByKey.get(key);
       if (existing) {
         existing.totalUsd += item.soldUsd;
         existing.count += 1;
       } else {
-        groupedByNumber.set(key, {
+        groupedByKey.set(key, {
+          cardNumber: item.cardNumber!,
+          raritySpec: item.raritySpec,
           sampleTitle: item.title,
           conditionGrade: item.conditionGrade,
           totalUsd: item.soldUsd,
@@ -271,7 +313,7 @@ export async function fetchRealArbitrageCandidates(
     }
 
     // 3. ポケカジラ検索用の startUrls を重複なしで生成
-    const categoryId = category === 'onepiece' ? 18 : 17; // 17: ポケカ
+    const categoryId = category === 'onepiece' ? 18 : 17;
     const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
     const uniqueNumbers = Array.from(new Set(parsedEbay.map((i) => i.cardNumber!)));
 
@@ -282,8 +324,14 @@ export async function fetchRealArbitrageCandidates(
     // 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
     const jpPages = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
-    // 型番ごとに「型番がカードコードに完全一致する」国内最安値レコードをマッピング
-    const jpMap = new Map<string, { name: string; minPrice: number; detailUrl: string }>();
+    // 型番ごとに候補カード一覧を保持（後段でレアリティ一致チェックを行う）
+    const jpCandidatesMap = new Map<
+      string,
+      {
+        searchUrl: string;
+        cards: Array<{ name: string; minPrice: number; detailUrl: string }>;
+      }
+    >();
 
     for (const page of jpPages) {
       const searchUrl = String(page.searchUrl || '');
@@ -291,52 +339,60 @@ export async function fetchRealArbitrageCandidates(
       const queriedNum = numMatch ? decodeURIComponent(numMatch[1]) : '';
       if (!queriedNum || !Array.isArray(page.cards)) continue;
 
-      // 型番文字列（例: 018/017）を cardCode に含むカードだけに限定（同名別弾カードを排除）
-      const exactMatches = page.cards.filter(
-        (c: any) =>
-          typeof c.minPrice === 'number' &&
-          c.minPrice > 0 &&
-          String(c.cardCode || '').includes(queriedNum)
-      );
+      const exactCards = page.cards
+        .filter(
+          (c: any) =>
+            typeof c.minPrice === 'number' &&
+            c.minPrice > 0 &&
+            String(c.cardCode || '').includes(queriedNum)
+        )
+        .map((c: any) => ({
+          name: String(c.name || queriedNum),
+          minPrice: Number(c.minPrice),
+          detailUrl: normalizePokecazillaUrl(c.detailUrl, searchUrl),
+        }));
 
-      if (exactMatches.length > 0) {
-        const best = exactMatches[0];
-        jpMap.set(queriedNum, {
-          name: best.name || queriedNum,
-          minPrice: best.minPrice,
-          detailUrl: best.detailUrl || searchUrl,
-        });
+      if (exactCards.length > 0) {
+        jpCandidatesMap.set(queriedNum, { searchUrl, cards: exactCards });
       }
     }
 
-    // 5. eBay成約と国内最安値を突合し、単純差額方式で利益を計算（Gate 1 検算と100%一致させる）
+    // 5. eBay成約と国内最安値を「型番＋レアリティ一致」で突合
     const verifiedList: VerifiedArbitrageCandidate[] = [];
 
-    for (const [key, ebayGroup] of groupedByNumber.entries()) {
-      const cardNumber = key.split('_')[0];
-      const jpData = jpMap.get(cardNumber);
-      if (!jpData) continue;
+    for (const [, ebayGroup] of groupedByKey.entries()) {
+      const jpEntry = jpCandidatesMap.get(ebayGroup.cardNumber);
+      if (!jpEntry) continue;
+
+      // eBay側にレアリティ指定がある場合は、ポケカジラ側カード名にも同じレアリティを含むものに限定
+      let matchedJpCard = jpEntry.cards[0];
+      if (ebayGroup.raritySpec) {
+        const specMatched = jpEntry.cards.find((c) =>
+          c.name.toUpperCase().includes(ebayGroup.raritySpec!)
+        );
+        if (!specMatched) continue; // レアリティ不一致（例: SAR vs ノーマル）は誤爆防止のため除外
+        matchedJpCard = specMatched;
+      }
 
       const avgUsd = Math.round((ebayGroup.totalUsd / ebayGroup.count) * 100) / 100;
       const avgJpy = Math.round(avgUsd * usdToJpyRate);
-      const spreadJpy = avgJpy - jpData.minPrice;
-      const roi = jpData.minPrice > 0 ? Math.round((spreadJpy / jpData.minPrice) * 100) : 0;
+      const spreadJpy = avgJpy - matchedJpCard.minPrice;
+      const roi = matchedJpCard.minPrice > 0 ? Math.round((spreadJpy / matchedJpCard.minPrice) * 100) : 0;
 
-      // 曜日別最低粗利 かつ ROI 15%以上のみ抽出
       if (spreadJpy >= priceRange.minSpreadJpy && roi >= 15) {
         verifiedList.push({
-          cardName: jpData.name,
-          cardNumber,
+          cardName: matchedJpCard.name,
+          cardNumber: ebayGroup.cardNumber,
           conditionGrade: ebayGroup.conditionGrade,
-          jpBuyPriceJPY: jpData.minPrice,
+          jpBuyPriceJPY: matchedJpCard.minPrice,
           ebaySoldUsd: avgUsd,
           ebaySoldJpy: avgJpy,
           netProceedsJpy: avgJpy,
           priceSpreadJPY: spreadJpy,
           spreadROI: roi,
           liquidity: `直近成約 ${ebayGroup.count}件`,
-          pokecazillaUrl: jpData.detailUrl,
-          ebayUrl: ebayGroup.ebayUrl,
+          pokecazillaUrl: matchedJpCard.detailUrl,
+          ebayUrl: normalizeEbayUrl(ebayGroup.ebayUrl, ebayGroup.cardNumber),
         });
       }
     }
