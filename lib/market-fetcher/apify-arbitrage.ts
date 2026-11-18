@@ -1,4 +1,5 @@
 // lib/market-fetcher/apify-arbitrage.ts
+import { extractPokemonNameJa } from './pokemon-dictionary';
 
 export interface VerifiedArbitrageCandidate {
   cardName: string;
@@ -140,27 +141,6 @@ export function extractCardNumber(title: string): string | null {
 }
 
 /**
- * タイトルからレアリティ・特殊仕様を抽出（同型番のノーマル誤爆を防止）
- */
-function extractRaritySpec(title: string): string | null {
-  const upper = title.toUpperCase();
-  if (upper.includes('MASTER BALL') || upper.includes('MASTERBALL')) return 'マスターボール';
-  if (upper.includes('POKE BALL') || upper.includes('POKEBALL')) return 'モンスターボール';
-  if (/\bSAR\b/.test(upper)) return 'SAR';
-  if (/\bMUR\b/.test(upper)) return 'MUR';
-  if (/\bBWR\b/.test(upper)) return 'BWR';
-  if (/\bCSR\b/.test(upper)) return 'CSR';
-  if (/\bCHR\b/.test(upper)) return 'CHR';
-  if (/\bSSR\b/.test(upper)) return 'SSR';
-  if (/\bSR\b/.test(upper)) return 'SR';
-  if (/\bUR\b/.test(upper)) return 'UR';
-  if (/\bHR\b/.test(upper)) return 'HR';
-  if (/\bAR\b/.test(upper)) return 'AR';
-  if (/\bACE\b/.test(upper)) return 'ACE';
-  return null;
-}
-
-/**
  * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
  */
 function detectConditionGrade(title: string): string {
@@ -218,7 +198,7 @@ function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string, region
 }
 
 /**
- * Apify 2段階スクレイピングを実行し、地域別（北米US / 欧州EU）・曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
+ * Apify 2段階スクレイピングを実行し、「ポケモン名 ＋ 型番」一致・状態◎最安値の実売サヤ取り候補を返す
  */
 export async function fetchRealArbitrageCandidates(
   category: string = 'pokemon',
@@ -264,7 +244,7 @@ export async function fetchRealArbitrageCandidates(
       }
     );
 
-    // 2. 対象通貨（USならUSD / EUならEUR）の成約のみ抽出（GBP等の他通貨混入を除外）
+    // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
     const parsedEbay = ebayItems
       .map((item) => {
         const rawCurrency = String(item.currency ?? item.soldCurrency ?? '').toUpperCase().trim();
@@ -280,18 +260,20 @@ export async function fetchRealArbitrageCandidates(
         const soldLocal = isCurrencyMismatch ? 0 : Number(item.soldPrice ?? item.price ?? 0) || 0;
         const title = String(item.title || '');
         const cardNumber = extractCardNumber(title);
+        const pokemonNameJa = extractPokemonNameJa(title);
+
         return {
           title,
           soldLocal,
           soldJpy: Math.round(soldLocal * exchangeRateJpy),
           cardNumber,
-          raritySpec: extractRaritySpec(title),
+          pokemonNameJa,
           conditionGrade: detectConditionGrade(title),
           ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
-        if (item.cardNumber === null) return false;
+        if (item.cardNumber === null || item.pokemonNameJa === null) return false;
         if (item.soldLocal <= 0 || item.soldLocal < priceRange.minLocal) return false;
         if (priceRange.maxLocal !== undefined && item.soldLocal > priceRange.maxLocal) return false;
         return true;
@@ -299,13 +281,12 @@ export async function fetchRealArbitrageCandidates(
 
     if (parsedEbay.length === 0) return [];
 
-    // 同じ型番・レアリティ・グレードが複数成約している場合は平均成約額と成約件数を集計
+    // 同じ「ポケモン名 ＋ 型番 ＋ グレード」が複数成約している場合は平均成約額と成約件数を集計
     const groupedByKey = new Map<
       string,
       {
         cardNumber: string;
-        raritySpec: string | null;
-        sampleTitle: string;
+        pokemonNameJa: string;
         conditionGrade: string;
         totalLocal: number;
         count: number;
@@ -314,7 +295,7 @@ export async function fetchRealArbitrageCandidates(
     >();
 
     for (const item of parsedEbay) {
-      const key = `${item.cardNumber}_${item.raritySpec || 'NONE'}_${item.conditionGrade}`;
+      const key = `${item.pokemonNameJa}_${item.cardNumber}_${item.conditionGrade}`;
       const existing = groupedByKey.get(key);
       if (existing) {
         existing.totalLocal += item.soldLocal;
@@ -322,8 +303,7 @@ export async function fetchRealArbitrageCandidates(
       } else {
         groupedByKey.set(key, {
           cardNumber: item.cardNumber!,
-          raritySpec: item.raritySpec,
-          sampleTitle: item.title,
+          pokemonNameJa: item.pokemonNameJa!,
           conditionGrade: item.conditionGrade,
           totalLocal: item.soldLocal,
           count: 1,
@@ -341,11 +321,9 @@ export async function fetchRealArbitrageCandidates(
       url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(num)}`,
     }));
 
-    // 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
     // 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
     const jpResults = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
-    // 型番ごとに「状態◎ かつ 在庫ありの最安値（mintMinPrice）」を持つ候補だけをマッピング
     const jpCandidatesMap = new Map<
       string,
       Array<{ name: string; minPrice: number; shopName: string; detailUrl: string }>
@@ -359,10 +337,9 @@ export async function fetchRealArbitrageCandidates(
       const queriedNum = numMatch ? decodeURIComponent(numMatch[1]) : '';
       if (!queriedNum) continue;
 
-      // 個別ページ解析結果（isDetailResult: true）の場合：状態◎ かつ 在庫ありの価格のみ採用
       if (row.isDetailResult) {
         if (typeof row.mintMinPrice !== 'number' || row.mintMinPrice <= 0) {
-          continue; // 状態◎の在庫がないカードはスキップ（状態B・傷あり品を排除）
+          continue; // 状態◎の在庫がないカードはスキップ
         }
         const cardCode = String(row.cardCode || '');
         if (cardCode && !cardCode.includes(queriedNum)) continue;
@@ -375,43 +352,19 @@ export async function fetchRealArbitrageCandidates(
           detailUrl: normalizePokecazillaUrl(row.detailUrl, searchUrl),
         });
         jpCandidatesMap.set(queriedNum, list);
-      } else if (Array.isArray(row.cards)) {
-        // 万が一旧ページ関数形式が返った場合の後方互換
-        const exactCards = row.cards
-          .filter(
-            (c: any) =>
-              typeof c.minPrice === 'number' &&
-              c.minPrice > 0 &&
-              String(c.cardCode || '').includes(queriedNum)
-          )
-          .map((c: any) => ({
-            name: String(c.name || queriedNum),
-            minPrice: Number(c.minPrice),
-            shopName: 'ポケカジラ最安値比較',
-            detailUrl: normalizePokecazillaUrl(c.detailUrl, searchUrl),
-          }));
-
-        if (exactCards.length > 0) {
-          jpCandidatesMap.set(queriedNum, exactCards);
-        }
       }
     }
 
-    // 5. eBay成約と国内状態◎最安値を「型番＋レアリティ一致」で突合
+    // 5. 「ポケモン名 ＋ 型番」が両方一致するカードだけを突合
     const verifiedList: VerifiedArbitrageCandidate[] = [];
 
     for (const [, ebayGroup] of groupedByKey.entries()) {
       const jpCards = jpCandidatesMap.get(ebayGroup.cardNumber);
       if (!jpCards || jpCards.length === 0) continue;
 
-      let matchedJpCard = jpCards[0];
-      if (ebayGroup.raritySpec) {
-        const specMatched = jpCards.find((c) =>
-          c.name.toUpperCase().includes(ebayGroup.raritySpec!)
-        );
-        if (!specMatched) continue;
-        matchedJpCard = specMatched;
-      }
+      // 型番一致候補の中から、ポケカジラのカード名に同じポケモン名（日本語）を含むカードを取得
+      const matchedJpCard = jpCards.find((c) => c.name.includes(ebayGroup.pokemonNameJa));
+      if (!matchedJpCard) continue;
 
       const avgLocal = Math.round((ebayGroup.totalLocal / ebayGroup.count) * 100) / 100;
       const avgJpy = Math.round(avgLocal * exchangeRateJpy);

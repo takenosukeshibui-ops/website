@@ -174,7 +174,6 @@ lib/
     card-master.ts
     cardmarket.ts
     ebay.ts
-    google-search.ts
     tcgplayer.ts
     verifier.ts
   supabase/
@@ -2428,29 +2427,6 @@ export async function fetchEbayPrice(
 // 最安値・基準値を抽出
 </file>
 
-<file path="lib/market-fetcher/google-search.ts">
-// lib/market-fetcher/google-search.ts
-⋮----
-/**
- * 指定したカードショップのGoogle検索1位のURLを取得
- * ※見つからない場合やAPI未設定時は、安全なショップ内検索URLへ自動フォールバック
- */
-export async function getTopShopUrlByGoogle(
-  cardName: string,
-  targetShop: 'cardrush' | 'hareruya2' | 'torecacamp' = 'cardrush'
-): Promise<string>
-⋮----
-// フォールバック用の各社検索URL
-⋮----
-// APIキー未設定時は直行検索URLを返却
-⋮----
-// Google検索コマンド（site:）で個別商品ページに絞り込み
-⋮----
-const res = await fetch(endpoint, { next: { revalidate: 86400 } }); // 24時間キャッシュ
-⋮----
-// 1位の個別ページURLが存在すれば採用、なければ検索URL
-</file>
-
 <file path="lib/market-fetcher/tcgplayer.ts">
 // app/lib/market-fetcher/tcgplayer.ts
 ⋮----
@@ -2910,66 +2886,6 @@ export async function POST(req: Request)
 const supabase = await createClient(); //[cite: 1]
 </file>
 
-<file path="app/api/pipeline/single-run/route.ts">
-// app/api/pipeline/single-run/route.ts
-⋮----
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
-import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
-import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
-import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
-import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
-import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
-import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
-⋮----
-function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
-⋮----
-function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp'
-⋮----
-async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string>
-⋮----
-export async function POST(req: Request)
-⋮----
-// ------------------------------------------------------------------------
-// 1. アービトラージアナリスト単独再実行 (US / EU / ASIA)
-// ------------------------------------------------------------------------
-⋮----
-// 🌟 安全ガード: slot が null または tiers がない場合はスキップ
-⋮----
-// 本命
-⋮----
-// 代替候補
-⋮----
-// ------------------------------------------------------------------------
-// 2. 市場トレンドアナリスト単独再実行 (US / EU / ASIA)
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 3. Instagramアナリスト単独再実行
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 4. Xアナリスト単独再実行
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 5. チーフマネージャー（キュレーター選定）単独再実行
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 6. Instagramクリエイター（原稿）単独再生成
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 7. Xクリエイター（スレッド）単独再生成
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 8. コミュニティ営業 (Discord) 単独再生成
-// ------------------------------------------------------------------------
-</file>
-
 <file path="app/api/pipeline/start/route.ts">
 // app/api/pipeline/start/route.ts
 import { NextResponse, after } from 'next/server';
@@ -3166,6 +3082,68 @@ export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: b
 // --------------------------------------------------------------------------
 // 2. LLMによる「撒き餌原則・コンプライアンス・導線」定性審査
 // --------------------------------------------------------------------------
+</file>
+
+<file path="app/api/pipeline/single-run/route.ts">
+// app/api/pipeline/single-run/route.ts
+⋮----
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
+import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
+import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
+import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
+import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
+import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
+⋮----
+function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
+⋮----
+function buildSafePokecazillaUrl(
+  aiUrl: string | undefined,
+  category: string,
+  cardName: string,
+  cardNumber?: string
+): string
+⋮----
+function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): string
+⋮----
+export async function POST(req: Request)
+⋮----
+// ------------------------------------------------------------------------
+// 1. アービトラージアナリスト単独再実行 (US / EU / ASIA)
+// ------------------------------------------------------------------------
+⋮----
+// 本命
+⋮----
+// 代替候補
+⋮----
+// ------------------------------------------------------------------------
+// 2. 市場トレンドアナリスト単独再実行 (US / EU / ASIA)
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 3. Instagramアナリスト単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 4. Xアナリスト単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 5. チーフマネージャー（キュレーター選定）単独再実行
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 6. Instagramクリエイター（原稿）単独再生成
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 7. Xクリエイター（スレッド）単独再生成
+// ------------------------------------------------------------------------
+⋮----
+// ------------------------------------------------------------------------
+// 8. コミュニティ営業 (Discord) 単独再生成
+// ------------------------------------------------------------------------
 </file>
 
 <file path="docs/ai_organization_frontend.md">
@@ -8993,110 +8971,6 @@ export interface PipelineProgressState {
 }
 </file>
 
-<file path="lib/market-fetcher/apify-arbitrage.ts">
-// lib/market-fetcher/apify-arbitrage.ts
-⋮----
-export interface VerifiedArbitrageCandidate {
-  cardName: string;
-  cardNumber: string;
-  conditionGrade: string;
-  jpBuyPriceJPY: number;
-  ebaySoldUsd: number;
-  ebaySoldJpy: number;
-  netProceedsJpy: number;
-  priceSpreadJPY: number;
-  spreadROI: number;
-  liquidity: string;
-  pokecazillaUrl: string;
-  ebayUrl: string;
-}
-⋮----
-interface DayUsdPriceRange {
-  minUsd: number;
-  maxUsd?: number;
-  minSpreadJpy: number;
-}
-⋮----
-/**
- * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の USD 価格帯を算出する
- */
-function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsdPriceRange
-⋮----
-case 'Monday': // 〜3千円（エントリー・超高回転枠）
-⋮----
-case 'Tuesday': // 3千〜1万円（定番コレクション枠）
-case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
-⋮----
-case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
-case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
-⋮----
-case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
-⋮----
-case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
-⋮----
-/**
- * Apify API v2 同期実行ヘルパー
- */
-async function runApifySync(
-  rawId: string,
-  token: string,
-  bodyPayload: Record<string, any>,
-  actorFallbackPayload?: Record<string, any>
-): Promise<any[]>
-⋮----
-/**
- * eBayタイトルからトレカ型番を抽出する
- */
-export function extractCardNumber(title: string): string | null
-⋮----
-/**
- * タイトルからレアリティ・特殊仕様を抽出（同型番のノーマル誤爆を防止）
- */
-function extractRaritySpec(title: string): string | null
-⋮----
-/**
- * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
- */
-function detectConditionGrade(title: string): string
-⋮----
-/**
- * ポケカジラURLの正規化（相対パス補完・404防止）
- */
-function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string
-⋮----
-/**
- * eBay URLの正規化（実在URL保持・フォールバック検索URL生成）
- */
-function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string): string
-⋮----
-/**
- * Apify 2段階スクレイピングを実行し、曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
- */
-export async function fetchRealArbitrageCandidates(
-  category: string = 'pokemon',
-  usdToJpyRate: number = 155,
-  targetDay: string = 'Thursday'
-): Promise<VerifiedArbitrageCandidate[]>
-⋮----
-// 1. eBay Sold Listings を曜日価格帯指定で同期実行
-⋮----
-// 2. 指定価格帯内 かつ 型番が抽出できた成約のみフィルタリング
-⋮----
-// 同じ型番・レアリティ・グレードが複数成約している場合は平均成約額と成約件数を集計
-⋮----
-// 3. ポケカジラ検索用の startUrls を重複なしで生成
-⋮----
-// 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
-⋮----
-// 型番ごとに候補カード一覧を保持（後段でレアリティ一致チェックを行う）
-⋮----
-// 5. eBay成約と国内最安値を「型番＋レアリティ一致」で突合
-⋮----
-// eBay側にレアリティ指定がある場合は、ポケカジラ側カード名にも同じレアリティを含むものに限定
-⋮----
-if (!specMatched) continue; // レアリティ不一致（例: SAR vs ノーマル）は誤爆防止のため除外
-</file>
-
 <file path="app/AiDashboard/components/Sidebar.tsx">
 // app/AiDashboard/components/Sidebar.tsx
 import React from 'react';
@@ -9253,6 +9127,127 @@ export async function runMarketTrend(
 ): Promise<MarketTrendReport | null>
 ⋮----
 // 1. 直近同期された最新海外相場データをSupabaseから取得
+</file>
+
+<file path="lib/market-fetcher/apify-arbitrage.ts">
+// lib/market-fetcher/apify-arbitrage.ts
+⋮----
+export interface VerifiedArbitrageCandidate {
+  cardName: string;
+  cardNumber: string;
+  conditionGrade: string;
+  jpBuyPriceJPY: number;
+  jpShopName: string;
+  currency: 'USD' | 'EUR';
+  ebaySoldForeign: number;
+  ebaySoldJpy: number;
+  netProceedsJpy: number;
+  priceSpreadJPY: number;
+  spreadROI: number;
+  liquidity: string;
+  pokecazillaUrl: string;
+  ebayUrl: string;
+}
+⋮----
+/**
+ * 主要ポケモン・トレーナー日英変換辞書（随時追加可能）
+ */
+⋮----
+// 御三家・初代人気
+⋮----
+// イーブイ進化系（ブイズ）
+⋮----
+// 金銀・ルビサファ・ダイパ人気
+⋮----
+// BW・XY・SM・剣盾・SV人気
+⋮----
+// 人気トレーナー・サポート
+⋮----
+// 長い単語（例: MEWTWO）が短い単語（MEW）より先に判定されるよう文字数降順でソート
+⋮----
+/**
+ * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
+ */
+function extractPokemonNameJa(ebayTitle: string): string | null
+⋮----
+interface DayLocalPriceRange {
+  minLocal: number;
+  maxLocal?: number;
+  minSpreadJpy: number;
+}
+⋮----
+/**
+ * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の現地通貨（USD / EUR）価格帯を算出する
+ */
+function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): DayLocalPriceRange
+⋮----
+case 'Monday': // 〜3千円（エントリー・超高回転枠）
+⋮----
+case 'Tuesday': // 3千〜1万円（定番コレクション枠）
+case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
+⋮----
+case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
+case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
+⋮----
+case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
+⋮----
+case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
+⋮----
+/**
+ * Apify API v2 同期実行ヘルパー
+ */
+async function runApifySync(
+  rawId: string,
+  token: string,
+  bodyPayload: Record<string, any>,
+  actorFallbackPayload?: Record<string, any>
+): Promise<any[]>
+⋮----
+/**
+ * eBayタイトルからトレカ型番を抽出する
+ */
+export function extractCardNumber(title: string): string | null
+⋮----
+/**
+ * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
+ */
+function detectConditionGrade(title: string): string
+⋮----
+/**
+ * ポケカジラURLの正規化（相対パス補完・404防止）
+ */
+function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string
+⋮----
+/**
+ * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
+ */
+function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string, region: 'us' | 'eu'): string
+⋮----
+/**
+ * Apify 2段階スクレイピングを実行し、「ポケモン名 ＋ 型番」一致・状態◎最安値の実売サヤ取り候補を返す
+ */
+export async function fetchRealArbitrageCandidates(
+  category: string = 'pokemon',
+  exchangeRateJpy: number = 155,
+  targetDay: string = 'Thursday',
+  region: 'us' | 'eu' = 'us'
+): Promise<VerifiedArbitrageCandidate[]>
+⋮----
+// 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
+⋮----
+// 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
+⋮----
+// 同じ「ポケモン名 ＋ 型番 ＋ グレード」が複数成約している場合は平均成約額と成約件数を集計
+⋮----
+// 3. ポケカジラ検索用の startUrls を重複なしで生成
+⋮----
+// 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
+⋮----
+continue; // 状態◎の在庫がないカードはスキップ
+⋮----
+// 5. 「ポケモン名 ＋ 型番」が両方一致するカードだけを突合
+⋮----
+// 型番一致候補の中から、ポケカジラのカード名に同じポケモン名（日本語）を含むカードを取得
 </file>
 
 <file path="app/AiDashboard/index.tsx">
@@ -9441,7 +9436,8 @@ const getTierBadgeClass = (tierKey?: string) =>
 ⋮----
 const toggleSub = (cellId: string) =>
 ⋮----
-const getCardrushFallbackUrl = (cardName?: string, cardNumber?: string) =>
+// 🌟 ポケカジラ個別URL優先・型番検索URLフォールバック（カードラッシュURLを完全排除）
+const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) =>
 ⋮----
 const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
 ⋮----
@@ -9451,9 +9447,9 @@ const getSlotMeta = (slotKey: string, slotLabel?: string) =>
 ⋮----
 {/* アービトラージレポート描画ブロック */}
 ⋮----
-{/* 🌟 成約ボリューム実績 (7日 & 30日) */}
+{/* 成約ボリューム実績 (7日 & 30日) */}
 ⋮----
-{/* 日本仕入れ（最安ショップ名つき） */}
+{/* 日本仕入れ（ポケカジラ最安値比較） */}
 </file>
 
 <file path="app/api/ai/intelligence/agents/arbitrage.ts">
@@ -9468,7 +9464,8 @@ import {
 async function getCachedRealCandidates(
   category: string,
   exchangeRateJPY: number,
-  targetDay: string
+  targetDay: string,
+  region: 'us' | 'eu'
 ): Promise<VerifiedArbitrageCandidate[]>
 ⋮----
 export interface ArbitrageItem {
@@ -9506,14 +9503,13 @@ async function getRealtimeExchangeRate(currency: string): Promise<number>
 ⋮----
 /**
  * 出力アイテムのURL・価格・コンディションをプログラム側で厳格正規化する
- * - Apify確定データと一致する場合は確定値・確定URLを直接上書き（転記ミス・価格ズレ防止）
- * - AI独自調査データは架空IDによる404リンクを廃止し、確実に実在する検索比較ページURLを生成
  */
 function enforceDataIntegrity(
   item: ArbitrageItem | undefined,
   isGradedOrSealed: boolean,
   slotRealCandidates: VerifiedArbitrageCandidate[],
   category: string,
+  region: 'us' | 'eu' | 'asia',
   currency: string,
   exchangeRateJPY: number
 ): void
@@ -9522,11 +9518,11 @@ function enforceDataIntegrity(
 ⋮----
 // 確実に実在するポケカジラ型番検索一覧URL
 ⋮----
-// 確実に実在するeBay Sold成約検索URL
+// 地域に合わせて実在するeBay Sold成約検索URLを生成
 ⋮----
 // 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入
 ⋮----
-// 3. AI独自調査枠のURLを実在保証（AIが生成した架空の /detail/ID や /itm/ID による404を完全防止）
+// 3. AI独自調査枠のURLを実在保証
 ⋮----
 // 4. 利ざや・ROIの四則演算を再計算して数値の整合性を保証
 ⋮----
@@ -9551,15 +9547,19 @@ import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/content
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
-import { getTopShopUrlByGoogle } from '@/lib/market-fetcher/google-search';
 ⋮----
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
 ⋮----
-// 🌟 ショップ名から検索ターゲット（カードラッシュ / 晴れる屋2 / トレカキャンプ）を判定
-function getTargetShop(shopName?: string): 'cardrush' | 'hareruya2' | 'torecacamp'
+// 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）
+function buildSafePokecazillaUrl(
+  aiUrl: string | undefined,
+  category: string,
+  cardName: string,
+  cardNumber?: string
+): string
 ⋮----
-// 🌟 個別成約詳細URL (/itm/...) の自動解決・フォールバック関数
-async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): Promise<string>
+// 🌟 個別成約詳細URL (/itm/...) の保持・フォールバック関数
+function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): string
 ⋮----
 // ============================================================================
 // 共通ヘルパー: 地域別リサーチ結果のパースとDB登録＆API検証
@@ -9567,6 +9567,7 @@ async function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: str
 async function processAndSaveRegionResearch(
   supabase: any,
   cycleId: string,
+  category: string,
   region: 'us' | 'eu' | 'asia',
   sayaReport: any,
   trendReport: any
@@ -9574,9 +9575,9 @@ async function processAndSaveRegionResearch(
 ⋮----
 // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品）
 ⋮----
-// A. 本命商品の個別URL取得
+// A. 本命商品のURL正規化（カードラッシュ上書きを廃止しポケカジラURLを保持）
 ⋮----
-// B. 代替候補商品（2商品）の個別URL取得
+// B. 代替候補商品（2商品）のURL正規化
 ⋮----
 // 2. トレンド候補抽出
 ⋮----
