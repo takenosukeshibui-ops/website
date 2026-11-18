@@ -5,6 +5,7 @@ export interface VerifiedArbitrageCandidate {
   cardNumber: string;
   conditionGrade: string;
   jpBuyPriceJPY: number;
+  jpShopName: string;
   currency: 'USD' | 'EUR';
   ebaySoldForeign: number;
   ebaySoldJpy: number;
@@ -341,50 +342,71 @@ export async function fetchRealArbitrageCandidates(
     }));
 
     // 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
-    const jpPages = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
+    // 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
+    const jpResults = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
+    // 型番ごとに「状態◎ かつ 在庫ありの最安値（mintMinPrice）」を持つ候補だけをマッピング
     const jpCandidatesMap = new Map<
       string,
-      {
-        searchUrl: string;
-        cards: Array<{ name: string; minPrice: number; detailUrl: string }>;
-      }
+      Array<{ name: string; minPrice: number; shopName: string; detailUrl: string }>
     >();
 
-    for (const page of jpPages) {
-      const searchUrl = String(page.searchUrl || '');
+    for (const row of jpResults) {
+      if (!row || row['#error']) continue;
+
+      const searchUrl = String(row.searchUrl || '');
       const numMatch = searchUrl.match(/name=([^&]+)/);
       const queriedNum = numMatch ? decodeURIComponent(numMatch[1]) : '';
-      if (!queriedNum || !Array.isArray(page.cards)) continue;
+      if (!queriedNum) continue;
 
-      const exactCards = page.cards
-        .filter(
-          (c: any) =>
-            typeof c.minPrice === 'number' &&
-            c.minPrice > 0 &&
-            String(c.cardCode || '').includes(queriedNum)
-        )
-        .map((c: any) => ({
-          name: String(c.name || queriedNum),
-          minPrice: Number(c.minPrice),
-          detailUrl: normalizePokecazillaUrl(c.detailUrl, searchUrl),
-        }));
+      // 個別ページ解析結果（isDetailResult: true）の場合：状態◎ かつ 在庫ありの価格のみ採用
+      if (row.isDetailResult) {
+        if (typeof row.mintMinPrice !== 'number' || row.mintMinPrice <= 0) {
+          continue; // 状態◎の在庫がないカードはスキップ（状態B・傷あり品を排除）
+        }
+        const cardCode = String(row.cardCode || '');
+        if (cardCode && !cardCode.includes(queriedNum)) continue;
 
-      if (exactCards.length > 0) {
-        jpCandidatesMap.set(queriedNum, { searchUrl, cards: exactCards });
+        const list = jpCandidatesMap.get(queriedNum) || [];
+        list.push({
+          name: String(row.name || queriedNum),
+          minPrice: Number(row.mintMinPrice),
+          shopName: String(row.mintShopName || 'ポケカジラ状態◎最安'),
+          detailUrl: normalizePokecazillaUrl(row.detailUrl, searchUrl),
+        });
+        jpCandidatesMap.set(queriedNum, list);
+      } else if (Array.isArray(row.cards)) {
+        // 万が一旧ページ関数形式が返った場合の後方互換
+        const exactCards = row.cards
+          .filter(
+            (c: any) =>
+              typeof c.minPrice === 'number' &&
+              c.minPrice > 0 &&
+              String(c.cardCode || '').includes(queriedNum)
+          )
+          .map((c: any) => ({
+            name: String(c.name || queriedNum),
+            minPrice: Number(c.minPrice),
+            shopName: 'ポケカジラ最安値比較',
+            detailUrl: normalizePokecazillaUrl(c.detailUrl, searchUrl),
+          }));
+
+        if (exactCards.length > 0) {
+          jpCandidatesMap.set(queriedNum, exactCards);
+        }
       }
     }
 
-    // 5. eBay成約と国内最安値を「型番＋レアリティ一致」で突合
+    // 5. eBay成約と国内状態◎最安値を「型番＋レアリティ一致」で突合
     const verifiedList: VerifiedArbitrageCandidate[] = [];
 
     for (const [, ebayGroup] of groupedByKey.entries()) {
-      const jpEntry = jpCandidatesMap.get(ebayGroup.cardNumber);
-      if (!jpEntry) continue;
+      const jpCards = jpCandidatesMap.get(ebayGroup.cardNumber);
+      if (!jpCards || jpCards.length === 0) continue;
 
-      let matchedJpCard = jpEntry.cards[0];
+      let matchedJpCard = jpCards[0];
       if (ebayGroup.raritySpec) {
-        const specMatched = jpEntry.cards.find((c) =>
+        const specMatched = jpCards.find((c) =>
           c.name.toUpperCase().includes(ebayGroup.raritySpec!)
         );
         if (!specMatched) continue;
@@ -402,6 +424,7 @@ export async function fetchRealArbitrageCandidates(
           cardNumber: ebayGroup.cardNumber,
           conditionGrade: ebayGroup.conditionGrade,
           jpBuyPriceJPY: matchedJpCard.minPrice,
+          jpShopName: `状態◎最安 (${matchedJpCard.shopName})`,
           currency: expectedCurrency,
           ebaySoldForeign: avgLocal,
           ebaySoldJpy: avgJpy,

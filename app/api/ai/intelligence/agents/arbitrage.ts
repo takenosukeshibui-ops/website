@@ -160,7 +160,7 @@ function enforceDataIntegrity(
     item.cardName = matchedVerified.cardName;
     item.cardNumber = matchedVerified.cardNumber;
     item.conditionGrade = matchedVerified.conditionGrade;
-    item.jpShopName = 'ポケカジラ最安値比較（実売検証済）';
+    item.jpShopName = matchedVerified.jpShopName || 'ポケカジラ状態◎最安';
     item.jpBuyPriceJPY = `¥${matchedVerified.jpBuyPriceJPY.toLocaleString()}`;
     item.jpEvidenceUrl = matchedVerified.pokecazillaUrl || safePokecazillaSearchUrl;
     item.targetSoldPrice = `${matchedVerified.currency} ${matchedVerified.ebaySoldForeign} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`;
