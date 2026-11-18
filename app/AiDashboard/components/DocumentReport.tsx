@@ -73,9 +73,6 @@ export default function DocumentReportView({
         setOpenSubIndex(prev => prev === cellId ? null : cellId);
     };
 
-    // 🌟 ポケカジラ個別URL優先・型番検索URLフォールバック（カードラッシュURLを完全排除）
-    // 🌟 ポケカジラ個別URL優先・「カード名 ＋ 型番」検索URLフォールバック
-    // 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
     // 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
     const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) => {
         if (rawUrl && rawUrl.startsWith('https://pokecazilla.com/')) {
@@ -94,7 +91,6 @@ export default function DocumentReportView({
         if (!query) return 'https://pokecazilla.com/pokemon';
         return `https://pokecazilla.com/pokemon/products/list?category_id=17&name=${encodeURIComponent(query)}`;
     };
-
 
     const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
         if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
@@ -201,175 +197,181 @@ export default function DocumentReportView({
                                             </span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                                            {tiers.map((tierCell: any, cIdx: number) => {
-                                                const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
-                                                const isOpen = openSubIndex === cellId;
-                                                const main = tierCell.mainItem || tierCell;
-                                                const subs: any[] = tierCell.subItems || [];
-                                                const cardNum = main.cardNumber || tierCell.cardNumber || '';
+                                        {tiers.length === 0 ? (
+                                            <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-lg p-4 text-center text-xs text-slate-500">
+                                                本日の指定価格帯・状態◎在庫条件に合致するスクレイピング実売候補はありませんでした
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                                                {tiers.map((tierCell: any, cIdx: number) => {
+                                                    const cellId = `${slot.slotKey}_${tierCell.priceTier || cIdx}`;
+                                                    const isOpen = openSubIndex === cellId;
+                                                    const main = tierCell.mainItem || tierCell;
+                                                    const subs: any[] = tierCell.subItems || [];
+                                                    const cardNum = main.cardNumber || tierCell.cardNumber || '';
 
-                                                const rawMainJpUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
-                                                const mainJpShopUrl = resolvePokecazillaUrl(rawMainJpUrl, main.cardName, cardNum);
-                                                const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
-                                                const displayMainShopName =
-                                                    main.jpShopName && !main.jpShopName.includes('カードラッシュ')
-                                                        ? main.jpShopName
-                                                        : 'ポケカジラ最安';
+                                                    const rawMainJpUrl = main.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
+                                                    const mainJpShopUrl = resolvePokecazillaUrl(rawMainJpUrl, main.cardName, cardNum);
+                                                    const mainEbayUrl = main.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(main.cardName, cardNum, main.conditionGrade);
+                                                    const displayMainShopName =
+                                                        main.jpShopName && !main.jpShopName.includes('カードラッシュ')
+                                                            ? main.jpShopName
+                                                            : 'ポケカジラ最安';
 
-                                                return (
-                                                    <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
-                                                        <div className="space-y-2">
-                                                            <div className="flex justify-between items-start gap-1">
-                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierBadgeClass(tierCell.priceTier)} whitespace-nowrap`}>
-                                                                    {tierCell.priceTierLabel || '本日の指定価格帯'}
-                                                                </span>
-                                                                <div className="flex items-center gap-1">
-                                                                    <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded font-mono shadow-sm">
-                                                                        本命
+                                                    return (
+                                                        <div key={cIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
+                                                            <div className="space-y-2">
+                                                                <div className="flex justify-between items-start gap-1">
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierBadgeClass(tierCell.priceTier)} whitespace-nowrap`}>
+                                                                        {tierCell.priceTierLabel || '本日の指定価格帯'}
                                                                     </span>
-                                                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
-                                                                        {main.conditionGrade || 'Raw NM'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-
-                                                            <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2.5rem]" title={main.cardName}>
-                                                                {main.cardName}
-                                                                {cardNum && (
-                                                                    <span className="ml-1.5 text-[10px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
-                                                                        {cardNum}
-                                                                    </span>
-                                                                )}
-                                                            </h5>
-
-                                                            {/* 成約ボリューム実績 (7日 & 30日) */}
-                                                            <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px] font-mono flex items-center justify-between text-slate-400">
-                                                                <span className="text-amber-400 font-bold">📈 eBay成約:</span>
-                                                                <span className="text-slate-200">
-                                                                    7日: <strong className="text-white">{main.salesVolume7d || '確認中'}</strong> / 30日: <strong className="text-white">{main.salesVolume30d || '1件以上'}</strong>
-                                                                </span>
-                                                            </div>
-
-                                                            {/* 日本仕入れ（ポケカジラ最安値比較） */}
-                                                            <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
-                                                                <span className="text-slate-400 truncate max-w-[120px]" title={displayMainShopName}>
-                                                                    仕入({displayMainShopName}):
-                                                                </span>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY}</span>
-                                                                    <a
-                                                                        href={mainJpShopUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                        title="ポケカジラ最安値ページを開く"
-                                                                    >
-                                                                        <span>[根拠]</span>
-                                                                        <span>↗</span>
-                                                                    </a>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* 海外実成約 ＆ 実売URL */}
-                                                            <div className="flex justify-between items-center text-xs font-mono">
-                                                                <span className="text-slate-400">海外実売:</span>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-emerald-400 font-bold">{main.targetSoldPrice}</span>
-                                                                    <a
-                                                                        href={mainEbayUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
-                                                                        title="eBay成約実績を開く"
-                                                                    >
-                                                                        <span>[実売]</span>
-                                                                        <span>↗</span>
-                                                                    </a>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* 単純利ざや */}
-                                                            <div className="flex justify-between text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-emerald-300">
-                                                                <span>利ざや: <strong>{main.priceSpreadJPY}</strong></span>
-                                                                <span className="font-bold">ROI: {main.spreadROI}</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {subs.length > 0 && (
-                                                            <div className="border-t border-slate-800 pt-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => toggleSub(cellId)}
-                                                                    className="w-full text-xs font-mono font-bold py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1.5 transition-all"
-                                                                >
-                                                                    <span>{isOpen ? '▲' : '▼'}</span>
-                                                                    <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
-                                                                </button>
-
-                                                                {isOpen && (
-                                                                    <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
-                                                                        {subs.map((subItem: any, subIdx: number) => {
-                                                                            const subCardNum = subItem.cardNumber || '';
-                                                                            const subJpShopUrl = resolvePokecazillaUrl(subItem.jpEvidenceUrl, subItem.cardName, subCardNum);
-                                                                            const subEbayUrl = subItem.sourceEvidenceUrl || getEbaySoldFallbackUrl(subItem.cardName, subCardNum, subItem.conditionGrade);
-
-                                                                            return (
-                                                                                <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
-                                                                                    <div className="flex justify-between items-center">
-                                                                                        <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
-                                                                                            {subItem.cardName}
-                                                                                            {subCardNum && (
-                                                                                                <span className="ml-1 text-[9px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/30">
-                                                                                                    {subCardNum}
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </span>
-                                                                                        <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
-                                                                                    </div>
-
-                                                                                    <div className="text-[10px] font-mono text-slate-400 flex justify-between">
-                                                                                        <span>成約: 7日 {subItem.salesVolume7d || '-'} / 30日 {subItem.salesVolume30d || '-'}</span>
-                                                                                        <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
-                                                                                    </div>
-
-                                                                                    <div className="flex justify-between items-center font-mono text-slate-400 text-[10px]">
-                                                                                        <div className="flex items-center gap-1">
-                                                                                            <span>仕入: {subItem.jpBuyPriceJPY}</span>
-                                                                                            <a
-                                                                                                href={subJpShopUrl}
-                                                                                                target="_blank"
-                                                                                                rel="noopener noreferrer"
-                                                                                                className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1 py-0.2 rounded font-sans"
-                                                                                                title="ポケカジラ最安値ページを開く"
-                                                                                            >
-                                                                                                [根拠]↗
-                                                                                            </a>
-                                                                                        </div>
-                                                                                        <div className="flex items-center gap-1">
-                                                                                            <span className="text-emerald-400">{subItem.targetSoldPrice}</span>
-                                                                                            <a
-                                                                                                href={subEbayUrl}
-                                                                                                target="_blank"
-                                                                                                rel="noopener noreferrer"
-                                                                                                className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.2 rounded font-sans"
-                                                                                                title="eBay実成約を開く"
-                                                                                            >
-                                                                                                [実売]↗
-                                                                                            </a>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })}
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-400 text-slate-950 rounded font-mono shadow-sm">
+                                                                            本命
+                                                                        </span>
+                                                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded whitespace-nowrap shrink-0 border border-slate-700/60">
+                                                                            {main.conditionGrade || 'Raw NM'}
+                                                                        </span>
                                                                     </div>
-                                                                )}
+                                                                </div>
+
+                                                                <h5 className="text-xs font-bold text-white leading-snug line-clamp-2 min-h-[2.5rem]" title={main.cardName}>
+                                                                    {main.cardName}
+                                                                    {cardNum && (
+                                                                        <span className="ml-1.5 text-[10px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
+                                                                            {cardNum}
+                                                                        </span>
+                                                                    )}
+                                                                </h5>
+
+                                                                {/* 成約ボリューム実績 (7日 & 30日) */}
+                                                                <div className="bg-slate-950/70 p-1.5 rounded border border-slate-800/60 text-[10px] font-mono flex items-center justify-between text-slate-400">
+                                                                    <span className="text-amber-400 font-bold">📈 eBay成約:</span>
+                                                                    <span className="text-slate-200">
+                                                                        7日: <strong className="text-white">{main.salesVolume7d || '確認中'}</strong> / 30日: <strong className="text-white">{main.salesVolume30d || '1件以上'}</strong>
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* 日本仕入れ（ポケカジラ最安値比較） */}
+                                                                <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
+                                                                    <span className="text-slate-400 truncate max-w-[120px]" title={displayMainShopName}>
+                                                                        仕入({displayMainShopName}):
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-slate-200 font-bold">{main.jpBuyPriceJPY}</span>
+                                                                        <a
+                                                                            href={mainJpShopUrl}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
+                                                                            title="ポケカジラ最安値ページを開く"
+                                                                        >
+                                                                            <span>[根拠]</span>
+                                                                            <span>↗</span>
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* 海外実成約 ＆ 実売URL */}
+                                                                <div className="flex justify-between items-center text-xs font-mono">
+                                                                    <span className="text-slate-400">海外実売:</span>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="text-emerald-400 font-bold">{main.targetSoldPrice}</span>
+                                                                        <a
+                                                                            href={mainEbayUrl}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-sans flex items-center gap-0.5 transition"
+                                                                            title="eBay成約実績を開く"
+                                                                        >
+                                                                            <span>[実売]</span>
+                                                                            <span>↗</span>
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* 単純利ざや */}
+                                                                <div className="flex justify-between text-xs font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded text-emerald-300">
+                                                                    <span>利ざや: <strong>{main.priceSpreadJPY}</strong></span>
+                                                                    <span className="font-bold">ROI: {main.spreadROI}</span>
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+
+                                                            {subs.length > 0 && (
+                                                                <div className="border-t border-slate-800 pt-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleSub(cellId)}
+                                                                        className="w-full text-xs font-mono font-bold py-1.5 px-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-blue-400 border border-slate-800 hover:border-slate-700 flex items-center justify-center gap-1.5 transition-all"
+                                                                    >
+                                                                        <span>{isOpen ? '▲' : '▼'}</span>
+                                                                        <span>{isOpen ? '代替候補を閉じる' : `他${subs.length}つの代替候補を見る`}</span>
+                                                                    </button>
+
+                                                                    {isOpen && (
+                                                                        <div className="mt-2.5 space-y-2 pt-2 border-t border-slate-800/80">
+                                                                            {subs.map((subItem: any, subIdx: number) => {
+                                                                                const subCardNum = subItem.cardNumber || '';
+                                                                                const subJpShopUrl = resolvePokecazillaUrl(subItem.jpEvidenceUrl, subItem.cardName, subCardNum);
+                                                                                const subEbayUrl = subItem.sourceEvidenceUrl || getEbaySoldFallbackUrl(subItem.cardName, subCardNum, subItem.conditionGrade);
+
+                                                                                return (
+                                                                                    <div key={subIdx} className="bg-slate-950/90 p-2.5 rounded-lg border border-slate-800/60 text-[11px] space-y-1.5">
+                                                                                        <div className="flex justify-between items-center">
+                                                                                            <span className="font-bold text-white truncate max-w-[130px]" title={subItem.cardName}>
+                                                                                                {subItem.cardName}
+                                                                                                {subCardNum && (
+                                                                                                    <span className="ml-1 text-[9px] text-amber-300 font-mono bg-amber-500/10 px-1 py-0.2 rounded border border-amber-500/30">
+                                                                                                        {subCardNum}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </span>
+                                                                                            <span className="text-slate-400 font-mono text-[10px]">{subItem.conditionGrade || 'Raw NM'}</span>
+                                                                                        </div>
+
+                                                                                        <div className="text-[10px] font-mono text-slate-400 flex justify-between">
+                                                                                            <span>成約: 7日 {subItem.salesVolume7d || '-'} / 30日 {subItem.salesVolume30d || '-'}</span>
+                                                                                            <span className="text-emerald-400 font-bold">利ざや: {subItem.priceSpreadJPY}</span>
+                                                                                        </div>
+
+                                                                                        <div className="flex justify-between items-center font-mono text-slate-400 text-[10px]">
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <span>仕入: {subItem.jpBuyPriceJPY}</span>
+                                                                                                <a
+                                                                                                    href={subJpShopUrl}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="text-[9px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1 py-0.2 rounded font-sans"
+                                                                                                    title="ポケカジラ最安値ページを開く"
+                                                                                                >
+                                                                                                    [根拠]↗
+                                                                                                </a>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <span className="text-emerald-400">{subItem.targetSoldPrice}</span>
+                                                                                                <a
+                                                                                                    href={subEbayUrl}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="text-[9px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.2 rounded font-sans"
+                                                                                                    title="eBay実成約を開く"
+                                                                                                >
+                                                                                                    [実売]↗
+                                                                                                </a>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

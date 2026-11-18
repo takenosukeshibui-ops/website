@@ -5,7 +5,6 @@ import {
   fetchRealArbitrageCandidates,
   VerifiedArbitrageCandidate,
 } from '@/lib/market-fetcher/apify-arbitrage';
-import { extractPokemonNameEn } from '@/lib/market-fetcher/pokemon-dictionary';
 
 const cachedApifyByRegion = new Map<
   string,
@@ -115,102 +114,61 @@ const SLOTS = [
 ];
 
 /**
- * 出力アイテムのURL・価格・コンディションをプログラム側で厳格正規化する
+ * スクレイピング確定データ（slotRealCandidates）と一致するアイテムのみを許可し、
+ * 一致しないAIの創作・独自調査データは null を返して完全に除外する
  */
-function enforceDataIntegrity(
+function filterAndHydrateVerifiedItem(
   item: ArbitrageItem | undefined,
   isGradedOrSealed: boolean,
   slotRealCandidates: VerifiedArbitrageCandidate[],
-  category: string,
-  region: 'us' | 'eu' | 'asia',
-  currency: string,
-  exchangeRateJPY: number
-): void {
-  if (!item) return;
+  region: 'us' | 'eu' | 'asia'
+): ArbitrageItem | null {
+  if (!item) return null;
 
-  // 1. 素体枠のコンディション強制クリーンアップ
-  if (!isGradedOrSealed) {
-    item.conditionGrade = 'Raw NM';
-    item.cardName = String(item.cardName || '')
-      .replace(/\b(PSA|BGS|CGC|ARS|ACE)\s*\d*(\.\d+)?/gi, '')
-      .replace(/鑑定品?/g, '')
-      .trim();
-  }
+  const cardNum = String(item.cardNumber || '').trim().toUpperCase();
+  const rawName = String(item.cardName || '').trim();
+  if (!cardNum || !rawName) return null;
 
-  const cardNum = String(item.cardNumber || '').trim();
-  const categoryId = category === 'onepiece' ? 18 : 17;
-  const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
-
-  // 現行レアリティ表記（SAR / SR / AR 等）を先に抽出（eBay検索用）
-  const rarityMatch = String(item.cardName || '').match(/\b(SAR|MUR|BWR|CSR|CHR|SSR|SR|UR|HR|AR|ACE|RR|RRR)\b/i);
-  const rarityTag = rarityMatch ? rarityMatch[1].toUpperCase() : '';
-
-  // カード名から [sv2a] / (AR) / レアリティ文字 / 重複型番 をすべて除去した純粋なカード名を取得
-  const cleanJaName = String(item.cardName || '')
-    .replace(/\[.*?\]/g, '')
-    .replace(/[\(（].*?[\)）]/g, '')
-    .replace(/\b(SAR|MUR|BWR|CSR|CHR|SSR|SR|UR|HR|AR|ACE|RR|RRR)\b/gi, '')
-    .replace(/\b(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3}|No\.?\s*\d+)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  // ポケカジラ検索は「純粋なカード名 ＋ 正式型番」のみ（レアリティや旧裏No.は除外）
-  const isOfficialCode = /^(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3})$/i.test(cardNum);
-  const pokecazillaQuery = [cleanJaName, isOfficialCode ? cardNum : ''].filter(Boolean).join(' ') || cleanJaName;
-
-  const safePokecazillaSearchUrl = `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(
-    pokecazillaQuery
-  )}`;
-
-  // eBay検索は「英語ポケモン名 ＋ 型番 ＋ レアリティ ＋ Japanese」で組み立て
-  const enName = extractPokemonNameEn(cleanJaName);
-  const ebayKeyword = [enName || cleanJaName, cardNum, rarityTag, 'Japanese'].filter(Boolean).join(' ');
-  
-  const ebayOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
-  const safeEbaySoldSearchUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(
-    ebayKeyword
-  )}&LH_Sold=1&LH_Complete=1`;
-
-  // 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入
+  // Apify確定データと「型番」および「カード名」の両方が一致するレコードを検索
   const matchedVerified = slotRealCandidates.find(
-    (c) => c.cardNumber.toUpperCase() === cardNum.toUpperCase()
-  );
+    (c) =>
+      c.cardNumber.toUpperCase() === cardNum &&
+      (c.cardName === rawName || c.cardName.includes(rawName) || rawName.includes(c.cardName))
+   );
 
-  if (matchedVerified) {
-    item.cardName = matchedVerified.cardName;
-    item.cardNumber = matchedVerified.cardNumber;
-    item.conditionGrade = matchedVerified.conditionGrade;
-    item.jpShopName = matchedVerified.jpShopName || 'ポケカジラ状態◎最安';
-    item.jpBuyPriceJPY = `¥${matchedVerified.jpBuyPriceJPY.toLocaleString()}`;
-    item.jpEvidenceUrl = matchedVerified.pokecazillaUrl || safePokecazillaSearchUrl;
-    item.targetSoldPrice = `${matchedVerified.currency} ${matchedVerified.ebaySoldForeign} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`;
-    item.priceSpreadJPY = `¥${matchedVerified.priceSpreadJPY.toLocaleString()}`;
-    item.spreadROI = `${matchedVerified.spreadROI}%`;
-    item.sourcePlatform = region === 'eu' ? 'eBay DE' : 'eBay US';
-    item.evidenceNote = `Apify実売検証済 (${matchedVerified.liquidity})`;
-    item.sourceEvidenceUrl = matchedVerified.ebayUrl || safeEbaySoldSearchUrl;
-    return;
+  // 🌟 一致するスクレイピングデータが存在しない場合は完全に除外（AI独自調査を一切許可しない）
+  if (!matchedVerified) {
+    return null;
   }
 
-  // 3. AI独自調査枠のURLを実在保証
-  item.jpShopName = 'ポケカジラ型番最安値検索';
-  item.jpEvidenceUrl = safePokecazillaSearchUrl;
-  item.sourceEvidenceUrl = safeEbaySoldSearchUrl;
-  item.evidenceNote = 'AI市場リサーチ（リンク先で最新在庫・成約要確認）';
-
-  // 4. 利ざや・ROIの四則演算を再計算して数値の整合性を保証
-  const buyNum = Number(String(item.jpBuyPriceJPY || '').replace(/[^\d]/g, '')) || 0;
-  const soldForeignMatch = String(item.targetSoldPrice || '').match(/([\d.]+)/);
-  const soldForeign = soldForeignMatch ? Number(soldForeignMatch[1]) : 0;
-
-  if (buyNum > 0 && soldForeign > 0) {
-    const soldJpy = Math.round(soldForeign * exchangeRateJPY);
-    const spread = soldJpy - buyNum;
-    const roi = Math.round((spread / buyNum) * 100);
-    item.targetSoldPrice = `${currency} ${soldForeign} (約¥${soldJpy.toLocaleString()})`;
-    item.priceSpreadJPY = `¥${spread.toLocaleString()}`;
-    item.spreadROI = `${roi}%`;
+  // コンディション枠の整合性再チェック
+  const isCandidateGradedOrSealed = matchedVerified.conditionGrade !== 'Raw NM';
+  if (isGradedOrSealed !== isCandidateGradedOrSealed) {
+    return null;
   }
+
+  // "直近成約 3件" から "3件" を抽出（UI表示崩れ防止）
+  const countMatch = matchedVerified.liquidity.match(/(\d+件)/);
+  const volumeLabel = countMatch ? countMatch[1] : matchedVerified.liquidity;
+
+  // スクレイピング確定データで全フィールドを上書き
+  return {
+    cardName: matchedVerified.cardName,
+    cardNumber: matchedVerified.cardNumber,
+    conditionGrade: matchedVerified.conditionGrade,
+    jpShopName: matchedVerified.jpShopName || 'ポケカジラ状態◎最安',
+    jpBuyPriceJPY: `¥${matchedVerified.jpBuyPriceJPY.toLocaleString()}`,
+    jpEvidenceUrl: matchedVerified.pokecazillaUrl,
+    targetSoldPrice: `${matchedVerified.currency} ${matchedVerified.ebaySoldForeign} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`,
+    priceSpreadJPY: `¥${matchedVerified.priceSpreadJPY.toLocaleString()}`,
+    spreadROI: `${matchedVerified.spreadROI}%`,
+    salesVolume7d: volumeLabel,
+    salesVolume30d: volumeLabel,
+    sourcePlatform: region === 'eu' ? 'eBay DE' : region === 'asia' ? 'eBay SG' : 'eBay US',
+    evidenceNote: `Apify実売検証済 (${matchedVerified.liquidity})`,
+    sourceEvidenceUrl: matchedVerified.ebayUrl,
+    insight: item.insight || `${matchedVerified.liquidity}・利益率${matchedVerified.spreadROI}%の実売確認済銘柄`,
+  };
 }
 
 export async function runSayaAnalysis(
@@ -225,19 +183,37 @@ export async function runSayaAnalysis(
 
   const todayTier = DAY_PRICE_TIER_MAP[targetDay] || DAY_PRICE_TIER_MAP.Thursday;
 
+  // 🌟 Google Search ツールは付与しない（外部からの独自データ取得を禁止）
   const baseModel = new ChatGoogleGenerativeAI({
     model: 'gemini-3.1-flash-lite',
-    temperature: 0.1,
+    temperature: 0.0,
     maxOutputTokens: 8192,
     apiKey,
   });
-
-  const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
   const realCandidates =
     region === 'us' || region === 'eu'
       ? await getCachedRealCandidates(category, exchangeRateJPY, targetDay, region)
       : [];
+
+  // スクレイピング候補が0件の場合はAIを呼び出さず空スロットを返す
+  if (realCandidates.length === 0) {
+    return {
+      title: `【${region.toUpperCase()}】アービトラージレポート`,
+      claim: `今週の${cur.name}向け日本語版カード輸入調達戦略（スクレイピング実売データ限定）`,
+      exchangeRate: {
+        currency: cur.currency,
+        rateJPY: exchangeRateJPY,
+        label: `1 ${cur.currency} ＝ ¥${exchangeRateJPY.toLocaleString()}`,
+      },
+      summary: null,
+      slots: SLOTS.map((slot) => ({
+        slotKey: slot.key,
+        slotLabel: slot.label,
+        tiers: [],
+      })),
+    };
+  }
 
   const slotPromises = SLOTS.map(async (slot) => {
     const slotRealCandidates = realCandidates.filter((item) =>
@@ -246,39 +222,26 @@ export async function runSayaAnalysis(
         : item.conditionGrade === 'Raw NM'
     );
 
-    const realDataSection =
-      slotRealCandidates.length > 0
-        ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（${cur.name}・実在数値）】:
-${JSON.stringify(slotRealCandidates, null, 2)}
-
-※上記の確定データに該当スロット（${slot.label}）・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、cardNumber を正確に一致させて出力してください。
-`
-        : '';
-
-    const conditionRule = slot.isGradedOrSealed
-      ? `【コンディション厳格ルール（高額鑑定・未開封専用枠）】
-・このスロットは【鑑定品 ("PSA 10", "PSA 9", "BGS 9.5", "ARS 10") または 未開封 ("Sealed Box", "Sealed Pack")】のみを選定してください。
-・素体（Raw）の選定は厳禁です。`
-      : `【コンディション厳格ルール（素体・美品限定枠）】
-・このスロットは必ず【素体・美品 ("Raw NM")】のみを選定してください！
-・PSA 10・BGS・CGC・ARSなどの鑑定品や未開封BOXの選定は【絶対に禁止】です！`;
+    // このスロットに対応するスクレイピング候補が0件ならAIを呼ばずに終了
+    if (slotRealCandidates.length === 0) {
+      return {
+        slotKey: slot.key,
+        slotLabel: slot.label,
+        tiers: [],
+      };
+    }
 
     const slotPrompt = `あなたは【${cur.name}】で越境【${categoryName}】販売を展開する調達戦略アナリストです。
 対象通貨: ${cur.currency}（最新為替: 1 ${cur.currency} ＝ 約${exchangeRateJPY}円）。
 
-${conditionRule}
-${realDataSection}
-【リサーチ ＆ 利益計算ルール（シンプル差額方式）】
-1. 出口相場（${cur.name}成約データ）:
-   - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を ${cur.currency} 建てで設定してください。
-   - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
-2. 入口相場（国内大手ショップ・ポケカジラ在庫比較）:
-   - 【ポケカジラ】【晴れる屋2】【トレカキャンプ】等の通常美品（状態A/NM）の最安値を確認し、正確な型番（cardNumber）と仕入れ価格（jpBuyPriceJPY）を出力してください。
-   - 「状態B」「状態C」「傷あり特価」の安値を引用することは禁止です。
-3. 単純利ざや計算:
-   - targetSoldPrice の日本円換算値 ＝ 現地売価(${cur.currency}) × ${exchangeRateJPY}円
-   - priceSpreadJPY（利ざや） ＝ targetSoldPrice(円換算) − jpBuyPriceJPY
-   - spreadROI（%） ＝ Math.round((priceSpreadJPY / jpBuyPriceJPY) * 100)%
+【最優先・厳格ルール（スクレイピング確定データ限定）】
+・以下の【Apify実成約＆ポケカジラ最安値スクリーニング確定データ】に含まれるカード**のみ**を選定対象としてください。
+・リストに存在しないカード名や型番を独自に調査・推測・追加することは【一切禁止】です。
+・リストの中から、担当スロット【[${slot.key}] ${slot.label}（${slot.desc}）】の時代・カテゴリに該当するカードだけを抽出し、利益額と流動性の高い順に「本命（mainItem）1件」と「代替候補（subItems）最大2件」へ振り分けてください。
+・担当スロット（時代・カテゴリ）に合致するカードがリスト内に1件もない場合は、無理に別時代のカードを入れず、必ず "tiers": [] を出力してください。
+
+【Apify実成約＆ポケカジラ最安値スクリーニング確定データ（全${slotRealCandidates.length}件）】:
+${JSON.stringify(slotRealCandidates, null, 2)}
 
 【担当スロット】: [${slot.key}] ${slot.label}（${slot.desc}）
 【本日の指定価格帯】: 【${todayTier.label} (${todayTier.desc})】
@@ -292,49 +255,20 @@ ${realDataSection}
       "priceTier": "${todayTier.key}",
       "priceTierLabel": "${todayTier.label}",
       "mainItem": {
-        "cardName": "実在カード名とレアリティ (例: ナンジャモ SAR)",
-        "cardNumber": "実在する正確な型番 (例: 096/071 ※省略厳禁)",
-        "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-        "jpShopName": "ポケカジラ最安値比較",
-        "jpBuyPriceJPY": "¥X,XXX",
-        "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
-        "priceSpreadJPY": "¥X,XXX",
-        "spreadROI": "XX%",
-        "salesVolume7d": "X件",
-        "salesVolume30d": "X件",
-        "sourcePlatform": "${cur.targetPlatforms[0]}",
-        "evidenceNote": "成約実績基準",
-        "insight": "現地需要動向とショップ比較における優位性（1行）"
+        "cardName": "リストのcardNameをそのまま記載",
+        "cardNumber": "リストのcardNumberをそのまま記載",
+        "conditionGrade": "リストのconditionGradeをそのまま記載",
+        "salesVolume7d": "リストのliquidityから記載",
+        "salesVolume30d": "リストのliquidityから記載",
+        "insight": "現地需要動向と利益優位性の解説（1行）"
       },
       "subItems": [
         {
-          "cardName": "候補2のカード名とレアリティ",
-          "cardNumber": "候補2の正確な型番",
-          "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-          "jpShopName": "ポケカジラ最安値比較",
-          "jpBuyPriceJPY": "¥X,XXX",
-          "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
-          "priceSpreadJPY": "¥X,XXX",
-          "spreadROI": "XX%",
-          "salesVolume7d": "X件",
-          "salesVolume30d": "X件",
-          "sourcePlatform": "${cur.targetPlatforms[0]}",
-          "evidenceNote": "成約実績基準",
-          "insight": "特徴1行"
-        },
-        {
-          "cardName": "候補3のカード名とレアリティ",
-          "cardNumber": "候補3の正確な型番",
-          "conditionGrade": "${slot.isGradedOrSealed ? 'PSA 10' : 'Raw NM'}",
-          "jpShopName": "ポケカジラ最安値比較",
-          "jpBuyPriceJPY": "¥X,XXX",
-          "targetSoldPrice": "${cur.currency} XX (約¥X,XXX)",
-          "priceSpreadJPY": "¥X,XXX",
-          "spreadROI": "XX%",
-          "salesVolume7d": "X件",
-          "salesVolume30d": "X件",
-          "sourcePlatform": "${cur.targetPlatforms[0]}",
-          "evidenceNote": "成約実績基準",
+          "cardName": "リストのcardNameをそのまま記載",
+          "cardNumber": "リストのcardNumberをそのまま記載",
+          "conditionGrade": "リストのconditionGradeをそのまま記載",
+          "salesVolume7d": "リストのliquidityから記載",
+          "salesVolume30d": "リストのliquidityから記載",
           "insight": "特徴1行"
         }
       ]
@@ -342,44 +276,93 @@ ${realDataSection}
   ]
 }`;
 
-    const res = await modelWithSearch.invoke(slotPrompt);
+    const res = await baseModel.invoke(slotPrompt);
     const parsed = parseAIJson(res.content.toString());
 
-    if (parsed?.tiers) {
+    const validatedTiers: ArbitrageTier[] = [];
+    const usedCardNumbers = new Set<string>();
+
+    if (parsed?.tiers && Array.isArray(parsed.tiers)) {
       for (const tier of parsed.tiers) {
-        enforceDataIntegrity(
+        const validMain = filterAndHydrateVerifiedItem(
           tier.mainItem,
           slot.isGradedOrSealed,
           slotRealCandidates,
-          category,
-          region,
-          cur.currency,
-          exchangeRateJPY
+          region
         );
+
+        // 本命アイテムがスクレイピングデータに一致しなければそのtier自体をスキップ
+        if (!validMain || usedCardNumbers.has(validMain.cardNumber.toUpperCase())) {
+          continue;
+        }
+        usedCardNumbers.add(validMain.cardNumber.toUpperCase());
+
+        const validSubs: ArbitrageItem[] = [];
         if (Array.isArray(tier.subItems)) {
           for (const sub of tier.subItems) {
-            enforceDataIntegrity(
+            const validSub = filterAndHydrateVerifiedItem(
               sub,
               slot.isGradedOrSealed,
               slotRealCandidates,
-              category,
-              region,
-              cur.currency,
-              exchangeRateJPY
+              region
             );
+            if (validSub && !usedCardNumbers.has(validSub.cardNumber.toUpperCase())) {
+              usedCardNumbers.add(validSub.cardNumber.toUpperCase());
+              validSubs.push(validSub);
+            }
           }
         }
+
+        validatedTiers.push({
+          priceTier: tier.priceTier || todayTier.key,
+          priceTierLabel: tier.priceTierLabel || todayTier.label,
+          mainItem: validMain,
+          subItems: validSubs,
+        });
       }
     }
 
-    return parsed;
+    return {
+      slotKey: slot.key,
+      slotLabel: slot.label,
+      tiers: validatedTiers,
+    };
   });
 
-  const slotResults = await Promise.all(slotPromises);
+  const rawSlotResults = await Promise.all(slotPromises);
+
+  // 全スロット横断で同じ「カード名＋型番」が複数スロットに重複しないよう除外
+  const globalUsedKeys = new Set<string>();
+  const slotResults = rawSlotResults.map((slot) => {
+    const dedupedTiers: ArbitrageTier[] = [];
+
+    for (const tier of slot.tiers) {
+      const mainKey = `${tier.mainItem.cardName}_${tier.mainItem.cardNumber}`.toUpperCase();
+      if (globalUsedKeys.has(mainKey)) continue;
+      globalUsedKeys.add(mainKey);
+
+      const dedupedSubs = (tier.subItems || []).filter((sub) => {
+        const subKey = `${sub.cardName}_${sub.cardNumber}`.toUpperCase();
+        if (globalUsedKeys.has(subKey)) return false;
+        globalUsedKeys.add(subKey);
+        return true;
+      });
+
+      dedupedTiers.push({
+        ...tier,
+        subItems: dedupedSubs,
+      });
+    }
+
+    return {
+      ...slot,
+      tiers: dedupedTiers,
+    };
+  });
 
   return {
     title: `【${region.toUpperCase()}】アービトラージレポート`,
-    claim: `今週の${cur.name}向け日本語版カード輸入調達戦略（全5スロット網羅）`,
+    claim: `今週の${cur.name}向け日本語版カード輸入調達戦略（スクレイピング実売データ限定）`,
     exchangeRate: {
       currency: cur.currency,
       rateJPY: exchangeRateJPY,
