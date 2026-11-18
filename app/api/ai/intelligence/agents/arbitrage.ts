@@ -141,24 +141,31 @@ function enforceDataIntegrity(
   const categoryId = category === 'onepiece' ? 18 : 17;
   const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
 
-  // カード名から [sv2a] / (AR) / 重複型番 を除いた純粋なカード名を取得
+  // 現行レアリティ表記（SAR / SR / AR 等）を先に抽出（eBay検索用）
+  const rarityMatch = String(item.cardName || '').match(/\b(SAR|MUR|BWR|CSR|CHR|SSR|SR|UR|HR|AR|ACE|RR|RRR)\b/i);
+  const rarityTag = rarityMatch ? rarityMatch[1].toUpperCase() : '';
+
+  // カード名から [sv2a] / (AR) / レアリティ文字 / 重複型番 をすべて除去した純粋なカード名を取得
   const cleanJaName = String(item.cardName || '')
     .replace(/\[.*?\]/g, '')
     .replace(/[\(（].*?[\)）]/g, '')
+    .replace(/\b(SAR|MUR|BWR|CSR|CHR|SSR|SR|UR|HR|AR|ACE|RR|RRR)\b/gi, '')
     .replace(/\b(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3}|No\.?\s*\d+)\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
-  // No.006 などの旧裏図鑑番号はポケカジラ検索にヒットしないため除外し、正式型番のみ併用
+  // ポケカジラ検索は「純粋なカード名 ＋ 正式型番」のみ（レアリティや旧裏No.は除外）
   const isOfficialCode = /^(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3})$/i.test(cardNum);
-  const pokecazillaQuery = [cleanJaName, isOfficialCode ? cardNum : ''].filter(Boolean).join(' ') || item.cardName;
+  const pokecazillaQuery = [cleanJaName, isOfficialCode ? cardNum : ''].filter(Boolean).join(' ') || cleanJaName;
 
   const safePokecazillaSearchUrl = `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(
     pokecazillaQuery
   )}`;
 
-  // eBay検索は「英語ポケモン名（取れなければ日本語名）＋ 型番 ＋ Japanese」で組み立て
+  // eBay検索は「英語ポケモン名 ＋ 型番 ＋ レアリティ ＋ Japanese」で組み立て
   const enName = extractPokemonNameEn(cleanJaName);
-  const ebayKeyword = [enName || cleanJaName, cardNum, 'Japanese'].filter(Boolean).join(' ');
+  const ebayKeyword = [enName || cleanJaName, cardNum, rarityTag, 'Japanese'].filter(Boolean).join(' ');
+  
   const ebayOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
   const safeEbaySoldSearchUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(
     ebayKeyword

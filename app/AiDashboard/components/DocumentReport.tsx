@@ -75,6 +75,8 @@ export default function DocumentReportView({
 
     // 🌟 ポケカジラ個別URL優先・型番検索URLフォールバック（カードラッシュURLを完全排除）
     // 🌟 ポケカジラ個別URL優先・「カード名 ＋ 型番」検索URLフォールバック
+    // 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
+    // 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
     const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) => {
         if (rawUrl && rawUrl.startsWith('https://pokecazilla.com/')) {
             return rawUrl;
@@ -82,7 +84,9 @@ export default function DocumentReportView({
         const cleanName = (cardName || '')
             .replace(/\[.*?\]/g, '')
             .replace(/\s*[\(（].*?[\)）]/g, '')
+            .replace(/\b(SAR|MUR|BWR|CSR|CHR|SSR|SR|UR|HR|AR|ACE|RR|RRR)\b/gi, '')
             .replace(/\b(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3}|No\.?\s*\d+)\b/gi, '')
+            .replace(/\s+/g, ' ')
             .trim();
         const code = (cardNumber || '').trim();
         const isOfficialCode = /^(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3})$/i.test(code);
@@ -91,7 +95,7 @@ export default function DocumentReportView({
         return `https://pokecazilla.com/pokemon/products/list?category_id=17&name=${encodeURIComponent(query)}`;
     };
 
-    
+
     const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
         if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
         const cleanName = cardName
