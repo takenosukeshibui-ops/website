@@ -6,28 +6,25 @@ import {
   VerifiedArbitrageCandidate,
 } from '@/lib/market-fetcher/apify-arbitrage';
 
-let cachedApifyData: {
-  timestamp: number;
-  cacheKey: string;
-  items: VerifiedArbitrageCandidate[];
-} | null = null;
+const cachedApifyByRegion = new Map<
+  string,
+  { timestamp: number; items: VerifiedArbitrageCandidate[] }
+>();
 
 async function getCachedRealCandidates(
   category: string,
   exchangeRateJPY: number,
-  targetDay: string
+  targetDay: string,
+  region: 'us' | 'eu'
 ): Promise<VerifiedArbitrageCandidate[]> {
   const now = Date.now();
-  const cacheKey = `${category}_${targetDay}_${exchangeRateJPY}`;
-  if (
-    cachedApifyData &&
-    cachedApifyData.cacheKey === cacheKey &&
-    now - cachedApifyData.timestamp < 60_000
-  ) {
-    return cachedApifyData.items;
+  const cacheKey = `${region}_${category}_${targetDay}_${exchangeRateJPY}`;
+  const existing = cachedApifyByRegion.get(cacheKey);
+  if (existing && now - existing.timestamp < 60_000) {
+    return existing.items;
   }
-  const items = await fetchRealArbitrageCandidates(category, exchangeRateJPY, targetDay);
-  cachedApifyData = { timestamp: now, cacheKey, items };
+  const items = await fetchRealArbitrageCandidates(category, exchangeRateJPY, targetDay, region);
+  cachedApifyByRegion.set(cacheKey, { timestamp: now, items });
   return items;
 }
 
@@ -71,7 +68,7 @@ const REGION_CURRENCIES: Record<string, { currency: string; name: string; target
   eu: {
     currency: 'EUR',
     name: '欧州（ヨーロッパ）市場',
-    targetPlatforms: ['Cardmarket', 'eBay UK', 'eBay DE'],
+    targetPlatforms: ['eBay DE', 'Cardmarket', 'eBay UK'],
   },
   asia: {
     currency: 'SGD',
@@ -118,14 +115,13 @@ const SLOTS = [
 
 /**
  * 出力アイテムのURL・価格・コンディションをプログラム側で厳格正規化する
- * - Apify確定データと一致する場合は確定値・確定URLを直接上書き（転記ミス・価格ズレ防止）
- * - AI独自調査データは架空IDによる404リンクを廃止し、確実に実在する検索比較ページURLを生成
  */
 function enforceDataIntegrity(
   item: ArbitrageItem | undefined,
   isGradedOrSealed: boolean,
   slotRealCandidates: VerifiedArbitrageCandidate[],
   category: string,
+  region: 'us' | 'eu' | 'asia',
   currency: string,
   exchangeRateJPY: number
 ): void {
@@ -149,8 +145,9 @@ function enforceDataIntegrity(
     ? `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(cardNum)}`
     : `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(item.cardName)}`;
 
-  // 確実に実在するeBay Sold成約検索URL
-  const safeEbaySoldSearchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(
+  // 地域に合わせて実在するeBay Sold成約検索URLを生成
+  const ebayOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
+  const safeEbaySoldSearchUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(
     `${cardNum || item.cardName} Japanese`
   )}&LH_Sold=1&LH_Complete=1`;
 
@@ -166,15 +163,16 @@ function enforceDataIntegrity(
     item.jpShopName = 'ポケカジラ最安値比較（実売検証済）';
     item.jpBuyPriceJPY = `¥${matchedVerified.jpBuyPriceJPY.toLocaleString()}`;
     item.jpEvidenceUrl = matchedVerified.pokecazillaUrl || safePokecazillaSearchUrl;
-    item.targetSoldPrice = `${currency} ${matchedVerified.ebaySoldUsd} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`;
+    item.targetSoldPrice = `${matchedVerified.currency} ${matchedVerified.ebaySoldForeign} (約¥${matchedVerified.ebaySoldJpy.toLocaleString()})`;
     item.priceSpreadJPY = `¥${matchedVerified.priceSpreadJPY.toLocaleString()}`;
     item.spreadROI = `${matchedVerified.spreadROI}%`;
+    item.sourcePlatform = region === 'eu' ? 'eBay DE' : 'eBay US';
     item.evidenceNote = `Apify実売検証済 (${matchedVerified.liquidity})`;
     item.sourceEvidenceUrl = matchedVerified.ebayUrl || safeEbaySoldSearchUrl;
     return;
   }
 
-  // 3. AI独自調査枠のURLを実在保証（AIが生成した架空の /detail/ID や /itm/ID による404を完全防止）
+  // 3. AI独自調査枠のURLを実在保証
   item.jpShopName = 'ポケカジラ型番最安値検索';
   item.jpEvidenceUrl = safePokecazillaSearchUrl;
   item.sourceEvidenceUrl = safeEbaySoldSearchUrl;
@@ -217,7 +215,9 @@ export async function runSayaAnalysis(
   const modelWithSearch = baseModel.bindTools([{ googleSearch: {} }]);
 
   const realCandidates =
-    region === 'us' ? await getCachedRealCandidates(category, exchangeRateJPY, targetDay) : [];
+    region === 'us' || region === 'eu'
+      ? await getCachedRealCandidates(category, exchangeRateJPY, targetDay, region)
+      : [];
 
   const slotPromises = SLOTS.map(async (slot) => {
     const slotRealCandidates = realCandidates.filter((item) =>
@@ -228,7 +228,7 @@ export async function runSayaAnalysis(
 
     const realDataSection =
       slotRealCandidates.length > 0
-        ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（実在数値）】:
+        ? `\n【最優先：Apify実成約＆ポケカジラ最安値スクリーニング確定データ（${cur.name}・実在数値）】:
 ${JSON.stringify(slotRealCandidates, null, 2)}
 
 ※上記の確定データに該当スロット（${slot.label}）・価格帯（${todayTier.label}）に合致するカードがある場合は、必ず上記データを最優先で採用し、cardNumber を正確に一致させて出力してください。
@@ -249,8 +249,8 @@ ${JSON.stringify(slotRealCandidates, null, 2)}
 ${conditionRule}
 ${realDataSection}
 【リサーチ ＆ 利益計算ルール（シンプル差額方式）】
-1. 出口相場（eBay成約データ）:
-   - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を設定してください。
+1. 出口相場（${cur.name}成約データ）:
+   - 直近実際に売れた成約価格（Sold）を参照し、targetSoldPrice を ${cur.currency} 建てで設定してください。
    - 成約実績として【直近7日間の成約件数 (salesVolume7d)】と【直近30日間の成約件数 (salesVolume30d)】の両方を必ず明記してください。
 2. 入口相場（国内大手ショップ・ポケカジラ在庫比較）:
    - 【ポケカジラ】【晴れる屋2】【トレカキャンプ】等の通常美品（状態A/NM）の最安値を確認し、正確な型番（cardNumber）と仕入れ価格（jpBuyPriceJPY）を出力してください。
@@ -282,7 +282,7 @@ ${realDataSection}
         "spreadROI": "XX%",
         "salesVolume7d": "X件",
         "salesVolume30d": "X件",
-        "sourcePlatform": "eBay",
+        "sourcePlatform": "${cur.targetPlatforms[0]}",
         "evidenceNote": "成約実績基準",
         "insight": "現地需要動向とショップ比較における優位性（1行）"
       },
@@ -298,7 +298,7 @@ ${realDataSection}
           "spreadROI": "XX%",
           "salesVolume7d": "X件",
           "salesVolume30d": "X件",
-          "sourcePlatform": "eBay",
+          "sourcePlatform": "${cur.targetPlatforms[0]}",
           "evidenceNote": "成約実績基準",
           "insight": "特徴1行"
         },
@@ -313,7 +313,7 @@ ${realDataSection}
           "spreadROI": "XX%",
           "salesVolume7d": "X件",
           "salesVolume30d": "X件",
-          "sourcePlatform": "eBay",
+          "sourcePlatform": "${cur.targetPlatforms[0]}",
           "evidenceNote": "成約実績基準",
           "insight": "特徴1行"
         }
@@ -332,6 +332,7 @@ ${realDataSection}
           slot.isGradedOrSealed,
           slotRealCandidates,
           category,
+          region,
           cur.currency,
           exchangeRateJPY
         );
@@ -342,6 +343,7 @@ ${realDataSection}
               slot.isGradedOrSealed,
               slotRealCandidates,
               category,
+              region,
               cur.currency,
               exchangeRateJPY
             );

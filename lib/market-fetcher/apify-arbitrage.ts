@@ -5,7 +5,8 @@ export interface VerifiedArbitrageCandidate {
   cardNumber: string;
   conditionGrade: string;
   jpBuyPriceJPY: number;
-  ebaySoldUsd: number;
+  currency: 'USD' | 'EUR';
+  ebaySoldForeign: number;
   ebaySoldJpy: number;
   netProceedsJpy: number;
   priceSpreadJPY: number;
@@ -27,53 +28,53 @@ const POKECAZILLA_TASK_ID = (
   'kempt_tapestry_mg3/pokemon-price-search'
 ).trim();
 
-interface DayUsdPriceRange {
-  minUsd: number;
-  maxUsd?: number;
+interface DayLocalPriceRange {
+  minLocal: number;
+  maxLocal?: number;
   minSpreadJpy: number;
 }
 
 /**
- * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の USD 価格帯を算出する
+ * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の現地通貨（USD / EUR）価格帯を算出する
  */
-function getUsdPriceRangeForDay(targetDay: string, usdToJpyRate: number): DayUsdPriceRange {
+function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): DayLocalPriceRange {
   switch (targetDay) {
     case 'Monday': // 〜3千円（エントリー・超高回転枠）
       return {
-        minUsd: Math.max(8, Math.floor(1500 / usdToJpyRate)),
-        maxUsd: Math.ceil(6000 / usdToJpyRate),
+        minLocal: Math.max(8, Math.floor(1500 / exchangeRateJpy)),
+        maxLocal: Math.ceil(6000 / exchangeRateJpy),
         minSpreadJpy: 500,
       };
     case 'Tuesday': // 3千〜1万円（定番コレクション枠）
     case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
       return {
-        minUsd: Math.floor(3500 / usdToJpyRate),
-        maxUsd: Math.ceil(16000 / usdToJpyRate),
+        minLocal: Math.floor(3500 / exchangeRateJpy),
+        maxLocal: Math.ceil(16000 / exchangeRateJpy),
         minSpreadJpy: 1000,
       };
     case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
     case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
       return {
-        minUsd: Math.floor(11000 / usdToJpyRate),
-        maxUsd: Math.ceil(45000 / usdToJpyRate),
+        minLocal: Math.floor(11000 / exchangeRateJpy),
+        maxLocal: Math.ceil(45000 / exchangeRateJpy),
         minSpreadJpy: 1000,
       };
     case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
       return {
-        minUsd: Math.floor(32000 / usdToJpyRate),
-        maxUsd: Math.ceil(120000 / usdToJpyRate),
+        minLocal: Math.floor(32000 / exchangeRateJpy),
+        maxLocal: Math.ceil(120000 / exchangeRateJpy),
         minSpreadJpy: 1000,
       };
     case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
       return {
-        minUsd: Math.floor(85000 / usdToJpyRate),
-        maxUsd: undefined,
+        minLocal: Math.floor(85000 / exchangeRateJpy),
+        maxLocal: undefined,
         minSpreadJpy: 1000,
       };
     default:
       return {
-        minUsd: Math.floor(3500 / usdToJpyRate),
-        maxUsd: Math.ceil(45000 / usdToJpyRate),
+        minLocal: Math.floor(3500 / exchangeRateJpy),
+        maxLocal: Math.ceil(45000 / exchangeRateJpy),
         minSpreadJpy: 1000,
       };
   }
@@ -203,22 +204,26 @@ function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: 
 }
 
 /**
- * eBay URLの正規化（実在URL保持・フォールバック検索URL生成）
+ * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
  */
-function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string): string {
+function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string, region: 'us' | 'eu'): string {
+  const targetOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
   if (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
-    return rawUrl.trim();
+    return rawUrl
+      .trim()
+      .replace(/^https?:\/\/(www\.)?ebay\.(com|co\.uk|de|fr|it|es|ca|com\.au)/i, targetOrigin);
   }
-  return `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(`${cardNumber} Japanese Pokemon`)}&LH_Sold=1&LH_Complete=1`;
+  return `${targetOrigin}/sch/i.html?_nkw=${encodeURIComponent(`${cardNumber} Japanese Pokemon`)}&LH_Sold=1&LH_Complete=1`;
 }
 
 /**
- * Apify 2段階スクレイピングを実行し、曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
+ * Apify 2段階スクレイピングを実行し、地域別（北米US / 欧州EU）・曜日別価格帯・レアリティ一致の実売サヤ取り候補を返す
  */
 export async function fetchRealArbitrageCandidates(
   category: string = 'pokemon',
-  usdToJpyRate: number = 155,
-  targetDay: string = 'Thursday'
+  exchangeRateJpy: number = 155,
+  targetDay: string = 'Thursday',
+  region: 'us' | 'eu' = 'us'
 ): Promise<VerifiedArbitrageCandidate[]> {
   if (!APIFY_TOKEN) {
     console.warn('[Apify] APIFY_API_TOKEN が未設定のため、実データ取得をスキップします');
@@ -226,7 +231,10 @@ export async function fetchRealArbitrageCandidates(
   }
 
   try {
-    const priceRange = getUsdPriceRangeForDay(targetDay, usdToJpyRate);
+    const isEu = region === 'eu';
+    const targetEbaySite = isEu ? 'ebay.de' : 'ebay.com';
+    const expectedCurrency: 'USD' | 'EUR' = isEu ? 'EUR' : 'USD';
+    const priceRange = getLocalPriceRangeForDay(targetDay, exchangeRateJpy);
 
     const defaultEbayKeyword =
       category === 'onepiece'
@@ -235,45 +243,56 @@ export async function fetchRealArbitrageCandidates(
         ? 'Japanese Yugioh Card'
         : 'Japanese Pokemon Card';
 
-    const ebayPriceFilter: Record<string, any> = {
-      minPrice: priceRange.minUsd,
+    const ebayTaskPayload: Record<string, any> = {
+      ebaySite: targetEbaySite,
+      minPrice: priceRange.minLocal,
     };
-    if (priceRange.maxUsd !== undefined) {
-      ebayPriceFilter.maxPrice = priceRange.maxUsd;
+    if (priceRange.maxLocal !== undefined) {
+      ebayTaskPayload.maxPrice = priceRange.maxLocal;
     }
 
-    // 1. eBay Sold Listings を曜日価格帯指定で同期実行
+    // 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
     const ebayItems = await runApifySync(
       EBAY_TASK_ID,
       APIFY_TOKEN,
-      ebayPriceFilter,
+      ebayTaskPayload,
       {
         keywords: [defaultEbayKeyword],
-        maxItems: 50,
-        ...ebayPriceFilter,
+        count: 50,
+        ...ebayTaskPayload,
       }
     );
 
-    // 2. 指定価格帯内 かつ 型番が抽出できた成約のみフィルタリング
+    // 2. 対象通貨（USならUSD / EUならEUR）の成約のみ抽出（GBP等の他通貨混入を除外）
     const parsedEbay = ebayItems
       .map((item) => {
-        const soldUsd = Number(item.soldPrice ?? item.price ?? 0) || 0;
+        const rawCurrency = String(item.currency ?? item.soldCurrency ?? '').toUpperCase().trim();
+        const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
+        const rawUrl = String(item.url || item.itemUrl || '');
+
+        const isCurrencyMismatch =
+          (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
+          rawPriceStr.includes('£') ||
+          (!isEu && (rawPriceStr.includes('€') || /ebay\.(co\.uk|de|fr|it|es)/i.test(rawUrl))) ||
+          (isEu && (rawPriceStr.includes('$') || /ebay\.(com|co\.uk|ca|com\.au)(\/|$)/i.test(rawUrl)));
+
+        const soldLocal = isCurrencyMismatch ? 0 : Number(item.soldPrice ?? item.price ?? 0) || 0;
         const title = String(item.title || '');
         const cardNumber = extractCardNumber(title);
         return {
           title,
-          soldUsd,
-          soldJpy: Math.round(soldUsd * usdToJpyRate),
+          soldLocal,
+          soldJpy: Math.round(soldLocal * exchangeRateJpy),
           cardNumber,
           raritySpec: extractRaritySpec(title),
           conditionGrade: detectConditionGrade(title),
-          ebayUrl: String(item.url || item.itemUrl || ''),
+          ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
         if (item.cardNumber === null) return false;
-        if (item.soldUsd < priceRange.minUsd) return false;
-        if (priceRange.maxUsd !== undefined && item.soldUsd > priceRange.maxUsd) return false;
+        if (item.soldLocal <= 0 || item.soldLocal < priceRange.minLocal) return false;
+        if (priceRange.maxLocal !== undefined && item.soldLocal > priceRange.maxLocal) return false;
         return true;
       });
 
@@ -287,7 +306,7 @@ export async function fetchRealArbitrageCandidates(
         raritySpec: string | null;
         sampleTitle: string;
         conditionGrade: string;
-        totalUsd: number;
+        totalLocal: number;
         count: number;
         ebayUrl: string;
       }
@@ -297,7 +316,7 @@ export async function fetchRealArbitrageCandidates(
       const key = `${item.cardNumber}_${item.raritySpec || 'NONE'}_${item.conditionGrade}`;
       const existing = groupedByKey.get(key);
       if (existing) {
-        existing.totalUsd += item.soldUsd;
+        existing.totalLocal += item.soldLocal;
         existing.count += 1;
       } else {
         groupedByKey.set(key, {
@@ -305,7 +324,7 @@ export async function fetchRealArbitrageCandidates(
           raritySpec: item.raritySpec,
           sampleTitle: item.title,
           conditionGrade: item.conditionGrade,
-          totalUsd: item.soldUsd,
+          totalLocal: item.soldLocal,
           count: 1,
           ebayUrl: item.ebayUrl,
         });
@@ -324,7 +343,6 @@ export async function fetchRealArbitrageCandidates(
     // 4. ポケカジラ検索タスクを一括実行して国内最安値を取得
     const jpPages = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
-    // 型番ごとに候補カード一覧を保持（後段でレアリティ一致チェックを行う）
     const jpCandidatesMap = new Map<
       string,
       {
@@ -364,18 +382,17 @@ export async function fetchRealArbitrageCandidates(
       const jpEntry = jpCandidatesMap.get(ebayGroup.cardNumber);
       if (!jpEntry) continue;
 
-      // eBay側にレアリティ指定がある場合は、ポケカジラ側カード名にも同じレアリティを含むものに限定
       let matchedJpCard = jpEntry.cards[0];
       if (ebayGroup.raritySpec) {
         const specMatched = jpEntry.cards.find((c) =>
           c.name.toUpperCase().includes(ebayGroup.raritySpec!)
         );
-        if (!specMatched) continue; // レアリティ不一致（例: SAR vs ノーマル）は誤爆防止のため除外
+        if (!specMatched) continue;
         matchedJpCard = specMatched;
       }
 
-      const avgUsd = Math.round((ebayGroup.totalUsd / ebayGroup.count) * 100) / 100;
-      const avgJpy = Math.round(avgUsd * usdToJpyRate);
+      const avgLocal = Math.round((ebayGroup.totalLocal / ebayGroup.count) * 100) / 100;
+      const avgJpy = Math.round(avgLocal * exchangeRateJpy);
       const spreadJpy = avgJpy - matchedJpCard.minPrice;
       const roi = matchedJpCard.minPrice > 0 ? Math.round((spreadJpy / matchedJpCard.minPrice) * 100) : 0;
 
@@ -385,21 +402,22 @@ export async function fetchRealArbitrageCandidates(
           cardNumber: ebayGroup.cardNumber,
           conditionGrade: ebayGroup.conditionGrade,
           jpBuyPriceJPY: matchedJpCard.minPrice,
-          ebaySoldUsd: avgUsd,
+          currency: expectedCurrency,
+          ebaySoldForeign: avgLocal,
           ebaySoldJpy: avgJpy,
           netProceedsJpy: avgJpy,
           priceSpreadJPY: spreadJpy,
           spreadROI: roi,
           liquidity: `直近成約 ${ebayGroup.count}件`,
           pokecazillaUrl: matchedJpCard.detailUrl,
-          ebayUrl: normalizeEbayUrl(ebayGroup.ebayUrl, ebayGroup.cardNumber),
+          ebayUrl: normalizeEbayUrl(ebayGroup.ebayUrl, ebayGroup.cardNumber, region),
         });
       }
     }
 
     return verifiedList.sort((a, b) => b.priceSpreadJPY - a.priceSpreadJPY);
   } catch (error) {
-    console.error('[Apify Arbitrage Fetch Error]:', error);
+    console.error(`[Apify Arbitrage Fetch Error (${region})]:`, error);
     return [];
   }
 }
