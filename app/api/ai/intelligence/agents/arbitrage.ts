@@ -5,6 +5,7 @@ import {
   fetchRealArbitrageCandidates,
   VerifiedArbitrageCandidate,
 } from '@/lib/market-fetcher/apify-arbitrage';
+import { extractPokemonNameEn } from '@/lib/market-fetcher/pokemon-dictionary';
 
 const cachedApifyByRegion = new Map<
   string,
@@ -140,15 +141,27 @@ function enforceDataIntegrity(
   const categoryId = category === 'onepiece' ? 18 : 17;
   const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
 
-  // 確実に実在するポケカジラ型番検索一覧URL
-  const safePokecazillaSearchUrl = cardNum
-    ? `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(cardNum)}`
-    : `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(item.cardName)}`;
+  // カード名から [sv2a] / (AR) / 重複型番 を除いた純粋なカード名を取得
+  const cleanJaName = String(item.cardName || '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/[\(（].*?[\)）]/g, '')
+    .replace(/\b(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3}|No\.?\s*\d+)\b/gi, '')
+    .trim();
 
-  // 地域に合わせて実在するeBay Sold成約検索URLを生成
+  // No.006 などの旧裏図鑑番号はポケカジラ検索にヒットしないため除外し、正式型番のみ併用
+  const isOfficialCode = /^(\d{3}\/\d{3}|\d{3}\/[A-Z0-9]+-P|[A-Z]{2,4}\d{2}-\d{3})$/i.test(cardNum);
+  const pokecazillaQuery = [cleanJaName, isOfficialCode ? cardNum : ''].filter(Boolean).join(' ') || item.cardName;
+
+  const safePokecazillaSearchUrl = `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(
+    pokecazillaQuery
+  )}`;
+
+  // eBay検索は「英語ポケモン名（取れなければ日本語名）＋ 型番 ＋ Japanese」で組み立て
+  const enName = extractPokemonNameEn(cleanJaName);
+  const ebayKeyword = [enName || cleanJaName, cardNum, 'Japanese'].filter(Boolean).join(' ');
   const ebayOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
   const safeEbaySoldSearchUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(
-    `${cardNum || item.cardName} Japanese`
+    ebayKeyword
   )}&LH_Sold=1&LH_Complete=1`;
 
   // 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入

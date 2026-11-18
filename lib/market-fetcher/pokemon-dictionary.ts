@@ -1141,3 +1141,18 @@ export function extractPokemonNameJa(ebayTitle: string): string | null {
   }
   return null;
 }
+
+/**
+ * 日本語カード名から英語のポケモン・トレーナー名を逆引きする（eBay検索URL用）
+ */
+export function extractPokemonNameEn(jaCardName: string): string | null {
+  for (const [enName, jaName] of SORTED_POKEMON_ENTRIES) {
+    if (jaCardName.includes(jaName)) {
+      // 先頭大文字・以降小文字に整形（例: CHARIZARD -> Charizard）
+      return enName
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  }
+  return null;
+}

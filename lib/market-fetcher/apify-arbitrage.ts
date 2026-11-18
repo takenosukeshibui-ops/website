@@ -187,14 +187,20 @@ function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: 
 /**
  * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
  */
-function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string, region: 'us' | 'eu'): string {
+function normalizeEbayUrl(
+  rawUrl: string | undefined,
+  cardNumber: string,
+  region: 'us' | 'eu',
+  pokemonNameEn?: string
+): string {
   const targetOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
   if (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
     return rawUrl
       .trim()
       .replace(/^https?:\/\/(www\.)?ebay\.(com|co\.uk|de|fr|it|es|ca|com\.au)/i, targetOrigin);
   }
-  return `${targetOrigin}/sch/i.html?_nkw=${encodeURIComponent(`${cardNumber} Japanese Pokemon`)}&LH_Sold=1&LH_Complete=1`;
+  const kw = [pokemonNameEn, cardNumber, 'Japanese Pokemon'].filter(Boolean).join(' ');
+  return `${targetOrigin}/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
 }
 
 /**
@@ -312,13 +318,15 @@ export async function fetchRealArbitrageCandidates(
       }
     }
 
-    // 3. ポケカジラ検索用の startUrls を重複なしで生成
+    // 3. ポケカジラ検索用の startUrls を「ポケモン名 ＋ 型番」で重複なし生成
     const categoryId = category === 'onepiece' ? 18 : 17;
     const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
-    const uniqueNumbers = Array.from(new Set(parsedEbay.map((i) => i.cardNumber!)));
+    const uniqueQueries = Array.from(
+      new Set(parsedEbay.map((i) => `${i.pokemonNameJa!} ${i.cardNumber!}`))
+    );
 
-    const startUrls = uniqueNumbers.map((num) => ({
-      url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(num)}`,
+    const startUrls = uniqueQueries.map((q) => ({
+      url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(q)}`,
     }));
 
     // 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
@@ -334,7 +342,8 @@ export async function fetchRealArbitrageCandidates(
 
       const searchUrl = String(row.searchUrl || '');
       const numMatch = searchUrl.match(/name=([^&]+)/);
-      const queriedNum = numMatch ? decodeURIComponent(numMatch[1]) : '';
+      const rawQuery = numMatch ? decodeURIComponent(numMatch[1]) : '';
+      const queriedNum = extractCardNumber(rawQuery) || rawQuery;
       if (!queriedNum) continue;
 
       if (row.isDetailResult) {
