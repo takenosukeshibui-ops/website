@@ -91,6 +91,7 @@ export default function DocumentReportView({
         return `https://pokecazilla.com/pokemon/products/list?category_id=17&name=${encodeURIComponent(query)}`;
     };
 
+    
     const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) => {
         if (!cardName) return 'https://www.ebay.com/sch/i.html?_nkw=pokemon+card&LH_Sold=1&LH_Complete=1';
         const cleanName = cardName
