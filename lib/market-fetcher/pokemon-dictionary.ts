@@ -1120,11 +1120,25 @@ export const POKEMON_EN_JA: Record<string, string> = {
   CRISPIN: 'アカマツ',
   DRAYTON: 'カキツバタ',
   "BOSS'S ORDERS": 'ボスの指令',
+  'PROFESSOR\'S RESEARCH': '博士の研究',
+  'JUDGE': 'ジャッジマン',
+  'MELA': 'メロコ',
+  'RIKA': 'チリ',
+  'GRUSHA': 'グルーシャ',
+  'TULIP': 'リップ',
+  'MIRIAM': 'ミモザ',
+  'JACQ': 'ジニア',
+  'CLAVELL': 'クラベル',
 };
 
-// 長い単語（例: MEWTWO）が短い単語（MEW）より先に判定されるよう文字数降順でソート
+// 英語タイトル抽出用：英語名の文字数降順（例: MEWTWO -> MEW）
 const SORTED_POKEMON_ENTRIES = Object.entries(POKEMON_EN_JA).sort(
   (a, b) => b[0].length - a[0].length
+);
+
+// 日本語からの逆引き用：日本語名の文字数降順（例: ブラッキー -> ラッキー、リザードン -> リザード）
+const SORTED_JA_TO_EN_ENTRIES = Object.entries(POKEMON_EN_JA).sort(
+  (a, b) => b[1].length - a[1].length
 );
 
 /**
@@ -1146,9 +1160,8 @@ export function extractPokemonNameJa(ebayTitle: string): string | null {
  * 日本語カード名から英語のポケモン・トレーナー名を逆引きする（eBay検索URL用）
  */
 export function extractPokemonNameEn(jaCardName: string): string | null {
-  for (const [enName, jaName] of SORTED_POKEMON_ENTRIES) {
+  for (const [enName, jaName] of SORTED_JA_TO_EN_ENTRIES) {
     if (jaCardName.includes(jaName)) {
-      // 先頭大文字・以降小文字に整形（例: CHARIZARD -> Charizard）
       return enName
         .toLowerCase()
         .replace(/\b\w/g, (c) => c.toUpperCase());
