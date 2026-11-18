@@ -253,17 +253,39 @@ export async function fetchRealArbitrageCandidates(
     // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
     const parsedEbay = ebayItems
       .map((item) => {
-        const rawCurrency = String(item.currency ?? item.soldCurrency ?? '').toUpperCase().trim();
+        const rawCurrency = String(
+          item.currency ?? item.soldCurrency ?? item.priceCurrency ?? ''
+        )
+          .toUpperCase()
+          .trim();
         const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
         const rawUrl = String(item.url || item.itemUrl || '');
+        const itemPriceCorpus = `${rawCurrency} ${rawPriceStr} ${String(
+          item.formattedPrice ?? item.priceText ?? ''
+        )}`.toUpperCase();
 
         const isCurrencyMismatch =
           (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
-          rawPriceStr.includes('£') ||
-          (!isEu && (rawPriceStr.includes('€') || /ebay\.(co\.uk|de|fr|it|es)/i.test(rawUrl))) ||
-          (isEu && (rawPriceStr.includes('$') || /ebay\.(com|co\.uk|ca|com\.au)(\/|$)/i.test(rawUrl)));
+          itemPriceCorpus.includes('£') ||
+          /\bGBP\b/.test(itemPriceCorpus) ||
+          (!isEu &&
+            (itemPriceCorpus.includes('€') ||
+              /\b(EUR|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
+              /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus) ||
+              /ebay\.(co\.uk|de|fr|it|es|ca|com\.au|com\.sg|com\.hk)/i.test(rawUrl))) ||
+          (isEu &&
+            (itemPriceCorpus.includes('$') ||
+              /\b(USD|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
+              /ebay\.(com|co\.uk|ca|com\.au|com\.sg|com\.hk)(\/|$)/i.test(rawUrl)));
 
-        const soldLocal = isCurrencyMismatch ? 0 : Number(item.soldPrice ?? item.price ?? 0) || 0;
+        const numericPrice =
+          typeof item.soldPrice === 'number'
+            ? item.soldPrice
+            : typeof item.price === 'number'
+            ? item.price
+            : Number(rawPriceStr.replace(/[^\d.]/g, '')) || 0;
+
+        const soldLocal = isCurrencyMismatch ? 0 : numericPrice;
         const title = String(item.title || '');
         const cardNumber = extractCardNumber(title);
         const pokemonNameJa = extractPokemonNameJa(title);
