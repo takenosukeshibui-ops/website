@@ -174,6 +174,7 @@ lib/
     card-master.ts
     cardmarket.ts
     ebay.ts
+    pokemon-dictionary.ts
     tcgplayer.ts
     verifier.ts
   supabase/
@@ -2927,6 +2928,75 @@ next: { revalidate: 86400 }, // 1日キャッシュ
 // フォールバック: Cardmarket公式検索URL
 </file>
 
+<file path="lib/market-fetcher/pokemon-dictionary.ts">
+// lib/market-fetcher/pokemon-dictionary.ts
+⋮----
+/**
+ * 全ポケモン（全国図鑑 #0001〜#1025）・表記揺れ・主要トレーナー日英変換辞書
+ * 新しいキャラクターや表記揺れを追加する場合は、ここに "英語名": "日本語名" を追加するだけでOKです。
+ */
+⋮----
+// ==========================================
+// 第1世代（カントー：#0001〜#0151）
+// ==========================================
+⋮----
+// ==========================================
+// 第2世代（ジョウト：#0152〜#0251）
+// ==========================================
+⋮----
+// ==========================================
+// 第3世代（ホウエン：#0252〜#0386）
+// ==========================================
+⋮----
+// ==========================================
+// 第4世代（シンオウ：#0387〜#0493）
+// ==========================================
+⋮----
+// ==========================================
+// 第5世代（イッシュ：#0494〜#0649）
+// ==========================================
+⋮----
+// ==========================================
+// 第6世代（カロス：#0650〜#0721）
+// ==========================================
+⋮----
+// ==========================================
+// 第7世代（アローラ：#0722〜#0809）
+// ==========================================
+⋮----
+// ==========================================
+// 第8世代（ガラル・ヒスイ：#0810〜#0905）
+// ==========================================
+⋮----
+// ==========================================
+// 第9世代（パルデア・キタカミ・ブルーベリー：#0906〜#1025）
+// ==========================================
+⋮----
+// ==========================================
+// 表記揺れ・特殊記号補完（eBay出品タイトル対策）
+// ==========================================
+⋮----
+// ==========================================
+// 主要トレーナー・サポート
+// ==========================================
+⋮----
+// 長い単語（例: MEWTWO）が短い単語（MEW）より先に判定されるよう文字数降順でソート
+⋮----
+/**
+ * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
+ */
+export function extractPokemonNameJa(ebayTitle: string): string | null
+⋮----
+// 末尾がピリオドや記号（MIME JR. / NIDORAN♀ 等）でも正しく境界判定できるよう英数字否定先読み・後読みを使用
+⋮----
+/**
+ * 日本語カード名から英語のポケモン・トレーナー名を逆引きする（eBay検索URL用）
+ */
+export function extractPokemonNameEn(jaCardName: string): string | null
+⋮----
+// 先頭大文字・以降小文字に整形（例: CHARIZARD -> Charizard）
+</file>
+
 <file path="lib/instagram.ts">
 // lib/instagram.ts
 ⋮----
@@ -3041,6 +3111,62 @@ export async function runCuratorSelection(
 ⋮----
 agentKey: c.agent_key, // 'arbitrage' | 'trend'
 region: c.region,       // 'us' | 'eu' | 'asia'
+</file>
+
+<file path="app/api/ai/intelligence/agents/marketTrend.ts">
+// app/api/ai/intelligence/agents/marketTrend.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
+import { parseAIJson, getCategoryName } from '../helpers';
+⋮----
+export interface TrendItem {
+  cardName: string;
+  condition: string;
+  jpBuyPriceJPY: string;
+  currentLocalPrice: string;
+  impactLogic: string;
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
+}
+⋮----
+export interface TrendHypothesis {
+  headline: string;
+  signal: string;
+  timeframe: string;
+  impactLogic: string;
+  items: TrendItem[];
+}
+⋮----
+export interface MarketTrendReport {
+  title: string;
+  claim: string;
+  summary: {
+    headline: string;
+    macroAnalysis: {
+      japanSourcingClimate: string;
+      localMarketDemand: string;
+    };
+    microAnalysis: {
+      topImportMarginCard: string;
+      topLocalVelocityCard: string;
+      conditionGradingInsight: string;
+    };
+    riskAlert: {
+      sourcingQualityTrap: string;
+      localInventoryRisk: string;
+    };
+    actionDirectives: string[];
+  };
+  hypotheses: TrendHypothesis[];
+}
+⋮----
+export async function runMarketTrend(
+  region: 'us' | 'eu' | 'asia',
+  category: string = 'pokemon'
+): Promise<MarketTrendReport | null>
+⋮----
+// 1. 直近同期された最新海外相場データをSupabaseから取得
 </file>
 
 <file path="app/api/pipeline/gates/gate2.ts">
@@ -5787,6 +5913,441 @@ const fetchChatLogs = async () =>
 {/* RSI / Knowledge List は省略せずに残す */}
 ⋮----
 onChange=
+</file>
+
+<file path="app/AiDashboard/types.ts">
+// app/AiDashboard/types.ts
+⋮----
+export interface FactItem {
+  label: string;
+  value: string;
+}
+⋮----
+export interface RiskAndMitigation {
+  risk: string;
+  mitigation: string;
+}
+⋮----
+export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
+export type RegionKey = 'us' | 'eu' | 'asia';
+⋮----
+// 🌟 5スロット（全時代・全ジャンル網羅）
+export type ResearchSlotKey =
+  | 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
+  | 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
+  | 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
+  | 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
+  | 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
+⋮----
+| 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
+| 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
+| 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
+| 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
+| 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
+⋮----
+// 🌟 5段階価格帯キー
+export type PriceTierKey = 'under_3k' | 'under_10k' | 'middle' | 'upper' | 'top_end';
+⋮----
+export interface StrategicReport {
+  title: string;
+  claim: string;
+  reasons: string[];
+  facts: FactItem[];
+  soWhat: string;
+  riskAndMitigation: RiskAndMitigation;
+  verificationChecklist: string[];
+  curatorDirectives?: {
+    recommendedTrendDay: string;
+    slotWeights: Record<string, string>;
+  };
+}
+⋮----
+// ==========================================
+// 🌟 アービトラージ（サヤ取り）関連型定義
+// ==========================================
+export interface ArbitrageItemData {
+  priceTier?: PriceTierKey;
+  priceTierLabel?: string;
+  cardName: string;              // 実在カード名・型番
+  conditionGrade: string;        // 状態（PSA10, Raw NM等）
+  jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+  jpEvidenceUrl?: string;        // 🌟 日本市場の証拠URL
+  targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
+  priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
+  spreadROI: string;             // 粗利比率（例: "122%"）
+  liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
+  insight: string;               // 現地顧客需要・買い付け狙い目メモ
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
+}
+⋮----
+cardName: string;              // 実在カード名・型番
+conditionGrade: string;        // 状態（PSA10, Raw NM等）
+jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
+jpEvidenceUrl?: string;        // 🌟 日本市場の証拠URL
+targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
+priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
+spreadROI: string;             // 粗利比率（例: "122%"）
+liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
+insight: string;               // 現地顧客需要・買い付け狙い目メモ
+⋮----
+export interface ArbitragePriceTierCell {
+  priceTier: PriceTierKey;
+  priceTierLabel: string;
+  mainItem: ArbitrageItemData;   // 👑 本命商品
+  subItems: ArbitrageItemData[]; // 🥈 代替候補
+}
+⋮----
+mainItem: ArbitrageItemData;   // 👑 本命商品
+subItems: ArbitrageItemData[]; // 🥈 代替候補
+⋮----
+export interface ArbitrageSlotReport {
+  slotKey: ResearchSlotKey | string;
+  slotLabel: string;
+  tiers: ArbitragePriceTierCell[];
+  items?: ArbitrageItemData[];
+}
+⋮----
+export interface ArbitrageExecutiveSummary {
+  headline: string;
+  macroAnalysis: {
+    japanSourcingClimate: string;
+    localMarketDemand: string;
+  };
+  microAnalysis: {
+    topImportMarginCard: string;
+    topLocalVelocityCard: string;
+    conditionGradingInsight: string;
+  };
+  riskAlert: {
+    sourcingQualityTrap: string;
+    localInventoryRisk: string;
+  };
+  actionDirectives: string[];
+}
+⋮----
+export interface MultiSlotArbitrageReport {
+  title: string;
+  claim?: string;
+  exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
+  summary?: ArbitrageExecutiveSummary;
+  slots: ArbitrageSlotReport[];
+  reasons?: string[];
+  facts?: FactItem[];
+  soWhat?: string;
+  riskAndMitigation?: RiskAndMitigation;
+  verificationChecklist?: string[];
+}
+⋮----
+exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
+⋮----
+// ==========================================
+// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
+// ==========================================
+export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
+export type CardCondition = 'Raw NM' | 'PSA10';
+⋮----
+export interface MarketTrendCardItem {
+  rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
+  cardName: string;           // 実在カード名 (型番 / レアリティ)
+  condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
+  conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
+  jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
+  currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
+  timeframe?: string;         // 売り時目安
+  exitStrategy?: string;      // 推奨出口戦略
+  impactLogic?: string;       // 波及ロジック
+  sourcePlatform?: string;
+  evidenceNote?: string;
+  sourceEvidenceUrl?: string;
+}
+⋮----
+rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
+cardName: string;           // 実在カード名 (型番 / レアリティ)
+condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
+conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
+jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
+currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
+timeframe?: string;         // 売り時目安
+exitStrategy?: string;      // 推奨出口戦略
+impactLogic?: string;       // 波及ロジック
+⋮----
+export interface MarketTrendHypothesis {
+  headline: string;           // トレンド核心タイトル
+  signal: string;             // 検知された客観的シグナル・事実
+  timeframe: string;          // トレンド全体の想定ピーク時期
+  items: MarketTrendCardItem[]; // トレンド合致銘柄
+}
+⋮----
+headline: string;           // トレンド核心タイトル
+signal: string;             // 検知された客観的シグナル・事実
+timeframe: string;          // トレンド全体の想定ピーク時期
+items: MarketTrendCardItem[]; // トレンド合致銘柄
+⋮----
+export interface MarketTrendExecutiveSummary {
+  headline: string;
+  trendDynamics: {
+    catalystOverview: string;
+    japanPriceLag: string;
+  };
+  strategicHighlights: {
+    mvpCatalystCard: string;
+    optimalExitWindow: string;
+  };
+  riskAlert: {
+    hypeTrapWarning: string;
+    gradingVsRawStrategy: string;
+  };
+  actionDirectives: string[];
+}
+⋮----
+export interface MarketTrendReport {
+  title: string;
+  claim: string;
+  createdAt?: string;
+  summary?: MarketTrendExecutiveSummary;
+  hypotheses: MarketTrendHypothesis[];
+}
+⋮----
+// ==========================================
+// 🌟 インフォグラフィック・画像生成共通型定義
+// ==========================================
+export interface InfographicData {
+  type: 'arbitrage' | 'trend';
+  cardName: string;
+  region?: RegionKey | string;
+  jpPrice: string;
+  overseasPrice: string;
+  spread: string;
+  roi: string;
+  hookText: string;
+}
+⋮----
+// ==========================================
+// 🌟 パッケージ・週間編成・SNS・プロモーション型定義
+// ==========================================
+export interface ContentCalendarItemDetail {
+  region: RegionKey | string;
+  selectedCardOrTopic: string;
+  hookFact: string;
+  hiddenActionReason: string;
+}
+⋮----
+export interface ContentCalendarItem {
+  dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  dayLabelJa: string;
+  postType: string;
+  selectedCardOrTopic?: string;
+  hookFact?: string;
+  hiddenActionReason?: string;
+  items?: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
+  directiveForCreator?: {
+    instagramAngle: string;
+    xTwitterAngle: string;
+    discordOfferAngle: string;
+  };
+}
+⋮----
+items?: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
+⋮----
+export interface CuratorStrategyBlueprint {
+  headline: string;
+  adaptationRationale: string;
+  slotDistribution?: Record<string, number>;
+}
+⋮----
+export interface ChiefPackageData {
+  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
+  winningRegion?: 'us' | 'eu' | 'asia' | 'global';
+  leadMagnetTitle?: string;
+  chosenCardOrItem?: string;
+  strategyBlueprint?: CuratorStrategyBlueprint | null;
+  mvpHighlight?: {
+    cardName: string;
+    region: RegionKey | string;
+    slotKey: ResearchSlotKey | string;
+    hookFact: string;
+    selectionReason: string;
+  } | null;
+  regionalMatrix?: {
+    us: { topArbitrage: string; topTrend: string; summary: string };
+    eu: { topArbitrage: string; topTrend: string; summary: string };
+    asia: { topArbitrage: string; topTrend: string; summary: string };
+  };
+  globalInsight?: string;
+  contentCalendar?: ContentCalendarItem[];
+  approvedItems?: any[];
+  nextWeekResearchBias?: string;
+  selectionReason?: string;
+  coreHookFact?: string;
+  creativeDirective?: {
+    instagramAngle: string;
+    xTwitterAngle?: string;
+    discordOfferAngle: string;
+  };
+}
+⋮----
+export interface ProofPackageData {
+  cardName: string;
+  predictedDate: string;
+  predictedPrice: string;
+  currentPrice: string;
+  growthRate: string;
+  hitReasonPattern: string;
+  proofPost: string;
+  visualGuideline: {
+    beforeImageDesc: string;
+    afterImageDesc: string;
+    comparisonLayout: string;
+  };
+  discordCTA: string;
+}
+⋮----
+export interface SnsPostsData {
+  theme: string;
+  recommendedTiming: string;
+  hashtags?: string[];
+  visualGuideline?: {
+    coverSlide: string;
+    carouselSlides: string[];
+  };
+  posts?: {
+    hybridPost: string;
+    arbitragePost: string;
+    trendPost: string;
+  };
+  discordCTA: string;
+  dailyPosts?: {
+    day: string;
+    theme?: string;
+    caption: string;
+    slides?: string[];
+    infographicData?: InfographicData;
+  }[];
+}
+⋮----
+export interface XPostsData {
+  theme: string;
+  mainPost?: string;
+  threadPosts?: string[];
+  imageGuideline?: string[];
+  xCallToAction: string;
+  dailyThreads?: {
+    day: string;
+    mainPost: string;
+    threadPosts: string[];
+    infographicData?: InfographicData;
+  }[];
+}
+⋮----
+export interface SalesDMData {
+  targetSegment: string;
+  offerSummary: string;
+  discordMessage: string;
+  commercialTerms: {
+    minimumOrderQty: string;
+    shippingMethod: string;
+    paymentMethod: string;
+  };
+  negotiationTip: string;
+}
+⋮----
+export interface RSIAutoRule {
+  targetAgent: string;
+  ruleText: string;
+}
+⋮----
+export interface RSIReportData {
+  overallEvaluation: string;
+  accuracyScore: number;
+  trendWeightAdjustments: {
+    recommendedPattern: string;
+    rationale: string;
+  };
+  arbitrageSpreadAudits: {
+    spreadReliabilityScore: string;
+    recommendedMinimumSpread: string;
+    rationale: string;
+  };
+  autoGeneratedRules: RSIAutoRule[];
+}
+⋮----
+export interface RegionalContainer<T> {
+  us: T | null;
+  eu: T | null;
+  asia: T | null;
+}
+⋮----
+// 🌟 統合インテリジェンスデータ
+export interface IntelligenceData {
+  trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
+  profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
+  chiefPackage: ChiefPackageData | null;
+  proofPackage?: ProofPackageData | null;
+  accountInsights: StrategicReport | null;
+  xAccountInsights?: StrategicReport | null;
+  snsPosts: SnsPostsData | null;
+  xPosts?: XPostsData | null;
+  salesDM: SalesDMData | null;
+  rsiReport?: RSIReportData | null;
+}
+⋮----
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  avatar: string;
+  text: string;
+  isUser: boolean;
+  timestamp: string;
+}
+⋮----
+export interface KnowledgeItem {
+  id: string;
+  agent_key: string;
+  content: string;
+  created_at: string;
+}
+⋮----
+// ==========================================
+// 🌟 パイプライン進捗・監査役ステータス型定義
+// ==========================================
+export type PipelinePhase =
+  | 'initialized'
+  | 'researching'
+  | 'curating'
+  | 'gate1_auditing'
+  | 'generating_content'
+  | 'gate2_auditing'
+  | 'ready_to_publish'
+  | 'partially_failed'
+  | 'completed';
+⋮----
+export interface Gate1AuditItem {
+  id: string;
+  card: string;
+  slot: string;
+  region: string;
+  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
+  checks?: any;
+  feedback?: string | null;
+}
+⋮----
+export interface Gate2AuditItem {
+  id: string;
+  platform: string;
+  day: string;
+  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
+  checks?: any;
+  feedback?: string | null;
+}
+⋮----
+export interface PipelineProgressState {
+  cycleId: string | null;
+  status: PipelinePhase | null;
+  gate1Audits: Gate1AuditItem[];
+  gate2Audits: Gate2AuditItem[];
+}
 </file>
 
 <file path="app/api/pipeline/gates/gate1.ts">
@@ -8536,441 +9097,6 @@ export async function GET(req: Request) {
 }
 </file>
 
-<file path="app/AiDashboard/types.ts">
-// app/AiDashboard/types.ts
-⋮----
-export interface FactItem {
-  label: string;
-  value: string;
-}
-⋮----
-export interface RiskAndMitigation {
-  risk: string;
-  mitigation: string;
-}
-⋮----
-export type CategoryKey = 'pokemon' | 'onepiece' | 'yugioh' | 'figure';
-export type RegionKey = 'us' | 'eu' | 'asia';
-⋮----
-// 🌟 5スロット（全時代・全ジャンル網羅）
-export type ResearchSlotKey =
-  | 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
-  | 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
-  | 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
-  | 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
-  | 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
-⋮----
-| 'classic_vintage'   // クラシック・ヴィンテージ枠（旧裏〜PCG期）
-| 'neo_vintage'       // ネオ・ヴィンテージ枠（DP〜XY期、世代回帰）
-| 'exclusive_promo'   // 限定プロモ・配布枠（ジム、ポケセン、タイアップ等）
-| 'modern_meta'       // 現行モダン・メタ枠（SM〜SV、直近弾、大会メタ）
-| 'graded_sealed';    // 高額鑑定・POP希少・未開封BOX枠（PSA10/BGS等）
-⋮----
-// 🌟 5段階価格帯キー
-export type PriceTierKey = 'under_3k' | 'under_10k' | 'middle' | 'upper' | 'top_end';
-⋮----
-export interface StrategicReport {
-  title: string;
-  claim: string;
-  reasons: string[];
-  facts: FactItem[];
-  soWhat: string;
-  riskAndMitigation: RiskAndMitigation;
-  verificationChecklist: string[];
-  curatorDirectives?: {
-    recommendedTrendDay: string;
-    slotWeights: Record<string, string>;
-  };
-}
-⋮----
-// ==========================================
-// 🌟 アービトラージ（サヤ取り）関連型定義
-// ==========================================
-export interface ArbitrageItemData {
-  priceTier?: PriceTierKey;
-  priceTierLabel?: string;
-  cardName: string;              // 実在カード名・型番
-  conditionGrade: string;        // 状態（PSA10, Raw NM等）
-  jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
-  jpEvidenceUrl?: string;        // 🌟 日本市場の証拠URL
-  targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
-  priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
-  spreadROI: string;             // 粗利比率（例: "122%"）
-  liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
-  insight: string;               // 現地顧客需要・買い付け狙い目メモ
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-⋮----
-cardName: string;              // 実在カード名・型番
-conditionGrade: string;        // 状態（PSA10, Raw NM等）
-jpBuyPriceJPY: string;         // 日本国内での調達原価（例: "¥2,200"）
-jpEvidenceUrl?: string;        // 🌟 日本市場の証拠URL
-targetSoldPrice: string;       // 自国市場での実成約・売価相場（例: "$32 (約¥4,900)"）
-priceSpreadJPY: string;        // 単純価格差・粗利マージン（例: "¥2,700"）
-spreadROI: string;             // 粗利比率（例: "122%"）
-liquidity: string;             // 現地市場成約頻度（例: "直近7日 14件"）
-insight: string;               // 現地顧客需要・買い付け狙い目メモ
-⋮----
-export interface ArbitragePriceTierCell {
-  priceTier: PriceTierKey;
-  priceTierLabel: string;
-  mainItem: ArbitrageItemData;   // 👑 本命商品
-  subItems: ArbitrageItemData[]; // 🥈 代替候補
-}
-⋮----
-mainItem: ArbitrageItemData;   // 👑 本命商品
-subItems: ArbitrageItemData[]; // 🥈 代替候補
-⋮----
-export interface ArbitrageSlotReport {
-  slotKey: ResearchSlotKey | string;
-  slotLabel: string;
-  tiers: ArbitragePriceTierCell[];
-  items?: ArbitrageItemData[];
-}
-⋮----
-export interface ArbitrageExecutiveSummary {
-  headline: string;
-  macroAnalysis: {
-    japanSourcingClimate: string;
-    localMarketDemand: string;
-  };
-  microAnalysis: {
-    topImportMarginCard: string;
-    topLocalVelocityCard: string;
-    conditionGradingInsight: string;
-  };
-  riskAlert: {
-    sourcingQualityTrap: string;
-    localInventoryRisk: string;
-  };
-  actionDirectives: string[];
-}
-⋮----
-export interface MultiSlotArbitrageReport {
-  title: string;
-  claim?: string;
-  exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
-  summary?: ArbitrageExecutiveSummary;
-  slots: ArbitrageSlotReport[];
-  reasons?: string[];
-  facts?: FactItem[];
-  soWhat?: string;
-  riskAndMitigation?: RiskAndMitigation;
-  verificationChecklist?: string[];
-}
-⋮----
-exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
-⋮----
-// ==========================================
-// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
-// ==========================================
-export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
-export type CardCondition = 'Raw NM' | 'PSA10';
-⋮----
-export interface MarketTrendCardItem {
-  rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
-  cardName: string;           // 実在カード名 (型番 / レアリティ)
-  condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
-  conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
-  jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
-  currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-  timeframe?: string;         // 売り時目安
-  exitStrategy?: string;      // 推奨出口戦略
-  impactLogic?: string;       // 波及ロジック
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-⋮----
-rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
-cardName: string;           // 実在カード名 (型番 / レアリティ)
-condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
-conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
-jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
-currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-timeframe?: string;         // 売り時目安
-exitStrategy?: string;      // 推奨出口戦略
-impactLogic?: string;       // 波及ロジック
-⋮----
-export interface MarketTrendHypothesis {
-  headline: string;           // トレンド核心タイトル
-  signal: string;             // 検知された客観的シグナル・事実
-  timeframe: string;          // トレンド全体の想定ピーク時期
-  items: MarketTrendCardItem[]; // トレンド合致銘柄
-}
-⋮----
-headline: string;           // トレンド核心タイトル
-signal: string;             // 検知された客観的シグナル・事実
-timeframe: string;          // トレンド全体の想定ピーク時期
-items: MarketTrendCardItem[]; // トレンド合致銘柄
-⋮----
-export interface MarketTrendExecutiveSummary {
-  headline: string;
-  trendDynamics: {
-    catalystOverview: string;
-    japanPriceLag: string;
-  };
-  strategicHighlights: {
-    mvpCatalystCard: string;
-    optimalExitWindow: string;
-  };
-  riskAlert: {
-    hypeTrapWarning: string;
-    gradingVsRawStrategy: string;
-  };
-  actionDirectives: string[];
-}
-⋮----
-export interface MarketTrendReport {
-  title: string;
-  claim: string;
-  createdAt?: string;
-  summary?: MarketTrendExecutiveSummary;
-  hypotheses: MarketTrendHypothesis[];
-}
-⋮----
-// ==========================================
-// 🌟 インフォグラフィック・画像生成共通型定義
-// ==========================================
-export interface InfographicData {
-  type: 'arbitrage' | 'trend';
-  cardName: string;
-  region?: RegionKey | string;
-  jpPrice: string;
-  overseasPrice: string;
-  spread: string;
-  roi: string;
-  hookText: string;
-}
-⋮----
-// ==========================================
-// 🌟 パッケージ・週間編成・SNS・プロモーション型定義
-// ==========================================
-export interface ContentCalendarItemDetail {
-  region: RegionKey | string;
-  selectedCardOrTopic: string;
-  hookFact: string;
-  hiddenActionReason: string;
-}
-⋮----
-export interface ContentCalendarItem {
-  dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-  dayLabelJa: string;
-  postType: string;
-  selectedCardOrTopic?: string;
-  hookFact?: string;
-  hiddenActionReason?: string;
-  items?: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
-  directiveForCreator?: {
-    instagramAngle: string;
-    xTwitterAngle: string;
-    discordOfferAngle: string;
-  };
-}
-⋮----
-items?: ContentCalendarItemDetail[]; // 🌟 1日あたり米・欧・亜の3商品（トリオ）を保持
-⋮----
-export interface CuratorStrategyBlueprint {
-  headline: string;
-  adaptationRationale: string;
-  slotDistribution?: Record<string, number>;
-}
-⋮----
-export interface ChiefPackageData {
-  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
-  winningRegion?: 'us' | 'eu' | 'asia' | 'global';
-  leadMagnetTitle?: string;
-  chosenCardOrItem?: string;
-  strategyBlueprint?: CuratorStrategyBlueprint | null;
-  mvpHighlight?: {
-    cardName: string;
-    region: RegionKey | string;
-    slotKey: ResearchSlotKey | string;
-    hookFact: string;
-    selectionReason: string;
-  } | null;
-  regionalMatrix?: {
-    us: { topArbitrage: string; topTrend: string; summary: string };
-    eu: { topArbitrage: string; topTrend: string; summary: string };
-    asia: { topArbitrage: string; topTrend: string; summary: string };
-  };
-  globalInsight?: string;
-  contentCalendar?: ContentCalendarItem[];
-  approvedItems?: any[];
-  nextWeekResearchBias?: string;
-  selectionReason?: string;
-  coreHookFact?: string;
-  creativeDirective?: {
-    instagramAngle: string;
-    xTwitterAngle?: string;
-    discordOfferAngle: string;
-  };
-}
-⋮----
-export interface ProofPackageData {
-  cardName: string;
-  predictedDate: string;
-  predictedPrice: string;
-  currentPrice: string;
-  growthRate: string;
-  hitReasonPattern: string;
-  proofPost: string;
-  visualGuideline: {
-    beforeImageDesc: string;
-    afterImageDesc: string;
-    comparisonLayout: string;
-  };
-  discordCTA: string;
-}
-⋮----
-export interface SnsPostsData {
-  theme: string;
-  recommendedTiming: string;
-  hashtags?: string[];
-  visualGuideline?: {
-    coverSlide: string;
-    carouselSlides: string[];
-  };
-  posts?: {
-    hybridPost: string;
-    arbitragePost: string;
-    trendPost: string;
-  };
-  discordCTA: string;
-  dailyPosts?: {
-    day: string;
-    theme?: string;
-    caption: string;
-    slides?: string[];
-    infographicData?: InfographicData;
-  }[];
-}
-⋮----
-export interface XPostsData {
-  theme: string;
-  mainPost?: string;
-  threadPosts?: string[];
-  imageGuideline?: string[];
-  xCallToAction: string;
-  dailyThreads?: {
-    day: string;
-    mainPost: string;
-    threadPosts: string[];
-    infographicData?: InfographicData;
-  }[];
-}
-⋮----
-export interface SalesDMData {
-  targetSegment: string;
-  offerSummary: string;
-  discordMessage: string;
-  commercialTerms: {
-    minimumOrderQty: string;
-    shippingMethod: string;
-    paymentMethod: string;
-  };
-  negotiationTip: string;
-}
-⋮----
-export interface RSIAutoRule {
-  targetAgent: string;
-  ruleText: string;
-}
-⋮----
-export interface RSIReportData {
-  overallEvaluation: string;
-  accuracyScore: number;
-  trendWeightAdjustments: {
-    recommendedPattern: string;
-    rationale: string;
-  };
-  arbitrageSpreadAudits: {
-    spreadReliabilityScore: string;
-    recommendedMinimumSpread: string;
-    rationale: string;
-  };
-  autoGeneratedRules: RSIAutoRule[];
-}
-⋮----
-export interface RegionalContainer<T> {
-  us: T | null;
-  eu: T | null;
-  asia: T | null;
-}
-⋮----
-// 🌟 統合インテリジェンスデータ
-export interface IntelligenceData {
-  trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
-  profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
-  chiefPackage: ChiefPackageData | null;
-  proofPackage?: ProofPackageData | null;
-  accountInsights: StrategicReport | null;
-  xAccountInsights?: StrategicReport | null;
-  snsPosts: SnsPostsData | null;
-  xPosts?: XPostsData | null;
-  salesDM: SalesDMData | null;
-  rsiReport?: RSIReportData | null;
-}
-⋮----
-export interface ChatMessage {
-  id: string;
-  sender: string;
-  avatar: string;
-  text: string;
-  isUser: boolean;
-  timestamp: string;
-}
-⋮----
-export interface KnowledgeItem {
-  id: string;
-  agent_key: string;
-  content: string;
-  created_at: string;
-}
-⋮----
-// ==========================================
-// 🌟 パイプライン進捗・監査役ステータス型定義
-// ==========================================
-export type PipelinePhase =
-  | 'initialized'
-  | 'researching'
-  | 'curating'
-  | 'gate1_auditing'
-  | 'generating_content'
-  | 'gate2_auditing'
-  | 'ready_to_publish'
-  | 'partially_failed'
-  | 'completed';
-⋮----
-export interface Gate1AuditItem {
-  id: string;
-  card: string;
-  slot: string;
-  region: string;
-  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
-  checks?: any;
-  feedback?: string | null;
-}
-⋮----
-export interface Gate2AuditItem {
-  id: string;
-  platform: string;
-  day: string;
-  status: 'pending' | 'passed' | 'rejected' | 'needs_revision';
-  checks?: any;
-  feedback?: string | null;
-}
-⋮----
-export interface PipelineProgressState {
-  cycleId: string | null;
-  status: PipelinePhase | null;
-  gate1Audits: Gate1AuditItem[];
-  gate2Audits: Gate2AuditItem[];
-}
-</file>
-
 <file path="app/AiDashboard/components/Sidebar.tsx">
 // app/AiDashboard/components/Sidebar.tsx
 import React from 'react';
@@ -9073,64 +9199,9 @@ import { NextRequest } from 'next/server';
 {/* 下部: 粗利スプレッド & ロゴ */}
 </file>
 
-<file path="app/api/ai/intelligence/agents/marketTrend.ts">
-// app/api/ai/intelligence/agents/marketTrend.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server';
-import { parseAIJson, getCategoryName } from '../helpers';
-⋮----
-export interface TrendItem {
-  cardName: string;
-  condition: string;
-  jpBuyPriceJPY: string;
-  currentLocalPrice: string;
-  impactLogic: string;
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-⋮----
-export interface TrendHypothesis {
-  headline: string;
-  signal: string;
-  timeframe: string;
-  impactLogic: string;
-  items: TrendItem[];
-}
-⋮----
-export interface MarketTrendReport {
-  title: string;
-  claim: string;
-  summary: {
-    headline: string;
-    macroAnalysis: {
-      japanSourcingClimate: string;
-      localMarketDemand: string;
-    };
-    microAnalysis: {
-      topImportMarginCard: string;
-      topLocalVelocityCard: string;
-      conditionGradingInsight: string;
-    };
-    riskAlert: {
-      sourcingQualityTrap: string;
-      localInventoryRisk: string;
-    };
-    actionDirectives: string[];
-  };
-  hypotheses: TrendHypothesis[];
-}
-⋮----
-export async function runMarketTrend(
-  region: 'us' | 'eu' | 'asia',
-  category: string = 'pokemon'
-): Promise<MarketTrendReport | null>
-⋮----
-// 1. 直近同期された最新海外相場データをSupabaseから取得
-</file>
-
 <file path="lib/market-fetcher/apify-arbitrage.ts">
 // lib/market-fetcher/apify-arbitrage.ts
+import { extractPokemonNameJa } from './pokemon-dictionary';
 ⋮----
 export interface VerifiedArbitrageCandidate {
   cardName: string;
@@ -9148,27 +9219,6 @@ export interface VerifiedArbitrageCandidate {
   pokecazillaUrl: string;
   ebayUrl: string;
 }
-⋮----
-/**
- * 主要ポケモン・トレーナー日英変換辞書（随時追加可能）
- */
-⋮----
-// 御三家・初代人気
-⋮----
-// イーブイ進化系（ブイズ）
-⋮----
-// 金銀・ルビサファ・ダイパ人気
-⋮----
-// BW・XY・SM・剣盾・SV人気
-⋮----
-// 人気トレーナー・サポート
-⋮----
-// 長い単語（例: MEWTWO）が短い単語（MEW）より先に判定されるよう文字数降順でソート
-⋮----
-/**
- * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
- */
-function extractPokemonNameJa(ebayTitle: string): string | null
 ⋮----
 interface DayLocalPriceRange {
   minLocal: number;
@@ -9221,7 +9271,12 @@ function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: 
 /**
  * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
  */
-function normalizeEbayUrl(rawUrl: string | undefined, cardNumber: string, region: 'us' | 'eu'): string
+function normalizeEbayUrl(
+  rawUrl: string | undefined,
+  cardNumber: string,
+  region: 'us' | 'eu',
+  pokemonNameEn?: string
+): string
 ⋮----
 /**
  * Apify 2段階スクレイピングを実行し、「ポケモン名 ＋ 型番」一致・状態◎最安値の実売サヤ取り候補を返す
@@ -9239,7 +9294,7 @@ export async function fetchRealArbitrageCandidates(
 ⋮----
 // 同じ「ポケモン名 ＋ 型番 ＋ グレード」が複数成約している場合は平均成約額と成約件数を集計
 ⋮----
-// 3. ポケカジラ検索用の startUrls を重複なしで生成
+// 3. ポケカジラ検索用の startUrls を「ポケモン名 ＋ 型番」で重複なし生成
 ⋮----
 // 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
 ⋮----
@@ -9248,88 +9303,6 @@ continue; // 状態◎の在庫がないカードはスキップ
 // 5. 「ポケモン名 ＋ 型番」が両方一致するカードだけを突合
 ⋮----
 // 型番一致候補の中から、ポケカジラのカード名に同じポケモン名（日本語）を含むカードを取得
-</file>
-
-<file path="app/AiDashboard/index.tsx">
-// app/AiDashboard/index.tsx
-⋮----
-import React, { useState, useEffect, useRef } from 'react';
-import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
-import Sidebar from './components/Sidebar';
-import DeskViews from './components/DeskViews';
-import ChatPanel from './components/ChatPanel';
-⋮----
-interface PhaseDetail {
-    step: string;
-    title: string;
-    percent: number;
-    color: string;
-    activeAgents: string[];
-}
-⋮----
-// 🌟 北米リサーチ
-⋮----
-// 🌟 欧州リサーチ
-⋮----
-// 🌟 アジアリサーチ
-⋮----
-const loadCycleData = async (cycleId: string) =>
-⋮----
-const handleSelectHistory = (target: any) =>
-⋮----
-// 🌟 各AIデスクごとの完全単独再実行ハンドラー
-const runSingleAi = async (action: string, region?: RegionKey) =>
-⋮----
-// 強制停止ハンドラー
-const handleStopPipeline = async () =>
-⋮----
-// パイプライン開始処理
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 🌟 進行対象のフェーズ一覧
-⋮----
-// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
-⋮----
-// 完了・失敗時の停止処理
-⋮----
-const handleCopy = (text: string, key: string) =>
-⋮----
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-// app/AiDashboard/index.tsx 内
-const handlePublishToInstagram = async (
-    content: string, 
-    typeKey: string, 
-    images?: string[] | string
-) =>
-⋮----
-const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
-⋮----
-const fetchLatestCycles = async () =>
-⋮----
-{/* 進捗ゲージ */}
-⋮----
-{/* メインデスクビュー */}
-</file>
-
-<file path="app/api/pipeline/status/route.ts">
-// app/api/pipeline/status/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-⋮----
-function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string
-⋮----
-export async function GET(req: Request)
-⋮----
-// 1. 履歴一覧返却
-⋮----
-// 2. 特定サイクルの全データ取得
-⋮----
-// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
-const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
-⋮----
-// 4. トレンドレポート復元
-const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
 </file>
 
 <file path="app/AiDashboard/components/DeskViews.tsx">
@@ -9428,6 +9401,88 @@ onClick=
 {/* ========================================================= */}
 </file>
 
+<file path="app/AiDashboard/index.tsx">
+// app/AiDashboard/index.tsx
+⋮----
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
+import Sidebar from './components/Sidebar';
+import DeskViews from './components/DeskViews';
+import ChatPanel from './components/ChatPanel';
+⋮----
+interface PhaseDetail {
+    step: string;
+    title: string;
+    percent: number;
+    color: string;
+    activeAgents: string[];
+}
+⋮----
+// 🌟 北米リサーチ
+⋮----
+// 🌟 欧州リサーチ
+⋮----
+// 🌟 アジアリサーチ
+⋮----
+const loadCycleData = async (cycleId: string) =>
+⋮----
+const handleSelectHistory = (target: any) =>
+⋮----
+// 🌟 各AIデスクごとの完全単独再実行ハンドラー
+const runSingleAi = async (action: string, region?: RegionKey) =>
+⋮----
+// 強制停止ハンドラー
+const handleStopPipeline = async () =>
+⋮----
+// パイプライン開始処理
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 🌟 進行対象のフェーズ一覧
+⋮----
+// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
+⋮----
+// 完了・失敗時の停止処理
+⋮----
+const handleCopy = (text: string, key: string) =>
+⋮----
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+// app/AiDashboard/index.tsx 内
+const handlePublishToInstagram = async (
+    content: string, 
+    typeKey: string, 
+    images?: string[] | string
+) =>
+⋮----
+const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
+⋮----
+const fetchLatestCycles = async () =>
+⋮----
+{/* 進捗ゲージ */}
+⋮----
+{/* メインデスクビュー */}
+</file>
+
+<file path="app/api/pipeline/status/route.ts">
+// app/api/pipeline/status/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+⋮----
+function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string
+⋮----
+export async function GET(req: Request)
+⋮----
+// 1. 履歴一覧返却
+⋮----
+// 2. 特定サイクルの全データ取得
+⋮----
+// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
+const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
+⋮----
+// 4. トレンドレポート復元
+const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
+</file>
+
 <file path="app/AiDashboard/components/DocumentReport.tsx">
 // app/AiDashboard/components/DocumentReport.tsx
 import React, { useState } from 'react';
@@ -9437,6 +9492,9 @@ const getTierBadgeClass = (tierKey?: string) =>
 const toggleSub = (cellId: string) =>
 ⋮----
 // 🌟 ポケカジラ個別URL優先・型番検索URLフォールバック（カードラッシュURLを完全排除）
+// 🌟 ポケカジラ個別URL優先・「カード名 ＋ 型番」検索URLフォールバック
+// 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
+// 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
 const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) =>
 ⋮----
 const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
@@ -9460,6 +9518,7 @@ import {
   fetchRealArbitrageCandidates,
   VerifiedArbitrageCandidate,
 } from '@/lib/market-fetcher/apify-arbitrage';
+import { extractPokemonNameEn } from '@/lib/market-fetcher/pokemon-dictionary';
 ⋮----
 async function getCachedRealCandidates(
   category: string,
@@ -9516,9 +9575,13 @@ function enforceDataIntegrity(
 ⋮----
 // 1. 素体枠のコンディション強制クリーンアップ
 ⋮----
-// 確実に実在するポケカジラ型番検索一覧URL
+// 現行レアリティ表記（SAR / SR / AR 等）を先に抽出（eBay検索用）
 ⋮----
-// 地域に合わせて実在するeBay Sold成約検索URLを生成
+// カード名から [sv2a] / (AR) / レアリティ文字 / 重複型番 をすべて除去した純粋なカード名を取得
+⋮----
+// ポケカジラ検索は「純粋なカード名 ＋ 正式型番」のみ（レアリティや旧裏No.は除外）
+⋮----
+// eBay検索は「英語ポケモン名 ＋ 型番 ＋ レアリティ ＋ Japanese」で組み立て
 ⋮----
 // 2. Apify確定データと型番が一致する場合は、確定数値・確定URLを直接注入
 ⋮----
