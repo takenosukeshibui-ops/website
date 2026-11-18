@@ -1142,18 +1142,32 @@ const SORTED_JA_TO_EN_ENTRIES = Object.entries(POKEMON_EN_JA).sort(
 );
 
 /**
+ * eBayタイトルから該当するすべてのポケモン・トレーナー名を抽出し、日本語名配列で返す（複数セット検知用）
+ */
+export function extractAllPokemonNamesJa(ebayTitle: string): string[] {
+  const found: string[] = [];
+  let remaining = ebayTitle;
+
+  for (const [enName, jaName] of SORTED_POKEMON_ENTRIES) {
+    const escaped = enName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?<![A-Z0-9])${escaped}(?![A-Z0-9])`, 'gi');
+    if (regex.test(remaining)) {
+      if (!found.includes(jaName)) {
+        found.push(jaName);
+      }
+      remaining = remaining.replace(regex, ' ');
+    }
+  }
+
+  return found;
+}
+
+/**
  * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
  */
 export function extractPokemonNameJa(ebayTitle: string): string | null {
-  for (const [enName, jaName] of SORTED_POKEMON_ENTRIES) {
-    const escaped = enName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // 末尾がピリオドや記号（MIME JR. / NIDORAN♀ 等）でも正しく境界判定できるよう英数字否定先読み・後読みを使用
-    const regex = new RegExp(`(?<![A-Z0-9])${escaped}(?![A-Z0-9])`, 'i');
-    if (regex.test(ebayTitle)) {
-      return jaName;
-    }
-  }
-  return null;
+  const all = extractAllPokemonNamesJa(ebayTitle);
+  return all.length > 0 ? all[0] : null;
 }
 
 /**

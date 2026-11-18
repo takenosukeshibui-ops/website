@@ -1,5 +1,5 @@
 // lib/market-fetcher/apify-arbitrage.ts
-import { extractPokemonNameJa } from './pokemon-dictionary';
+import { extractAllPokemonNamesJa } from './pokemon-dictionary';
 
 export interface VerifiedArbitrageCandidate {
   cardName: string;
@@ -125,19 +125,70 @@ async function runApifySync(
 }
 
 /**
+ * eBayタイトルからトレカ型番をすべて抽出する
+ */
+export function extractAllCardNumbers(title: string): string[] {
+  const results = new Set<string>();
+
+  const slashMatches = title.match(/\b\d{3}\/\d{3}\b/g);
+  if (slashMatches) slashMatches.forEach((m) => results.add(m));
+
+  const promoMatches = title.match(/\b\d{3}\/[A-Z0-9]+-P\b/gi);
+  if (promoMatches) promoMatches.forEach((m) => results.add(m.toUpperCase()));
+
+  const hyphenMatches = title.match(/\b[A-Z]{2,4}\d{2}-\d{3}\b/gi);
+  if (hyphenMatches) hyphenMatches.forEach((m) => results.add(m.toUpperCase()));
+
+  return Array.from(results);
+}
+
+/**
  * eBayタイトルからトレカ型番を抽出する
  */
 export function extractCardNumber(title: string): string | null {
-  const slashMatch = title.match(/\b(\d{3}\/\d{3})\b/);
-  if (slashMatch) return slashMatch[1];
+  const all = extractAllCardNumbers(title);
+  return all.length > 0 ? all[0] : null;
+}
 
-  const promoMatch = title.match(/\b(\d{3}\/[A-Z0-9]+-P)\b/i);
-  if (promoMatch) return promoMatch[1].toUpperCase();
+/**
+ * 複数枚のセット・まとめ売り商品かどうかを判定する
+ */
+function isMultiCardSet(title: string, cardNumbers: string[], pokemonNames: string[]): boolean {
+  const upper = title.toUpperCase();
 
-  const hyphenMatch = title.match(/\b([A-Z]{2,4}\d{2}-\d{3})\b/i);
-  if (hyphenMatch) return hyphenMatch[1].toUpperCase();
+  // 1. "SET" という単語が独立して含まれている場合は無条件で除外
+  if (/\bSET\b/.test(upper)) {
+    return true;
+  }
 
-  return null;
+  // 2. その他のまとめ売り・複数枚を示すキーワード
+  const setPatterns = [
+    /\b\d+\s*CARDS?\b/,
+    /\b(LOT|BUNDLE|COMBO|PAIR|PLAYSET)\b/,
+    /\b\d+\s*(PCS|PIECES|SHEETS)\b/,
+    /\bX\s*[2-9]\b/,
+    /\b[2-9]\s*X\b/,
+    /\b([2-9]|10)\s*枚\b/,
+    /セット/,
+  ];
+
+  if (setPatterns.some((pat) => pat.test(upper))) {
+    return true;
+  }
+
+  // 3. タイトル内に異なる型番が2つ以上含まれている場合（例: 037/040 & 044/040）
+  if (cardNumbers.length >= 2) {
+    return true;
+  }
+
+  // 4. 異なるポケモン名が2種類以上含まれている場合
+  // ※ 1枚のカードに2匹描かれる TAG TEAM / GX / V-UNION / LEGEND カードは除外しない
+  const isDualSingleCard = /\b(TAG\s*TEAM|GX|V-UNION|LEGEND)\b/.test(upper);
+  if (pokemonNames.length >= 2 && !isDualSingleCard) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -287,20 +338,23 @@ export async function fetchRealArbitrageCandidates(
 
         const soldLocal = isCurrencyMismatch ? 0 : numericPrice;
         const title = String(item.title || '');
-        const cardNumber = extractCardNumber(title);
-        const pokemonNameJa = extractPokemonNameJa(title);
+        const allCardNumbers = extractAllCardNumbers(title);
+        const allPokemonNamesJa = extractAllPokemonNamesJa(title);
+        const isSet = isMultiCardSet(title, allCardNumbers, allPokemonNamesJa);
 
         return {
           title,
           soldLocal,
           soldJpy: Math.round(soldLocal * exchangeRateJpy),
-          cardNumber,
-          pokemonNameJa,
+          cardNumber: allCardNumbers[0] ?? null,
+          pokemonNameJa: allPokemonNamesJa[0] ?? null,
+          isSet,
           conditionGrade: detectConditionGrade(title),
           ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
+        if (item.isSet) return false;
         if (item.cardNumber === null || item.pokemonNameJa === null) return false;
         if (item.soldLocal <= 0 || item.soldLocal < priceRange.minLocal) return false;
         if (priceRange.maxLocal !== undefined && item.soldLocal > priceRange.maxLocal) return false;
