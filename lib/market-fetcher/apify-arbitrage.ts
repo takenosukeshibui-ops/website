@@ -272,15 +272,39 @@ export async function fetchRealArbitrageCandidates(
     const expectedCurrency: 'USD' | 'EUR' = isEu ? 'EUR' : 'USD';
     const priceRange = getLocalPriceRangeForDay(targetDay, exchangeRateJpy);
 
-    const defaultEbayKeyword =
+    const ebayKeywords =
       category === 'onepiece'
-        ? 'Japanese One Piece Card'
+        ? [
+            'Japanese One Piece Card',
+            'Japanese One Piece Promo',
+            'Japanese One Piece PSA',
+            'Japanese One Piece Manga',
+            'Japanese One Piece Parallel',
+            'Japanese One Piece Alt Art',
+          ]
         : category === 'yugioh'
-        ? 'Japanese Yugioh Card'
-        : 'Japanese Pokemon Card';
+        ? [
+            'Japanese Yugioh Card',
+            'Japanese Yugioh Promo',
+            'Japanese Yugioh PSA',
+            'Japanese Yugioh 20th',
+            'Japanese Yugioh 25th',
+            'Japanese Yugioh Ultimate',
+          ]
+        : [
+            'Japanese Pokemon Card',
+            'Japanese Pokemon Promo',
+            'Japanese Pokemon PSA',
+            'Japanese Pokemon Old Back',
+            'Japanese Pokemon Vintage',
+            'Japanese Pokemon XY',
+          ];
 
     const ebayTaskPayload: Record<string, any> = {
       ebaySite: targetEbaySite,
+      keywords: ebayKeywords,
+      count: 30,
+      exactMatch: false,
     };
     if (priceRange.minLocal !== undefined) {
       ebayTaskPayload.minPrice = priceRange.minLocal;
@@ -293,12 +317,7 @@ export async function fetchRealArbitrageCandidates(
     const ebayItems = await runApifySync(
       EBAY_TASK_ID,
       APIFY_TOKEN,
-      ebayTaskPayload,
-      {
-        keywords: [defaultEbayKeyword],
-        count: 50,
-        ...ebayTaskPayload,
-      }
+      ebayTaskPayload
     );
 
     // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
