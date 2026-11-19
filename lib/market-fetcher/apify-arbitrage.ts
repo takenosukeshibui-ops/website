@@ -31,53 +31,54 @@ const POKECAZILLA_TASK_ID = (
 ).trim();
 
 interface DayLocalPriceRange {
-  minLocal: number;
+  minLocal?: number;
   maxLocal?: number;
   minSpreadJpy: number;
 }
 
 /**
- * 曜日（targetDay）の価格帯ラベルに合わせて eBay 検索用の現地通貨（USD / EUR）価格帯を算出する
+ * 曜日（targetDay）の仕入れ目安レンジをそのまま eBay 検索用の現地通貨（USD / EUR）価格帯に換算する
  */
 function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): DayLocalPriceRange {
   switch (targetDay) {
-    case 'Monday': // 〜3千円（エントリー・超高回転枠）
+    case 'Monday': // 〜3,000円
       return {
-        minLocal: Math.max(8, Math.floor(1500 / exchangeRateJpy)),
-        maxLocal: Math.ceil(6000 / exchangeRateJpy),
+        minLocal: undefined,
+        maxLocal: Math.round(3000 / exchangeRateJpy),
         minSpreadJpy: 500,
       };
-    case 'Tuesday': // 3千〜1万円（定番コレクション枠）
-    case 'Sunday':  // 3千〜1万円（週明け即売れ回転枠）
+    case 'Tuesday': // 3,000円〜10,000円
+    case 'Sunday':  // 3,000円〜10,000円
       return {
-        minLocal: Math.floor(3500 / exchangeRateJpy),
-        maxLocal: Math.ceil(16000 / exchangeRateJpy),
-        minSpreadJpy: 1000,
+        minLocal: Math.round(3001 / exchangeRateJpy),
+        maxLocal: Math.round(10000 / exchangeRateJpy),
+        minSpreadJpy: 800,
       };
-    case 'Wednesday': // 1万〜3万円（中核プロモ・高需要SAR枠）
-    case 'Saturday':  // 1万〜3万円（週末高需要コレクション枠）
+    case 'Wednesday': // 10,000円〜30,000円
+    case 'Saturday':  // 10,000円〜30,000円
       return {
-        minLocal: Math.floor(11000 / exchangeRateJpy),
-        maxLocal: Math.ceil(45000 / exchangeRateJpy),
-        minSpreadJpy: 1000,
+        minLocal: Math.round(10001 / exchangeRateJpy),
+        maxLocal: Math.round(30000 / exchangeRateJpy),
+        minSpreadJpy: 2000,
       };
-    case 'Thursday': // 3万〜8万円（準高額鑑定・上位絶版枠）
+    case 'Thursday': // 30,000円〜80,000円
       return {
-        minLocal: Math.floor(32000 / exchangeRateJpy),
-        maxLocal: Math.ceil(120000 / exchangeRateJpy),
-        minSpreadJpy: 1000,
+        minLocal: Math.round(30001 / exchangeRateJpy),
+        maxLocal: Math.round(80000 / exchangeRateJpy),
+        minSpreadJpy: 6000,
       };
-    case 'Friday': // 8万円〜（資産性PSA10・絶版BOX枠）
+    case 'Friday': // 80,000円〜
       return {
-        minLocal: Math.floor(85000 / exchangeRateJpy),
+        minLocal: Math.round(80001 / exchangeRateJpy),
         maxLocal: undefined,
-        minSpreadJpy: 1000,
+        minSpreadJpy: 8000,
       };
     default:
+      console.warn(`[Apify] 不正な曜日指定です: ${targetDay}`);
       return {
-        minLocal: Math.floor(3500 / exchangeRateJpy),
-        maxLocal: Math.ceil(45000 / exchangeRateJpy),
-        minSpreadJpy: 1000,
+        minLocal: 999999,
+        maxLocal: 999999,
+        minSpreadJpy: 999999,
       };
   }
 }
@@ -283,8 +284,10 @@ export async function fetchRealArbitrageCandidates(
 
     const ebayTaskPayload: Record<string, any> = {
       ebaySite: targetEbaySite,
-      minPrice: priceRange.minLocal,
     };
+    if (priceRange.minLocal !== undefined) {
+      ebayTaskPayload.minPrice = priceRange.minLocal;
+    }
     if (priceRange.maxLocal !== undefined) {
       ebayTaskPayload.maxPrice = priceRange.maxLocal;
     }
@@ -354,9 +357,10 @@ export async function fetchRealArbitrageCandidates(
         };
       })
       .filter((item) => {
-        if (item.isSet) return false;
+        if (item.isNonJp || item.isSet) return false;
         if (item.cardNumber === null || item.pokemonNameJa === null) return false;
-        if (item.soldLocal <= 0 || item.soldLocal < priceRange.minLocal) return false;
+        if (item.soldLocal <= 0) return false;
+        if (priceRange.minLocal !== undefined && item.soldLocal < priceRange.minLocal) return false;
         if (priceRange.maxLocal !== undefined && item.soldLocal > priceRange.maxLocal) return false;
         return true;
       });
