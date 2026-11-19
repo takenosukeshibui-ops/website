@@ -18,6 +18,12 @@ export interface VerifiedArbitrageCandidate {
   ebayUrl: string;
 }
 
+type EbayCardCondition =
+  | 'Near mint or better'
+  | 'Lightly played (Excellent)'
+  | 'Moderately played (Very good)'
+  | 'Heavily played (Poor)';
+
 const APIFY_TOKEN = (process.env.APIFY_API_TOKEN || '').trim();
 
 const EBAY_TASK_ID = (
@@ -128,6 +134,18 @@ async function runApifySync(
 /**
  * eBayタイトルからトレカ型番をすべて抽出する
  */
+/**
+ * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
+ */
+function isNoiseCard(title: string): boolean {
+  return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|JUMBO|OVERSIZED|STICKER|SEALS?|CARDDASS|SEALDASS|TOPSUN|MEIJI)\b/i.test(
+    title
+  );
+}
+
+/**
+ * eBayタイトルからトレカ型番をすべて抽出する
+ */
 export function extractAllCardNumbers(title: string, isGraded: boolean = false): string[] {
   const results = new Set<string>();
 
@@ -135,9 +153,18 @@ export function extractAllCardNumbers(title: string, isGraded: boolean = false):
   const slashMatches = title.match(/\b\d{2,3}\/\d{2,3}\b/g);
   if (slashMatches) slashMatches.forEach((m) => results.add(m));
 
-  // 1桁〜3桁のプロモ型番に対応（例: 001/SV-P, 28/SM-P, 77/XY-P）
-  const promoMatches = title.match(/\b\d{1,3}\/[A-Z0-9]+-P\b/gi);
+  // 1桁〜3桁のプロモ型番に対応（例: 001/SV-P, 28/SM-P, 005/T, 001/PPP, 001/P, 010/PLAY）
+  const promoMatches = title.match(/\b\d{1,3}\/(?:[A-Z0-9]+-P|PPP|PLAY|T|P)\b/gi);
   if (promoMatches) promoMatches.forEach((m) => results.add(m.toUpperCase()));
+
+  // スラッシュ省略プロモ表記（例: 098 XY-P -> 098/XY-P）
+  const spacedPromoMatches = title.match(/\b(\d{1,3})\s+(SV|S|SM|XY|BW|L|DP|PCG|ADV)-P\b/gi);
+  if (spacedPromoMatches) {
+    spacedPromoMatches.forEach((m) => {
+      const match = m.trim().match(/^(\d{1,3})\s+([A-Z]+-P)$/i);
+      if (match) results.add(`${match[1]}/${match[2].toUpperCase()}`);
+    });
+  }
 
   // ハイフン省略プロモ表記（例: #107PCGP -> 107/PCG-P）
   const compactPromoMatches = title.match(/#?(\d{1,3})(SV|S|SM|XY|BW|L|DP|PCG|ADV)P\b/gi);
@@ -151,6 +178,15 @@ export function extractAllCardNumbers(title: string, isGraded: boolean = false):
 
   const hyphenMatches = title.match(/\b[A-Z]{2,4}\d{2}-\d{3}\b/gi);
   if (hyphenMatches) hyphenMatches.forEach((m) => results.add(m.toUpperCase()));
+
+  // 鑑定品でスラッシュ型番が取れなかった場合のみ、PSAラベルの #001 表記（3桁）を救出
+  if (results.size === 0 && isGraded) {
+    const hashMatches = title.match(/#(\d{3})\b/g);
+    if (hashMatches) {
+      hashMatches.forEach((m) => results.add(m.replace('#', '')));
+    }
+  }
+
   return Array.from(results);
 }
 
@@ -215,7 +251,84 @@ function detectConditionGrade(title: string): string {
     return 'Sealed Box';
   }
 
-  return 'Raw NM';
+  return 'Raw';
+}
+
+/**
+ * eBay商品ページから公式Card conditionが取得できなかった場合のタイトル補助判定
+ */
+function inferConditionFromTitleFallback(title: string): EbayCardCondition {
+  const upper = title.toUpperCase();
+  if (/\b(POOR|HEAVILY\s*PLAYED|DMG|DAMAGED)\b|\bHP\b(?!\s*\d)/.test(upper)) {
+    return 'Heavily played (Poor)';
+  }
+  if (/\b(MODERATELY\s*PLAYED|VERY\s*GOOD|PLAYED|FAIR|B-)\b|\bMP\b/.test(upper)) {
+    return 'Moderately played (Very good)';
+  }
+  if (/\b(LIGHTLY\s*PLAYED|EXCELLENT|EXC|VG)\b|\bLP\b/.test(upper)) {
+    return 'Lightly played (Excellent)';
+  }
+  return 'Near mint or better';
+}
+
+/**
+ * 未鑑定品のeBay個別商品ページから公式の Card condition を一括取得する
+ */
+async function fetchEbayOfficialConditions(urls: string[]) {
+  const conditionMap: { [url: string]: EbayCardCondition } = {};
+  const uniqueUrls = urls.filter(
+    (u, index, self) => Boolean(u) && u.startsWith('http') && self.indexOf(u) === index
+  );
+  if (uniqueUrls.length === 0) return conditionMap;
+
+  const pageFunction = `async function pageFunction(context) {
+    const { $, request } = context;
+    const condAreaText = [
+      $('.x-item-condition-text').text(),
+      $('.ux-labels-values--condition').text(),
+      $('[data-testid="x-item-condition"]').text(),
+      $('#vi-itm-cond').text(),
+    ].join(' ').replace(/\\s+/g, ' ').trim();
+
+    const corpus = condAreaText || $('body').text().replace(/\\s+/g, ' ').slice(0, 12000);
+    let officialCondition = '';
+
+    if (/Heavily\\s*played(?:\\s*\\(Poor\\))?/i.test(corpus)) {
+      officialCondition = 'Heavily played (Poor)';
+    } else if (/Moderately\\s*played(?:\\s*\\(Very\\s*good\\))?/i.test(corpus)) {
+      officialCondition = 'Moderately played (Very good)';
+    } else if (/Lightly\\s*played(?:\\s*\\(Excellent\\))?/i.test(corpus)) {
+      officialCondition = 'Lightly played (Excellent)';
+    } else if (/Near\\s*mint\\s*or\\s*better/i.test(corpus)) {
+      officialCondition = 'Near mint or better';
+    }
+
+    return {
+      url: request.url,
+      officialCondition,
+    };
+  }`;
+
+  try {
+    const items = await runApifySync('apify/cheerio-scraper', APIFY_TOKEN, {
+      startUrls: uniqueUrls.map((url) => ({ url })),
+      pageFunction,
+      proxyConfiguration: { useApifyProxy: true },
+      maxRequestsPerCrawl: uniqueUrls.length,
+      maxConcurrency: 10,
+      ignoreSslErrors: true,
+    });
+
+    for (const row of items) {
+      if (row && row.url && row.officialCondition) {
+        conditionMap[String(row.url)] = row.officialCondition as EbayCardCondition;
+      }
+    }
+  } catch (err) {
+    console.warn('[Apify] eBay公式コンディション取得をスキップし、タイトル判定にフォールバックします:', err);
+  }
+
+  return conditionMap;
 }
 
 /**
@@ -321,7 +434,7 @@ export async function fetchRealArbitrageCandidates(
     );
 
     // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
-    const parsedEbay = ebayItems
+    const preFilteredEbay = ebayItems
       .map((item) => {
         const rawCurrency = String(
           item.currency ?? item.soldCurrency ?? item.priceCurrency ?? ''
@@ -357,8 +470,9 @@ export async function fetchRealArbitrageCandidates(
 
         const soldLocal = isCurrencyMismatch ? 0 : numericPrice;
         const title = String(item.title || '');
-        const conditionGrade = detectConditionGrade(title);
-        const isGraded = conditionGrade !== 'Raw NM' && conditionGrade !== 'Sealed Box';
+        const baseGrade = detectConditionGrade(title);
+        const isGraded = baseGrade !== 'Raw' && baseGrade !== 'Sealed Box';
+        const isNoise = isNoiseCard(title);
         const allCardNumbers = extractAllCardNumbers(title, isGraded);
         const allPokemonNamesJa = extractAllPokemonNamesJa(title);
         const isSet = isMultiCardSet(title, allCardNumbers);
@@ -369,12 +483,13 @@ export async function fetchRealArbitrageCandidates(
           cardNumber: allCardNumbers[0] ?? null,
           pokemonNameJa: allPokemonNamesJa[0] ?? null,
           isSet,
-          conditionGrade,
+          isNoise,
+          baseGrade,
           ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
-        if (item.isSet) return false;
+        if (item.isNoise || item.isSet) return false;
         if (item.cardNumber === null || item.pokemonNameJa === null) return false;
         if (item.soldLocal <= 0) return false;
         if (priceRange.minLocal !== undefined && item.soldLocal < priceRange.minLocal) return false;
@@ -382,15 +497,44 @@ export async function fetchRealArbitrageCandidates(
         return true;
       });
 
+    if (preFilteredEbay.length === 0) return [];
+
+    // 2.5 未鑑定品（Raw）の個別ページから公式 Card condition を一括取得
+    const rawItemUrls = preFilteredEbay
+      .filter((item) => item.baseGrade === 'Raw')
+      .map((item) => item.ebayUrl);
+    const officialConditionsMap = await fetchEbayOfficialConditions(rawItemUrls);
+
+    const parsedEbay = preFilteredEbay
+      .map((item) => {
+        let officialCondition: EbayCardCondition | null = null;
+        let displayGrade = item.baseGrade;
+
+        if (item.baseGrade === 'Raw') {
+          officialCondition =
+            officialConditionsMap[item.ebayUrl] ||
+            inferConditionFromTitleFallback(item.title);
+          displayGrade = `Raw (${officialCondition})`;
+        }
+
+        return {
+          ...item,
+          officialCondition,
+          conditionGrade: displayGrade,
+        };
+      })
+      .filter((item) => item.officialCondition !== 'Heavily played (Poor)');
+
     if (parsedEbay.length === 0) return [];
 
-    // 同じ「ポケモン名 ＋ 型番 ＋ グレード」が複数成約している場合は平均成約額と成約件数を集計
+    // 同じ「ポケモン名 ＋ 型番 ＋ グレード（公式コンディション含む）」ごとに集計
     const groupedByKey = new Map<
       string,
       {
         cardNumber: string;
         pokemonNameJa: string;
         conditionGrade: string;
+        officialCondition: EbayCardCondition | null;
         totalLocal: number;
         count: number;
         ebayUrl: string;
@@ -408,6 +552,7 @@ export async function fetchRealArbitrageCandidates(
           cardNumber: item.cardNumber!,
           pokemonNameJa: item.pokemonNameJa!,
           conditionGrade: item.conditionGrade,
+          officialCondition: item.officialCondition,
           totalLocal: item.soldLocal,
           count: 1,
           ebayUrl: item.ebayUrl,
@@ -426,12 +571,21 @@ export async function fetchRealArbitrageCandidates(
       url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(q)}`,
     }));
 
-    // 4. ポケカジラ検索タスクを一括実行（一覧 ➔ 個別ページへ自動遷移して状態◎最安値を取得）
+    // 4. ポケカジラ検索タスクを一括実行（状態◎・状態○・状態△の最安値を取得）
     const jpResults = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
     const jpCandidatesMap = new Map<
       string,
-      Array<{ name: string; minPrice: number; shopName: string; detailUrl: string }>
+      Array<{
+        name: string;
+        mintPrice: number | null;
+        mintShopName: string;
+        goodPrice: number | null;
+        goodShopName: string;
+        playedPrice: number | null;
+        playedShopName: string;
+        detailUrl: string;
+      }>
     >();
 
     for (const row of jpResults) {
@@ -444,46 +598,97 @@ export async function fetchRealArbitrageCandidates(
       if (!queriedNum) continue;
 
       if (row.isDetailResult) {
-        if (typeof row.mintMinPrice !== 'number' || row.mintMinPrice <= 0) {
-          continue; // 状態◎の在庫がないカードはスキップ
+        const mintPrice =
+          typeof row.mintMinPrice === 'number' && row.mintMinPrice > 0
+            ? Number(row.mintMinPrice)
+            : null;
+        const goodPrice =
+          typeof row.goodMinPrice === 'number' && row.goodMinPrice > 0
+            ? Number(row.goodMinPrice)
+            : null;
+        const playedPrice =
+          typeof row.playedMinPrice === 'number' && row.playedMinPrice > 0
+            ? Number(row.playedMinPrice)
+            : null;
+
+        if (mintPrice === null && goodPrice === null && playedPrice === null) {
+          continue; // 全状態ランクで在庫がない場合のみスキップ
         }
+
         const cardCode = String(row.cardCode || '');
         if (cardCode && !cardCode.includes(queriedNum)) continue;
 
         const list = jpCandidatesMap.get(queriedNum) || [];
         list.push({
           name: String(row.name || queriedNum),
-          minPrice: Number(row.mintMinPrice),
-          shopName: String(row.mintShopName || 'ポケカジラ状態◎最安'),
+          mintPrice,
+          mintShopName: String(row.mintShopName || 'ポケカジラ'),
+          goodPrice,
+          goodShopName: String(row.goodShopName || 'ポケカジラ'),
+          playedPrice,
+          playedShopName: String(row.playedShopName || 'ポケカジラ'),
           detailUrl: normalizePokecazillaUrl(row.detailUrl, searchUrl),
         });
         jpCandidatesMap.set(queriedNum, list);
       }
     }
 
-    // 5. 「ポケモン名 ＋ 型番」が両方一致するカードだけを突合
+    // 5. eBay公式コンディションに対応するポケカジラの状態ランク最安値と突合
     const verifiedList: VerifiedArbitrageCandidate[] = [];
 
     for (const [, ebayGroup] of groupedByKey.entries()) {
       const jpCards = jpCandidatesMap.get(ebayGroup.cardNumber);
       if (!jpCards || jpCards.length === 0) continue;
 
-      // 型番一致候補の中から、ポケカジラのカード名に同じポケモン名（日本語）を含むカードを取得
       const matchedJpCard = jpCards.find((c) => c.name.includes(ebayGroup.pokemonNameJa));
       if (!matchedJpCard) continue;
 
+      let buyPrice: number | null = null;
+      let shopLabel = '';
+
+      if (ebayGroup.officialCondition === 'Moderately played (Very good)') {
+        // Very good ➔ 状態△・B・C・傷有り最安を優先（なければ状態○/A-）
+        if (matchedJpCard.playedPrice !== null) {
+          buyPrice = matchedJpCard.playedPrice;
+          shopLabel = `状態△/B最安 (${matchedJpCard.playedShopName})`;
+        } else if (matchedJpCard.goodPrice !== null) {
+          buyPrice = matchedJpCard.goodPrice;
+          shopLabel = `状態○/A-最安 (${matchedJpCard.goodShopName})`;
+        }
+      } else if (ebayGroup.officialCondition === 'Lightly played (Excellent)') {
+        // Excellent ➔ 状態○/A-最安を優先（なければ状態◎）
+        if (matchedJpCard.goodPrice !== null) {
+          buyPrice = matchedJpCard.goodPrice;
+          shopLabel = `状態○/A-最安 (${matchedJpCard.goodShopName})`;
+        } else if (matchedJpCard.mintPrice !== null) {
+          buyPrice = matchedJpCard.mintPrice;
+          shopLabel = `状態◎最安 (${matchedJpCard.mintShopName})`;
+        }
+      } else {
+        // Near mint or better（または鑑定品） ➔ 状態◎最安を優先（なければ状態○/A-）
+        if (matchedJpCard.mintPrice !== null) {
+          buyPrice = matchedJpCard.mintPrice;
+          shopLabel = `状態◎最安 (${matchedJpCard.mintShopName})`;
+        } else if (matchedJpCard.goodPrice !== null) {
+          buyPrice = matchedJpCard.goodPrice;
+          shopLabel = `状態○/A-最安 (${matchedJpCard.goodShopName})`;
+        }
+      }
+
+      if (buyPrice === null || buyPrice <= 0) continue;
+
       const avgLocal = Math.round((ebayGroup.totalLocal / ebayGroup.count) * 100) / 100;
       const avgJpy = Math.round(avgLocal * exchangeRateJpy);
-      const spreadJpy = avgJpy - matchedJpCard.minPrice;
-      const roi = matchedJpCard.minPrice > 0 ? Math.round((spreadJpy / matchedJpCard.minPrice) * 100) : 0;
+      const spreadJpy = avgJpy - buyPrice;
+      const roi = buyPrice > 0 ? Math.round((spreadJpy / buyPrice) * 100) : 0;
 
       if (spreadJpy >= priceRange.minSpreadJpy && roi >= 15) {
         verifiedList.push({
           cardName: matchedJpCard.name,
           cardNumber: ebayGroup.cardNumber,
           conditionGrade: ebayGroup.conditionGrade,
-          jpBuyPriceJPY: matchedJpCard.minPrice,
-          jpShopName: `状態◎最安 (${matchedJpCard.shopName})`,
+          jpBuyPriceJPY: buyPrice,
+          jpShopName: shopLabel,
           currency: expectedCurrency,
           ebaySoldForeign: avgLocal,
           ebaySoldJpy: avgJpy,
