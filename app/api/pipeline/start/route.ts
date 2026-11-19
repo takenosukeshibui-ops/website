@@ -1,4 +1,6 @@
 // app/api/pipeline/start/route.ts
+export const maxDuration = 300;
+
 import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 

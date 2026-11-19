@@ -1,5 +1,6 @@
 // lib/market-fetcher/apify-arbitrage.ts
 import { extractAllPokemonNamesJa } from './pokemon-dictionary';
+export const maxDuration = 300;
 
 export interface VerifiedArbitrageCandidate {
   cardName: string;
@@ -315,7 +316,9 @@ async function fetchEbayOfficialConditions(urls: string[]) {
       pageFunction,
       proxyConfiguration: { useApifyProxy: true },
       maxRequestsPerCrawl: uniqueUrls.length,
-      maxConcurrency: 10,
+      maxConcurrency: 25,
+      maxRequestRetries: 1,
+      requestHandlerTimeoutSecs: 15,
       ignoreSslErrors: true,
     });
 
@@ -416,7 +419,7 @@ export async function fetchRealArbitrageCandidates(
     const ebayTaskPayload: Record<string, any> = {
       ebaySite: targetEbaySite,
       keywords: ebayKeywords,
-      count: 30,
+      count: 20,
       exactMatch: false,
     };
     if (priceRange.minLocal !== undefined) {
@@ -499,11 +502,31 @@ export async function fetchRealArbitrageCandidates(
 
     if (preFilteredEbay.length === 0) return [];
 
-    // 2.5 未鑑定品（Raw）の個別ページから公式 Card condition を一括取得
+    // 3. ポケカジラ検索用の startUrls を重複なし生成（コンディション取得と並列実行するため先に作成）
+    const categoryId = category === 'onepiece' ? 18 : 17;
+    const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
+    const uniqueQueries = Array.from(
+      new Set(preFilteredEbay.map((i) => `${i.pokemonNameJa!} ${i.cardNumber!}`))
+    );
+
+    const startUrls = uniqueQueries.map((q) => ({
+      url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(q)}`,
+    }));
+
     const rawItemUrls = preFilteredEbay
       .filter((item) => item.baseGrade === 'Raw')
       .map((item) => item.ebayUrl);
-    const officialConditionsMap = await fetchEbayOfficialConditions(rawItemUrls);
+
+    // 2.5 & 4. 「eBay公式コンディション取得」と「ポケカジラ検索」を並列実行して大幅時短
+    const [officialConditionsMap, jpResults] = await Promise.all([
+      fetchEbayOfficialConditions(rawItemUrls),
+      runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, {
+        startUrls,
+        maxConcurrency: 25,
+        maxRequestRetries: 1,
+        requestHandlerTimeoutSecs: 15,
+      }),
+    ]);
 
     const parsedEbay = preFilteredEbay
       .map((item) => {
@@ -559,20 +582,6 @@ export async function fetchRealArbitrageCandidates(
         });
       }
     }
-
-    // 3. ポケカジラ検索用の startUrls を「ポケモン名 ＋ 型番」で重複なし生成
-    const categoryId = category === 'onepiece' ? 18 : 17;
-    const domainPath = category === 'onepiece' ? 'onepiece' : 'pokemon';
-    const uniqueQueries = Array.from(
-      new Set(parsedEbay.map((i) => `${i.pokemonNameJa!} ${i.cardNumber!}`))
-    );
-
-    const startUrls = uniqueQueries.map((q) => ({
-      url: `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(q)}`,
-    }));
-
-    // 4. ポケカジラ検索タスクを一括実行（状態◎・状態○・状態△の最安値を取得）
-    const jpResults = await runApifySync(POKECAZILLA_TASK_ID, APIFY_TOKEN, { startUrls });
 
     const jpCandidatesMap = new Map<
       string,
