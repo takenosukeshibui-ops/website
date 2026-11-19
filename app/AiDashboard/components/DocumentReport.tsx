@@ -140,6 +140,98 @@ export default function DocumentReportView({
         return orderA - orderB;
     });
 
+    // 🌟 1. 対象価格帯（Price Tier）の抽出
+    let overallPriceTierLabel = '';
+    if (isArbitrageReport && sortedSlots && sortedSlots.length > 0) {
+        for (const slot of sortedSlots) {
+            const tiers = slot.tiers || slot.items || [];
+            if (tiers.length > 0 && tiers[0].priceTierLabel) {
+                overallPriceTierLabel = tiers[0].priceTierLabel;
+                break;
+            }
+        }
+    }
+
+    // 🌟 2. CSVダウンロード処理（Excel文字化け防止のBOM付き）
+    const handleDownloadCSV = () => {
+        if (!report || !report.slots) return;
+        
+        const headers = [
+            'スロット', '区分', '価格帯', 'カード名', '型番', '状態', 
+            '日本仕入値', '日本ショップ名', '海外売値', '利ざや', 'ROI', 
+            '7日成約', '30日成約', 'ポケカジラURL', 'eBay URL'
+        ];
+        
+        const rows = [headers.join(',')];
+        
+        for (const slot of sortedSlots) {
+            const slotName = getSlotMeta(slot.slotKey, slot.slotLabel).badge;
+            const tiers = slot.tiers || slot.items || [];
+            
+            for (const tierCell of tiers) {
+                const priceTier = tierCell.priceTierLabel || '指定価格帯';
+                const main = tierCell.mainItem || tierCell;
+                const subs = tierCell.subItems || [];
+                
+                const processItem = (item: any, role: string) => {
+                    const cardNum = item.cardNumber || '';
+                    const rawJpUrl = item.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
+                    const jpShopUrl = resolvePokecazillaUrl(rawJpUrl, item.cardName, cardNum);
+                    const ebayUrl = item.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, cardNum, item.conditionGrade);
+                    
+                    const escapeCsv = (str: string) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+
+                    const row = [
+                        escapeCsv(slotName),
+                        escapeCsv(role),
+                        escapeCsv(priceTier),
+                        escapeCsv(item.cardName),
+                        escapeCsv(cardNum),
+                        escapeCsv(item.conditionGrade || 'Raw NM'),
+                        escapeCsv(item.jpBuyPriceJPY),
+                        escapeCsv(item.jpShopName || 'ポケカジラ最安'),
+                        escapeCsv(item.targetSoldPrice),
+                        escapeCsv(item.priceSpreadJPY),
+                        escapeCsv(item.spreadROI),
+                        escapeCsv(item.salesVolume7d || '-'),
+                        escapeCsv(item.salesVolume30d || '-'),
+                        escapeCsv(jpShopUrl),
+                        escapeCsv(ebayUrl)
+                    ];
+                    rows.push(row.join(','));
+                };
+                
+                processItem(main, '本命');
+                subs.forEach((sub: any) => processItem(sub, '代替候補'));
+            }
+        }
+        
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excelでの文字化けを防ぐBOM
+        const blob = new Blob([bom, rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
+        link.download = `Arbitrage_Report_${regionName}_${fileDate}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // 🌟 3. JSONダウンロード処理（AI検証用）
+    const handleDownloadJSON = () => {
+        if (!report) return;
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
+        link.download = `Arbitrage_Report_${regionName}_${fileDate}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
             {/* 共通ヘッダー */}
@@ -152,19 +244,36 @@ export default function DocumentReportView({
                         </h3>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {report.exchangeRate && (
-                        <div className="shrink-0">
-                            <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
-                                💱 為替基準: {report.exchangeRate.label}
-                            </span>
-                        </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    {/* 🌟 価格帯ラベルの表示 */}
+                    {overallPriceTierLabel && (
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 shadow-sm">
+                            対象価格帯: {overallPriceTierLabel}
+                        </span>
                     )}
+                    {report.exchangeRate && (
+                        <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full bg-${accentColor}-500/20 text-${accentColor}-300 border border-${accentColor}-500/40 shadow-sm`}>
+                            💱 為替基準: {report.exchangeRate.label}
+                        </span>
+                    )}
+                    
+                    {/* 🌟 ダウンロードボタンの追加 */}
                     {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
-                        <div className="shrink-0">
-                            <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm">
-                                全5スロット網羅（eBay成約 × ポケカジラ最安）
-                            </span>
+                        <div className="flex items-center gap-1.5 ml-2">
+                            <button
+                                onClick={handleDownloadCSV}
+                                className="text-xs font-bold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                title="Excelやスプレッドシートでの目視確認用"
+                            >
+                                📊 CSV
+                            </button>
+                            <button
+                                onClick={handleDownloadJSON}
+                                className="text-xs font-bold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                title="AI検証用・構造化データ"
+                            >
+                                ｛ ｝ JSON
+                            </button>
                         </div>
                     )}
                 </div>
