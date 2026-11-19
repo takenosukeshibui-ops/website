@@ -77,6 +77,7 @@ export async function GET(req: Request) {
 
       const slotMap: Record<string, any> = {};
       let exchangeRateObj: any = null;
+      let summaryObj: any = null;
 
       for (const item of items) {
         const slotKey = item.slot_key;
@@ -90,6 +91,10 @@ export async function GET(req: Request) {
 
         if (item.raw_payload?.exchangeRate && !exchangeRateObj) {
           exchangeRateObj = item.raw_payload.exchangeRate;
+        }
+
+        if (item.raw_payload?.reportSummary && !summaryObj) {
+          summaryObj = item.raw_payload.reportSummary;
         }
 
         const isMain = Boolean(item.raw_payload?.isMain || item.raw_payload?.role === '本命');
@@ -118,6 +123,7 @@ export async function GET(req: Request) {
 
           const subItemsData = items
             .filter((sub) => sub.slot_key === slotKey && !sub.raw_payload?.isMain && sub.raw_payload?.role !== '本命')
+            .sort((a, b) => (b.price_spread_jpy || 0) - (a.price_spread_jpy || 0))
             .map((sub) => {
               const rawSub = sub.raw_payload?.currentItem || {};
               const subEbayUrl = sub.raw_payload?.sourceEvidenceUrl || rawSub.sourceEvidenceUrl || buildEbayFallbackUrl(sub.card_name, sub.condition_grade);
@@ -153,9 +159,10 @@ export async function GET(req: Request) {
       }
 
       return {
-        title: `【${regionKey.toUpperCase()}】アービトラージレポート`,
-        claim: `${regionKey.toUpperCase()}市場向け輸入調達レポート（全5スロット網羅）`,
+        title: `【${regionKey.toUpperCase()}】アービトラージレポート（全${items.length}件）`,
+        claim: `${regionKey.toUpperCase()}市場向け輸入調達レポート（確定データ全${items.length}件）`,
         exchangeRate: exchangeRateObj,
+        summary: summaryObj,
         slots: Object.values(slotMap),
       };
     };
