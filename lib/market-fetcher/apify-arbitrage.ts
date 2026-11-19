@@ -139,7 +139,7 @@ async function runApifySync(
  * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
  */
 function isNoiseCard(title: string): boolean {
-  return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|JUMBO|OVERSIZED|STICKER|SEALS?|CARDDASS|SEALDASS|TOPSUN|MEIJI)\b/i.test(
+  return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|JUMBO|OVERSIZED|STICKER|SEALS?|CARDDASS|SEALDASS|TOPSUN|CHINESES?|KOREAN|THAI|INDONESIAN)\b/i.test(
     title
   );
 }
@@ -603,7 +603,9 @@ export async function fetchRealArbitrageCandidates(
       const searchUrl = String(row.searchUrl || '');
       const numMatch = searchUrl.match(/name=([^&]+)/);
       const rawQuery = numMatch ? decodeURIComponent(numMatch[1]) : '';
-      const queriedNum = extractCardNumber(rawQuery) || rawQuery;
+      // スラッシュあり型番だけでなく、末尾の3桁数字（例: "レックウザ 122" -> "122"）も正しく抽出
+      const queriedNum =
+        extractCardNumber(rawQuery) || rawQuery.trim().split(/\s+/).pop() || rawQuery;
       if (!queriedNum) continue;
 
       if (row.isDetailResult) {
@@ -625,7 +627,14 @@ export async function fetchRealArbitrageCandidates(
         }
 
         const cardCode = String(row.cardCode || '');
-        if (cardCode && !cardCode.includes(queriedNum)) continue;
+        if (cardCode) {
+          // 3桁数字のみ（例: "083"）で照合する際、分母が一致する別カード（例: "010/083"）の誤爆を防止
+          const isThreeDigitOnly = /^\d{3}$/.test(queriedNum);
+          const isCodeMatch = isThreeDigitOnly
+            ? cardCode === queriedNum || cardCode.startsWith(`${queriedNum}/`)
+            : cardCode.includes(queriedNum);
+          if (!isCodeMatch) continue;
+        }
 
         const list = jpCandidatesMap.get(queriedNum) || [];
         list.push({
