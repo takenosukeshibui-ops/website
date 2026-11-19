@@ -15,10 +15,17 @@ import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-  if (cardNumber) {
-    return `${cleanName} ${cardNumber}`.trim();
+  if (!cardNumber) return cleanName;
+
+  const trimmedNum = cardNumber.trim();
+  if (
+    cleanName.toUpperCase().includes(trimmedNum.toUpperCase()) ||
+    (/^\d{3}$/.test(trimmedNum) && new RegExp(`\\b${trimmedNum}\\/`).test(cleanName))
+  ) {
+    return cleanName;
   }
-  return cleanName;
+
+  return `${cleanName} ${trimmedNum}`.trim();
 }
 
 // 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）

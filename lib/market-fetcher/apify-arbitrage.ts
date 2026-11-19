@@ -231,20 +231,24 @@ function isMultiCardSet(title: string, cardNumbers: string[]): boolean {
  */
 function detectConditionGrade(title: string): string {
   const upper = title.toUpperCase();
+  const modifier = '(?:(?:PRISTINE|GEM\\s*MINT|MINT|GRADED|BLACK\\s*LABEL|GOLD\\s*LABEL)\\s+)*';
 
-  const psaMatch = upper.match(/\bPSA\s*(\d+(?:\.\d+)?)\b/);
+  const psaMatch = upper.match(new RegExp(`\\bPSA\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
   if (psaMatch) return `PSA ${psaMatch[1]}`;
 
-  const bgsMatch = upper.match(/\bBGS\s*(\d+(?:\.\d+)?)\b/);
+  const bgsMatch = upper.match(new RegExp(`\\bBGS\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
   if (bgsMatch) return `BGS ${bgsMatch[1]}`;
 
-  const cgcMatch = upper.match(/\bCGC\s*(\d+(?:\.\d+)?)\b/);
+  const cgcMatch = upper.match(new RegExp(`\\bCGC\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
   if (cgcMatch) return `CGC ${cgcMatch[1]}`;
 
-  const arsMatch = upper.match(/\bARS\s*(\d+(?:\.\d+)?)\b/);
+  const arsMatch = upper.match(new RegExp(`\\bARS\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
   if (arsMatch) return `ARS ${arsMatch[1]}`;
 
-  if (/\b(PSA|BGS|CGC|ARS|ACE|GRADED|SLAB|GEM\s*MINT)\b/.test(upper)) {
+  const tagMatch = upper.match(new RegExp(`\\bTAG\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
+  if (tagMatch) return `TAG ${tagMatch[1]}`;
+
+  if (/\b(PSA|BGS|CGC|ARS|TAG|ACE|GRADED|SLAB|GEM\s*MINT)\b/.test(upper)) {
     return 'Graded';
   }
 
@@ -561,6 +565,7 @@ export async function fetchRealArbitrageCandidates(
         totalLocal: number;
         count: number;
         ebayUrl: string;
+        sampleTitle: string;
       }
     >();
 
@@ -579,6 +584,7 @@ export async function fetchRealArbitrageCandidates(
           totalLocal: item.soldLocal,
           count: 1,
           ebayUrl: item.ebayUrl,
+          sampleTitle: item.title,
         });
       }
     }
@@ -658,13 +664,50 @@ export async function fetchRealArbitrageCandidates(
       const jpCards = jpCandidatesMap.get(ebayGroup.cardNumber);
       if (!jpCards || jpCards.length === 0) continue;
 
-      const matchedJpCard = jpCards.find((c) => c.name.includes(ebayGroup.pokemonNameJa));
-      if (!matchedJpCard) continue;
+      const nameMatchedCards = jpCards.filter((c) => c.name.includes(ebayGroup.pokemonNameJa));
+      if (nameMatchedCards.length === 0) continue;
+
+      let matchedJpCard = nameMatchedCards[0];
+      if (nameMatchedCards.length >= 2) {
+        const titleUpper = ebayGroup.sampleTitle.toUpperCase();
+        const isEbayPromo = /\bPROMO\b/.test(titleUpper);
+
+        const scored = nameMatchedCards.map((card) => {
+          let score = 0;
+          // パック・シリーズコード一致加点（例: [WCS23], [XY7], [sv8a]）
+          const setBracketMatch = card.name.match(/\[([A-Za-z0-9+-]{2,})\]/);
+          if (setBracketMatch) {
+            const setCode = setBracketMatch[1].toUpperCase();
+            if (titleUpper.includes(setCode)) {
+              score += 10;
+            }
+          }
+          // プロモ表記の一致・矛盾判定
+          const isJpPromo =
+            card.name.includes('プロモ') ||
+            /\/(?:[A-Z0-9]+-P|PPP|PLAY|T|P)\b/i.test(card.name);
+          if (isEbayPromo && isJpPromo) score += 5;
+          else if (isEbayPromo && !isJpPromo) score -= 5;
+          else if (!isEbayPromo && isJpPromo) score -= 3;
+
+          return { card, score };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        matchedJpCard = scored[0].card;
+      }
 
       let buyPrice: number | null = null;
       let shopLabel = '';
+      const isGradedOrSealed = ebayGroup.officialCondition === null;
 
-      if (ebayGroup.officialCondition === 'Moderately played (Very good)') {
+      if (isGradedOrSealed) {
+        // 鑑定品・未開封は状態◎（Mint）在庫がある場合のみ採用（状態○への妥協を廃止）
+        if (matchedJpCard.mintPrice !== null) {
+          buyPrice = matchedJpCard.mintPrice;
+          shopLabel = `状態◎最安 (${matchedJpCard.mintShopName})`;
+        }
+      } else if (ebayGroup.officialCondition === 'Moderately played (Very good)') {
         // Very good ➔ 状態△・B・C・傷有り最安を優先（なければ状態○/A-）
         if (matchedJpCard.playedPrice !== null) {
           buyPrice = matchedJpCard.playedPrice;
@@ -683,7 +726,7 @@ export async function fetchRealArbitrageCandidates(
           shopLabel = `状態◎最安 (${matchedJpCard.mintShopName})`;
         }
       } else {
-        // Near mint or better（または鑑定品） ➔ 状態◎最安を優先（なければ状態○/A-）
+        // 未鑑定 Near mint or better ➔ 状態◎最安を優先（なければ状態○/A-）
         if (matchedJpCard.mintPrice !== null) {
           buyPrice = matchedJpCard.mintPrice;
           shopLabel = `状態◎最安 (${matchedJpCard.mintShopName})`;

@@ -12,8 +12,17 @@ import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
-  if (cardNumber) return `${cleanName} ${cardNumber}`.trim();
-  return cleanName;
+  if (!cardNumber) return cleanName;
+
+  const trimmedNum = cardNumber.trim();
+  if (
+    cleanName.toUpperCase().includes(trimmedNum.toUpperCase()) ||
+    (/^\d{3}$/.test(trimmedNum) && new RegExp(`\\b${trimmedNum}\\/`).test(cleanName))
+  ) {
+    return cleanName;
+  }
+
+  return `${cleanName} ${trimmedNum}`.trim();
 }
 
 function buildSafePokecazillaUrl(
