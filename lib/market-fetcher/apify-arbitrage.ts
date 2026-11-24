@@ -145,6 +145,37 @@ function isNoiseCard(title: string): boolean {
 }
 
 /**
+ * クラシック・ヴィンテージ期（旧裏〜PCG期・1996〜2006年）のカードか判定（国内相場取得停止中のため除外）
+ */
+function isClassicVintageCard(title: string, cardNumbers: string[]): boolean {
+  const upper = title.toUpperCase();
+
+  // 1. 旧裏〜PCG期・初期セットを示すキーワード・発売年（1996〜2006）
+  const vintagePattern =
+    /\b(OLD\s*BACK|ALTE\s*RÜCKSEITE|NO\s*RARITY|1ST\s*PRINT|SHADOWLESS|1996|1997|1998|1999|2000|2001|2002|2003|2004|2005|2006|BASE\s*SET|JUNGLE|FOSSIL|TEAM\s*ROCKET|GYM\s*HEROES|GYM\s*CHALLENGE|NEO\s*GENESIS|NEO\s*DISCOVERY|NEO\s*REVELATION|NEO\s*DESTINY|NEO\s*PREMIUM|SOUTHERN\s*ISLANDS|VENDING|POKEMON\s*VS|VS\s*SERIES|E-SERIES|AQUAPOLIS|SKYRIDGE|EXPEDITION|WIND\s*FROM\s*THE\s*SEA|TOWN\s*ON\s*NO\s*MAP|SPLIT\s*EARTH|MYSTERIOUS\s*MOUNTAINS|PLAYING\s*CARDS|MEIJI|ANA\s*AIRLINES|CD\s*PROMO|TRADE\s*PLEASE|GB\s*PROMO|GAME\s*BOY|NATTA\s*WAKE|MASAKI|HOLON)\b|\b(VS|WEB|ADV|PCG)\b/;
+
+  if (vintagePattern.test(upper)) {
+    return true;
+  }
+
+  // 2. スラッシュなしの3桁図鑑番号のみ（例: #025, #149）かつモダン世代の年号・シリーズ表記がない場合
+  const hasModernMarker =
+    /\b(200[7-9]|201\d|202\d|DP\d*|PT\d*|LEGEND|BW\d*|XY\d*|SM\d*|S\d+[A-Z]?|SV\d+[A-Z]?|M\d+[A-Z]?|VSTAR|VMAX|GX|TAG\s*TEAM|SHINY\s*STAR|VMAX\s*CLIMAX|151|TERASTAL)\b/.test(
+      upper
+    );
+
+  if (
+    !hasModernMarker &&
+    cardNumbers.length > 0 &&
+    cardNumbers.every((num) => /^\d{3}$/.test(num))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * eBayタイトルからトレカ型番をすべて抽出する
  */
 export function extractAllCardNumbers(title: string, isGraded: boolean = false): string[] {
@@ -454,8 +485,8 @@ export async function fetchRealArbitrageCandidates(
             'Japanese Pokemon Card',
             'Japanese Pokemon Promo',
             'Japanese Pokemon PSA',
-            'Japanese Pokemon Old Back',
-            'Japanese Pokemon Vintage',
+            'Japanese Pokemon SAR',
+            'Japanese Pokemon AR',
             'Japanese Pokemon XY',
           ];
 
@@ -619,6 +650,7 @@ export async function fetchRealArbitrageCandidates(
         const allCardNumbers = extractAllCardNumbers(title, isGraded);
         const allPokemonNamesJa = extractAllPokemonNamesJa(title);
         const isSet = isMultiCardSet(title, allCardNumbers);
+        const isClassicVintage = isClassicVintageCard(title, allCardNumbers);
         return {
           title,
           soldLocal,
@@ -627,12 +659,13 @@ export async function fetchRealArbitrageCandidates(
           pokemonNameJa: allPokemonNamesJa[0] ?? null,
           isSet,
           isNoise,
+          isClassicVintage,
           baseGrade,
           ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
-        if (item.isNoise || item.isSet) return false;
+        if (item.isNoise || item.isSet || item.isClassicVintage) return false;
         if (item.cardNumber === null || item.pokemonNameJa === null) return false;
         if (item.soldLocal <= 0) return false;
         if (priceRange.minLocal !== undefined && item.soldLocal < priceRange.minLocal) return false;

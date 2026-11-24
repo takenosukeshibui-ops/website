@@ -56,6 +56,8 @@ export interface ArbitrageTier {
 export interface ArbitrageSlotReport {
   slotKey: string;
   slotLabel: string;
+  isPaused?: boolean;
+  pauseReason?: string;
   tiers: ArbitrageTier[];
 }
 
@@ -106,7 +108,14 @@ async function getRealtimeExchangeRate(currency: string): Promise<number> {
 }
 
 const SLOTS = [
-  { key: 'classic_vintage', label: 'クラシック・ヴィンテージ', desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版', isGradedOrSealed: false },
+  {
+    key: 'classic_vintage',
+    label: 'クラシック・ヴィンテージ',
+    desc: '旧裏面・eシリーズ・ADV・PCG・初期絶版',
+    isGradedOrSealed: false,
+    isPaused: true,
+    pauseReason: '旧裏・初期カードの国内相場取得停止中のため一時保留',
+  },
   { key: 'neo_vintage', label: 'ネオ・ヴィンテージ', desc: 'DP・Pt・LEGEND・BW・XY', isGradedOrSealed: false },
   { key: 'promos_exclusive', label: '限定プロモ・配布品', desc: '大会プロモ・ジムプロモ・企業コラボ・プレイヤーズ', isGradedOrSealed: false },
   { key: 'modern_meta', label: '現行モダン・高需要枠', desc: 'サン＆ムーン・ソード＆シールド・スカーレット＆バイオレット（SAR・SR・AR・CHR）', isGradedOrSealed: false },
@@ -116,17 +125,25 @@ const SLOTS = [
 /**
  * 確定候補を既存の5スロットへ決定論的に分類する（AIによる除外・変更を一切行わない）
  */
-function classifyCandidateToSlot(candidate: VerifiedArbitrageCandidate): string {
+function classifyCandidateToSlot(candidate: VerifiedArbitrageCandidate): string | null {
   const grade = candidate.conditionGrade || '';
   const isRaw = grade === 'Raw' || grade.startsWith('Raw (');
+  const name = candidate.cardName || '';
+  const num = (candidate.cardNumber || '').toUpperCase();
+
+  // クラシック・ヴィンテージ枠（旧裏・VS・web・e・ADV・PCG期）は現在保留中のため除外
+  if (
+    /\[(VS|WEB|E[1-5]|ADV\d*|PCG\d*)\]/i.test(name) ||
+    /(旧裏|ひかる|☆|スター)/.test(name) ||
+    /^\d{3}$/.test(num)
+  ) {
+    return null;
+  }
 
   // 1. 鑑定品（PSA / BGS / CGC / ARS / Graded）・未開封BOXはすべて鑑定・未開封枠へ
   if (!isRaw) {
     return 'high_end_sealed';
   }
-
-  const name = candidate.cardName || '';
-  const num = (candidate.cardNumber || '').toUpperCase();
 
   // 2. プロモ型番・プロモ表記は限定プロモ枠へ
   if (
@@ -136,15 +153,6 @@ function classifyCandidateToSlot(candidate: VerifiedArbitrageCandidate): string 
     )
   ) {
     return 'promos_exclusive';
-  }
-
-  // 3. クラシック・ヴィンテージ枠（旧裏・VS・web・e・ADV・PCG期）
-  if (
-    /\[(VS|WEB|E[1-5]|ADV\d*|PCG\d*)\]/i.test(name) ||
-    /(旧裏|ひかる|☆|スター)/.test(name) ||
-    /^\d{3}$/.test(num)
-  ) {
-    return 'classic_vintage';
   }
 
   // 4. ネオ・ヴィンテージ枠（DP・Pt・LEGEND・BW・XY期）
@@ -266,7 +274,7 @@ ${JSON.stringify(compactCandidates, null, 2)}
 
 【指示】
 1. 候補の除外・追加・数値の改変は一切行わず、全${compactCandidates.length}件すべて（index 0〜${compactCandidates.length - 1}）について、バイヤー向けの簡潔な「狙い目メモ（insight：1行で現地需要や状態ランクの優位性を解説）」を作成してください。
-2. 全体の傾向をまとめた executive summary（summary）を作成してください。
+2. 全体の傾向をまとめた executive summary（summary）を作成してください。（※「クラシック・ヴィンテージ（旧裏〜PCG期）」スロットは現在国内相場データの取得を一時停止しているため保留中です。同スロットが0件であることは不調・需要減として言及せず、稼働中の4スロットのみを分析対象としてください。）
 3. 必ず以下のJSON形式のみを出力してください（マークダウン不要）。
 
 {
@@ -317,6 +325,7 @@ ${JSON.stringify(compactCandidates, null, 2)}
 
   realCandidates.forEach((candidate, idx) => {
     const slotKey = classifyCandidateToSlot(candidate);
+    if (!slotKey) return;
     const item = buildVerifiedArbitrageItem(candidate, region, aiInsightsMap[String(idx)]);
     const list = itemsBySlot.get(slotKey) || [];
     list.push(item);
@@ -324,6 +333,16 @@ ${JSON.stringify(compactCandidates, null, 2)}
   });
 
   const slotResults: ArbitrageSlotReport[] = SLOTS.map((slot) => {
+    if (slot.isPaused) {
+      return {
+        slotKey: slot.key,
+        slotLabel: slot.label,
+        isPaused: true,
+        pauseReason: slot.pauseReason,
+        tiers: [],
+      };
+    }
+
     const items = itemsBySlot.get(slot.key) || [];
     if (items.length === 0) {
       return {

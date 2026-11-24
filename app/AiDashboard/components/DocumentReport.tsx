@@ -287,12 +287,13 @@ export default function DocumentReportView({
                             {sortedSlots.map((slot: any, sIdx: number) => {
                                 const slotMeta = getSlotMeta(slot.slotKey, slot.slotLabel);
                                 const tiers = slot.tiers || slot.items || [];
+                                const isPausedSlot = Boolean(slot.isPaused) || slot.slotKey === 'classic_vintage';
 
                                 return (
-                                    <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
+                                    <div key={sIdx} className={`bg-slate-950/80 border ${isPausedSlot ? 'border-slate-800/60 opacity-80' : 'border-slate-800'} rounded-xl p-4 space-y-3.5 shadow-sm`}>
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-amber-300 font-mono">
+                                                <span className={`text-xs font-bold font-mono ${isPausedSlot ? 'text-slate-400' : 'text-amber-300'}`}>
                                                     [{slotMeta.badge}]
                                                 </span>
                                                 {slotMeta.desc && (
@@ -301,12 +302,22 @@ export default function DocumentReportView({
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-xs text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
-                                                スロット {sIdx + 1} / 5
-                                            </span>
+                                            {isPausedSlot ? (
+                                                <span className="text-xs text-amber-300 font-mono font-bold bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/30">
+                                                    ⏸ スロット {sIdx + 1} / 5（保留中）
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
+                                                    スロット {sIdx + 1} / 5
+                                                </span>
+                                            )}
                                         </div>
 
-                                        {tiers.length === 0 ? (
+                                        {isPausedSlot ? (
+                                            <div className="bg-slate-900/40 border border-dashed border-amber-500/30 rounded-lg p-4 text-center text-xs text-amber-200/80">
+                                                ⏸ 現在保留中（{slot.pauseReason || '旧裏・初期カードの国内相場取得停止中のため一時休止'}）
+                                            </div>
+                                        ) : tiers.length === 0 ? (
                                             <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-lg p-4 text-center text-xs text-slate-500">
                                                 本日の指定価格帯・状態◎在庫条件に合致するスクレイピング実売候補はありませんでした
                                             </div>
