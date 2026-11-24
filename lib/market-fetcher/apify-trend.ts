@@ -173,19 +173,18 @@ export async function fetchDomesticTrendCandidates(
 
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=20&memory=512`,
+      `https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=25&memory=512`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startUrls: targetUrls,
           pageFunction,
-          proxyConfiguration: { useApifyProxy: false }, // 国内サイト直結で高速化
+          proxyConfiguration: { useApifyProxy: true },
           maxRequestsPerCrawl: targetUrls.length,
           maxConcurrency: 2,
-          maxRequestRetries: 0,
-          requestHandlerTimeoutSecs: 12,
-          ignoreSslErrors: true,
+          maxRequestRetries: 1,
+          requestHandlerTimeoutSecs: 15,
         }),
         cache: 'no-store',
         signal: controller.signal,
@@ -193,7 +192,8 @@ export async function fetchDomesticTrendCandidates(
     );
 
     if (!res.ok) {
-      console.warn(`[ApifyTrend] torechart.com 取得失敗: ${res.status} ${res.statusText}`);
+      const errDetail = await res.text().catch(() => '');
+      console.warn(`[ApifyTrend] torechart.com 取得失敗: ${res.status} ${res.statusText} | ${errDetail}`);
       return [];
     }
 
