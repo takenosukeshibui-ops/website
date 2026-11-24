@@ -2,7 +2,9 @@
 import { extractPokemonNameEn } from './pokemon-dictionary';
 
 const APIFY_TOKEN = (process.env.APIFY_API_TOKEN || '').trim();
-const EBAY_TASK_ID = (process.env.APIFY_EBAY_TASK_ID || '').trim();
+const EBAY_TASK_ID = (
+  process.env.APIFY_EBAY_TASK_ID || 'caffein.dev/ebay-sold-listings'
+).trim();
 
 export interface DomesticTrendCandidate {
   cardName: string;
@@ -74,15 +76,12 @@ export function buildEnglishEbayQueryForTrend(cardName: string, rarity: string, 
   const baseJa = cardName.replace(/[\(（].*?[\)）]/g, '').replace(/\[.*?\]/g, '').trim();
   const enChar = extractPokemonNameEn(baseJa);
 
-  // VSTAR / VMAX / ex / GX / V 等のサフィックス抽出
   const suffixMatch = baseJa.match(/\b(VSTAR|VMAX|VUNION|V-UNION|ex|EX|GX|V)\b/i);
   const suffix = suffixMatch ? suffixMatch[1] : '';
 
-  // 型番抽出（例: 221/172, 096/071, 001/SV-P）
   const numMatch = cardName.match(/\b(\d{1,3}\/[A-Za-z0-9-]+)\b/);
   const cardNum = numMatch ? numMatch[1] : '';
 
-  // レアリティ抽出
   const rarityUpper = rarity.toUpperCase();
   const cleanRarity = /^(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)$/.test(rarityUpper)
     ? rarityUpper
@@ -94,7 +93,6 @@ export function buildEnglishEbayQueryForTrend(cardName: string, rarity: string, 
     return [enChar, suffix, cardNum, cleanRarity, gameWord].filter(Boolean).join(' ');
   }
 
-  // 辞書未ヒット時はアルファベット・数字・型番を優先抽出
   const asciiTokens = baseJa.match(/[A-Za-z0-9/-]+/g);
   if (asciiTokens && asciiTokens.length > 0) {
     return [asciiTokens.join(' '), cardNum, cleanRarity, gameWord].filter(Boolean).join(' ');
@@ -104,42 +102,49 @@ export function buildEnglishEbayQueryForTrend(cardName: string, rarity: string, 
 }
 
 /**
- * Apify API v2 同期実行ヘルパー（タスクID / ActorID 両対応）
+ * apify-arbitrage.ts と同じ Apify API v2 同期実行ヘルパー（actor-tasks / acts 自動フォールバック対応）
  */
-async function runEbayTrendTaskSync(
+async function runApifySync(
   rawId: string,
   token: string,
   bodyPayload: Record<string, any>
 ): Promise<any[]> {
-  const cleanId = rawId.replace(/\//g, '~');
-  const isActor = cleanId.includes('~');
-  const endpoint = isActor
-    ? `https://api.apify.com/v2/acts/${cleanId}/run-sync-get-dataset-items?token=${token}&timeout=35&memory=1024`
-    : `https://api.apify.com/v2/actor-tasks/${cleanId}/run-sync-get-dataset-items?token=${token}&timeout=35&memory=1024`;
+  const apiPathId = rawId.replace(/\//g, '~');
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 40_000);
+  const taskUrl = `https://api.apify.com/v2/actor-tasks/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
+  const taskRes = await fetch(taskUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bodyPayload),
+    cache: 'no-store',
+  });
 
-  try {
-    const res = await fetch(endpoint, {
+  if (taskRes.ok) {
+    const data = await taskRes.json();
+    return Array.isArray(data) ? data : [];
+  }
+
+  if (taskRes.status === 404) {
+    const actorUrl = `https://api.apify.com/v2/acts/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
+    const actorRes = await fetch(actorUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bodyPayload),
       cache: 'no-store',
-      signal: controller.signal,
     });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timeoutId);
+
+    if (actorRes.ok) {
+      const data = await actorRes.json();
+      return Array.isArray(data) ? data : [];
+    }
   }
+
+  console.warn(`[ApifyTrend] eBayタスク実行失敗 (${rawId}): ${taskRes.status} ${taskRes.statusText}`);
+  return [];
 }
 
 /**
- * 取得済みの国内トレンド候補に対して、eBayの最新実成約データ（価格＋個別 /itm/ URL）を紐づける
+ * 取得済みの国内トレンド候補に対して、caffein.dev/ebay-sold-listings で最新実成約データ（価格＋個別 /itm/ URL）を紐づける
  */
 export async function enrichTrendCandidatesWithEbaySold(
   candidates: DomesticTrendCandidate[],
@@ -151,67 +156,126 @@ export async function enrichTrendCandidatesWithEbaySold(
     return candidates;
   }
 
-  const targetCandidates = candidates.slice(0, 10);
-  const ebayDomain = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
-  const targetCurrency = region === 'eu' ? 'EUR' : 'USD';
+  const targetCandidates = candidates.slice(0, 8);
+  const isEu = region === 'eu';
+  const targetEbaySite = isEu ? 'ebay.de' : 'ebay.com';
+  const targetCurrency = isEu ? 'EUR' : 'USD';
 
-  const startUrls = targetCandidates.map((c, idx) => {
-    const query = buildEnglishEbayQueryForTrend(c.cardName, c.rarity, category);
-    return {
-      url: `${ebayDomain}/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Sold=1&LH_Complete=1&_sop=13`,
-      userData: { candidateIdx: idx, query },
-    };
-  });
+  const candidateQueries = targetCandidates.map((c) => ({
+    query: buildEnglishEbayQueryForTrend(c.cardName, c.rarity, category),
+    enChar: extractPokemonNameEn(c.cardName.replace(/[\(（].*?[\)）]/g, '').trim()) || '',
+    suffix: (c.cardName.match(/\b(VSTAR|VMAX|VUNION|V-UNION|ex|EX|GX|V)\b/i)?.[1] || '').toUpperCase(),
+    rarity: (/^(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)$/i.test(c.rarity) ? c.rarity : '').toUpperCase(),
+  }));
 
-  const rawSoldItems = await runEbayTrendTaskSync(EBAY_TASK_ID, APIFY_TOKEN, {
-    startUrls,
-    maxItems: targetCandidates.length * 8,
-    maxItemsPerStartUrl: 8,
+  const uniqueKeywords = Array.from(new Set(candidateQueries.map((q) => q.query)));
+
+  const rawSoldItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
+    ebaySite: targetEbaySite,
+    keywords: uniqueKeywords,
+    count: 10,
+    exactMatch: false,
   });
 
   if (rawSoldItems.length === 0) {
     return candidates;
   }
 
+  const parseLocalizedNumber = (val: unknown): number => {
+    if (typeof val === 'number') return val;
+    const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
+    if (!cleaned) return 0;
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma !== -1 && lastDot !== -1) {
+      return lastComma > lastDot
+        ? Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0
+        : Number(cleaned.replace(/,/g, '')) || 0;
+    }
+    if (lastComma !== -1) {
+      return cleaned.length - lastComma - 1 === 2
+        ? Number(cleaned.replace(',', '.')) || 0
+        : Number(cleaned.replace(/,/g, '')) || 0;
+    }
+    if (lastDot !== -1 && isEu && cleaned.length - lastDot - 1 === 3) {
+      return Number(cleaned.replace(/\./g, '')) || 0;
+    }
+    return Number(cleaned) || 0;
+  };
+
   const groupedByIdx = new Map<number, Array<{ priceLocal: number; url: string; title: string; isPsa10: boolean }>>();
 
   for (const item of rawSoldItems) {
-    const title = String(item.title || item.name || '').trim();
-    const itemUrl = String(item.url || item.itemUrl || item.link || '').trim();
-    if (!title || !itemUrl || !itemUrl.includes('/itm/')) continue;
+    if (!item) continue;
+    const title = String(item.title || '').trim();
+    const rawUrl = String(item.url || item.itemUrl || '').trim();
+    if (!title || !rawUrl || !rawUrl.includes('/itm/')) continue;
 
-    // 複数枚セット・まとめ売り・ジャンク除外
-    if (/\b(lot|bundle|set\s*of\s*\d+|collection|bulk|mystery|proxy|custom|orica|replica|jumbo)\b/i.test(title)) {
+    // カスタム・中国語/韓国語・まとめ売り除外
+    if (/\b(custom|parody|proxy|orica|replica|fake|jumbo|lot|bundle|set\s*of\s*\d+|bulk|chinese|china|korean|thai)\b/i.test(title)) {
       continue;
     }
 
-    const rawPrice = item.price ?? item.soldPrice ?? item.salePrice ?? item.currentPrice ?? 0;
-    const priceStr = String(rawPrice);
-    const numMatch = priceStr.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
-    const priceLocal = numMatch ? Number(numMatch[1]) : 0;
+    const rawCurrency = String(item.currency ?? item.soldCurrency ?? item.priceCurrency ?? '').toUpperCase().trim();
+    const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
+    const itemPriceCorpus = `${rawCurrency} ${rawPriceStr} ${String(item.formattedPrice ?? '')}`.toUpperCase();
+
+    let priceLocal = 0;
+    if (isEu) {
+      const eurMatch =
+        itemPriceCorpus.match(/(?:CA\.?\s*)?(?:EUR|€)\s*([\d.,]+)/i) ||
+        itemPriceCorpus.match(/([\d.,]+)\s*(?:EUR|€)/i);
+      if (eurMatch) {
+        priceLocal = parseLocalizedNumber(eurMatch[1]);
+      } else {
+        priceLocal =
+          typeof item.soldPrice === 'number'
+            ? item.soldPrice
+            : typeof item.price === 'number'
+            ? item.price
+            : parseLocalizedNumber(rawPriceStr);
+      }
+    } else {
+      const isUsdMismatch =
+        (rawCurrency !== '' && rawCurrency !== 'USD') ||
+        itemPriceCorpus.includes('£') ||
+        itemPriceCorpus.includes('€') ||
+        /\b(GBP|EUR|CAD|AUD|JPY|CHF|SGD|CNY|KRW)\b/.test(itemPriceCorpus);
+      if (!isUsdMismatch) {
+        priceLocal =
+          typeof item.soldPrice === 'number'
+            ? item.soldPrice
+            : typeof item.price === 'number'
+            ? item.price
+            : parseLocalizedNumber(rawPriceStr);
+      }
+    }
+
     if (priceLocal <= 1) continue;
 
-    // 通貨チェック
-    if (region === 'eu' && !/EUR|€/i.test(priceStr) && /GBP|£|USD|\$/i.test(priceStr)) continue;
-    if (region !== 'eu' && !/USD|\$/i.test(priceStr) && /EUR|€|GBP|£/i.test(priceStr)) continue;
+    // 検索キーワード（item.searchKeyword / item.keyword）またはタイトル照合で候補インデックスを特定
+    const titleUpper = title.toUpperCase();
+    const returnedKeyword = String(item.keyword || item.searchKeyword || '').trim();
 
-    // どの候補の検索結果か特定
-    let idx: number | undefined = item.userData?.candidateIdx ?? item._userData?.candidateIdx;
-    if (idx === undefined) {
-      const enTitleUpper = title.toUpperCase();
-      idx = targetCandidates.findIndex((c) => {
-        const q = buildEnglishEbayQueryForTrend(c.cardName, c.rarity, category);
-        const firstWord = q.split(' ')[0]?.toUpperCase();
-        return firstWord && firstWord.length >= 3 && enTitleUpper.includes(firstWord);
+    let matchedIdx = -1;
+    if (returnedKeyword) {
+      matchedIdx = candidateQueries.findIndex((q) => q.query.toLowerCase() === returnedKeyword.toLowerCase());
+    }
+    if (matchedIdx === -1) {
+      matchedIdx = candidateQueries.findIndex((q) => {
+        if (!q.enChar || !titleUpper.includes(q.enChar.toUpperCase())) return false;
+        if (q.suffix && !titleUpper.includes(q.suffix)) return false;
+        if (q.rarity && !titleUpper.includes(q.rarity)) return false;
+        return true;
       });
     }
-    if (idx === undefined || idx < 0 || idx >= targetCandidates.length) continue;
+    if (matchedIdx === -1) continue;
 
     const isPsa10 = /\bPSA\s*10\b/i.test(title);
-    const list = groupedByIdx.get(idx) || [];
-    if (!list.some((x) => x.url === itemUrl)) {
-      list.push({ priceLocal, url: itemUrl, title, isPsa10 });
-      groupedByIdx.set(idx, list);
+    const list = groupedByIdx.get(matchedIdx) || [];
+    if (!list.some((x) => x.url === rawUrl)) {
+      list.push({ priceLocal, url: rawUrl, title, isPsa10 });
+      groupedByIdx.set(matchedIdx, list);
     }
   }
 
@@ -219,7 +283,7 @@ export async function enrichTrendCandidatesWithEbaySold(
     const soldList = groupedByIdx.get(idx);
     if (!soldList || soldList.length === 0) return c;
 
-    // Raw（未鑑定）が3件以上あればRaw優先、なければ全件（PSA10含む）の中央値を採用
+    // Raw（未鑑定）が2件以上あればRaw優先、なければ全件の中央値を採用
     const rawOnly = soldList.filter((s) => !s.isPsa10);
     const activePool = rawOnly.length >= 2 ? rawOnly : soldList;
     activePool.sort((a, b) => a.priceLocal - b.priceLocal);
@@ -228,13 +292,10 @@ export async function enrichTrendCandidatesWithEbaySold(
     const priceJpy = Math.round(mid.priceLocal * exchangeRateJpy);
     const symbol = targetCurrency === 'EUR' ? '€' : '$';
 
-    // URLドメインを地域に合わせて正規化
-    let cleanUrl = mid.url.split('?')[0];
-    if (region === 'eu') {
-      cleanUrl = cleanUrl.replace(/^https:\/\/www\.ebay\.com\//i, 'https://www.ebay.de/');
-    } else {
-      cleanUrl = cleanUrl.replace(/^https:\/\/www\.ebay\.de\//i, 'https://www.ebay.com/');
-    }
+    const targetOrigin = isEu ? 'https://www.ebay.de' : 'https://www.ebay.com';
+    const cleanUrl = mid.url
+      .split('?')[0]
+      .replace(/^https?:\/\/(www\.)?ebay\.(com|co\.uk|de|fr|it|es|ca|com\.au)/i, targetOrigin);
 
     return {
       ...c,
