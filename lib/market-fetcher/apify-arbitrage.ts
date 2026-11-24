@@ -298,13 +298,13 @@ async function fetchEbayOfficialConditions(urls: string[]) {
     const corpus = condAreaText || $('body').text().replace(/\\s+/g, ' ').slice(0, 12000);
     let officialCondition = '';
 
-    if (/Heavily\\s*played(?:\\s*\\(Poor\\))?/i.test(corpus)) {
+    if (/Heavily\\s*played(?:\\s*\\(Poor\\))?|Stark\\s*bespielt|Akzeptabel/i.test(corpus)) {
       officialCondition = 'Heavily played (Poor)';
-    } else if (/Moderately\\s*played(?:\\s*\\(Very\\s*good\\))?/i.test(corpus)) {
+    } else if (/Moderately\\s*played(?:\\s*\\(Very\\s*good\\))?|Mäßig\\s*bespielt|Sehr\\s*gut/i.test(corpus)) {
       officialCondition = 'Moderately played (Very good)';
-    } else if (/Lightly\\s*played(?:\\s*\\(Excellent\\))?/i.test(corpus)) {
+    } else if (/Lightly\\s*played(?:\\s*\\(Excellent\\))?|Leicht\\s*bespielt|Exzellent/i.test(corpus)) {
       officialCondition = 'Lightly played (Excellent)';
-    } else if (/Near\\s*mint\\s*or\\s*better/i.test(corpus)) {
+    } else if (/Near\\s*mint\\s*or\\s*better|Nahezu\\s*neuwertig(?:\\s*oder\\s*besser)?/i.test(corpus)) {
       officialCondition = 'Near mint or better';
     }
 
@@ -432,10 +432,10 @@ export async function fetchRealArbitrageCandidates(
         : isEu
         ? [
             'Japanese Pokemon Card',
-            'Japanisch Pokemon Karte',
+            'Japanische Pokemon Karte',
             'Japanese Pokemon Promo',
             'Japanese Pokemon PSA',
-            'Pokemon Japanisch PSA',
+            'Pokemon Japanische PSA',
             'Japanese Pokemon XY',
           ]
         : [
@@ -481,20 +481,6 @@ export async function fetchRealArbitrageCandidates(
           item.formattedPrice ?? item.priceText ?? ''
         )}`.toUpperCase();
 
-        const isCurrencyMismatch =
-          (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
-          itemPriceCorpus.includes('£') ||
-          /\bGBP\b/.test(itemPriceCorpus) ||
-          (!isEu &&
-            (itemPriceCorpus.includes('€') ||
-              /\b(EUR|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
-              /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus) ||
-              /ebay\.(co\.uk|de|fr|it|es|ca|com\.au|com\.sg|com\.hk)/i.test(rawUrl))) ||
-          (isEu &&
-            (itemPriceCorpus.includes('$') ||
-              /\b(USD|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
-              /ebay\.(com|co\.uk|ca|com\.au|com\.sg|com\.hk)(\/|$)/i.test(rawUrl)));
-
         const parseLocalizedNumber = (val: unknown): number => {
           if (typeof val === 'number') return val;
           const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
@@ -521,14 +507,46 @@ export async function fetchRealArbitrageCandidates(
           return Number(cleaned) || 0;
         };
 
-        const numericPrice =
-          typeof item.soldPrice === 'number'
-            ? item.soldPrice
-            : typeof item.price === 'number'
-            ? item.price
-            : parseLocalizedNumber(rawPriceStr);
+        let soldLocal = 0;
 
-        const soldLocal = isCurrencyMismatch ? 0 : numericPrice;
+        if (isEu) {
+          // 「Ca. EUR 37,05」「EUR 19,99」「19,99 €」などEUR表記が含まれていればそのユーロ額を優先抽出
+          const eurExplicitMatch =
+            itemPriceCorpus.match(/(?:CA\.?\s*)?(?:EUR|€)\s*([\d.,]+)/i) ||
+            itemPriceCorpus.match(/([\d.,]+)\s*(?:EUR|€)/i);
+
+          if (eurExplicitMatch) {
+            soldLocal = parseLocalizedNumber(eurExplicitMatch[1]);
+          } else {
+            // EUR明記がない場合（GBP単独など）は除外せずそのままの数値を採用
+            soldLocal =
+              typeof item.soldPrice === 'number'
+                ? item.soldPrice
+                : typeof item.price === 'number'
+                ? item.price
+                : parseLocalizedNumber(rawPriceStr);
+          }
+        } else {
+          // 北米（US）は従来通り USD のみ許可
+          const isUsdMismatch =
+            (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
+            itemPriceCorpus.includes('£') ||
+            itemPriceCorpus.includes('€') ||
+            /\b(GBP|EUR|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
+            /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus) ||
+            /ebay\.(co\.uk|de|fr|it|es|ca|com\.au|com\.sg|com\.hk)/i.test(rawUrl);
+
+          if (!isUsdMismatch) {
+            soldLocal =
+              typeof item.soldPrice === 'number'
+                ? item.soldPrice
+                : typeof item.price === 'number'
+                ? item.price
+                : parseLocalizedNumber(rawPriceStr);
+          }
+        }
+
+      
         const title = String(item.title || '');
         const baseGrade = detectConditionGrade(title);
         const isGraded = baseGrade !== 'Raw' && baseGrade !== 'Sealed Box';
