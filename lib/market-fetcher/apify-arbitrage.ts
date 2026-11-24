@@ -248,7 +248,19 @@ function detectConditionGrade(title: string): string {
   const tagMatch = upper.match(new RegExp(`\\bTAG\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
   if (tagMatch) return `TAG ${tagMatch[1]}`;
 
-  if (/\b(PSA|BGS|CGC|ARS|TAG|ACE|GRADED|SLAB|GEM\s*MINT)\b/.test(upper)) {
+  const aceMatch = upper.match(new RegExp(`\\bACE\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
+  if (aceMatch) return `ACE ${aceMatch[1]}`;
+
+  const pgMatch = upper.match(new RegExp(`\\bPG\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
+  if (pgMatch) return `PG ${pgMatch[1]}`;
+
+  const pgsMatch = upper.match(new RegExp(`\\bPGS\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
+  if (pgsMatch) return `PGS ${pgsMatch[1]}`;
+
+  const caMatch = upper.match(new RegExp(`\\bCA\\s*${modifier}(\\d+(?:\\.\\d+)?)\\b`));
+  if (caMatch) return `CA ${caMatch[1]}`;
+
+  if (/\b(PSA|BGS|CGC|ARS|TAG|ACE|PG|PGS|GRADED|SLAB|GEM\s*MINT)\b/.test(upper)) {
     return 'Graded';
   }
 
@@ -467,8 +479,54 @@ export async function fetchRealArbitrageCandidates(
       ebayTaskPayload
     );
 
+    // 複数キーワードでヒットした同一出品（同じ itemId）を重複排除
+    const uniqueEbayItems: any[] = [];
+    const seenItemIds = new Set<string>();
+    for (const item of ebayItems) {
+      if (!item) continue;
+      const rawUrl = String(item.url || item.itemUrl || '');
+      const urlIdMatch = rawUrl.match(/\/itm\/(\d+)/);
+      const itemId = String(item.itemId || (urlIdMatch ? urlIdMatch[1] : rawUrl)).trim();
+      if (itemId) {
+        if (seenItemIds.has(itemId)) continue;
+        seenItemIds.add(itemId);
+      }
+      uniqueEbayItems.push(item);
+    }
+
+    // EU加盟国リスト（ドイツ語・英語表記：これ以外の国からの出品にはebay.de上で19%輸入VATが加算される）
+    const euMemberCountries = new Set([
+      'DEUTSCHLAND', 'GERMANY',
+      'FRANKREICH', 'FRANCE',
+      'ITALIEN', 'ITALY',
+      'SPANIEN', 'SPAIN',
+      'NIEDERLANDE', 'NETHERLANDS',
+      'BELGIEN', 'BELGIUM',
+      'ÖSTERREICH', 'OESTERREICH', 'AUSTRIA',
+      'POLEN', 'POLAND',
+      'SCHWEDEN', 'SWEDEN',
+      'FINNLAND', 'FINLAND',
+      'DÄNEMARK', 'DAENEMARK', 'DENMARK',
+      'IRLAND', 'IRELAND',
+      'PORTUGAL',
+      'GRIECHENLAND', 'GREECE',
+      'TSCHECHIEN', 'TSCHECHISCHE REPUBLIK', 'CZECH REPUBLIC', 'CZECHIA',
+      'UNGARN', 'HUNGARY',
+      'RUMÄNIEN', 'RUMAENIEN', 'ROMANIA',
+      'BULGARIEN', 'BULGARIA',
+      'KROATIEN', 'CROATIA',
+      'SLOWAKEI', 'SLOVAKIA',
+      'SLOWENIEN', 'SLOVENIA',
+      'LITAUEN', 'LITHUANIA',
+      'LETTLAND', 'LATVIA',
+      'ESTLAND', 'ESTONIA',
+      'LUXEMBURG', 'LUXEMBOURG',
+      'MALTA',
+      'ZYPERN', 'CYPRUS',
+    ]);
+
     // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
-    const preFilteredEbay = ebayItems
+    const preFilteredEbay = uniqueEbayItems
       .map((item) => {
         const rawCurrency = String(
           item.currency ?? item.soldCurrency ?? item.priceCurrency ?? ''
@@ -525,6 +583,13 @@ export async function fetchRealArbitrageCandidates(
                 : typeof item.price === 'number'
                 ? item.price
                 : parseLocalizedNumber(rawPriceStr);
+          }
+
+          // EU加盟国以外（イギリス・日本・米国等）からの150EUR以下出品はebay.de一覧で19%の輸入VATが上乗せされるため控除
+          const locUpper = String(item.itemLocation || '').toUpperCase().trim();
+          const isNonEuSeller = locUpper !== '' && !euMemberCountries.has(locUpper);
+          if (isNonEuSeller && soldLocal > 0 && soldLocal <= 180) {
+            soldLocal = Math.round((soldLocal / 1.19) * 100) / 100;
           }
         } else {
           // 北米（US）は従来通り USD のみ許可
