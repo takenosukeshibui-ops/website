@@ -152,85 +152,136 @@ export default function DocumentReportView({
         }
     }
 
-    // 🌟 2. CSVダウンロード処理（Excel文字化け防止のBOM付き）
-    const handleDownloadCSV = () => {
-        if (!report || !report.slots) return;
-        
-        const headers = [
-            'スロット', '区分', '価格帯', 'カード名', '型番', '状態', 
-            '日本仕入値', '日本ショップ名', '海外売値', '利ざや', 'ROI', 
-            '7日成約', '30日成約', 'ポケカジラURL', 'eBay URL'
-        ];
-        
-        const rows = [headers.join(',')];
-        
-        for (const slot of sortedSlots) {
-            const slotName = getSlotMeta(slot.slotKey, slot.slotLabel).badge;
-            const tiers = slot.tiers || slot.items || [];
-            
-            for (const tierCell of tiers) {
-                const priceTier = tierCell.priceTierLabel || '指定価格帯';
-                const main = tierCell.mainItem || tierCell;
-                const subs = tierCell.subItems || [];
-                
-                const processItem = (item: any, role: string) => {
-                    const cardNum = item.cardNumber || '';
-                    const rawJpUrl = item.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
-                    const jpShopUrl = resolvePokecazillaUrl(rawJpUrl, item.cardName, cardNum);
-                    const ebayUrl = item.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, cardNum, item.conditionGrade);
-                    
-                    const escapeCsv = (str: string) => `"${(str || '').toString().replace(/"/g, '""')}"`;
+    const escapeCsv = (str: unknown) => `"${(str ?? '').toString().replace(/"/g, '""')}"`;
 
-                    const row = [
-                        escapeCsv(slotName),
-                        escapeCsv(role),
-                        escapeCsv(priceTier),
-                        escapeCsv(item.cardName),
-                        escapeCsv(cardNum),
-                        escapeCsv(item.conditionGrade || 'Raw NM'),
-                        escapeCsv(item.jpBuyPriceJPY),
-                        escapeCsv(item.jpShopName || 'ポケカジラ最安'),
-                        escapeCsv(item.targetSoldPrice),
-                        escapeCsv(item.priceSpreadJPY),
-                        escapeCsv(item.spreadROI),
-                        escapeCsv(item.salesVolume7d || '-'),
-                        escapeCsv(item.salesVolume30d || '-'),
-                        escapeCsv(jpShopUrl),
-                        escapeCsv(ebayUrl)
-                    ];
-                    rows.push(row.join(','));
-                };
-                
-                processItem(main, '本命');
-                subs.forEach((sub: any) => processItem(sub, '代替候補'));
+    // 🌟 2. CSVダウンロード処理（アービトラージ ＆ 市場トレンド両対応・BOM付き）
+    const handleDownloadCSV = () => {
+        if (!report) return;
+        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
+        let rows: string[] = [];
+        let filename = '';
+
+        if (isArbitrageReport && report.slots) {
+            const headers = [
+                'スロット', '区分', '価格帯', 'カード名', '型番', '状態',
+                '日本仕入値', '日本ショップ名', '海外売値', '利ざや', 'ROI',
+                '7日成約', '30日成約', 'ポケカジラURL', 'eBay URL'
+            ];
+            rows = [headers.join(',')];
+
+            for (const slot of sortedSlots) {
+                const slotName = getSlotMeta(slot.slotKey, slot.slotLabel).badge;
+                const tiers = slot.tiers || slot.items || [];
+
+                for (const tierCell of tiers) {
+                    const priceTier = tierCell.priceTierLabel || '指定価格帯';
+                    const main = tierCell.mainItem || tierCell;
+                    const subs = tierCell.subItems || [];
+
+                    const processItem = (item: any, role: string) => {
+                        const cardNum = item.cardNumber || '';
+                        const rawJpUrl = item.jpEvidenceUrl || tierCell.currentItem?.jpEvidenceUrl;
+                        const jpShopUrl = resolvePokecazillaUrl(rawJpUrl, item.cardName, cardNum);
+                        const ebayUrl = item.sourceEvidenceUrl || tierCell.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, cardNum, item.conditionGrade);
+
+                        const row = [
+                            escapeCsv(slotName),
+                            escapeCsv(role),
+                            escapeCsv(priceTier),
+                            escapeCsv(item.cardName),
+                            escapeCsv(cardNum),
+                            escapeCsv(item.conditionGrade || 'Raw NM'),
+                            escapeCsv(item.jpBuyPriceJPY),
+                            escapeCsv(item.jpShopName || 'ポケカジラ最安'),
+                            escapeCsv(item.targetSoldPrice),
+                            escapeCsv(item.priceSpreadJPY),
+                            escapeCsv(item.spreadROI),
+                            escapeCsv(item.salesVolume7d || '-'),
+                            escapeCsv(item.salesVolume30d || '-'),
+                            escapeCsv(jpShopUrl),
+                            escapeCsv(ebayUrl)
+                        ];
+                        rows.push(row.join(','));
+                    };
+
+                    processItem(main, '本命');
+                    subs.forEach((sub: any) => processItem(sub, '代替候補'));
+                }
             }
+            filename = `Arbitrage_Report_${regionName}_${fileDate}.csv`;
+        } else if (isTrendReport && report.hypotheses) {
+            const headers = [
+                '仮説見出し', '観測シグナル', '想定期間', 'カード名', '状態',
+                '日本仕入目安', '現地現在相場', '波及ロジック・選定理由',
+                '参照プラットフォーム', '根拠メモ', '参照URL'
+            ];
+            rows = [headers.join(',')];
+
+            for (const hyp of report.hypotheses) {
+                const items = Array.isArray(hyp.items) ? hyp.items : [];
+                if (items.length === 0) {
+                    rows.push([
+                        escapeCsv(hyp.headline),
+                        escapeCsv(hyp.signal),
+                        escapeCsv(hyp.timeframe),
+                        '""', '""', '""', '""',
+                        escapeCsv(hyp.impactLogic),
+                        '""', '""', '""'
+                    ].join(','));
+                } else {
+                    for (const item of items) {
+                        const cond = item.condition || item.conditionGrade || 'Raw NM';
+                        const refUrl = item.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, '', cond);
+                        rows.push([
+                            escapeCsv(hyp.headline),
+                            escapeCsv(hyp.signal),
+                            escapeCsv(hyp.timeframe || item.timeframe),
+                            escapeCsv(item.cardName),
+                            escapeCsv(cond),
+                            escapeCsv(item.jpBuyPriceJPY),
+                            escapeCsv(item.currentLocalPrice),
+                            escapeCsv(item.impactLogic || hyp.impactLogic),
+                            escapeCsv(item.sourcePlatform || '-'),
+                            escapeCsv(item.evidenceNote || '-'),
+                            escapeCsv(refUrl)
+                        ].join(','));
+                    }
+                }
+            }
+            filename = `Trend_Report_${regionName}_${fileDate}.csv`;
+        } else {
+            return;
         }
-        
-        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excelでの文字化けを防ぐBOM
+
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
         const blob = new Blob([bom, rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
-        link.download = `Arbitrage_Report_${regionName}_${fileDate}.csv`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    // 🌟 3. JSONダウンロード処理（AI検証用）
+    // 🌟 3. JSONダウンロード処理（アービトラージ ＆ 市場トレンド両対応）
     const handleDownloadJSON = () => {
         if (!report) return;
+        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
+        const prefix = isTrendReport ? 'Trend_Report' : 'Arbitrage_Report';
         const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        const fileDate = formattedDate.replace(/年|月/g, '-').replace(/日/g, '');
-        link.download = `Arbitrage_Report_${regionName}_${fileDate}.json`;
+        link.download = `${prefix}_${regionName}_${fileDate}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
+
+    const showExportButtons =
+        (isArbitrageReport && sortedSlots && sortedSlots.length > 0) ||
+        (isTrendReport && Array.isArray(report.hypotheses) && report.hypotheses.length > 0);
 
     return (
         <div className="w-full bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden font-sans space-y-4">
@@ -242,6 +293,9 @@ export default function DocumentReportView({
                         <h3 className="text-base sm:text-lg font-extrabold text-white leading-tight">
                             {displayTitle}
                         </h3>
+                        {report.claim && (
+                            <p className="text-xs text-slate-400 mt-0.5">{report.claim}</p>
+                        )}
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -256,9 +310,9 @@ export default function DocumentReportView({
                             💱 為替基準: {report.exchangeRate.label}
                         </span>
                     )}
-                    
-                    {/* 🌟 ダウンロードボタンの追加 */}
-                    {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
+
+                    {/* 🌟 ダウンロードボタン（アービトラージ ＆ 市場トレンド共通） */}
+                    {showExportButtons && (
                         <div className="flex items-center gap-1.5 ml-2">
                             <button
                                 onClick={handleDownloadCSV}
@@ -280,6 +334,174 @@ export default function DocumentReportView({
             </div>
 
             <div className="p-4 sm:p-6 space-y-6">
+                {/* 市場トレンドレポート描画ブロック */}
+                {isTrendReport && (
+                    <div className="space-y-5">
+                        {report.summary && (
+                            <div className="bg-slate-950/90 border border-amber-500/30 rounded-xl p-4 space-y-3 shadow-sm">
+                                <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                                    <span className="text-sm">🧭</span>
+                                    <h4 className="text-xs font-bold text-amber-300">エグゼクティブ・トレンドサマリー</h4>
+                                </div>
+                                {report.summary.headline && (
+                                    <p className="text-xs sm:text-sm font-bold text-white leading-relaxed">
+                                        {report.summary.headline}
+                                    </p>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                    <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+                                        <span className="text-[10px] font-bold text-amber-400 block">🇯🇵 国内仕入れ環境 / 価格ラグ</span>
+                                        <p className="text-slate-300 leading-relaxed">
+                                            {report.summary.macroAnalysis?.japanSourcingClimate || report.summary.trendDynamics?.japanPriceLag || '-'}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 space-y-1">
+                                        <span className="text-[10px] font-bold text-amber-400 block">🌍 現地需要動向 / カタリスト</span>
+                                        <p className="text-slate-300 leading-relaxed">
+                                            {report.summary.macroAnalysis?.localMarketDemand || report.summary.trendDynamics?.catalystOverview || '-'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {Array.isArray(report.summary.actionDirectives) && report.summary.actionDirectives.length > 0 && (
+                                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 space-y-1">
+                                        <span className="text-[10px] font-bold text-amber-300 block">⚡ 推奨アクション指針</span>
+                                        <ul className="list-disc list-inside text-xs text-amber-100/90 space-y-0.5">
+                                            {report.summary.actionDirectives.map((dir: string, dIdx: number) => (
+                                                <li key={dIdx}>{dir}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            {(report.hypotheses || []).map((hyp: any, hIdx: number) => (
+                                <div key={hIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 shadow-sm">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-amber-300 font-mono">
+                                                [仮説 {hIdx + 1}]
+                                            </span>
+                                            <h4 className="text-sm font-bold text-white">{hyp.headline}</h4>
+                                        </div>
+                                        {hyp.timeframe && (
+                                            <span className="text-xs text-amber-300 font-mono font-bold bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                                                ⏱ {hyp.timeframe}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {hyp.signal && (
+                                        <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-3 text-xs space-y-1">
+                                            <span className="text-[10px] font-bold text-amber-400 block">📡 観測シグナル（客観的事実）</span>
+                                            <p className="text-slate-200 leading-relaxed">{hyp.signal}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {(hyp.items || []).map((item: any, iIdx: number) => {
+                                            const cond = item.condition || item.conditionGrade || 'Raw NM';
+                                            const refUrl = item.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, '', cond);
+                                            const jpUrl = resolvePokecazillaUrl(undefined, item.cardName, '');
+
+                                            return (
+                                                <div key={iIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between items-center gap-1">
+                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                                                                {item.rankLabel || `注目銘柄 #${iIdx + 1}`}
+                                                            </span>
+                                                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700/60">
+                                                                {cond}
+                                                            </span>
+                                                        </div>
+
+                                                        <h5 className="text-xs font-bold text-white leading-snug">
+                                                            {item.cardName}
+                                                        </h5>
+
+                                                        <div className="flex justify-between items-center text-xs font-mono border-t border-slate-800/60 pt-1.5">
+                                                            <span className="text-slate-400">国内仕入目安:</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-slate-200 font-bold">{item.jpBuyPriceJPY}</span>
+                                                                <a
+                                                                    href={jpUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded font-sans transition"
+                                                                >
+                                                                    [国内]↗
+                                                                </a>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex justify-between items-center text-xs font-mono">
+                                                            <span className="text-slate-400">現地現在相場:</span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-amber-300 font-bold">{item.currentLocalPrice}</span>
+                                                                <a
+                                                                    href={refUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-sans transition"
+                                                                >
+                                                                    [相場]↗
+                                                                </a>
+                                                            </div>
+                                                        </div>
+
+                                                        {item.impactLogic && (
+                                                            <p className="text-[11px] text-slate-300 bg-slate-950/70 p-2 rounded border border-slate-800/60 leading-relaxed">
+                                                                {item.impactLogic}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="text-[10px] font-mono text-slate-500 flex justify-between border-t border-slate-800/60 pt-1.5">
+                                                        <span>{item.sourcePlatform || '-'}</span>
+                                                        <span>{item.evidenceNote || ''}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 戦略分析レポート描画ブロック（IGアナリスト / Xアナリスト） */}
+                {isStrategicReport && (
+                    <div className="space-y-4 text-xs">
+                        {Array.isArray(report.facts) && report.facts.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                {report.facts.map((fact: any, fIdx: number) => (
+                                    <div key={fIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                                        <span className="text-[10px] text-slate-400 font-bold block">{fact.label}</span>
+                                        <span className="text-sm font-extrabold text-white font-mono">{fact.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+                            <h4 className="font-bold text-white">💡 戦略的示唆 (So What)</h4>
+                            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{report.soWhat}</p>
+                        </div>
+                        {Array.isArray(report.reasons) && report.reasons.length > 0 && (
+                            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+                                <h4 className="font-bold text-slate-200">📌 分析根拠</h4>
+                                <ul className="list-disc list-inside text-slate-300 space-y-1">
+                                    {report.reasons.map((r: string, rIdx: number) => (
+                                        <li key={rIdx}>{r}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* アービトラージレポート描画ブロック */}
                 {isArbitrageReport && sortedSlots && sortedSlots.length > 0 && (
                     <div className="space-y-4">

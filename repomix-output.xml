@@ -1264,6 +1264,53 @@ export async function GET(req: Request)
 // 🌟 新しい非同期パイプラインを triggerType='cron' でキックオフ（即時 202 応答）
 </file>
 
+<file path="app/api/pipeline/gates/gate1.ts">
+// app/api/pipeline/gates/gate1.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson } from '../../ai/intelligence/helpers';
+import { ResearchItemRecord } from '../types';
+⋮----
+export interface Gate1AuditResult {
+  itemId: string;
+  passed: boolean;
+  checks: {
+    card_existence_verified: boolean;
+    roi_calculation_valid: boolean;
+    official_tournament_compliant: boolean;
+  };
+  feedback: string | null;
+}
+⋮----
+// ----------------------------------------------------------------------------
+// Gate 1-A: アービトラージ数値マージン監査（コードによる0.01秒の決定論的検算）
+// ----------------------------------------------------------------------------
+export function runArbitrageMathAudit(items: ResearchItemRecord[]): Gate1AuditResult[]
+⋮----
+// 1. 異常値チェック（仕入れ値0円、利益なし、ROI 10%未満）
+⋮----
+// 2. 申告値との四則計算チェック（許容誤差: 差額 ±150円, ROI ±3%）
+⋮----
+// ----------------------------------------------------------------------------
+// Gate 1-B: 市場トレンド相場・レポート論理監査（LLMによる文章 & 銘柄審査）
+// ----------------------------------------------------------------------------
+export async function runTrendIntelligenceAudit(
+  items: ResearchItemRecord[],
+  category: string = 'pokemon'
+): Promise<Gate1AuditResult[]>
+⋮----
+// レポートの仮説・文章インサイトと銘柄をセットで審査プロンプトへ渡す
+⋮----
+// ----------------------------------------------------------------------------
+// Gate 1 統括エントリーポイント（並列実行）
+// ----------------------------------------------------------------------------
+export async function runGate1Audit(
+  items: ResearchItemRecord[],
+  category: string = 'pokemon'
+): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }>
+⋮----
+// Gate 1-A（コード検算）と Gate 1-B（LLMトレンド文章監査）を並列実行
+</file>
+
 <file path="app/api/pipeline/types.ts">
 export type PipelineStatus =
   | 'initialized'
@@ -3610,53 +3657,6 @@ export async function runMarketTrend(
 // 1. 直近同期された最新海外相場データをSupabaseから取得
 </file>
 
-<file path="app/api/pipeline/gates/gate1.ts">
-// app/api/pipeline/gates/gate1.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../../ai/intelligence/helpers';
-import { ResearchItemRecord } from '../types';
-⋮----
-export interface Gate1AuditResult {
-  itemId: string;
-  passed: boolean;
-  checks: {
-    card_existence_verified: boolean;
-    roi_calculation_valid: boolean;
-    official_tournament_compliant: boolean;
-  };
-  feedback: string | null;
-}
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1-A: アービトラージ数値マージン監査（コードによる0.01秒の決定論的検算）
-// ----------------------------------------------------------------------------
-export function runArbitrageMathAudit(items: ResearchItemRecord[]): Gate1AuditResult[]
-⋮----
-// 1. 異常値チェック（仕入れ値0円、利益なし、ROI 10%未満）
-⋮----
-// 2. 申告値との四則計算チェック（許容誤差: 差額 ±150円, ROI ±3%）
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1-B: 市場トレンド相場・レポート論理監査（LLMによる文章 & 銘柄審査）
-// ----------------------------------------------------------------------------
-export async function runTrendIntelligenceAudit(
-  items: ResearchItemRecord[],
-  category: string = 'pokemon'
-): Promise<Gate1AuditResult[]>
-⋮----
-// レポートの仮説・文章インサイトと銘柄をセットで審査プロンプトへ渡す
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1 統括エントリーポイント（並列実行）
-// ----------------------------------------------------------------------------
-export async function runGate1Audit(
-  items: ResearchItemRecord[],
-  category: string = 'pokemon'
-): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }>
-⋮----
-// Gate 1-A（コード検算）と Gate 1-B（LLMトレンド文章監査）を並列実行
-</file>
-
 <file path="app/AiDashboard/components/Sidebar.tsx">
 // app/AiDashboard/components/Sidebar.tsx
 import React from 'react';
@@ -3893,68 +3893,6 @@ import { NextRequest } from 'next/server';
 {/* 下部: 粗利スプレッド & ロゴ */}
 </file>
 
-<file path="app/AiDashboard/index.tsx">
-// app/AiDashboard/index.tsx
-⋮----
-import React, { useState, useEffect, useRef } from 'react';
-import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
-import Sidebar from './components/Sidebar';
-import DeskViews from './components/DeskViews';
-import ChatPanel from './components/ChatPanel';
-⋮----
-interface PhaseDetail {
-    step: string;
-    title: string;
-    percent: number;
-    color: string;
-    activeAgents: string[];
-}
-⋮----
-// 🌟 北米リサーチ
-⋮----
-// 🌟 欧州リサーチ
-⋮----
-// 🌟 アジアリサーチ
-⋮----
-const loadCycleData = async (cycleId: string) =>
-⋮----
-const handleSelectHistory = (target: any) =>
-⋮----
-// 🌟 各AIデスクごとの完全単独再実行ハンドラー
-const runSingleAi = async (action: string, region?: RegionKey) =>
-⋮----
-// 強制停止ハンドラー
-const handleStopPipeline = async () =>
-⋮----
-// パイプライン開始処理
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 🌟 進行対象のフェーズ一覧
-⋮----
-// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
-⋮----
-// 完了・失敗時の停止処理
-⋮----
-const handleCopy = (text: string, key: string) =>
-⋮----
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-// app/AiDashboard/index.tsx 内
-const handlePublishToInstagram = async (
-    content: string, 
-    typeKey: string, 
-    images?: string[] | string
-) =>
-⋮----
-const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
-⋮----
-const fetchLatestCycles = async () =>
-⋮----
-{/* 進捗ゲージ */}
-⋮----
-{/* メインデスクビュー */}
-</file>
-
 <file path="app/AiDashboard/components/DeskViews.tsx">
 // app/AiDashboard/components/DeskViews.tsx
 import React, { useState, useEffect } from 'react';
@@ -4051,6 +3989,68 @@ onClick=
 {/* ========================================================= */}
 </file>
 
+<file path="app/AiDashboard/index.tsx">
+// app/AiDashboard/index.tsx
+⋮----
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
+import Sidebar from './components/Sidebar';
+import DeskViews from './components/DeskViews';
+import ChatPanel from './components/ChatPanel';
+⋮----
+interface PhaseDetail {
+    step: string;
+    title: string;
+    percent: number;
+    color: string;
+    activeAgents: string[];
+}
+⋮----
+// 🌟 北米リサーチ
+⋮----
+// 🌟 欧州リサーチ
+⋮----
+// 🌟 アジアリサーチ
+⋮----
+const loadCycleData = async (cycleId: string) =>
+⋮----
+const handleSelectHistory = (target: any) =>
+⋮----
+// 🌟 各AIデスクごとの完全単独再実行ハンドラー
+const runSingleAi = async (action: string, region?: RegionKey) =>
+⋮----
+// 強制停止ハンドラー
+const handleStopPipeline = async () =>
+⋮----
+// パイプライン開始処理
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 🌟 進行対象のフェーズ一覧
+⋮----
+// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
+⋮----
+// 完了・失敗時の停止処理
+⋮----
+const handleCopy = (text: string, key: string) =>
+⋮----
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+// app/AiDashboard/index.tsx 内
+const handlePublishToInstagram = async (
+    content: string, 
+    typeKey: string, 
+    images?: string[] | string
+) =>
+⋮----
+const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
+⋮----
+const fetchLatestCycles = async () =>
+⋮----
+{/* 進捗ゲージ */}
+⋮----
+{/* メインデスクビュー */}
+</file>
+
 <file path="app/api/pipeline/status/route.ts">
 // app/api/pipeline/status/route.ts
 import { NextResponse } from 'next/server';
@@ -4069,6 +4069,58 @@ const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
 ⋮----
 // 4. トレンドレポート復元
 const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
+</file>
+
+<file path="app/AiDashboard/components/DocumentReport.tsx">
+// app/AiDashboard/components/DocumentReport.tsx
+import React, { useState } from 'react';
+⋮----
+export default function DocumentReportView({
+    report,
+    accentColor = 'amber',
+    icon = '⚖️'
+}: {
+    report: any | null;
+    accentColor?: 'amber' | 'emerald' | 'pink' | 'sky';
+    icon?: string;
+})
+⋮----
+const getTierBadgeClass = (tierKey?: string) =>
+⋮----
+const toggleSub = (cellId: string) =>
+⋮----
+// 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
+const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) =>
+⋮----
+const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
+⋮----
+const getSlotMeta = (slotKey: string, slotLabel?: string) =>
+⋮----
+// 🌟 1. 対象価格帯（Price Tier）の抽出
+⋮----
+// 🌟 2. CSVダウンロード処理（Excel文字化け防止のBOM付き）
+const handleDownloadCSV = () =>
+⋮----
+const processItem = (item: any, role: string) =>
+⋮----
+const escapeCsv = (str: string) =>
+⋮----
+const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excelでの文字化けを防ぐBOM
+⋮----
+// 🌟 3. JSONダウンロード処理（AI検証用）
+const handleDownloadJSON = () =>
+⋮----
+{/* 共通ヘッダー */}
+⋮----
+{/* 🌟 価格帯ラベルの表示 */}
+⋮----
+{/* 🌟 ダウンロードボタンの追加 */}
+⋮----
+{/* アービトラージレポート描画ブロック */}
+⋮----
+{/* 成約ボリューム実績 (7日 & 30日) */}
+⋮----
+{/* 日本仕入れ（ポケカジラ最安値比較） */}
 </file>
 
 <file path="lib/market-fetcher/apify-arbitrage.ts">
@@ -4140,6 +4192,15 @@ async function runApifySync(
 function isNoiseCard(title: string): boolean
 ⋮----
 /**
+ * クラシック・ヴィンテージ期（旧裏〜PCG期・1996〜2006年）のカードか判定（国内相場取得停止中のため除外）
+ */
+function isClassicVintageCard(title: string, cardNumbers: string[]): boolean
+⋮----
+// 1. 旧裏〜PCG期・初期セットを示すキーワード・発売年（1996〜2006）
+⋮----
+// 2. スラッシュなしの3桁図鑑番号のみ（例: #025, #149）かつモダン世代の年号・シリーズ表記がない場合
+⋮----
+/**
  * eBayタイトルからトレカ型番をすべて抽出する
  */
 export function extractAllCardNumbers(title: string, isGraded: boolean = false): string[]
@@ -4204,7 +4265,23 @@ export async function fetchRealArbitrageCandidates(
 ⋮----
 // 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
 ⋮----
+// 複数キーワードでヒットした同一出品（同じ itemId）を重複排除
+⋮----
+// EU加盟国リスト（ドイツ語・英語表記：これ以外の国からの出品にはebay.de上で19%輸入VATが加算される）
+⋮----
 // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
+⋮----
+const parseLocalizedNumber = (val: unknown): number =>
+⋮----
+// 欧州式 (1.250,99) vs 米国式 (1,250.99)
+⋮----
+// 「Ca. EUR 37,05」「EUR 19,99」「19,99 €」などEUR表記が含まれていればそのユーロ額を優先抽出
+⋮----
+// EUR明記がない場合（GBP単独など）は除外せずそのままの数値を採用
+⋮----
+// EU加盟国以外（イギリス・日本・米国等）からの150EUR以下出品はebay.de一覧で19%の輸入VATが上乗せされるため控除
+⋮----
+// 北米（US）は従来通り USD のみ許可
 ⋮----
 // 3. ポケカジラ検索用の startUrls を重複なし生成（コンディション取得と並列実行するため先に作成）
 ⋮----
@@ -4231,58 +4308,6 @@ continue; // 全状態ランクで在庫がない場合のみスキップ
 // Excellent ➔ 状態○/A-最安を優先（なければ状態◎）
 ⋮----
 // 未鑑定 Near mint or better ➔ 状態◎最安を優先（なければ状態○/A-）
-</file>
-
-<file path="app/AiDashboard/components/DocumentReport.tsx">
-// app/AiDashboard/components/DocumentReport.tsx
-import React, { useState } from 'react';
-⋮----
-export default function DocumentReportView({
-    report,
-    accentColor = 'amber',
-    icon = '⚖️'
-}: {
-    report: any | null;
-    accentColor?: 'amber' | 'emerald' | 'pink' | 'sky';
-    icon?: string;
-})
-⋮----
-const getTierBadgeClass = (tierKey?: string) =>
-⋮----
-const toggleSub = (cellId: string) =>
-⋮----
-// 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
-const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) =>
-⋮----
-const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
-⋮----
-const getSlotMeta = (slotKey: string, slotLabel?: string) =>
-⋮----
-// 🌟 1. 対象価格帯（Price Tier）の抽出
-⋮----
-// 🌟 2. CSVダウンロード処理（Excel文字化け防止のBOM付き）
-const handleDownloadCSV = () =>
-⋮----
-const processItem = (item: any, role: string) =>
-⋮----
-const escapeCsv = (str: string) =>
-⋮----
-const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excelでの文字化けを防ぐBOM
-⋮----
-// 🌟 3. JSONダウンロード処理（AI検証用）
-const handleDownloadJSON = () =>
-⋮----
-{/* 共通ヘッダー */}
-⋮----
-{/* 🌟 価格帯ラベルの表示 */}
-⋮----
-{/* 🌟 ダウンロードボタンの追加 */}
-⋮----
-{/* アービトラージレポート描画ブロック */}
-⋮----
-{/* 成約ボリューム実績 (7日 & 30日) */}
-⋮----
-{/* 日本仕入れ（ポケカジラ最安値比較） */}
 </file>
 
 <file path="app/api/ai/intelligence/agents/arbitrage.ts">
@@ -4329,6 +4354,8 @@ export interface ArbitrageTier {
 export interface ArbitrageSlotReport {
   slotKey: string;
   slotLabel: string;
+  isPaused?: boolean;
+  pauseReason?: string;
   tiers: ArbitrageTier[];
 }
 ⋮----
@@ -4337,13 +4364,13 @@ async function getRealtimeExchangeRate(currency: string): Promise<number>
 /**
  * 確定候補を既存の5スロットへ決定論的に分類する（AIによる除外・変更を一切行わない）
  */
-function classifyCandidateToSlot(candidate: VerifiedArbitrageCandidate): string
+function classifyCandidateToSlot(candidate: VerifiedArbitrageCandidate): string | null
+⋮----
+// クラシック・ヴィンテージ枠（旧裏・VS・web・e・ADV・PCG期）は現在保留中のため除外
 ⋮----
 // 1. 鑑定品（PSA / BGS / CGC / ARS / Graded）・未開封BOXはすべて鑑定・未開封枠へ
 ⋮----
 // 2. プロモ型番・プロモ表記は限定プロモ枠へ
-⋮----
-// 3. クラシック・ヴィンテージ枠（旧裏・VS・web・e・ADV・PCG期）
 ⋮----
 // 4. ネオ・ヴィンテージ枠（DP・Pt・LEGEND・BW・XY期）
 ⋮----
@@ -4423,7 +4450,7 @@ async function processAndSaveRegionResearch(
 ⋮----
 // 2. トレンド候補抽出
 ⋮----
-// 3. DB一括登録 ＆ API自動検証
+// 3. DB一括登録 ＆ API自動検証（アービトラージはApifyで確定済みのため上書き対象から除外）
 ⋮----
 // ============================================================================
 // メインハンドラー

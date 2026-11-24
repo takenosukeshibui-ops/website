@@ -96,6 +96,116 @@ export default function DeskViews({
     const activeTrendReport = safeTrendRegion ? aiData?.trendInsights?.[safeTrendRegion] || null : null;
     const activeArbReport = safeArbRegion ? aiData?.profitableCards?.[safeArbRegion] || null : null;
 
+    const escapeCsvField = (val: unknown) => `"${(val ?? '').toString().replace(/"/g, '""')}"`;
+    const getTodayFileDate = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    };
+    const formatRegionLabel = (reg?: string) => {
+        const r = (reg || '').toLowerCase();
+        if (r === 'us') return '北米';
+        if (r === 'eu') return '欧州';
+        if (r === 'asia') return 'アジア';
+        return reg || '-';
+    };
+
+    const handleDownloadTrendAuditCSV = () => {
+        if (allTrendAudits.length === 0) return;
+        const headers = ['地域', '判定ステータス', 'カード名', '対象仮説', '実在性チェック', '大会規約チェック', '監査フィードバック'];
+        const rows = [headers.join(',')];
+
+        for (const item of allTrendAudits) {
+            const statusLabel =
+                item.status === 'passed' ? '規約適合' :
+                item.status === 'pending' ? '監査待ち' : '差し戻し';
+            const existCheck =
+                item.checks?.card_existence_verified === true ? 'OK' :
+                item.checks?.card_existence_verified === false ? 'NG' : '-';
+            const tourneyCheck =
+                item.checks?.official_tournament_compliant === true ? 'OK' :
+                item.checks?.official_tournament_compliant === false ? 'NG' : '-';
+
+            rows.push([
+                escapeCsvField(formatRegionLabel(item.region)),
+                escapeCsvField(statusLabel),
+                escapeCsvField(item.card),
+                escapeCsvField(item.slot),
+                escapeCsvField(existCheck),
+                escapeCsvField(tourneyCheck),
+                escapeCsvField(item.feedback || '')
+            ].join(','));
+        }
+
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const blob = new Blob([bom, rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Trend_Audit_Gate1B_${getTodayFileDate()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadTrendAuditJSON = () => {
+        if (allTrendAudits.length === 0) return;
+        const blob = new Blob([JSON.stringify(allTrendAudits, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Trend_Audit_Gate1B_${getTodayFileDate()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadArbAuditCSV = () => {
+        if (allArbAudits.length === 0) return;
+        const headers = ['地域', '判定ステータス', 'スロット', '価格帯', 'カード名', '四則検算チェック', '監査フィードバック'];
+        const rows = [headers.join(',')];
+
+        for (const item of allArbAudits) {
+            const statusLabel =
+                item.status === 'passed' ? '検算OK' :
+                item.status === 'pending' ? '監査待ち' : '差額異常';
+            const mathCheck =
+                item.checks?.roi_calculation_valid === true ? 'OK' :
+                item.checks?.roi_calculation_valid === false ? 'NG' : '-';
+
+            rows.push([
+                escapeCsvField(formatRegionLabel(item.region)),
+                escapeCsvField(statusLabel),
+                escapeCsvField(item.slot),
+                escapeCsvField(item.priceTier || '-'),
+                escapeCsvField(item.card),
+                escapeCsvField(mathCheck),
+                escapeCsvField(item.feedback || '')
+            ].join(','));
+        }
+
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const blob = new Blob([bom, rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Arbitrage_Audit_Gate1A_${getTodayFileDate()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadArbAuditJSON = () => {
+        if (allArbAudits.length === 0) return;
+        const blob = new Blob([JSON.stringify(allArbAudits, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Arbitrage_Audit_Gate1A_${getTodayFileDate()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <>
             {/* ========================================================= */}
@@ -296,6 +406,24 @@ export default function DeskViews({
                             <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
                                 全適合率: {allTrendAudits.filter(a => a.status === 'passed').length} / {allTrendAudits.length} 件
                             </span>
+                            {allTrendAudits.length > 0 && (
+                                <div className="flex items-center gap-1.5 ml-1">
+                                    <button
+                                        onClick={handleDownloadTrendAuditCSV}
+                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                        title="Excelやスプレッドシートでの目視確認用"
+                                    >
+                                        📊 CSV
+                                    </button>
+                                    <button
+                                        onClick={handleDownloadTrendAuditJSON}
+                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                        title="AI検証用・構造化データ"
+                                    >
+                                        ｛ ｝ JSON
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -402,6 +530,24 @@ export default function DeskViews({
                             <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
                                 全検算合致: {allArbAudits.filter(a => a.status === 'passed').length} / {allArbAudits.length} 件
                             </span>
+                            {allArbAudits.length > 0 && (
+                                <div className="flex items-center gap-1.5 ml-1">
+                                    <button
+                                        onClick={handleDownloadArbAuditCSV}
+                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                        title="Excelやスプレッドシートでの目視確認用"
+                                    >
+                                        📊 CSV
+                                    </button>
+                                    <button
+                                        onClick={handleDownloadArbAuditJSON}
+                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                                        title="AI検証用・構造化データ"
+                                    >
+                                        ｛ ｝ JSON
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
