@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
 import {
   fetchDomesticTrendCandidates,
+  enrichTrendCandidatesWithEbaySold,
+  buildEnglishEbayQueryForTrend,
   DomesticTrendCandidate,
 } from '@/lib/market-fetcher/apify-trend';
 
@@ -50,10 +52,10 @@ export interface MarketTrendReport {
   hypotheses: TrendHypothesis[];
 }
 
-const REGION_CURRENCIES: Record<string, { currency: string; name: string }> = {
-  us: { currency: 'USD', name: '北米（アメリカ）市場' },
-  eu: { currency: 'EUR', name: '欧州（ヨーロッパ）市場' },
-  asia: { currency: 'SGD', name: 'アジア（シンガポール・台湾・香港等）市場' },
+const REGION_CURRENCIES: Record<string, { currency: string; name: string; defaultRate: number }> = {
+  us: { currency: 'USD', name: '北米（アメリカ）市場', defaultRate: 155 },
+  eu: { currency: 'EUR', name: '欧州（ヨーロッパ）市場', defaultRate: 165 },
+  asia: { currency: 'USD', name: 'アジア（シンガポール・台湾・香港等）市場', defaultRate: 155 },
 };
 
 let cachedDomesticTrends: { timestamp: number; category: string; items: DomesticTrendCandidate[] } | null = null;
@@ -75,6 +77,17 @@ async function getCachedDomesticTrends(category: string): Promise<DomesticTrendC
   return items;
 }
 
+async function getRealtimeRate(currency: string, fallback: number): Promise<number> {
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${currency}`, { next: { revalidate: 3600 } });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.rates?.JPY) return Number(data.rates.JPY);
+    }
+  } catch {}
+  return fallback;
+}
+
 export async function runMarketTrend(
   region: 'us' | 'eu' | 'asia',
   category: string = 'pokemon'
@@ -83,55 +96,42 @@ export async function runMarketTrend(
   const cur = REGION_CURRENCIES[region] || REGION_CURRENCIES.us;
   const categoryName = getCategoryName(category);
 
-  // 1. 「国内高騰ランキング(torechart.com)」「Supabase海外相場」「社内学習ルール」を並列取得
-  const [domesticTrends, overseasContext, agentRules] = await Promise.all([
+  // 1. 「国内高騰ランキング(torechart.com)」「為替レート」「社内学習ルール」を並列取得
+  const [rawDomesticTrends, exchangeRate, agentRules] = await Promise.all([
     getCachedDomesticTrends(category),
-    (async () => {
-      try {
-        const supabase = await createClient();
-        const targetRegion = region === 'asia' ? 'us' : region;
-        const { data: prices } = await supabase
-          .from('overseas_market_prices')
-          .select('card_name, platform, condition_grade, sold_price_local, currency, sold_price_jpy, source_evidence_url')
-          .eq('region', targetRegion)
-          .order('created_at', { ascending: false })
-          .limit(30);
-
-        if (prices && prices.length > 0) {
-          return prices
-            .map(
-              (p) =>
-                `- ${p.card_name} [${p.platform}] (${p.condition_grade || 'Raw'}): ${p.sold_price_local} ${p.currency} (約¥${p.sold_price_jpy?.toLocaleString()})`
-            )
-            .join('\n');
-        }
-      } catch (dbErr) {
-        console.warn('[MarketTrend] DB相場コンテキスト取得スキップ:', dbErr);
-      }
-      return '（最新海外成約相場データなし）';
-    })(),
+    getRealtimeRate(cur.currency, cur.defaultRate),
     getAgentRules('trend'),
   ]);
 
-  // 🌟 AIの記憶だけでのカード生成を完全禁止（実測データが0件ならレポートを生成しない）
-  if (!domesticTrends || domesticTrends.length === 0) {
+  // AIの記憶だけでのカード生成を完全禁止
+  if (!rawDomesticTrends || rawDomesticTrends.length === 0) {
     console.warn(`[MarketTrend] ${region.toUpperCase()}: 国内実測データ(torechart.com)が0件のため生成を中止しました`);
     return null;
   }
 
+  // 2. トレチャ上位銘柄のeBay直近実成約価格と個別 /itm/ URLを取得
+  const domesticTrends = await enrichTrendCandidatesWithEbaySold(
+    rawDomesticTrends,
+    region,
+    category,
+    exchangeRate
+  );
+
   const domesticContext = domesticTrends
-    .map(
-      (d, idx) =>
-        `[ID:${idx}] ${d.cardName} | 国内現在相場: ¥${d.currentPriceJpy.toLocaleString()} | 週間変動: ${d.trendMetric} | URL: ${d.detailUrl}`
-    )
+    .map((d, idx) => {
+      const ebayInfo = d.ebaySoldLocalText
+        ? `eBay実成約現在相場: ${d.ebaySoldLocalText} (${d.ebayCondition} / 直近成約${d.ebaySoldCount}件) | eBay成約URL: ${d.ebayItemUrl}`
+        : `eBay直近成約: まだ海外流通少（国内先行高騰フェーズ）`;
+      return `[ID:${idx}] ${d.cardName} | 国内現在相場: ¥${d.currentPriceJpy.toLocaleString()} | 週間変動: ${d.trendMetric} | ${ebayInfo} | 国内URL: ${d.detailUrl}`;
+    })
     .join('\n');
 
   const defaultPlatform =
     region === 'us'
-      ? 'eBay US / TCGplayer'
+      ? 'eBay US'
       : region === 'eu'
-      ? 'Cardmarket / eBay DE'
-      : 'Shopee / Carousell / eBay';
+      ? 'eBay DE'
+      : 'eBay Global';
 
   const ebayOrigin = region === 'eu' ? 'https://www.ebay.de' : 'https://www.ebay.com';
 
@@ -145,20 +145,17 @@ export async function runMarketTrend(
   const prompt = `あなたは【${cur.name}】の【${categoryName}】相場動向を分析する専任の市場トレンドアナリストです。
 「日本国内の一次・二次流通で先に価格高騰・取引急増が起き、1〜3週間遅れて海外市場へ買いが波及するタイムラグ」を捉え、今後【${cur.name}】で値上がりする可能性が高い注目銘柄を特定します。
 
-【1. 日本国内の直近7日間 高騰ランキング実測データ（トレチャ torechart.com 取得）】
+【1. 日本国内7日間高騰ランキング（トレチャ） ＆ eBay直近実成約照合データ】
 ${domesticContext}
-
-【2. 直近の現地プラットフォーム参考相場データ】
-${overseasContext}
-${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agentRules}\n` : ''}
+${agentRules ? `\n【2. 社内運用ルール・過去の学習知見】\n${agentRules}\n` : ''}
 
 【分析任務】
-上記の【日本国内の直近7日間 高騰ランキング実測データ】を先行シグナルとして参照し、今後2週間〜1ヶ月以内に【${cur.name}】で需要急増・価格追随高騰が予見される「先行トレンド仮説」を3〜4件立案し、各仮説に紐づく注目銘柄（1仮説あたり1〜3銘柄）を選定してください。
+上記の【実測データ】を先行シグナルとして参照し、今後2週間〜1ヶ月以内に【${cur.name}】で需要急増・価格追随高騰が予見される「先行トレンド仮説」を3〜4件立案し、各仮説に紐づく注目銘柄（1仮説あたり1〜3銘柄）を選定してください。
 
 ■ 厳格な論理整合性ルール（自律検証義務）
 1. 実測データ準拠と記憶ベース生成の完全禁止（最重要）:
-   - **必ず【1. 日本国内の直近7日間 高騰ランキング実測データ】に記載されている実在カードのみから選出してください。リストに存在しないカード名や、記憶による型番（例: 000/000）を勝手に書き足すことは厳禁です。**
-   - \`jpBuyPriceJPY\` と \`jpEvidenceUrl\` には、上記リストの \`国内現在相場\` と \`URL\` を正確に転記してください。
+   - **必ず上記リストに記載されている実在カードのみから選出してください。リストに存在しないカード名や、記憶による型番を勝手に書き足すことは厳禁です。**
+   - eBay実成約現在相場が記載されている銘柄を優先して選出し、その数値をそのまま反映してください。
 2. コレクション枠への限定（全地域共通）:
    - 必ず【${categoryName}】のみを選定してください。
    - **北米・欧州・アジアの全地域共通で「SAR・AR・CSR・UR・HR・MUR・プロモ・人気キャラクター」などのコレクション需要カードのみに限定**してください。
@@ -167,13 +164,11 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
    - 「旧裏面・1996〜2006年発売のクラシック期カード」は対象外のため選出しないでください。
 4. 先行指標の正しい評価:
    - 国内価格が海外現在相場より高くても（まだ海外に高騰が波及していない先行段階であっても）除外せず、「国内で先行高騰中・海外追随余地あり」として評価してください。
-5. 状態の指定:
-   - コンディションは ["Raw NM", "PSA 10", "PSA 9", "BGS 9.5", "CGC 10", "Sealed Box", "Sealed Promo"] から選定してください。
 
 以下のJSON形式のみを出力してください:
 {
   "title": "【${region.toUpperCase()}】市場トレンドインサイトレポート",
-  "claim": "今週の${cur.name}先行トレンドと急騰予見銘柄（国内7日間高騰ランキング起点）",
+  "claim": "今週の${cur.name}先行トレンドと急騰予見銘柄（国内7日間高騰ランキング×eBay実成約照合）",
   "summary": {
     "headline": "今週の市場全体の核心的トレンド（国内の先行高騰と海外波及の核心を1行で記述）",
     "macroAnalysis": {
@@ -205,11 +200,11 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
           "cardName": "リストのカード名をそのまま転記",
           "condition": "Raw NM",
           "jpBuyPriceJPY": "¥X,XXX",
-          "jpEvidenceUrl": "リストのURLをそのまま転記",
-          "currentLocalPrice": "約¥X,XXX (${cur.currency} XX)",
+          "jpEvidenceUrl": "リストの国内URLをそのまま転記",
+          "currentLocalPrice": "リストのeBay実成約現在相場をそのまま転記",
           "impactLogic": "この銘柄が選定された具体的な理由",
           "sourcePlatform": "${defaultPlatform}",
-          "evidenceNote": "トレチャ7日間高騰ランキング基準"
+          "evidenceNote": "トレチャ7日間高騰ランキング × eBay実成約照合"
         }
       ]
     }
@@ -221,7 +216,7 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
     const parsed: MarketTrendReport | null = parseAIJson(res.content.toString());
     if (!parsed || !Array.isArray(parsed.hypotheses)) return null;
 
-    // 国内実データとの厳格照合（リスト外のカードは100%排除）
+    // 国内実データ ＆ eBay実成約データとの厳格照合・確定バインド
     for (const hyp of parsed.hypotheses) {
       if (!Array.isArray(hyp.items)) continue;
       const verifiedItems: TrendItem[] = [];
@@ -245,11 +240,22 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
         item.jpBuyPriceJPY = `¥${matchedDomestic.currentPriceJpy.toLocaleString()}`;
         item.jpEvidenceUrl = matchedDomestic.detailUrl;
 
-        if (!item.sourceEvidenceUrl || !item.sourceEvidenceUrl.startsWith('http')) {
-          const kw = [cleanBaseName, category === 'onepiece' ? 'Japanese One Piece' : 'Japanese Pokemon']
-            .filter(Boolean)
-            .join(' ');
-          item.sourceEvidenceUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(kw)}&LH_Sold=1&LH_Complete=1`;
+        // eBay実成約が取れている場合は価格・状態・個別 /itm/ URLを確定上書き
+        if (matchedDomestic.ebaySoldLocalText && matchedDomestic.ebayItemUrl) {
+          item.currentLocalPrice = matchedDomestic.ebaySoldLocalText;
+          item.condition = matchedDomestic.ebayCondition || item.condition || 'Raw NM';
+          item.sourceEvidenceUrl = matchedDomestic.ebayItemUrl;
+        } else {
+          // eBay成約0件の場合は、英語化した検索クエリで成約済み一覧URLを生成
+          const enQuery = buildEnglishEbayQueryForTrend(
+            matchedDomestic.cardName,
+            matchedDomestic.rarity,
+            category
+          );
+          item.sourceEvidenceUrl = `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(enQuery)}&LH_Sold=1&LH_Complete=1&_sop=13`;
+          if (!item.currentLocalPrice || item.currentLocalPrice === '$0') {
+            item.currentLocalPrice = '海外直近成約なし（国内先行高騰中）';
+          }
         }
 
         verifiedItems.push(item);
