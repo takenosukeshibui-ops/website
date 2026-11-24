@@ -75,7 +75,10 @@ export default function DocumentReportView({
 
     // 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
     const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) => {
-        if (rawUrl && rawUrl.startsWith('https://pokecazilla.com/')) {
+        if (
+            rawUrl &&
+            (rawUrl.startsWith('https://pokecazilla.com/') || rawUrl.startsWith('https://pokeca-chart.com/'))
+        ) {
             return rawUrl;
         }
         const cleanName = (cardName || '')
@@ -403,7 +406,7 @@ export default function DocumentReportView({
                                         {(hyp.items || []).map((item: any, iIdx: number) => {
                                             const cond = item.condition || item.conditionGrade || 'Raw NM';
                                             const refUrl = item.sourceEvidenceUrl || getEbaySoldFallbackUrl(item.cardName, '', cond);
-                                            const jpUrl = resolvePokecazillaUrl(undefined, item.cardName, '');
+                                            const jpUrl = resolvePokecazillaUrl(item.jpEvidenceUrl, item.cardName, '');
 
                                             return (
                                                 <div key={iIdx} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col justify-between space-y-2.5">

@@ -11,7 +11,6 @@ import { runGate1Audit } from '@/app/api/pipeline/gates/gate1';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
-import { verifyAndEnrichArbitrageItems } from '@/lib/market-fetcher/verifier';
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -243,14 +242,17 @@ async function processAndSaveRegionResearch(
         const spread = Math.max(0, targetJpy - buy);
         const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
-        const trendEvidenceUrl = buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, category, item.cardName);
+        const trendEvidenceUrl =
+          anyItem.jpEvidenceUrl && String(anyItem.jpEvidenceUrl).startsWith('https://pokeca-chart.com/')
+            ? String(anyItem.jpEvidenceUrl)
+            : buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, category, item.cardName);
         const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);
 
         researchRows.push({
           cycle_id: cycleId,
           agent_key: 'trend',
           region,
-          slot_key: hypo.headline || 'トレンド先行シグナル',
+          slot_key: hypo.headline || 'trend_hypothesis',
           price_tier: 'middle',
           card_name: item.cardName,
           condition_grade: item.condition || 'Raw NM',
@@ -259,16 +261,17 @@ async function processAndSaveRegionResearch(
           target_sold_price_jpy: targetJpy,
           price_spread_jpy: spread,
           spread_roi_percent: roi,
-          liquidity_indicator: hypo.timeframe || '約2週間後',
+          liquidity_indicator: hypo.timeframe || '2週間〜1ヶ月',
           research_insight: item.impactLogic || hypo.signal || '',
           raw_payload: {
             ...item,
-            reportSummary: trendReport.summary,
-            hypothesis: hypo,
             jpEvidenceUrl: trendEvidenceUrl,
-            sourcePlatform: anyItem.sourcePlatform || platformDefault,
-            evidenceNote: anyItem.evidenceNote || '市場相場基準',
+            sourcePlatform: item.sourcePlatform || platformDefault,
+            evidenceNote: item.evidenceNote || '国内先行高騰シグナル基準',
             sourceEvidenceUrl: resolvedTrendEbayUrl,
+            reportSummary: trendReport.summary,
+            hypothesisSignal: hypo.signal,
+            hypothesisTimeframe: hypo.timeframe,
           },
           gate1_status: 'pending',
           is_selected: false,
@@ -277,44 +280,9 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 3. DB一括登録 ＆ API自動検証（アービトラージはApifyで確定済みのため上書き対象から除外）
+  // 3. DB一括登録（アービトラージ・トレンドともに確定済みのため曖昧検索上書きは行わない）
   if (researchRows.length > 0) {
-    const { data: insertedItems, error: insErr } = await supabase
-      .from('ai_research_items')
-      .insert(researchRows)
-      .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
-
-    if (!insErr && insertedItems) {
-      const trendOnlyItems = insertedItems.filter((i: any) => i.agent_key === 'trend');
-      if (trendOnlyItems.length > 0) {
-        try {
-          const verifiedUpdates = await verifyAndEnrichArbitrageItems(trendOnlyItems as any);
-          for (const update of verifiedUpdates) {
-            const originalItem = insertedItems.find((i: any) => i.id === update.itemId);
-            const currentPayload = originalItem?.raw_payload || {};
-
-            await supabase
-              .from('ai_research_items')
-              .update({
-                target_sold_price_local: update.target_sold_price_local,
-                target_sold_price_jpy: update.target_sold_price_jpy,
-                price_spread_jpy: update.price_spread_jpy,
-                spread_roi_percent: update.spread_roi_percent,
-                raw_payload: {
-                  ...currentPayload,
-                  sourcePlatform: update.sourcePlatform,
-                  evidenceNote: update.evidenceNote,
-                  sourceEvidenceUrl: update.sourceEvidenceUrl,
-                  currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
-                },
-              })
-              .eq('id', update.itemId);
-          }
-        } catch (verifyErr) {
-          console.warn(`[${region.toUpperCase()}] API検証スキップ:`, verifyErr);
-        }
-      }
-    }
+    await supabase.from('ai_research_items').insert(researchRows);
   }
 }
 
