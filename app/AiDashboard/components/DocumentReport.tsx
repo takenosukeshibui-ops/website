@@ -77,7 +77,9 @@ export default function DocumentReportView({
     const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) => {
         if (
             rawUrl &&
-            (rawUrl.startsWith('https://pokecazilla.com/') || rawUrl.startsWith('https://pokeca-chart.com/'))
+            (rawUrl.startsWith('https://pokecazilla.com/') ||
+                rawUrl.startsWith('https://torechart.com/') ||
+                rawUrl.startsWith('https://pokeca-chart.com/'))
         ) {
             return rawUrl;
         }

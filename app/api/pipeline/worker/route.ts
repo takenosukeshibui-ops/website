@@ -243,7 +243,9 @@ async function processAndSaveRegionResearch(
         const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
 
         const trendEvidenceUrl =
-          anyItem.jpEvidenceUrl && String(anyItem.jpEvidenceUrl).startsWith('https://pokeca-chart.com/')
+          anyItem.jpEvidenceUrl &&
+          (String(anyItem.jpEvidenceUrl).startsWith('https://torechart.com/') ||
+            String(anyItem.jpEvidenceUrl).startsWith('https://pokeca-chart.com/'))
             ? String(anyItem.jpEvidenceUrl)
             : buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, category, item.cardName);
         const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);

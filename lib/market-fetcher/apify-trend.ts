@@ -5,7 +5,7 @@ export interface DomesticTrendCandidate {
   cardName: string;
   rarity: string;
   currentPriceJpy: number;
-  trendMetric: string; // 例: "+3,200円 (+24.5%) / 取引 18件"
+  trendMetric: string; // 例: "+6,334円 (7日前: ¥49,466)"
   detailUrl: string;
   sourceSite: string;
 }
@@ -15,9 +15,11 @@ export interface DomesticTrendCandidate {
  */
 function isClassicVintageTitle(text: string): boolean {
   const upper = text.toUpperCase();
-  return /\b(OLD\s*BACK|NO\s*RARITY|1996|1997|1998|1999|2000|2001|2002|2003|2004|2005|2006|VS|WEB|ADV|PCG)\b/.test(
-    upper
-  ) || /(旧裏|旧裏面|ひかる|☆|スター)/.test(text);
+  return (
+    /\b(OLD\s*BACK|NO\s*RARITY|1996|1997|1998|1999|2000|2001|2002|2003|2004|2005|2006|VS|WEB|ADV|PCG)\b/.test(
+      upper
+    ) || /(旧裏|旧裏面|ひかる|☆|スター)/.test(text)
+  );
 }
 
 /**
@@ -33,6 +35,7 @@ function isPlayableNonCollectible(text: string): boolean {
     '大地の器', 'すごいつりざお', 'いれかえカート', '緊急ボード', '封印石',
     'マシーン', 'シークレットボックス', 'プライムキャッチャー', 'アンフェアスタンプ',
     'きらめく結晶', 'プレシャスキャリー', 'エネルギー転送', 'カウンターゲイン',
+    '夜のタンカ', 'ともだちてちょう', 'カウンターキャッチャー', 'ポケモンいれかえ',
   ];
   return playableKeywords.some((kw) => text.includes(kw));
 }
@@ -40,21 +43,35 @@ function isPlayableNonCollectible(text: string): boolean {
 /**
  * コレクション向けレアリティ（SAR / AR / CSR / UR / HR / MUR / BWR / プロモ等）か判定
  */
-function isCollectibleRarity(rarity: string, cardName: string): boolean {
-  const combined = `${rarity} ${cardName}`.toUpperCase();
-  if (/\b(RR|RRR|U|C|R)\b/.test(rarity.toUpperCase().trim())) {
+function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number): boolean {
+  const rUpper = rarity.toUpperCase().trim();
+  const combined = `${rUpper} ${cardName.toUpperCase()}`;
+
+  // プレイ用低レアリティは明確に除外
+  if (/^(RR|RRR|U|C|R|N|UC)$/.test(rUpper)) {
     return false;
   }
-  return (
-    /\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SA|PROMO|SR)\b/.test(combined) ||
-    /(プロモ|スペシャルアート|マスターボール|ミラー|記念|限定|ピカチュウ|リザードン|ブラッキー|イーブイ|ニンフィア|ミュウ|ゲンガー|ナンジャモ|リーリエ|アセロラ|マリィ|ルチア|セレナ)/.test(
+
+  // コレクション系レアリティ・表記
+  if (
+    /\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SA|PROMO|SR|SP|SEC|L|TR)\b/.test(combined) ||
+    /(プロモ|スペシャルアート|マスターボール|ミラー|記念|限定|パラレル|コミック|ピカチュウ|リザードン|ブラッキー|イーブイ|ニンフィア|ミュウ|ゲンガー|ナンジャモ|リーリエ|アセロラ|マリィ|ルチア|セレナ|ルフィ|シャンクス|エース|サボ|ナミ|ハンコック)/.test(
       cardName
     )
-  );
+  ) {
+    return true;
+  }
+
+  // トレチャ上で「レア度 : なし」となっているプロモ・限定高額枠（3,000円以上）を救済
+  if ((rUpper === '' || rUpper === 'なし') && priceJpy >= 3000) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
- * みんなのポケカ相場（pokeca-chart.com）から国内の高騰・取引急増銘柄をスクレイピングする
+ * トレチャ（torechart.com）から国内の7日間高騰ランキング（上昇額順・変動率順）を静的HTMLスクレイピングする
  */
 export async function fetchDomesticTrendCandidates(
   category: string = 'pokemon'
@@ -64,14 +81,14 @@ export async function fetchDomesticTrendCandidates(
     return [];
   }
 
-  // 現在はポケモンカード専用ソース（pokeca-chart.com）を対象
-  if (category !== 'pokemon') {
+  if (category !== 'pokemon' && category !== 'onepiece') {
     return [];
   }
 
+  const domainCategory = category === 'onepiece' ? 'onepiece' : 'pokemon';
   const targetUrls = [
-    { url: 'https://pokeca-chart.com/' },
-    { url: 'https://pokeca-chart.com/ranking/' },
+    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0` }, // 7日間 価格上昇額順
+    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=2` }, // 7日間 変動率(%)順
   ];
 
   const pageFunction = `async function pageFunction(context) {
@@ -79,59 +96,70 @@ export async function fetchDomesticTrendCandidates(
     const results = [];
     const seen = new Set();
 
-    $('a[href]').each((_, el) => {
+    $('a[href*="/detail"]').each((_, el) => {
       const href = ($(el).attr('href') || '').trim();
-      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+      if (!href) return;
 
       const fullUrl = href.startsWith('http')
         ? href
         : href.startsWith('/')
-        ? 'https://pokeca-chart.com' + href
-        : 'https://pokeca-chart.com/' + href;
+        ? 'https://torechart.com' + href
+        : 'https://torechart.com/' + href;
 
-      if (!fullUrl.startsWith('https://pokeca-chart.com/')) return;
-      // ナビゲーションや固定ページを除外し、個別カードページ候補を抽出
-      if (/\\/(ranking|category|tag|page|privacy|contact|about|news|search)\\/?$/i.test(fullUrl)) return;
+      if (!fullUrl.includes('torechart.com/')) return;
 
-      const container = $(el).closest('tr, li, article, .card-item, .ranking-item, div');
-      const blockText = (container.length ? container.text() : $(el).text())
-        .replace(/\\s+/g, ' ')
-        .trim();
+      // リンク自身または最大4階層上の親要素から、価格(¥)を含む最小コンテナを取得
+      let container = $(el);
+      for (let i = 0; i < 4; i++) {
+        const txt = container.text();
+        if (/[¥￥]\\s*[\\d,]+/.test(txt)) break;
+        const parent = container.parent();
+        if (!parent || parent.length === 0) break;
+        container = parent;
+      }
 
-      if (!blockText || blockText.length < 4 || blockText.length > 260) return;
+      const blockText = container.text().replace(/\\s+/g, ' ').trim();
+      if (!blockText || blockText.length > 400) return;
 
-      // 価格（〇〇円）が含まれるブロックのみ対象
-      const priceMatches = blockText.match(/([\\d,]{2,})\\s*円/g);
-      if (!priceMatches || priceMatches.length === 0) return;
+      // 現在価格（最初の ¥XXX 表記）
+      const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]+)/);
+      if (!priceMatch) return;
+      const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
+      if (currentPriceJpy < 300) return;
 
-      const rawLinkText = $(el).text().replace(/\\s+/g, ' ').trim();
-      let cardName = rawLinkText
-        .replace(/[\\d,]+\\s*円.*/g, '')
-        .replace(/[+＋\\-－][\\d,.]+[%％円].*/g, '')
-        .replace(/^\\d+位\\s*/, '')
+      // カード名抽出（順位・価格・レア度表記を除去）
+      let cardName = $(el).text().replace(/\\s+/g, ' ').trim();
+      cardName = cardName
+        .replace(/^\\d+\\s*位\\s*/, '')
+        .replace(/[¥￥]\\s*[\\d,]+.*/g, '')
+        .replace(/レア度\\s*[:：].*/g, '')
+        .replace(/7日前\\s*[:：].*/g, '')
         .trim();
 
       if (!cardName || cardName.length < 2) {
-        const headingText = container.find('h2, h3, h4, .name, .title').first().text().replace(/\\s+/g, ' ').trim();
-        cardName = headingText || blockText.split(/\\d+\\s*円/)[0].replace(/^\\d+位\\s*/, '').trim();
+        cardName = blockText
+          .replace(/^\\d+\\s*位\\s*/, '')
+          .split(/[¥￥]\\s*[\\d,]+/)[0]
+          .trim();
       }
-
       if (!cardName || cardName.length < 2 || cardName.length > 80) return;
 
-      // 現在価格（円）
-      const firstPriceNum = Number(priceMatches[0].replace(/[^\\d]/g, '')) || 0;
-      if (firstPriceNum < 300) return;
+      // レア度抽出（例: "レア度 : SAR" / "レア度 : プロモ"）
+      const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/);
+      const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
 
-      // レアリティ抽出
-      const rarityMatch = blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|RR|RRR|PROMO)\\b/i)
-        || blockText.match(/(プロモ|マスターボール|スペシャルアート)/);
-      const rarity = rarityMatch ? rarityMatch[1].toUpperCase() : '';
+      // 上昇額・変動率・7日前価格の抽出
+      const diffYenMatch = blockText.match(/\\(\\s*([+＋][\\d,]+円)\\s*\\)/);
+      const diffPctMatch = blockText.match(/\\(\\s*([+＋]?\\d+(?:\\.\\d+)?%)\\s*\\)/);
+      const prevPriceMatch = blockText.match(/7日前\\s*[:：]\\s*([¥￥]\\s*[\\d,]+)/);
 
-      // 上昇額・上昇率・取引件数などの変動シグナル抽出
-      const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*[%％]|\\d+\\s*件)/g);
-      const trendMetric = diffMatches ? Array.from(new Set(diffMatches)).join(' / ') : '高騰ランキング掲載';
+      const metricParts = [];
+      if (diffYenMatch) metricParts.push(diffYenMatch[1]);
+      if (diffPctMatch) metricParts.push('+' + diffPctMatch[1].replace(/^[+＋]/, ''));
+      if (prevPriceMatch) metricParts.push('7日前: ' + prevPriceMatch[1].replace(/\\s+/g, ''));
+      const trendMetric = metricParts.length > 0 ? metricParts.join(' / ') : '週間高騰ランキング上位';
 
-      const dedupKey = cardName + '_' + rarity;
+      const dedupKey = fullUrl;
       if (seen.has(dedupKey)) return;
       seen.add(dedupKey);
 
@@ -139,7 +167,7 @@ export async function fetchDomesticTrendCandidates(
         sourceUrl: request.url,
         cardName,
         rarity,
-        currentPriceJpy: firstPriceNum,
+        currentPriceJpy,
         trendMetric,
         detailUrl: fullUrl,
       });
@@ -169,36 +197,41 @@ export async function fetchDomesticTrendCandidates(
     );
 
     if (!res.ok) {
-      console.warn(`[ApifyTrend] pokeca-chart.com 取得失敗: ${res.status} ${res.statusText}`);
+      console.warn(`[ApifyTrend] torechart.com 取得失敗: ${res.status} ${res.statusText}`);
       return [];
     }
 
     const rawItems: any[] = await res.json();
     const candidates: DomesticTrendCandidate[] = [];
-    const seenNames = new Set<string>();
+    const seenUrls = new Set<string>();
 
     for (const item of rawItems) {
       if (!item || !item.cardName) continue;
       const cardName = String(item.cardName).trim();
       const rarity = String(item.rarity || '').trim();
       const price = Number(item.currentPriceJpy) || 0;
+      const detailUrl = String(item.detailUrl || '');
 
-      if (price <= 0) continue;
+      if (price <= 0 || !detailUrl) continue;
+      if (seenUrls.has(detailUrl)) continue;
       if (isClassicVintageTitle(cardName)) continue;
       if (isPlayableNonCollectible(cardName)) continue;
-      if (!isCollectibleRarity(rarity, cardName)) continue;
+      if (!isCollectibleRarity(rarity, cardName, price)) continue;
 
-      const key = `${cardName}_${rarity}`;
-      if (seenNames.has(key)) continue;
-      seenNames.add(key);
+      seenUrls.add(detailUrl);
+
+      const displayName =
+        rarity && !cardName.toUpperCase().includes(rarity.toUpperCase())
+          ? `${cardName} (${rarity})`
+          : cardName;
 
       candidates.push({
-        cardName: rarity && !cardName.toUpperCase().includes(rarity) ? `${cardName} (${rarity})` : cardName,
+        cardName: displayName,
         rarity: rarity || 'コレクション枠',
         currentPriceJpy: price,
-        trendMetric: String(item.trendMetric || '国内相場上昇中'),
-        detailUrl: String(item.detailUrl || 'https://pokeca-chart.com/'),
-        sourceSite: 'みんなのポケカ相場 (pokeca-chart.com)',
+        trendMetric: String(item.trendMetric || '週間高騰ランキング上位'),
+        detailUrl,
+        sourceSite: 'トレチャ (torechart.com)',
       });
     }
 
