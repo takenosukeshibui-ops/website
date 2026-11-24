@@ -5,14 +5,11 @@ export interface DomesticTrendCandidate {
   cardName: string;
   rarity: string;
   currentPriceJpy: number;
-  trendMetric: string; // 例: "+6,334円 (7日前: ¥49,466)"
+  trendMetric: string;
   detailUrl: string;
   sourceSite: string;
 }
 
-/**
- * 旧裏・クラシック期（1996〜2006年）のカードか判定
- */
 function isClassicVintageTitle(text: string): boolean {
   const upper = text.toUpperCase();
   return (
@@ -22,9 +19,6 @@ function isClassicVintageTitle(text: string): boolean {
   );
 }
 
-/**
- * 大会プレイ専用カード（グッズ・スタジアム・エネルギー・ACE SPEC等）か判定
- */
 function isPlayableNonCollectible(text: string): boolean {
   const upper = text.toUpperCase();
   if (/\b(ACE\s*SPEC|グッズ|スタジアム|基本.*エネルギー|特殊エネルギー)\b/i.test(upper)) {
@@ -40,9 +34,6 @@ function isPlayableNonCollectible(text: string): boolean {
   return playableKeywords.some((kw) => text.includes(kw));
 }
 
-/**
- * コレクション向けレアリティ（SAR / AR / CSR / UR / HR / MUR / BWR / プロモ等）か判定
- */
 function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number): boolean {
   const rUpper = rarity.toUpperCase().trim();
   const combined = `${rUpper} ${cardName.toUpperCase()}`;
@@ -67,9 +58,6 @@ function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number)
   return false;
 }
 
-/**
- * トレチャ（torechart.com）から国内の7日間高騰ランキング（上昇額順・変動率順）を高速スクレイピングする
- */
 export async function fetchDomesticTrendCandidates(
   category: string = 'pokemon'
 ): Promise<DomesticTrendCandidate[]> {
@@ -93,40 +81,60 @@ export async function fetchDomesticTrendCandidates(
     const results = [];
     const seen = new Set();
 
-    $('a[href*="detail"]').each((_, el) => {
+    $('a').each((_, el) => {
       const href = ($(el).attr('href') || '').trim();
       if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-      let fullUrl = '';
-      try {
-        fullUrl = new URL(href, request.url).href;
-      } catch (e) {
+      // ランキング・ナビゲーション・静的ページを除外し、カード個別ページ候補を拾う
+      if (/\\/(priceup|pricedown|ranking|search|about|privacy|contact|login|signup|terms|faq)\\b/i.test(href) && !href.includes('id=')) {
+        return;
+      }
+      if (href === '/' || href === '/pokemon' || href === '/onepiece' || href === '/pokemon/' || href === '/onepiece/') {
         return;
       }
 
-      if (!fullUrl.includes('torechart.com/')) return;
+      let fullUrl = href.startsWith('http')
+        ? href
+        : href.startsWith('/')
+        ? 'https://torechart.com' + href
+        : 'https://torechart.com/${domainCategory}/' + href.replace(/^\\.\\//, '');
 
+      if (!fullUrl.startsWith('https://torechart.com/')) return;
+      fullUrl = fullUrl.replace(
+        /^https:\\/\\/torechart\\.com\\/detail/i,
+        'https://torechart.com/${domainCategory}/detail'
+      );
+
+      // 親要素を最大6階層たどり、価格（¥ または 円）を含む最小コンテナを取得
       let container = $(el);
-      for (let i = 0; i < 4; i++) {
+      let foundPrice = false;
+      for (let i = 0; i < 6; i++) {
         const txt = container.text();
-        if (/[¥￥]\\s*[\\d,]+/.test(txt)) break;
+        if (/[¥￥]\\s*[\\d,]{3,}|[\\d,]{3,}\\s*円/.test(txt)) {
+          foundPrice = true;
+          break;
+        }
         const parent = container.parent();
-        if (!parent || parent.length === 0) break;
+        if (!parent || parent.length === 0 || parent.is('body, html, main, table')) break;
         container = parent;
       }
+      if (!foundPrice) return;
 
       const blockText = container.text().replace(/\\s+/g, ' ').trim();
-      if (!blockText || blockText.length > 400) return;
+      if (!blockText || blockText.length > 500) return;
 
-      const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]+)/);
+      // 価格抽出（¥12,345 または 12,345円）
+      const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]{3,})/) || blockText.match(/([\\d,]{3,})\\s*円/);
       if (!priceMatch) return;
       const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
       if (currentPriceJpy < 300) return;
 
+      // カード名抽出
       let cardName = $(el).text().replace(/\\s+/g, ' ').trim();
       cardName = cardName
         .replace(/^\\d+\\s*位\\s*/, '')
         .replace(/[¥￥]\\s*[\\d,]+.*/g, '')
+        .replace(/[\\d,]+\\s*円.*/g, '')
         .replace(/レア度\\s*[:：].*/g, '')
         .replace(/7日前\\s*[:：].*/g, '')
         .trim();
@@ -134,23 +142,20 @@ export async function fetchDomesticTrendCandidates(
       if (!cardName || cardName.length < 2) {
         cardName = blockText
           .replace(/^\\d+\\s*位\\s*/, '')
-          .split(/[¥￥]\\s*[\\d,]+/)[0]
+          .split(/[¥￥]\\s*[\\d,]+|[\\d,]+\\s*円/)[0]
+          .replace(/レア度\\s*[:：].*/g, '')
           .trim();
       }
       if (!cardName || cardName.length < 2 || cardName.length > 80) return;
 
-      const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/);
+      // レア度抽出
+      const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/)
+        || blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)\\b/i);
       const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
 
-      const diffYenMatch = blockText.match(/\\(\\s*([+＋][\\d,]+円)\\s*\\)/);
-      const diffPctMatch = blockText.match(/\\(\\s*([+＋]?\\d+(?:\\.\\d+)?%)\\s*\\)/);
-      const prevPriceMatch = blockText.match(/7日前\\s*[:：]\\s*([¥￥]\\s*[\\d,]+)/);
-
-      const metricParts = [];
-      if (diffYenMatch) metricParts.push(diffYenMatch[1]);
-      if (diffPctMatch) metricParts.push('+' + diffPctMatch[1].replace(/^[+＋]/, ''));
-      if (prevPriceMatch) metricParts.push('7日前: ' + prevPriceMatch[1].replace(/\\s+/g, ''));
-      const trendMetric = metricParts.length > 0 ? metricParts.join(' / ') : '週間高騰ランキング上位';
+      // 変動シグナル抽出
+      const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*%|7日前\\s*[:：]\\s*[¥￥]?\\s*[\\d,]+円?)/g);
+      const trendMetric = diffMatches ? Array.from(new Set(diffMatches)).join(' / ') : '週間高騰ランキング上位';
 
       if (seen.has(fullUrl)) return;
       seen.add(fullUrl);
@@ -165,10 +170,26 @@ export async function fetchDomesticTrendCandidates(
       });
     });
 
+    // 万が一0件だった場合のみ、原因特定用のデバッグ情報を1件出力
+    if (results.length === 0) {
+      const sampleLinks = [];
+      $('a').slice(0, 20).each((_, el) => {
+        sampleLinks.push({
+          href: $(el).attr('href') || '',
+          text: $(el).text().replace(/\\s+/g, ' ').trim().slice(0, 50),
+        });
+      });
+      return [{
+        _debug: true,
+        title: $('title').text().trim(),
+        bodySnippet: $('body').text().replace(/\\s+/g, ' ').trim().slice(0, 400),
+        sampleLinks,
+      }];
+    }
+
     return results;
   }`;
 
-  // 25秒のハードタイムアウトを設定しパイプライン全体の遅延を防止
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25_000);
 
@@ -203,7 +224,7 @@ export async function fetchDomesticTrendCandidates(
     const seenUrls = new Set<string>();
 
     for (const item of rawItems) {
-      if (!item || !item.cardName) continue;
+      if (!item || item._debug || !item.cardName) continue;
       const cardName = String(item.cardName).trim();
       const rarity = String(item.rarity || '').trim();
       const price = Number(item.currentPriceJpy) || 0;

@@ -63,12 +63,15 @@ async function getCachedDomesticTrends(category: string): Promise<DomesticTrendC
   if (
     cachedDomesticTrends &&
     cachedDomesticTrends.category === category &&
-    now - cachedDomesticTrends.timestamp < 60_000
+    now - cachedDomesticTrends.timestamp < 60_000 &&
+    cachedDomesticTrends.items.length > 0
   ) {
     return cachedDomesticTrends.items;
   }
   const items = await fetchDomesticTrendCandidates(category);
-  cachedDomesticTrends = { timestamp: now, category, items };
+  if (items.length > 0) {
+    cachedDomesticTrends = { timestamp: now, category, items };
+  }
   return items;
 }
 
@@ -105,20 +108,23 @@ export async function runMarketTrend(
       } catch (dbErr) {
         console.warn('[MarketTrend] DB相場コンテキスト取得スキップ:', dbErr);
       }
-      return '（最新海外成約相場データなし：国内高騰シグナルと市場知識ベースで推論）';
+      return '（最新海外成約相場データなし）';
     })(),
     getAgentRules('trend'),
   ]);
 
-  const hasDomesticData = domesticTrends.length > 0;
-  const domesticContext = hasDomesticData
-    ? domesticTrends
-        .map(
-          (d, idx) =>
-            `[ID:${idx}] ${d.cardName} | 国内現在相場: ¥${d.currentPriceJpy.toLocaleString()} | 週間変動: ${d.trendMetric} | URL: ${d.detailUrl}`
-        )
-        .join('\n')
-    : '（国内相場ランキング取得なし：海外直近データと市場知識ベースで推論）';
+  // 🌟 AIの記憶だけでのカード生成を完全禁止（実測データが0件ならレポートを生成しない）
+  if (!domesticTrends || domesticTrends.length === 0) {
+    console.warn(`[MarketTrend] ${region.toUpperCase()}: 国内実測データ(torechart.com)が0件のため生成を中止しました`);
+    return null;
+  }
+
+  const domesticContext = domesticTrends
+    .map(
+      (d, idx) =>
+        `[ID:${idx}] ${d.cardName} | 国内現在相場: ¥${d.currentPriceJpy.toLocaleString()} | 週間変動: ${d.trendMetric} | URL: ${d.detailUrl}`
+    )
+    .join('\n');
 
   const defaultPlatform =
     region === 'us'
@@ -150,12 +156,9 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
 上記の【日本国内の直近7日間 高騰ランキング実測データ】を先行シグナルとして参照し、今後2週間〜1ヶ月以内に【${cur.name}】で需要急増・価格追随高騰が予見される「先行トレンド仮説」を3〜4件立案し、各仮説に紐づく注目銘柄（1仮説あたり1〜3銘柄）を選定してください。
 
 ■ 厳格な論理整合性ルール（自律検証義務）
-1. 実測データ準拠と捏造の完全禁止（最重要）:
-   ${
-     hasDomesticData
-       ? '- **必ず【1. 日本国内の直近7日間 高騰ランキング実測データ】に記載されている実在カードのみから選出してください。リストに存在しないカード名や、記憶による型番（例: 000/000）を勝手に書き足すことは厳禁です。**\n   - `jpBuyPriceJPY` と `jpEvidenceUrl` には、上記リストの `国内現在相場` と `URL` を正確に転記してください。'
-       : '- 架空のカード名・型番・日本語版に存在しない英語版限定仕様（Pokémon Center Stamped 等）を捏造しないでください。'
-   }
+1. 実測データ準拠と記憶ベース生成の完全禁止（最重要）:
+   - **必ず【1. 日本国内の直近7日間 高騰ランキング実測データ】に記載されている実在カードのみから選出してください。リストに存在しないカード名や、記憶による型番（例: 000/000）を勝手に書き足すことは厳禁です。**
+   - \`jpBuyPriceJPY\` と \`jpEvidenceUrl\` には、上記リストの \`国内現在相場\` と \`URL\` を正確に転記してください。
 2. コレクション枠への限定（全地域共通）:
    - 必ず【${categoryName}】のみを選定してください。
    - **北米・欧州・アジアの全地域共通で「SAR・AR・CSR・UR・HR・MUR・プロモ・人気キャラクター」などのコレクション需要カードのみに限定**してください。
@@ -216,9 +219,9 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
   try {
     const res = await model.invoke(prompt);
     const parsed: MarketTrendReport | null = parseAIJson(res.content.toString());
-    if (!parsed || !Array.isArray(parsed.hypotheses)) return parsed;
+    if (!parsed || !Array.isArray(parsed.hypotheses)) return null;
 
-    // 国内実データとの照合 ＆ URL補完（リスト外の架空カード排除）
+    // 国内実データとの厳格照合（リスト外のカードは100%排除）
     for (const hyp of parsed.hypotheses) {
       if (!Array.isArray(hyp.items)) continue;
       const verifiedItems: TrendItem[] = [];
@@ -229,20 +232,18 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
           .replace(/\[.*?\]/g, '')
           .trim();
 
-        if (hasDomesticData) {
-          const matchedDomestic = domesticTrends.find(
-            (d) =>
-              (item.jpEvidenceUrl && d.detailUrl === item.jpEvidenceUrl) ||
-              (cleanBaseName && d.cardName.includes(cleanBaseName)) ||
-              (cleanBaseName && cleanBaseName.includes(d.cardName.replace(/[\(（].*?[\)）]/g, '').trim()))
-          );
-          // 国内実データに存在しない架空カード・型番捏造は除外
-          if (!matchedDomestic) continue;
+        const matchedDomestic = domesticTrends.find(
+          (d) =>
+            (item.jpEvidenceUrl && d.detailUrl === item.jpEvidenceUrl) ||
+            (cleanBaseName && d.cardName.includes(cleanBaseName)) ||
+            (cleanBaseName && cleanBaseName.includes(d.cardName.replace(/[\(（].*?[\)）]/g, '').trim()))
+        );
 
-          item.cardName = matchedDomestic.cardName;
-          item.jpBuyPriceJPY = `¥${matchedDomestic.currentPriceJpy.toLocaleString()}`;
-          item.jpEvidenceUrl = matchedDomestic.detailUrl;
-        }
+        if (!matchedDomestic) continue;
+
+        item.cardName = matchedDomestic.cardName;
+        item.jpBuyPriceJPY = `¥${matchedDomestic.currentPriceJpy.toLocaleString()}`;
+        item.jpEvidenceUrl = matchedDomestic.detailUrl;
 
         if (!item.sourceEvidenceUrl || !item.sourceEvidenceUrl.startsWith('http')) {
           const kw = [cleanBaseName, category === 'onepiece' ? 'Japanese One Piece' : 'Japanese Pokemon']
@@ -258,6 +259,8 @@ ${agentRules ? `\n【3. 社内運用ルール・過去の学習知見】\n${agen
     }
 
     parsed.hypotheses = parsed.hypotheses.filter((h) => Array.isArray(h.items) && h.items.length > 0);
+    if (parsed.hypotheses.length === 0) return null;
+
     return parsed;
   } catch (error) {
     console.error(`[MarketTrend] Failed to generate report for ${region}:`, error);
