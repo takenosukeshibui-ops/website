@@ -47,12 +47,10 @@ function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number)
   const rUpper = rarity.toUpperCase().trim();
   const combined = `${rUpper} ${cardName.toUpperCase()}`;
 
-  // プレイ用低レアリティは明確に除外
   if (/^(RR|RRR|U|C|R|N|UC)$/.test(rUpper)) {
     return false;
   }
 
-  // コレクション系レアリティ・表記
   if (
     /\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SA|PROMO|SR|SP|SEC|L|TR)\b/.test(combined) ||
     /(プロモ|スペシャルアート|マスターボール|ミラー|記念|限定|パラレル|コミック|ピカチュウ|リザードン|ブラッキー|イーブイ|ニンフィア|ミュウ|ゲンガー|ナンジャモ|リーリエ|アセロラ|マリィ|ルチア|セレナ|ルフィ|シャンクス|エース|サボ|ナミ|ハンコック)/.test(
@@ -62,7 +60,6 @@ function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number)
     return true;
   }
 
-  // トレチャ上で「レア度 : なし」となっているプロモ・限定高額枠（3,000円以上）を救済
   if ((rUpper === '' || rUpper === 'なし') && priceJpy >= 3000) {
     return true;
   }
@@ -71,7 +68,7 @@ function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number)
 }
 
 /**
- * トレチャ（torechart.com）から国内の7日間高騰ランキング（上昇額順・変動率順）を静的HTMLスクレイピングする
+ * トレチャ（torechart.com）から国内の7日間高騰ランキング（上昇額順・変動率順）を高速スクレイピングする
  */
 export async function fetchDomesticTrendCandidates(
   category: string = 'pokemon'
@@ -87,8 +84,8 @@ export async function fetchDomesticTrendCandidates(
 
   const domainCategory = category === 'onepiece' ? 'onepiece' : 'pokemon';
   const targetUrls = [
-    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0` }, // 7日間 価格上昇額順
-    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=2` }, // 7日間 変動率(%)順
+    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0` },
+    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=2` },
   ];
 
   const pageFunction = `async function pageFunction(context) {
@@ -108,7 +105,6 @@ export async function fetchDomesticTrendCandidates(
 
       if (!fullUrl.includes('torechart.com/')) return;
 
-      // リンク自身または最大4階層上の親要素から、価格(¥)を含む最小コンテナを取得
       let container = $(el);
       for (let i = 0; i < 4; i++) {
         const txt = container.text();
@@ -121,13 +117,11 @@ export async function fetchDomesticTrendCandidates(
       const blockText = container.text().replace(/\\s+/g, ' ').trim();
       if (!blockText || blockText.length > 400) return;
 
-      // 現在価格（最初の ¥XXX 表記）
       const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]+)/);
       if (!priceMatch) return;
       const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
       if (currentPriceJpy < 300) return;
 
-      // カード名抽出（順位・価格・レア度表記を除去）
       let cardName = $(el).text().replace(/\\s+/g, ' ').trim();
       cardName = cardName
         .replace(/^\\d+\\s*位\\s*/, '')
@@ -144,11 +138,9 @@ export async function fetchDomesticTrendCandidates(
       }
       if (!cardName || cardName.length < 2 || cardName.length > 80) return;
 
-      // レア度抽出（例: "レア度 : SAR" / "レア度 : プロモ"）
       const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/);
       const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
 
-      // 上昇額・変動率・7日前価格の抽出
       const diffYenMatch = blockText.match(/\\(\\s*([+＋][\\d,]+円)\\s*\\)/);
       const diffPctMatch = blockText.match(/\\(\\s*([+＋]?\\d+(?:\\.\\d+)?%)\\s*\\)/);
       const prevPriceMatch = blockText.match(/7日前\\s*[:：]\\s*([¥￥]\\s*[\\d,]+)/);
@@ -159,9 +151,8 @@ export async function fetchDomesticTrendCandidates(
       if (prevPriceMatch) metricParts.push('7日前: ' + prevPriceMatch[1].replace(/\\s+/g, ''));
       const trendMetric = metricParts.length > 0 ? metricParts.join(' / ') : '週間高騰ランキング上位';
 
-      const dedupKey = fullUrl;
-      if (seen.has(dedupKey)) return;
-      seen.add(dedupKey);
+      if (seen.has(fullUrl)) return;
+      seen.add(fullUrl);
 
       results.push({
         sourceUrl: request.url,
@@ -176,23 +167,28 @@ export async function fetchDomesticTrendCandidates(
     return results;
   }`;
 
+  // 25秒のハードタイムアウトを設定しパイプライン全体の遅延を防止
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25_000);
+
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=20&memory=512`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startUrls: targetUrls,
           pageFunction,
-          proxyConfiguration: { useApifyProxy: true },
+          proxyConfiguration: { useApifyProxy: false }, // 国内サイト直結で高速化
           maxRequestsPerCrawl: targetUrls.length,
           maxConcurrency: 2,
-          maxRequestRetries: 1,
-          requestHandlerTimeoutSecs: 20,
+          maxRequestRetries: 0,
+          requestHandlerTimeoutSecs: 12,
           ignoreSslErrors: true,
         }),
         cache: 'no-store',
+        signal: controller.signal,
       }
     );
 
@@ -236,8 +232,14 @@ export async function fetchDomesticTrendCandidates(
     }
 
     return candidates.slice(0, 25);
-  } catch (err) {
-    console.warn('[ApifyTrend] 国内トレンドスクレイピングエラー:', err);
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      console.warn('[ApifyTrend] torechart.com 取得が25秒でタイムアウトしたためスキップしました');
+    } else {
+      console.warn('[ApifyTrend] 国内トレンドスクレイピングエラー:', err);
+    }
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

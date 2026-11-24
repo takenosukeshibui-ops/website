@@ -328,13 +328,16 @@ export async function POST(req: Request) {
   };
 
   try {
+    // 🌟 曜日（targetDay）に完全連動：月曜は市場トレンド予測、火〜日曜はアービトラージのみ実行
+    const isTrendDay = targetDay === 'Monday';
+
     // Phase 1-A: 北米リサーチ
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
-      const igTactics = await runAccountAnalysis(cycle.category);
-      const [trendUS, sayaUS] = await Promise.all([
-        runMarketTrend('us', cycle.category),
-        runSayaAnalysis('us', cycle.category, targetDay),
+      const [igTactics, trendUS, sayaUS] = await Promise.all([
+        runAccountAnalysis(cycle.category),
+        isTrendDay ? runMarketTrend('us', cycle.category) : Promise.resolve(null),
+        !isTrendDay ? runSayaAnalysis('us', cycle.category, targetDay) : Promise.resolve(null),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS, trendUS);
 
@@ -355,8 +358,8 @@ export async function POST(req: Request) {
     // Phase 1-B: 欧州リサーチ
     if ((cycle.status as string) === 'researching_eu') {
       const [trendEU, sayaEU] = await Promise.all([
-        runMarketTrend('eu', cycle.category),
-        runSayaAnalysis('eu', cycle.category, targetDay),
+        isTrendDay ? runMarketTrend('eu', cycle.category) : Promise.resolve(null),
+        !isTrendDay ? runSayaAnalysis('eu', cycle.category, targetDay) : Promise.resolve(null),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU, trendEU);
 
@@ -375,8 +378,8 @@ export async function POST(req: Request) {
         .single();
 
       const [trendAsia, sayaAsia, xTactics] = await Promise.all([
-        runMarketTrend('asia', cycle.category),
-        runSayaAnalysis('asia', cycle.category, targetDay),
+        isTrendDay ? runMarketTrend('asia', cycle.category) : Promise.resolve(null),
+        !isTrendDay ? runSayaAnalysis('asia', cycle.category, targetDay) : Promise.resolve(null),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia, trendAsia);
