@@ -139,7 +139,7 @@ async function runApifySync(
  * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
  */
 function isNoiseCard(title: string): boolean {
-  return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|JUMBO|OVERSIZED|STICKER|SEALS?|CARDDASS|SEALDASS|TOPSUN|CHINESES?|KOREAN|THAI|INDONESIAN)\b/i.test(
+  return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|FÄLSCHUNG|GEFÄLSCHT|KOPIE|NACHDRUCK|JUMBO|OVERSIZED|STICKER|AUFKLEBER|SEALS?|CARDDASS|SEALDASS|TOPSUN|CHINESES?|CHINESISCH|KOREAN|KOREANISCH|THAI|INDONESIAN)\b/i.test(
     title
   );
 }
@@ -394,22 +394,49 @@ export async function fetchRealArbitrageCandidates(
 
     const ebayKeywords =
       category === 'onepiece'
-        ? [
-            'Japanese One Piece Card',
-            'Japanese One Piece Promo',
-            'Japanese One Piece PSA',
-            'Japanese One Piece Manga',
-            'Japanese One Piece Parallel',
-            'Japanese One Piece Alt Art',
-          ]
+        ? isEu
+          ? [
+              'Japanese One Piece Card',
+              'Japanisch One Piece Karte',
+              'Japanese One Piece Promo',
+              'Japanese One Piece PSA',
+              'Japanese One Piece Manga',
+              'Japanese One Piece Alt Art',
+            ]
+          : [
+              'Japanese One Piece Card',
+              'Japanese One Piece Promo',
+              'Japanese One Piece PSA',
+              'Japanese One Piece Manga',
+              'Japanese One Piece Parallel',
+              'Japanese One Piece Alt Art',
+            ]
         : category === 'yugioh'
+        ? isEu
+          ? [
+              'Japanese Yugioh Card',
+              'Japanisch Yugioh Karte',
+              'Japanese Yugioh Promo',
+              'Japanese Yugioh PSA',
+              'Japanese Yugioh 20th',
+              'Japanese Yugioh 25th',
+            ]
+          : [
+              'Japanese Yugioh Card',
+              'Japanese Yugioh Promo',
+              'Japanese Yugioh PSA',
+              'Japanese Yugioh 20th',
+              'Japanese Yugioh 25th',
+              'Japanese Yugioh Ultimate',
+            ]
+        : isEu
         ? [
-            'Japanese Yugioh Card',
-            'Japanese Yugioh Promo',
-            'Japanese Yugioh PSA',
-            'Japanese Yugioh 20th',
-            'Japanese Yugioh 25th',
-            'Japanese Yugioh Ultimate',
+            'Japanese Pokemon Card',
+            'Japanisch Pokemon Karte',
+            'Japanese Pokemon Promo',
+            'Japanese Pokemon PSA',
+            'Pokemon Japanisch PSA',
+            'Japanese Pokemon XY',
           ]
         : [
             'Japanese Pokemon Card',
@@ -468,12 +495,38 @@ export async function fetchRealArbitrageCandidates(
               /\b(USD|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
               /ebay\.(com|co\.uk|ca|com\.au|com\.sg|com\.hk)(\/|$)/i.test(rawUrl)));
 
+        const parseLocalizedNumber = (val: unknown): number => {
+          if (typeof val === 'number') return val;
+          const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
+          if (!cleaned) return 0;
+
+          const lastComma = cleaned.lastIndexOf(',');
+          const lastDot = cleaned.lastIndexOf('.');
+
+          if (lastComma !== -1 && lastDot !== -1) {
+            // 欧州式 (1.250,99) vs 米国式 (1,250.99)
+            return lastComma > lastDot
+              ? Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0
+              : Number(cleaned.replace(/,/g, '')) || 0;
+          }
+          if (lastComma !== -1) {
+            const decimals = cleaned.length - lastComma - 1;
+            return decimals === 2
+              ? Number(cleaned.replace(',', '.')) || 0
+              : Number(cleaned.replace(/,/g, '')) || 0;
+          }
+          if (lastDot !== -1 && isEu && cleaned.length - lastDot - 1 === 3) {
+            return Number(cleaned.replace(/\./g, '')) || 0;
+          }
+          return Number(cleaned) || 0;
+        };
+
         const numericPrice =
           typeof item.soldPrice === 'number'
             ? item.soldPrice
             : typeof item.price === 'number'
             ? item.price
-            : Number(rawPriceStr.replace(/[^\d.]/g, '')) || 0;
+            : parseLocalizedNumber(rawPriceStr);
 
         const soldLocal = isCurrencyMismatch ? 0 : numericPrice;
         const title = String(item.title || '');
