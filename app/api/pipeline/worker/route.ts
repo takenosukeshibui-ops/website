@@ -277,7 +277,7 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 3. DB一括登録 ＆ API自動検証
+  // 3. DB一括登録 ＆ API自動検証（アービトラージはApifyで確定済みのため上書き対象から除外）
   if (researchRows.length > 0) {
     const { data: insertedItems, error: insErr } = await supabase
       .from('ai_research_items')
@@ -285,46 +285,34 @@ async function processAndSaveRegionResearch(
       .select('id, card_name, region, jp_buy_price_jpy, agent_key, raw_payload');
 
     if (!insErr && insertedItems) {
-      try {
-        const verifiedUpdates = await verifyAndEnrichArbitrageItems(insertedItems as any);
-        for (const update of verifiedUpdates) {
-          const originalItem = insertedItems.find((i: any) => i.id === update.itemId);
-          const currentPayload = originalItem?.raw_payload || {};
-          const isTrend = originalItem?.agent_key === 'trend';
+      const trendOnlyItems = insertedItems.filter((i: any) => i.agent_key === 'trend');
+      if (trendOnlyItems.length > 0) {
+        try {
+          const verifiedUpdates = await verifyAndEnrichArbitrageItems(trendOnlyItems as any);
+          for (const update of verifiedUpdates) {
+            const originalItem = insertedItems.find((i: any) => i.id === update.itemId);
+            const currentPayload = originalItem?.raw_payload || {};
 
-          await supabase
-            .from('ai_research_items')
-            .update({
-              target_sold_price_local: update.target_sold_price_local,
-              target_sold_price_jpy: update.target_sold_price_jpy,
-              price_spread_jpy: update.price_spread_jpy,
-              spread_roi_percent: update.spread_roi_percent,
-              raw_payload: {
-                ...currentPayload,
-                sourcePlatform: update.sourcePlatform,
-                evidenceNote: update.evidenceNote,
-                sourceEvidenceUrl: update.sourceEvidenceUrl,
-                ...(isTrend
-                  ? {
-                      currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
-                    }
-                  : {
-                      currentItem: {
-                        ...(currentPayload.currentItem || {}),
-                        targetSoldPrice: update.target_sold_price_local,
-                        priceSpreadJPY: `¥${update.price_spread_jpy.toLocaleString()}`,
-                        spreadROI: `${update.spread_roi_percent}%`,
-                        sourcePlatform: update.sourcePlatform,
-                        evidenceNote: update.evidenceNote,
-                        sourceEvidenceUrl: update.sourceEvidenceUrl,
-                      },
-                    }),
-              },
-            })
-            .eq('id', update.itemId);
+            await supabase
+              .from('ai_research_items')
+              .update({
+                target_sold_price_local: update.target_sold_price_local,
+                target_sold_price_jpy: update.target_sold_price_jpy,
+                price_spread_jpy: update.price_spread_jpy,
+                spread_roi_percent: update.spread_roi_percent,
+                raw_payload: {
+                  ...currentPayload,
+                  sourcePlatform: update.sourcePlatform,
+                  evidenceNote: update.evidenceNote,
+                  sourceEvidenceUrl: update.sourceEvidenceUrl,
+                  currentLocalPrice: `${update.target_sold_price_local} (約¥${update.target_sold_price_jpy.toLocaleString()})`,
+                },
+              })
+              .eq('id', update.itemId);
+          }
+        } catch (verifyErr) {
+          console.warn(`[${region.toUpperCase()}] API検証スキップ:`, verifyErr);
         }
-      } catch (verifyErr) {
-        console.warn(`[${region.toUpperCase()}] API検証スキップ:`, verifyErr);
       }
     }
   }
