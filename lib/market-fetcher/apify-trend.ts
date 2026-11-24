@@ -93,15 +93,16 @@ export async function fetchDomesticTrendCandidates(
     const results = [];
     const seen = new Set();
 
-    $('a[href*="/detail"]').each((_, el) => {
+    $('a[href*="detail"]').each((_, el) => {
       const href = ($(el).attr('href') || '').trim();
-      if (!href) return;
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-      const fullUrl = href.startsWith('http')
-        ? href
-        : href.startsWith('/')
-        ? 'https://torechart.com' + href
-        : 'https://torechart.com/' + href;
+      let fullUrl = '';
+      try {
+        fullUrl = new URL(href, request.url).href;
+      } catch (e) {
+        return;
+      }
 
       if (!fullUrl.includes('torechart.com/')) return;
 
