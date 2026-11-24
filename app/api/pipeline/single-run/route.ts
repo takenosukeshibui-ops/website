@@ -31,7 +31,10 @@ function buildSafePokecazillaUrl(
   cardName: string,
   cardNumber?: string
 ): string {
-  if (aiUrl && aiUrl.startsWith('https://pokecazilla.com/')) {
+  if (
+    aiUrl &&
+    (aiUrl.startsWith('https://pokecazilla.com/') || aiUrl.startsWith('https://torechart.com/'))
+  ) {
     return aiUrl;
   }
   const categoryId = category === 'onepiece' ? 18 : 17;
@@ -241,7 +244,10 @@ export async function POST(req: Request) {
           const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
           const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
           const spread = Math.max(0, targetJpy - buy);
-          const url = buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, effectiveCategory, item.cardName);
+          const url =
+            anyItem.jpEvidenceUrl && String(anyItem.jpEvidenceUrl).startsWith('https://torechart.com/')
+              ? String(anyItem.jpEvidenceUrl)
+              : buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, effectiveCategory, item.cardName);
           const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);
 
           researchRows.push({
