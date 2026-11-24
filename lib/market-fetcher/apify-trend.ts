@@ -77,125 +77,112 @@ export async function fetchDomesticTrendCandidates(
   ];
 
   const pageFunction = `async function pageFunction(context) {
-    const { $, request } = context;
-    const results = [];
-    const seen = new Set();
+    const { page, request } = context;
 
-    $('a').each((_, el) => {
-      const href = ($(el).attr('href') || '').trim();
-      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    // JSでランキング一覧が描画されるまで待機
+    await page.waitForSelector('a[href*="detail"]', { timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(1500);
 
-      // ランキング・ナビゲーション・静的ページを除外し、カード個別ページ候補を拾う
-      if (/\\/(priceup|pricedown|ranking|search|about|privacy|contact|login|signup|terms|faq)\\b/i.test(href) && !href.includes('id=')) {
-        return;
-      }
-      if (href === '/' || href === '/pokemon' || href === '/onepiece' || href === '/pokemon/' || href === '/onepiece/') {
-        return;
-      }
+    return await page.evaluate(({ reqUrl, domainCat }) => {
+      const results = [];
+      const seen = new Set();
+      const anchors = Array.from(document.querySelectorAll('a'));
 
-      let fullUrl = href.startsWith('http')
-        ? href
-        : href.startsWith('/')
-        ? 'https://torechart.com' + href
-        : 'https://torechart.com/${domainCategory}/' + href.replace(/^\\.\\//, '');
+      for (const a of anchors) {
+        const href = (a.getAttribute('href') || '').trim();
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) continue;
 
-      if (!fullUrl.startsWith('https://torechart.com/')) return;
-      fullUrl = fullUrl.replace(
-        /^https:\\/\\/torechart\\.com\\/detail/i,
-        'https://torechart.com/${domainCategory}/detail'
-      );
-
-      // 親要素を最大6階層たどり、価格（¥ または 円）を含む最小コンテナを取得
-      let container = $(el);
-      let foundPrice = false;
-      for (let i = 0; i < 6; i++) {
-        const txt = container.text();
-        if (/[¥￥]\\s*[\\d,]{3,}|[\\d,]{3,}\\s*円/.test(txt)) {
-          foundPrice = true;
-          break;
+        if (/\\/(priceup|pricedown|ranking|search|about|privacy|contact|login|signup|terms|faq)\\b/i.test(href) && !href.includes('id=')) {
+          continue;
         }
-        const parent = container.parent();
-        if (!parent || parent.length === 0 || parent.is('body, html, main, table')) break;
-        container = parent;
-      }
-      if (!foundPrice) return;
+        if (href === '/' || href === '/pokemon' || href === '/onepiece' || href === '/pokemon/' || href === '/onepiece/') {
+          continue;
+        }
 
-      const blockText = container.text().replace(/\\s+/g, ' ').trim();
-      if (!blockText || blockText.length > 500) return;
+        let fullUrl = '';
+        try {
+          fullUrl = new URL(href, reqUrl).href;
+        } catch (e) {
+          continue;
+        }
 
-      // 価格抽出（¥12,345 または 12,345円）
-      const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]{3,})/) || blockText.match(/([\\d,]{3,})\\s*円/);
-      if (!priceMatch) return;
-      const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
-      if (currentPriceJpy < 300) return;
+        if (!fullUrl.startsWith('https://torechart.com/')) continue;
+        fullUrl = fullUrl.replace(
+          /^https:\\/\\/torechart\\.com\\/detail/i,
+          'https://torechart.com/' + domainCat + '/detail'
+        );
 
-      // カード名抽出
-      let cardName = $(el).text().replace(/\\s+/g, ' ').trim();
-      cardName = cardName
-        .replace(/^\\d+\\s*位\\s*/, '')
-        .replace(/[¥￥]\\s*[\\d,]+.*/g, '')
-        .replace(/[\\d,]+\\s*円.*/g, '')
-        .replace(/レア度\\s*[:：].*/g, '')
-        .replace(/7日前\\s*[:：].*/g, '')
-        .trim();
+        // 親要素を最大6階層たどり、価格（¥ または 円）を含む最小コンテナを取得
+        let container = a;
+        let foundPrice = false;
+        for (let i = 0; i < 6; i++) {
+          const txt = container.innerText || container.textContent || '';
+          if (/[¥￥]\\s*[\\d,]{3,}|[\\d,]{3,}\\s*円/.test(txt)) {
+            foundPrice = true;
+            break;
+          }
+          const parent = container.parentElement;
+          if (!parent || ['BODY', 'HTML', 'MAIN', 'TABLE'].includes(parent.tagName)) break;
+          container = parent;
+        }
+        if (!foundPrice) continue;
 
-      if (!cardName || cardName.length < 2) {
-        cardName = blockText
+        const blockText = (container.innerText || container.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (!blockText || blockText.length > 500) continue;
+
+        const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]{3,})/) || blockText.match(/([\\d,]{3,})\\s*円/);
+        if (!priceMatch) continue;
+        const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
+        if (currentPriceJpy < 300) continue;
+
+        let cardName = (a.innerText || a.textContent || '').replace(/\\s+/g, ' ').trim();
+        cardName = cardName
           .replace(/^\\d+\\s*位\\s*/, '')
-          .split(/[¥￥]\\s*[\\d,]+|[\\d,]+\\s*円/)[0]
+          .replace(/[¥￥]\\s*[\\d,]+.*/g, '')
+          .replace(/[\\d,]+\\s*円.*/g, '')
           .replace(/レア度\\s*[:：].*/g, '')
+          .replace(/7日前\\s*[:：].*/g, '')
           .trim();
-      }
-      if (!cardName || cardName.length < 2 || cardName.length > 80) return;
 
-      // レア度抽出
-      const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/)
-        || blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)\\b/i);
-      const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
+        if (!cardName || cardName.length < 2) {
+          cardName = blockText
+            .replace(/^\\d+\\s*位\\s*/, '')
+            .split(/[¥￥]\\s*[\\d,]+|[\\d,]+\\s*円/)[0]
+            .replace(/レア度\\s*[:：].*/g, '')
+            .trim();
+        }
+        if (!cardName || cardName.length < 2 || cardName.length > 80) continue;
 
-      // 変動シグナル抽出
-      const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*%|7日前\\s*[:：]\\s*[¥￥]?\\s*[\\d,]+円?)/g);
-      const trendMetric = diffMatches ? Array.from(new Set(diffMatches)).join(' / ') : '週間高騰ランキング上位';
+        const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/)
+          || blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)\\b/i);
+        const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
 
-      if (seen.has(fullUrl)) return;
-      seen.add(fullUrl);
+        const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*%|7日前\\s*[:：]\\s*[¥￥]?\\s*[\\d,]+円?)/g);
+        const trendMetric = diffMatches ? Array.from(new Set(diffMatches)).join(' / ') : '週間高騰ランキング上位';
 
-      results.push({
-        sourceUrl: request.url,
-        cardName,
-        rarity,
-        currentPriceJpy,
-        trendMetric,
-        detailUrl: fullUrl,
-      });
-    });
+        if (seen.has(fullUrl)) continue;
+        seen.add(fullUrl);
 
-    // 万が一0件だった場合のみ、原因特定用のデバッグ情報を1件出力
-    if (results.length === 0) {
-      const sampleLinks = [];
-      $('a').slice(0, 20).each((_, el) => {
-        sampleLinks.push({
-          href: $(el).attr('href') || '',
-          text: $(el).text().replace(/\\s+/g, ' ').trim().slice(0, 50),
+        results.push({
+          sourceUrl: reqUrl,
+          cardName,
+          rarity,
+          currentPriceJpy,
+          trendMetric,
+          detailUrl: fullUrl,
         });
-      });
-      return [{
-        _debug: true,
-        title: $('title').text().trim(),
-        bodySnippet: $('body').text().replace(/\\s+/g, ' ').trim().slice(0, 400),
-        sampleLinks,
-      }];
-    }
+      }
 
-    return results;
+      return results;
+    }, { reqUrl: request.url, domainCat: '${domainCategory}' });
   }`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25_000);
+  const timeoutId = setTimeout(() => controller.abort(), 45_000);
 
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=25&memory=512`,
+      `https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=40&memory=1024`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,7 +193,7 @@ export async function fetchDomesticTrendCandidates(
           maxRequestsPerCrawl: targetUrls.length,
           maxConcurrency: 2,
           maxRequestRetries: 1,
-          requestHandlerTimeoutSecs: 15,
+          requestHandlerTimeoutSecs: 25,
         }),
         cache: 'no-store',
         signal: controller.signal,
@@ -224,7 +211,7 @@ export async function fetchDomesticTrendCandidates(
     const seenUrls = new Set<string>();
 
     for (const item of rawItems) {
-      if (!item || item._debug || !item.cardName) continue;
+      if (!item || !item.cardName) continue;
       const cardName = String(item.cardName).trim();
       const rarity = String(item.rarity || '').trim();
       const price = Number(item.currentPriceJpy) || 0;
@@ -256,7 +243,7 @@ export async function fetchDomesticTrendCandidates(
     return candidates.slice(0, 25);
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      console.warn('[ApifyTrend] torechart.com 取得が25秒でタイムアウトしたためスキップしました');
+      console.warn('[ApifyTrend] torechart.com 取得が45秒でタイムアウトしたためスキップしました');
     } else {
       console.warn('[ApifyTrend] 国内トレンドスクレイピングエラー:', err);
     }
