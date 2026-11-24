@@ -1129,6 +1129,93 @@ export const POKEMON_EN_JA: Record<string, string> = {
   'MIRIAM': 'ミモザ',
   'JACQ': 'ジニア',
   'CLAVELL': 'クラベル',
+
+  // 追加トレーナー・サポート（高騰ランキング頻出枠）
+  SIGHTSEER: 'かんこうきゃく',
+  ADAMAN: 'セキ',
+  DENDRA: 'キハダ',
+  'PARASOL LADY': 'パラソルおねえさん',
+  KLARA: 'クララ',
+  SHAUNA: 'サナ',
+  KORRINA: 'コルニ',
+  PHOEBE: 'フヨウ',
+  FANTINA: 'メリッサ',
+  GARDENIA: 'ナタネ',
+  CANDICE: 'スズナ',
+  VOLKNER: 'デンジ',
+  CHEREN: 'チェレン',
+  BIANCA: 'ベル',
+  COLRESS: 'アクロマ',
+  LUSAMINE: 'ルザミーネ',
+  GUZMA: 'グズマ',
+  GLADION: 'グラジオ',
+  LANA: 'スイレン',
+  MALLOW: 'マオ',
+  KIAWE: 'カキ',
+  MINA: 'マツリカ',
+  HOP: 'ホップ',
+  BEDE: 'ビート',
+  LEON: 'ダンデ',
+  RAIHAN: 'キバナ',
+  MELONY: 'メロン',
+  PEONIA: 'シャクヤ',
+  AVERY: 'セイボリー',
+  BRIAR: 'ブライア',
+  SURFER: 'サーファー',
+};
+
+/**
+ * ワンピースカード主要キャラクター日英変換辞書
+ * （ポケモンの部分一致誤爆を防ぐため分離管理）
+ */
+export const ONEPIECE_EN_JA: Record<string, string> = {
+  'MONKEY D LUFFY': 'モンキー・D・ルフィ',
+  LUFFY: 'ルフィ',
+  'RORONOA ZORO': 'ロロノア・ゾロ',
+  ZORO: 'ゾロ',
+  NAMI: 'ナミ',
+  USOPP: 'ウソップ',
+  SANJI: 'サンジ',
+  'TONY TONY CHOPPER': 'トニートニー・チョッパー',
+  CHOPPER: 'チョッパー',
+  'NICO ROBIN': 'ニコ・ロビン',
+  ROBIN: 'ロビン',
+  FRANKY: 'フランキー',
+  BROOK: 'ブルック',
+  JINBE: 'ジンベエ',
+  SHANKS: 'シャンクス',
+  'PORTGAS D ACE': 'ポートガス・D・エース',
+  ACE: 'エース',
+  SABO: 'サボ',
+  'BOA HANCOCK': 'ボア・ハンコック',
+  HANCOCK: 'ハンコック',
+  'TRAFALGAR LAW': 'トラファルガー・ロー',
+  LAW: 'ロー',
+  'EUSTASS KID': 'ユースタス・キッド',
+  KID: 'キッド',
+  'MARSHALL D TEACH': 'マーシャル・D・ティーチ',
+  TEACH: 'ティーチ',
+  BLACKBEARD: '黒ひげ',
+  'EDWARD NEWGATE': 'エドワード・ニューゲート',
+  WHITEBEARD: '白ひげ',
+  BUGGY: 'バギー',
+  UTA: 'ウタ',
+  YAMATO: 'ヤマト',
+  KAIDO: 'カイドウ',
+  'CHARLOTTE LINLIN': 'シャーロット・リンリン',
+  'BIG MOM': 'ビッグ・マム',
+  'CHARLOTTE KATAKURI': 'シャーロット・カタクリ',
+  KATAKURI: 'カタクリ',
+  'CHARLOTTE PUDDING': 'シャーロット・プリン',
+  'DRACULE MIHAWK': 'ジュラキュール・ミホーク',
+  MIHAWK: 'ミホーク',
+  'DONQUIXOTE DOFLAMINGO': 'ドンキホーテ・ドフラミンゴ',
+  DOFLAMINGO: 'ドフラミンゴ',
+  CROCODILE: 'クロコダイル',
+  'SILVERS RAYLEIGH': 'シルバーズ・レイリー',
+  RAYLEIGH: 'レイリー',
+  'GOL D ROGER': 'ゴール・D・ロジャー',
+  ROGER: 'ロジャー',
 };
 
 // 英語タイトル抽出用：英語名の文字数降順（例: MEWTWO -> MEW）
@@ -1138,6 +1225,11 @@ const SORTED_POKEMON_ENTRIES = Object.entries(POKEMON_EN_JA).sort(
 
 // 日本語からの逆引き用：日本語名の文字数降順（例: ブラッキー -> ラッキー、リザードン -> リザード）
 const SORTED_JA_TO_EN_ENTRIES = Object.entries(POKEMON_EN_JA).sort(
+  (a, b) => b[1].length - a[1].length
+);
+
+// ワンピース逆引き用：日本語名の文字数降順
+const SORTED_ONEPIECE_JA_TO_EN_ENTRIES = Object.entries(ONEPIECE_EN_JA).sort(
   (a, b) => b[1].length - a[1].length
 );
 
@@ -1171,10 +1263,16 @@ export function extractPokemonNameJa(ebayTitle: string): string | null {
 }
 
 /**
- * 日本語カード名から英語のポケモン・トレーナー名を逆引きする（eBay検索URL用）
+ * 日本語カード名から英語のキャラクター名を逆引きする（category指定でワンピースにも対応）
  */
-export function extractPokemonNameEn(jaCardName: string): string | null {
-  for (const [enName, jaName] of SORTED_JA_TO_EN_ENTRIES) {
+export function extractPokemonNameEn(
+  jaCardName: string,
+  category: string = 'pokemon'
+): string | null {
+  const entries =
+    category === 'onepiece' ? SORTED_ONEPIECE_JA_TO_EN_ENTRIES : SORTED_JA_TO_EN_ENTRIES;
+
+  for (const [enName, jaName] of entries) {
     if (jaCardName.includes(jaName)) {
       return enName
         .toLowerCase()
