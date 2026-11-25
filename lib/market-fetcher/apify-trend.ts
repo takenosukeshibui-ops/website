@@ -510,18 +510,74 @@ export async function fetchDomesticTrendCandidates(
     return await page.evaluate(({ reqUrl, domainCat }) => {
       const scripts = Array.from(document.querySelectorAll('script'));
       let rows = [];
+      let hasOriginalDataKeyword = false;
+      let matchedLength = 0;
+      let parseError = '';
 
       for (const s of scripts) {
         const txt = s.textContent || '';
-        const match = txt.match(/const\\s+originalData\\s*=\\s*(\\[[\\s\\S]*?\\]);/);
-        if (!match) continue;
-        try {
-          const parsed = JSON.parse(match[1]);
-          if (Array.isArray(parsed)) {
-            rows = parsed;
-            break;
+        if (!txt.includes('originalData')) continue;
+        hasOriginalDataKeyword = true;
+
+        const keyIdx = txt.indexOf('originalData');
+        const arrStart = txt.indexOf('[', keyIdx);
+        if (arrStart === -1) continue;
+
+        let depth = 0;
+        let inString = false;
+        let escapeNext = false;
+        let arrEnd = -1;
+
+        for (let i = arrStart; i < txt.length; i++) {
+          const ch = txt[i];
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
           }
-        } catch (_) {}
+          if (ch === '\\\\') {
+            escapeNext = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (!inString) {
+            if (ch === '[') depth++;
+            else if (ch === ']') {
+              depth--;
+              if (depth === 0) {
+                arrEnd = i;
+                break;
+              }
+            }
+          }
+        }
+
+        if (arrEnd !== -1) {
+          const jsonStr = txt.slice(arrStart, arrEnd + 1);
+          matchedLength = jsonStr.length;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (Array.isArray(parsed)) {
+              rows = parsed;
+              break;
+            }
+          } catch (err) {
+            parseError = String(err);
+          }
+        }
+      }
+
+      if (rows.length === 0) {
+        return [{
+          __debug: true,
+          reqUrl,
+          scriptCount: scripts.length,
+          hasOriginalDataKeyword,
+          matchedLength,
+          parseError,
+        }];
       }
 
       return rows.map((r, i) => {
