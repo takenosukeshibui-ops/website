@@ -16,11 +16,11 @@ interface PhaseDetail {
 
 const TARGET_DAY_OPTIONS: { value: string; label: string }[] = [
     { value: 'Monday', label: '月曜（サービス解説）' },
-    { value: 'Tuesday', label: '火曜（アービトラージ）' },
-    { value: 'Wednesday', label: '水曜（アービトラージ）' },
-    { value: 'Thursday', label: '木曜（アービトラージ）' },
-    { value: 'Friday', label: '金曜（アービトラージ）' },
-    { value: 'Saturday', label: '土曜（アービトラージ）' },
+    { value: 'Tuesday', label: '火曜（US/EU 2投稿）' },
+    { value: 'Wednesday', label: '水曜（US/EU 2投稿）' },
+    { value: 'Thursday', label: '木曜（US/EU 2投稿）' },
+    { value: 'Friday', label: '金曜（US/EU 2投稿）' },
+    { value: 'Saturday', label: '土曜（US/EU 2投稿）' },
     { value: 'Sunday', label: '日曜（5日まとめ）' },
 ];
 
@@ -80,7 +80,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     },
     generating_content: {
         step: 'STEP 4 / 5',
-        title: 'SNS原稿制作',
+        title: 'SNS原稿制作（北米US / 欧州EU）',
         percent: 80,
         color: 'bg-pink-500',
         activeAgents: [
@@ -192,9 +192,9 @@ export default function AiDashboard() {
             arbitrage: `アービトラージアナリスト (${region?.toUpperCase() || ''})`,
             account: '自社Instagramアナリスト',
             x_account: '自社Xアナリスト',
-            sns: 'Instagramクリエイター (原稿制作)',
-            x_posts: 'Xクリエイター (スレッド制作)',
-            x: 'Xクリエイター (スレッド制作)',
+            sns: 'Instagramクリエイター (US/EU 2原稿制作)',
+            x_posts: 'Xクリエイター (US/EU 2スレッド制作)',
+            x: 'Xクリエイター (US/EU 2スレッド制作)',
         };
         const targetName = deskNames[action] || action;
         if (!window.confirm(`【${targetName}】（対象: ${targetDay}）のみを単独再実行しますか？\n（他のAIデータや全体パイプラインは維持されます）`)) return;

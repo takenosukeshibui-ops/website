@@ -15,6 +15,12 @@ function resolveTargetDay(rawDay?: string): ContentDay {
   return found || 'Thursday';
 }
 
+function buildEntryKey(entry: any): string {
+  const dayStr = String(entry?.day || '');
+  const regionStr = entry?.region ? String(entry.region).toUpperCase() : '';
+  return regionStr ? `${dayStr}__${regionStr}` : dayStr;
+}
+
 function mergeDeliverablePayload(
   existingPayload: any,
   generatedPayload: any,
@@ -26,7 +32,17 @@ function mergeDeliverablePayload(
   const prevList: any[] = Array.isArray(base[arrayKey]) ? base[arrayKey] : [];
   const nextList: any[] = Array.isArray(generatedPayload[arrayKey]) ? generatedPayload[arrayKey] : [];
 
-  const filteredPrev = prevList.filter((entry) => entry?.day !== day);
+  const nextKeys = new Set(
+    nextList.map((entry) => buildEntryKey({ ...entry, day: entry?.day || day }))
+  );
+
+  const filteredPrev = prevList.filter((entry) => {
+    const key = buildEntryKey(entry);
+    if (nextKeys.has(key)) return false;
+    if (entry?.day === day && !entry?.region && nextList.some((n) => n?.region)) return false;
+    return true;
+  });
+
   const mergedList = [...filteredPrev, ...nextList];
 
   return {
@@ -36,6 +52,31 @@ function mergeDeliverablePayload(
     hashtags: generatedPayload.hashtags ?? base.hashtags,
     xCallToAction: generatedPayload.xCallToAction ?? base.xCallToAction,
     [arrayKey]: mergedList,
+  };
+}
+
+function buildRegionalDigest(items: any[], region: 'us' | 'eu') {
+  const regionItems = items.filter((i) => String(i.region || '').toLowerCase() === region);
+  const firstPayload = regionItems[0]?.raw_payload || {};
+  return {
+    region: region.toUpperCase(),
+    exchangeRate: firstPayload.exchangeRate || null,
+    summary: firstPayload.reportSummary || null,
+    items: regionItems.slice(0, 12).map((i) => ({
+      id: i.id,
+      cardName: i.card_name,
+      condition: i.condition_grade,
+      buyJPY: i.jp_buy_price_jpy,
+      targetSoldPriceLocal: i.target_sold_price_local,
+      targetSoldPriceJPY: i.target_sold_price_jpy,
+      spreadJPY: i.price_spread_jpy,
+      roiPercent: i.spread_roi_percent,
+      liquidity: i.liquidity_indicator,
+      insight: i.research_insight,
+      slotKey: i.slot_key,
+      priceTier: i.price_tier,
+      currentItem: i.raw_payload?.currentItem || i.raw_payload?.mainItem || null,
+    })),
   };
 }
 
@@ -288,7 +329,12 @@ export async function POST(req: Request) {
     if (action === 'chief') {
       const { data: candidates } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId);
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
-      const curationResult = await runCuratorSelection(candidates || [], tactics || [], effectiveCategory);
+      const curationResult = await runCuratorSelection(
+        candidates || [],
+        tactics || [],
+        effectiveCategory,
+        targetDay
+      );
 
       await supabase.from('ai_research_items').update({ is_selected: false, is_mvp: false, assigned_day: null }).eq('cycle_id', cycleId);
 
@@ -315,10 +361,17 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 5. Instagramクリエイター（対象日1日分原稿）単独再生成
+    // 5. Instagramクリエイター（US/EU 2投稿）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'sns') {
-      const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
+      const { data: allCycleItems } = await supabase
+        .from('ai_research_items')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .eq('agent_key', 'arbitrage');
+
+      const cycleItems = allCycleItems || [];
+      const items = cycleItems.filter((i) => i.is_selected);
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId).eq('platform', 'instagram').single();
 
       let weeklyDigestItems: any[] = [];
@@ -336,10 +389,14 @@ export async function POST(req: Request) {
       const mvp = items?.find((i) => i.is_mvp) || items?.[0] || weeklyDigestItems?.[0];
       const chiefPackage = {
         targetDay,
-        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_arbitrage',
+        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_dual_region_arbitrage',
         chosenCardOrItem: mvp?.card_name || (isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '注目カード'),
         mvpHighlight: mvp || {},
         approvedItems: items || [],
+        regionalReports: {
+          us: buildRegionalDigest(cycleItems, 'us'),
+          eu: buildRegionalDigest(cycleItems, 'eu'),
+        },
         weeklyDigestItems,
       };
 
@@ -371,14 +428,21 @@ export async function POST(req: Request) {
         });
       }
 
-      return NextResponse.json({ success: true, message: `Instagram投稿原稿 (${targetDay}) を単独再生成しました` });
+      return NextResponse.json({ success: true, message: `Instagram投稿原稿 (${targetDay} US/EU) を単独再生成しました` });
     }
 
     // ------------------------------------------------------------------------
-    // 6. Xクリエイター（対象日1日分スレッド）単独再生成
+    // 6. Xクリエイター（US/EU 2スレッド）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'x_posts' || action === 'x') {
-      const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
+      const { data: allCycleItems } = await supabase
+        .from('ai_research_items')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .eq('agent_key', 'arbitrage');
+
+      const cycleItems = allCycleItems || [];
+      const items = cycleItems.filter((i) => i.is_selected);
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId).eq('platform', 'x').single();
 
       let weeklyDigestItems: any[] = [];
@@ -396,10 +460,14 @@ export async function POST(req: Request) {
       const mvp = items?.find((i) => i.is_mvp) || items?.[0] || weeklyDigestItems?.[0];
       const chiefPackage = {
         targetDay,
-        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_arbitrage',
+        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_dual_region_arbitrage',
         chosenCardOrItem: mvp?.card_name || (isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '注目カード'),
         mvpHighlight: mvp || {},
         approvedItems: items || [],
+        regionalReports: {
+          us: buildRegionalDigest(cycleItems, 'us'),
+          eu: buildRegionalDigest(cycleItems, 'eu'),
+        },
         weeklyDigestItems,
       };
 
@@ -431,7 +499,7 @@ export async function POST(req: Request) {
         });
       }
 
-      return NextResponse.json({ success: true, message: `Xスレッド原稿 (${targetDay}) を単独再生成しました` });
+      return NextResponse.json({ success: true, message: `Xスレッド原稿 (${targetDay} US/EU) を単独再生成しました` });
     }
 
     return NextResponse.json({ success: false, error: '対応していないアクションです' }, { status: 400 });

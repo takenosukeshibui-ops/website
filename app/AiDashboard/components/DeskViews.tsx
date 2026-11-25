@@ -47,8 +47,10 @@ export default function DeskViews({
     handlePublishToInstagram, isPublishingInstagram,
     handlePublishToX, isPublishingX
 }: DeskViewsProps) {
-    const [selectedIgDay, setSelectedIgDay] = useState<string>('Tuesday');
-    const [selectedXDay, setSelectedXDay] = useState<string>('Tuesday');
+    const [selectedIgDay, setSelectedIgDay] = useState<string>('Thursday');
+    const [selectedIgRegion, setSelectedIgRegion] = useState<'US' | 'EU'>('US');
+    const [selectedXDay, setSelectedXDay] = useState<string>('Thursday');
+    const [selectedXRegion, setSelectedXRegion] = useState<'US' | 'EU'>('US');
     const [currentIgSlideIdx, setCurrentIgSlideIdx] = useState<number>(0);
 
     useEffect(() => {
@@ -63,31 +65,57 @@ export default function DeskViews({
 
     useEffect(() => {
         setCurrentIgSlideIdx(0);
-    }, [selectedIgDay]);
+    }, [selectedIgDay, selectedIgRegion]);
 
-    const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
-    const igPostText = currentIgDaily?.caption || '';
+    const igDayPosts: any[] = (aiData?.snsPosts?.dailyPosts || []).filter(
+        (p: any) => p.day?.includes(selectedIgDay) || p.day === selectedIgDay
+    );
+    const currentIgDaily: any =
+        igDayPosts.find((p: any) => String(p.region || '').toUpperCase() === selectedIgRegion) ||
+        igDayPosts[0] ||
+        null;
+
+    const igPostText: string = currentIgDaily?.caption || '';
     const igImageUrl = buildInfographicUrl(currentIgDaily?.infographicData);
+    const activeIgHashtags: string[] =
+        Array.isArray(currentIgDaily?.hashtags) && currentIgDaily.hashtags.length > 0
+            ? currentIgDaily.hashtags
+            : aiData?.snsPosts?.hashtags || [];
 
     const igSlides: string[] = [
         '1枚目(表紙): 価格差インフォグラフィック画像（自動合成）',
         '2枚目: 自社代理購入 への誘導CTA'
     ];
 
-    const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
+    const xDayThreads: any[] = (aiData?.xPosts?.dailyThreads || []).filter(
+        (t: any) => t.day?.includes(selectedXDay) || t.day === selectedXDay
+    );
+    const currentXDaily: any =
+        xDayThreads.find((t: any) => String(t.region || '').toUpperCase() === selectedXRegion) ||
+        xDayThreads[0] ||
+        null;
+
     const xMainPost: string = currentXDaily?.mainPost || '';
     const xThreadPosts: string[] = currentXDaily?.threadPosts || [];
     const xImageUrl = buildInfographicUrl(currentXDaily?.infographicData);
+    const activeXHashtags: string[] =
+        Array.isArray(currentXDaily?.hashtags) && currentXDaily.hashtags.length > 0
+            ? currentXDaily.hashtags
+            : [];
 
     const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-        const post = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(day) || p.day === day);
-        return { key: day, label: DAY_LABELS[day], desc: post?.theme || DAY_DEFAULT_ROLE[day] || '未作成' };
+        const postsForDay = (aiData?.snsPosts?.dailyPosts || []).filter(p => p.day?.includes(day) || p.day === day);
+        const firstPost = postsForDay[0];
+        const countLabel = postsForDay.length > 1 ? `${postsForDay.length}本` : firstPost?.theme || DAY_DEFAULT_ROLE[day] || '未作成';
+        return { key: day, label: DAY_LABELS[day], desc: countLabel };
     });
 
     const dynamicXDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-        const thread = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(day) || t.day === day);
-        const match = thread?.mainPost?.match(/\((.*?)\)/);
-        return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : DAY_DEFAULT_ROLE[day] || '未作成' };
+        const threadsForDay = (aiData?.xPosts?.dailyThreads || []).filter(t => t.day?.includes(day) || t.day === day);
+        const firstThread = threadsForDay[0];
+        const match = firstThread?.mainPost?.match(/\((.*?)\)/);
+        const desc = threadsForDay.length > 1 ? `${threadsForDay.length}本` : match ? match[1] : DAY_DEFAULT_ROLE[day] || '未作成';
+        return { key: day, label: DAY_LABELS[day], desc };
     });
 
     const allArbAudits = gate1Audits.filter(a => a.agentKey !== 'trend');
@@ -271,21 +299,23 @@ export default function DeskViews({
     const handleDownloadIgCreatorCSV = () => {
         const posts = aiData?.snsPosts?.dailyPosts || [];
         if (posts.length === 0) return;
-        const headers = ['曜日', 'テーマ', '推奨時間帯', 'カード名', '地域', '日本価格', '海外価格', '差額', 'ROI', 'ハッシュタグ', 'キャプション全文'];
-        const tagsStr = (aiData?.snsPosts?.hashtags || []).join(' ');
-        const rows = posts.map((p: any) => [
-            DAY_LABELS[p.day] || p.day || '',
-            p.theme || aiData?.snsPosts?.theme || '',
-            aiData?.snsPosts?.recommendedTiming || '',
-            p.infographicData?.cardName || '',
-            p.infographicData?.region || '',
-            p.infographicData?.jpPrice || '',
-            p.infographicData?.overseasPrice || '',
-            p.infographicData?.spread || '',
-            p.infographicData?.roi || '',
-            tagsStr,
-            p.caption || '',
-        ]);
+        const headers = ['曜日', '地域', 'テーマ', '推奨時間帯', 'カード名', '日本価格', '海外価格', '差額', 'ROI', 'ハッシュタグ', 'キャプション全文'];
+        const rows = posts.map((p: any) => {
+            const tags = Array.isArray(p.hashtags) && p.hashtags.length > 0 ? p.hashtags : (aiData?.snsPosts?.hashtags || []);
+            return [
+                DAY_LABELS[p.day] || p.day || '',
+                p.region || p.infographicData?.region || '',
+                p.theme || aiData?.snsPosts?.theme || '',
+                aiData?.snsPosts?.recommendedTiming || '',
+                p.infographicData?.cardName || '',
+                p.infographicData?.jpPrice || '',
+                p.infographicData?.overseasPrice || '',
+                p.infographicData?.spread || '',
+                p.infographicData?.roi || '',
+                tags.join(' '),
+                p.caption || '',
+            ];
+        });
         triggerCsvDownload(headers, rows, 'IG_Creator_Posts');
     };
 
@@ -297,17 +327,20 @@ export default function DeskViews({
     const handleDownloadXCreatorCSV = () => {
         const threads = aiData?.xPosts?.dailyThreads || [];
         if (threads.length === 0) return;
-        const headers = ['曜日', 'テーマ', '1ポスト目文字数', '1ポスト目(フック)', '2ポスト目', '3ポスト目', '4ポスト目', 'カード名', '差額', 'ROI'];
+        const headers = ['曜日', '地域', 'テーマ', '1ポスト目文字数', '1ポスト目(フック)', '2ポスト目', '3ポスト目', '4ポスト目', 'ハッシュタグ', 'カード名', '差額', 'ROI'];
         const rows = threads.map((t: any) => {
             const tp = Array.isArray(t.threadPosts) ? t.threadPosts : [];
+            const tags = Array.isArray(t.hashtags) ? t.hashtags.join(' ') : '';
             return [
                 DAY_LABELS[t.day] || t.day || '',
+                t.region || '',
                 aiData?.xPosts?.theme || '',
                 String((t.mainPost || '').length),
                 t.mainPost || '',
                 tp[0] || '',
                 tp[1] || '',
                 tp[2] || '',
+                tags,
                 t.infographicData?.cardName || '',
                 t.infographicData?.spread || '',
                 t.infographicData?.roi || '',
@@ -580,7 +613,7 @@ export default function DeskViews({
                         {(['us', 'eu', 'asia'] as const).map(reg => {
                             const regAudits = allArbAudits.filter(a => a.region?.toLowerCase() === reg);
                             const passedCount = regAudits.filter(a => a.status === 'passed').length;
-                            const regLabel = reg === 'us' ? '北米市場 (75商品)' : reg === 'eu' ? '欧州市場 (75商品)' : 'アジア市場 (75商品)';
+                            const regLabel = reg === 'us' ? '北米市場' : reg === 'eu' ? '欧州市場' : 'アジア市場';
                             return (
                                 <div key={reg} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1.5 shadow-md">
                                     <div className="flex justify-between items-center text-xs">
@@ -601,7 +634,7 @@ export default function DeskViews({
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
                             <h3 className="text-sm font-bold text-emerald-300 flex items-center gap-2">
-                                <span>📋</span> 全225商品 四則検算 監査詳細一覧
+                                <span>📋</span> 四則検算 監査詳細一覧
                             </h3>
                             <span className="text-xs text-slate-400">見込売価 - 日本仕入値 ＝ 粗利差額 / ROIの完全整合チェック</span>
                         </div>
@@ -708,7 +741,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* 🎨 IG クリエイター（投稿プレビュー統合） */}
+            {/* 🎨 IG クリエイター（1日2投稿：北米US / 欧州EU 切り替え対応） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_sns' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -727,22 +760,45 @@ export default function DeskViews({
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {dynamicIgDays.map(d => (
-                            <button
-                                key={d.key}
-                                type="button"
-                                onClick={() => setSelectedIgDay(d.key)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                                    selectedIgDay === d.key
-                                        ? 'bg-pink-600 text-white shadow-md ring-1 ring-pink-400/40'
-                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
-                                }`}
-                            >
-                                <span>{d.label}</span>
-                                <span className="text-[10px] opacity-70 font-mono">({d.desc})</span>
-                            </button>
-                        ))}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                        <div className="flex flex-wrap gap-2">
+                            {dynamicIgDays.map(d => (
+                                <button
+                                    key={d.key}
+                                    type="button"
+                                    onClick={() => setSelectedIgDay(d.key)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                        selectedIgDay === d.key
+                                            ? 'bg-pink-600 text-white shadow-md ring-1 ring-pink-400/40'
+                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                                    }`}
+                                >
+                                    <span>{d.label}</span>
+                                    <span className="text-[10px] opacity-70 font-mono">({d.desc})</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                            {(['US', 'EU'] as const).map((reg) => {
+                                const hasRegPost = igDayPosts.some((p: any) => String(p.region || '').toUpperCase() === reg);
+                                return (
+                                    <button
+                                        key={reg}
+                                        type="button"
+                                        onClick={() => setSelectedIgRegion(reg)}
+                                        className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                                            selectedIgRegion === reg
+                                                ? 'bg-pink-600 text-white shadow'
+                                                : 'text-slate-400 hover:text-white'
+                                        }`}
+                                    >
+                                        {reg === 'US' ? '🇺🇸 北米(US)' : '🇪🇺 欧州(EU)'}
+                                        {!hasRegPost && <span className="ml-1 text-[10px] opacity-60">未作成</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {aiData?.snsPosts ? (
@@ -752,7 +808,7 @@ export default function DeskViews({
                                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                                         <div>
                                             <span className="text-[10px] uppercase font-mono tracking-widest text-pink-400 font-bold block mb-1">
-                                                {DAY_LABELS[selectedIgDay]} Posting Slot
+                                                {DAY_LABELS[selectedIgDay]} · {currentIgDaily?.region || selectedIgRegion} Posting Slot
                                             </span>
                                             <h3 className="text-base font-bold text-white">{currentIgDaily?.theme || aiData.snsPosts.theme}</h3>
                                         </div>
@@ -806,36 +862,42 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
-                                    {aiData?.snsPosts?.hashtags && aiData.snsPosts.hashtags.length > 0 && (
+                                    {activeIgHashtags.length > 0 && (
                                         <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
                                             <div className="flex justify-between items-center">
                                                 <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
-                                                    <span>🏷️</span> 推奨ハッシュタグ
+                                                    <span>🏷️</span> 投稿別ハッシュタグ（{currentIgDaily?.region || selectedIgRegion}）
                                                 </h4>
                                                 <button
-                                                    onClick={() => handleCopy(aiData?.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
+                                                    onClick={() => handleCopy(activeIgHashtags.join(' '), `ig_tags_${selectedIgDay}_${selectedIgRegion}`)}
                                                     className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
                                                 >
-                                                    {copiedKey === 'ig_tags' ? '✓ コピー完了' : 'タグ一括コピー'}
+                                                    {copiedKey === `ig_tags_${selectedIgDay}_${selectedIgRegion}` ? '✓ コピー完了' : 'タグ一括コピー'}
                                                 </button>
                                             </div>
                                             <p className="text-xs text-slate-400 font-mono leading-relaxed bg-slate-900/60 p-2 rounded border border-slate-800/40">
-                                                {aiData.snsPosts.hashtags.join(' ')}
+                                                {activeIgHashtags.join(' ')}
                                             </p>
                                         </div>
                                     )}
 
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <h4 className="text-xs font-bold text-white">📝 【{DAY_LABELS[selectedIgDay]}】投稿キャプション全文</h4>
+                                            <h4 className="text-xs font-bold text-white">
+                                                📝 【{DAY_LABELS[selectedIgDay]} · {currentIgDaily?.region || selectedIgRegion}】投稿キャプション全文
+                                            </h4>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
-                                                    {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
+                                                <button
+                                                    onClick={() => handleCopy(igPostText, `ig_${selectedIgDay}_${selectedIgRegion}`)}
+                                                    className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300"
+                                                >
+                                                    {copiedKey === `ig_${selectedIgDay}_${selectedIgRegion}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
                                                 {(() => {
                                                     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
                                                     const info = currentIgDaily?.infographicData;
                                                     const currentCardTitle = info?.cardName || aiData?.chiefPackage?.mvpHighlight?.cardName || 'Featured Card';
+                                                    const publishKey = `${selectedIgDay}_${currentIgDaily?.region || selectedIgRegion}`;
                                                     const params = new URLSearchParams({
                                                         type: selectedIgDay,
                                                         cardName: currentCardTitle,
@@ -851,18 +913,18 @@ export default function DeskViews({
 
                                                     return (
                                                         <button
-                                                            onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, carouselSlideImages)}
+                                                            onClick={() => handlePublishToInstagram(igPostText, publishKey, carouselSlideImages)}
                                                             disabled={Boolean(isPublishingInstagram)}
                                                             className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95 disabled:opacity-50"
                                                         >
-                                                            {isPublishingInstagram === selectedIgDay ? '投稿中...' : '📸 IGへ自動投稿'}
+                                                            {isPublishingInstagram === publishKey ? '投稿中...' : '📸 IGへ自動投稿'}
                                                         </button>
                                                     );
                                                 })()}
                                             </div>
                                         </div>
                                         <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">
-                                            {igPostText || 'この曜日の投稿はまだ作成されていません。'}
+                                            {igPostText || 'この曜日・地域の投稿はまだ作成されていません。'}
                                         </pre>
                                     </div>
                                 </div>
@@ -888,7 +950,7 @@ export default function DeskViews({
                                                     <span>worldwide_tcg</span>
                                                     <span className="text-[10px] text-sky-400">●</span>
                                                 </div>
-                                                <div className="text-[9px] text-slate-400">Tokyo, Japan</div>
+                                                <div className="text-[9px] text-slate-400">Tokyo, Japan · {currentIgDaily?.region || selectedIgRegion}</div>
                                             </div>
                                         </div>
                                         <span className="text-slate-400 text-sm">•••</span>
@@ -905,7 +967,7 @@ export default function DeskViews({
                                             {currentIgSlideIdx === 0 ? (
                                                 <div className="space-y-3">
                                                     <span className="inline-block px-2.5 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/40 font-mono text-[9px] uppercase font-bold tracking-wider">
-                                                        COVER HOOK SLIDE
+                                                        COVER HOOK SLIDE ({currentIgDaily?.region || selectedIgRegion})
                                                     </span>
                                                     <h4 className="text-sm font-extrabold text-white leading-snug drop-shadow-md">
                                                         {currentIgDaily?.theme || aiData.snsPosts.theme}
@@ -994,9 +1056,9 @@ export default function DeskViews({
                                                 {igPostText}
                                             </span>
                                         </div>
-                                        {aiData?.snsPosts?.hashtags && (
+                                        {activeIgHashtags.length > 0 && (
                                             <p className="text-[10px] text-sky-400/90 line-clamp-1 font-mono">
-                                                {aiData.snsPosts.hashtags.join(' ')}
+                                                {activeIgHashtags.join(' ')}
                                             </p>
                                         )}
                                         <div className="text-[9px] text-slate-500 uppercase pt-1">
@@ -1013,7 +1075,7 @@ export default function DeskViews({
             )}
 
             {/* ========================================================= */}
-            {/* ✍️ X クリエイター（スレッドプレビュー統合） */}
+            {/* ✍️ X クリエイター（1日2スレッド：北米US / 欧州EU 切り替え対応） */}
             {/* ========================================================= */}
             {aiActiveDesk === 'desk_x' && (
                 <div className="w-full space-y-6 animate-fadeIn">
@@ -1032,22 +1094,45 @@ export default function DeskViews({
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
-                        {dynamicXDays.map(d => (
-                            <button
-                                key={d.key}
-                                type="button"
-                                onClick={() => setSelectedXDay(d.key)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                                    selectedXDay === d.key
-                                        ? 'bg-sky-500 text-white shadow-md ring-1 ring-sky-400/40'
-                                        : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
-                                }`}
-                            >
-                                <span>{d.label}</span>
-                                <span className="text-[10px] opacity-70 font-mono truncate max-w-[100px]">({d.desc})</span>
-                            </button>
-                        ))}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                        <div className="flex flex-wrap gap-2">
+                            {dynamicXDays.map(d => (
+                                <button
+                                    key={d.key}
+                                    type="button"
+                                    onClick={() => setSelectedXDay(d.key)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                        selectedXDay === d.key
+                                            ? 'bg-sky-500 text-white shadow-md ring-1 ring-sky-400/40'
+                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                                    }`}
+                                >
+                                    <span>{d.label}</span>
+                                    <span className="text-[10px] opacity-70 font-mono truncate max-w-[100px]">({d.desc})</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                            {(['US', 'EU'] as const).map((reg) => {
+                                const hasRegThread = xDayThreads.some((t: any) => String(t.region || '').toUpperCase() === reg);
+                                return (
+                                    <button
+                                        key={reg}
+                                        type="button"
+                                        onClick={() => setSelectedXRegion(reg)}
+                                        className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                                            selectedXRegion === reg
+                                                ? 'bg-sky-500 text-white shadow'
+                                                : 'text-slate-400 hover:text-white'
+                                        }`}
+                                    >
+                                        {reg === 'US' ? '🇺🇸 北米(US)' : '🇪🇺 欧州(EU)'}
+                                        {!hasRegThread && <span className="ml-1 text-[10px] opacity-60">未作成</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {aiData?.xPosts ? (
@@ -1057,7 +1142,7 @@ export default function DeskViews({
                                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
                                         <div>
                                             <span className="text-[10px] uppercase font-mono tracking-widest text-sky-400 font-bold block mb-1">
-                                                {DAY_LABELS[selectedXDay]} Viral Thread
+                                                {DAY_LABELS[selectedXDay]} · {currentXDaily?.region || selectedXRegion} Viral Thread
                                             </span>
                                             <h3 className="text-base font-bold text-white">{aiData.xPosts.theme}</h3>
                                         </div>
@@ -1080,6 +1165,25 @@ export default function DeskViews({
                                         </div>
                                     )}
 
+                                    {activeXHashtags.length > 0 && (
+                                        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                                                    <span>🏷️</span> スレッド別ハッシュタグ（{currentXDaily?.region || selectedXRegion}）
+                                                </h4>
+                                                <button
+                                                    onClick={() => handleCopy(activeXHashtags.join(' '), `x_tags_${selectedXDay}_${selectedXRegion}`)}
+                                                    className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
+                                                >
+                                                    {copiedKey === `x_tags_${selectedXDay}_${selectedXRegion}` ? '✓ コピー完了' : 'タグ一括コピー'}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-slate-400 font-mono leading-relaxed bg-slate-900/60 p-2 rounded border border-slate-800/40">
+                                                {activeXHashtags.join(' ')}
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
@@ -1091,20 +1195,23 @@ export default function DeskViews({
                                                 </span>
                                             </div>
                                             <div className="flex gap-2">
-                                                <button onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
-                                                    {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
+                                                <button
+                                                    onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}_${selectedXRegion}`)}
+                                                    className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300"
+                                                >
+                                                    {copiedKey === `x_main_${selectedXDay}_${selectedXRegion}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
                                                 <button
                                                     onClick={() => handlePublishToX(xMainPost, xThreadPosts, xImageUrl)}
                                                     disabled={isPublishingX}
                                                     className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
                                                 >
-                                                    {isPublishingX ? '投稿中...' : `🐦 【${DAY_LABELS[selectedXDay]}】スレッド自動投稿`}
+                                                    {isPublishingX ? '投稿中...' : `🐦 【${DAY_LABELS[selectedXDay]} · ${currentXDaily?.region || selectedXRegion}】スレッド自動投稿`}
                                                 </button>
                                             </div>
                                         </div>
                                         <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">
-                                            {xMainPost || 'この曜日のスレッドはまだ作成されていません。'}
+                                            {xMainPost || 'この曜日・地域のスレッドはまだ作成されていません。'}
                                         </div>
                                     </div>
 
@@ -1114,8 +1221,8 @@ export default function DeskViews({
                                             <div key={idx} className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 border border-slate-800 space-y-1">
                                                 <div className="flex justify-between items-center text-[10px] text-slate-400">
                                                     <span>Post {idx + 2} ({tp.length}文字)</span>
-                                                    <button onClick={() => handleCopy(tp, `x_thread_${selectedXDay}_${idx}`)} className="hover:text-white">
-                                                        {copiedKey === `x_thread_${selectedXDay}_${idx}` ? '✓ コピー' : 'コピー'}
+                                                    <button onClick={() => handleCopy(tp, `x_thread_${selectedXDay}_${selectedXRegion}_${idx}`)} className="hover:text-white">
+                                                        {copiedKey === `x_thread_${selectedXDay}_${selectedXRegion}_${idx}` ? '✓ コピー' : 'コピー'}
                                                     </button>
                                                 </div>
                                                 <p className="leading-relaxed whitespace-pre-wrap">{tp}</p>
@@ -1129,7 +1236,7 @@ export default function DeskViews({
                                 <div className="w-full max-w-[400px] bg-black border border-slate-800 rounded-2xl p-4 shadow-2xl text-white font-sans text-xs space-y-4">
                                     <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
                                         <span className="font-bold flex items-center gap-1.5">
-                                            <span className="text-base text-white">𝕏</span> タイムライン・スレッド表示
+                                            <span className="text-base text-white">𝕏</span> タイムライン・スレッド表示 ({currentXDaily?.region || selectedXRegion})
                                         </span>
                                         <span className="text-[10px] text-slate-500">最新アルゴリズム適合</span>
                                     </div>

@@ -28,7 +28,9 @@ We buy directly from Japanese markets and ship worldwide to your door!
 
 お問い合わせ・ご相談はインスタDMまたはメールよりお気軽にお問い合わせください。`;
 
-// 6. Instagram専任投稿クリエイター（対象日1日分：火〜土アービトラージ / 日曜5日まとめ / 月曜サービス解説）
+// 6. Instagram専任投稿クリエイター
+// - 火〜土: 北米(US)レポートベース1投稿 ＋ 欧州(EU)レポートベース1投稿（1日2投稿・各投稿に個別ハッシュタグ）
+// - 日曜: 5日まとめ / 月曜: 代理購入サービス解説
 export async function runSnsPosts(
   chiefPackage: any,
   accountReport: any,
@@ -49,17 +51,21 @@ export async function runSnsPosts(
 
   const modeInstruction = isSundayDigest
     ? `■ 本日の作成モード【日曜：火〜土5日分のまとめ（Weekly Digest）】:
-   - 対象曜日は "${day}" の1日分のみ（dailyPosts には "${day}" を1件だけ含めてください）。
-   - 5日分を無理に個別作文するのではなく、提供されたデータ（週間ラインナップ・選定銘柄・価格差・ROI）をもとに、今週の注目アービトラージハイライト・価格差/ROIの比較ポイントを分かりやすくまとめたダイジェスト投稿を作成してください。
+   - 対象曜日は "${day}" です。
+   - 提供されたデータ（週間ラインナップ・選定銘柄・価格差・ROI）をもとに、今週の注目アービトラージハイライト・価格差/ROIの比較ポイントをまとめたダイジェスト投稿を作成してください。
+   - dailyPosts には "${day}" の投稿を1件以上含め、各投稿に個別の hashtags 配列を付与してください。
    - キャプション（caption）および hookText は英語（English）で執筆してください。`
     : isMondayServiceGuide
     ? `■ 本日の作成モード【月曜：自社代理購入サービスの解説】:
-   - 対象曜日は "${day}" の1日分のみ（dailyPosts には "${day}" を1件だけ含めてください）。
+   - 対象曜日は "${day}" です。
    - 海外のカードショップ・リセラー・大口コレクター向けに、自社の越境代理購入サービス（手数料5%、複数ショップからの一括同梱・1箱まとめ発送、国際送料の目安 from ~$0.02 / card 約¥3/枚〜、1クリック追加・アカウント登録、プロフィールリンク／DM／メール導線）を分かりやすく解説する投稿を作成してください。
+   - dailyPosts には "${day}" の投稿を1件以上含め、各投稿に個別の hashtags 配列を付与してください。
    - キャプション（caption）および hookText は英語（English）で執筆してください。`
-    : `■ 本日の作成モード【${day}：1日分のアービトラージ投稿】:
-   - 対象曜日は "${day}" の1日分のみ（dailyPosts には "${day}" を1件だけ含めてください）。火〜土5日分をまとめて作文・割り当てしないでください。
-   - 本日のリサーチ・選定データ（その日の価格帯・実成約実績・粗利/ROI・地域比較）をもとに、${day} 分のアービトラージ投稿1本を作成してください。
+    : `■ 本日の作成モード【${day}：1日2投稿（北米USレポートベース1本 ＋ 欧州EUレポートベース1本）】:
+   - 対象曜日は "${day}" です。5日分をまとめて作文・割り当てしないでください。
+   - 1つ目は【北米（US）向けアービトラージレポート／候補（region: "US"）】をもとに1投稿を作成してください。
+   - 2つ目は【欧州（EU）向けアービトラージレポート／候補（region: "EU"）】をもとに1投稿を作成してください。
+   - 各投稿（US投稿・EU投稿）ごとに、その地域・対象カード・価格帯・仕様に合わせた【個別の hashtags 配列】を生成してください（US向けとEU向けで同じタグの丸写しにせず、各市場に最適化したタグを選定してください）。
    - キャプション（caption）および hookText は英語（English）で執筆してください。`;
 
   const prompt = `あなたは越境【${categoryName}】事業における【Instagram専任のトップセールスクリエイター】です。
@@ -71,7 +77,7 @@ export async function runSnsPosts(
 
 ${modeInstruction}
 
-【参照データ（チーフパッケージ／週間実績／選定候補）】:
+【参照データ（US/EUレポート・チーフパッケージ・選定候補）】:
 ${JSON.stringify(chiefPackage, null, 2)}
 
 【IGアナリストからの直近分析＆制作レギュレーション】:
@@ -81,13 +87,14 @@ ${JSON.stringify(accountReport, null, 2)}
 1. 【答えを教えない撒き餌原則（Hook & Hold）】:
    - 開示するのは価格差・成約実績・サービスメリットなどの事実（Fact & Result）のみ。
    - 日本国内の仕入れ店舗名、仕入れルート、詳細ノウハウ（Action & Reason）は絶対に投稿本文に書かないこと（Gate 2 監査で弾かれます）。
+   - ノーマルとミラー/鑑定品など仕様差がある場合は、誤解のないよう状態・仕様の事実を簡潔に明記してください。
 2. 【英語CTA配置（各キャプション末尾にそのまま配置）】:
-   - caption 本文の末尾には、以下のブロックをそのまま配置すること:
+   - 各投稿の caption 本文の末尾には、以下のブロックをそのまま配置すること:
 
 ${PROXY_SERVICE_CTA_BLOCK}
 3. 【画像生成データの出力原則（最重要）】:
    - 著作権およびVeRO違反を防ぐため、カードのイラスト画像や他者の撮影画像は絶対に使用しません。
-   - システムが「価格差インフォグラフィック」を自動生成（合成）するためのテキストデータ（infographicData）を出力してください。infographicData.type は必ず "arbitrage" としてください。
+   - システムが「価格差インフォグラフィック」を自動生成（合成）するためのテキストデータ（infographicData）を各投稿に出力してください。infographicData.type は必ず "arbitrage" としてください。
 
 ${rules}
 
@@ -95,23 +102,40 @@ ${rules}
 {
   "theme": "${day}の投稿テーマ",
   "recommendedTiming": "アナリスト推奨に基づく最適な投稿時間帯（例: 日本時間 21:00）",
-  "hashtags": [
-    "#PokemonTCG", "#PokemonCards", "#PokemonWholesale", "#JapanesePokemonCards", "#B2B", "#PokemonReseller", "#WorldwideJaPan"
-  ],
+  "hashtags": ["#PokemonTCG", "#JapanesePokemonCards", "#PokemonWholesale"],
   "dailyPosts": [
     {
       "day": "${day}",
-      "theme": "${day}の投稿テーマ",
-      "caption": "${day}のフルキャプション全文（本文＋CTA＋ハッシュタグを含む完全版）",
+      "region": "US",
+      "theme": "${day} 北米(US)アービトラージ投稿テーマ",
+      "hashtags": ["#PokemonTCG", "#eBayUS", "#USD", "#JapanesePokemonCards", "#PokemonWholesale", "#PokemonReseller"],
+      "caption": "${day} 北米(US)向けフルキャプション全文（本文＋CTA＋この投稿のhashtags）",
       "infographicData": {
         "type": "arbitrage",
-        "cardName": "${isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '実在のカード名または週間ハイライト名'}",
+        "cardName": "USレポートから選んだ実在のカード名",
         "region": "US",
         "jpPrice": "¥X,XXX",
         "overseasPrice": "$XX",
         "spread": "+¥X,XXX",
         "roi": "XX%",
-        "hookText": "画像内に大きく印字する短い英語フレーズ"
+        "hookText": "US投稿用の短い英語フック"
+      }
+    },
+    {
+      "day": "${day}",
+      "region": "EU",
+      "theme": "${day} 欧州(EU)アービトラージ投稿テーマ",
+      "hashtags": ["#PokemonTCG", "#Cardmarket", "#EUR", "#JapanesePokemonCards", "#PokemonWholesale", "#TCGCollector"],
+      "caption": "${day} 欧州(EU)向けフルキャプション全文（本文＋CTA＋この投稿のhashtags）",
+      "infographicData": {
+        "type": "arbitrage",
+        "cardName": "EUレポートから選んだ実在のカード名",
+        "region": "EU",
+        "jpPrice": "¥X,XXX",
+        "overseasPrice": "€XX",
+        "spread": "+¥X,XXX",
+        "roi": "XX%",
+        "hookText": "EU投稿用の短い英語フック"
       }
     }
   ]
@@ -121,7 +145,9 @@ ${rules}
   return parseAIJson(res.content.toString());
 }
 
-// 7. X (Twitter) 専任クリエイター（対象日1日分：火〜土アービトラージ / 日曜5日まとめ / 月曜サービス解説）
+// 7. X (Twitter) 専任クリエイター
+// - 火〜土: 北米(US)レポートベース1スレッド ＋ 欧州(EU)レポートベース1スレッド（1日2スレッド・各投稿に個別ハッシュタグ）
+// - 日曜: 5日まとめ / 月曜: 代理購入サービス解説
 export async function runXPosts(
   chiefPackage: any,
   xAccountReport?: any,
@@ -142,21 +168,25 @@ export async function runXPosts(
 
   const modeInstruction = isSundayDigest
     ? `■ 本日の作成モード【日曜：火〜土5日分のまとめ（Weekly Digest）】:
-   - 対象曜日は "${day}" の1日分のみ（dailyThreads には "${day}" を1件だけ含めてください）。
-   - 提供されたデータをもとに、今週の注目アービトラージ銘柄・価格差/ROI・比較ポイントをまとめたスレッドを作成してください。`
+   - 対象曜日は "${day}" です。
+   - 提供されたデータをもとに、今週の注目アービトラージ銘柄・価格差/ROI・比較ポイントをまとめたスレッドを作成してください。
+   - dailyThreads の各エントリに個別の hashtags 配列を付与してください。`
     : isMondayServiceGuide
     ? `■ 本日の作成モード【月曜：自社代理購入サービスの解説】:
-   - 対象曜日は "${day}" の1日分のみ（dailyThreads には "${day}" を1件だけ含めてください）。
-   - 海外バイヤー・リセラー向けに、自社代理購入サービス（手数料5%、複数ショップ一括同梱、国際送料目安 from ~$0.02 / card 約¥3/枚〜、登録・プロフ/DM導線）を分かりやすく解説するスレッドを作成してください。`
-    : `■ 本日の作成モード【${day}：1日分のアービトラージスレッド】:
-   - 対象曜日は "${day}" の1日分のみ（dailyThreads には "${day}" を1件だけ含めてください）。火〜土5日分をまとめて作文・割り当てしないでください。
-   - 本日のリサーチ・選定データをもとに、${day} 分のアービトラージスレッド1本を作成してください。`;
+   - 対象曜日は "${day}" です。
+   - 海外バイヤー・リセラー向けに、自社代理購入サービス（手数料5%、複数ショップ一括同梱、国際送料目安 from ~$0.02 / card 約¥3/枚〜、登録・プロフ/DM/メール導線）を分かりやすく解説するスレッドを作成してください。
+   - dailyThreads の各エントリに個別の hashtags 配列を付与してください。`
+    : `■ 本日の作成モード【${day}：1日2スレッド（北米USレポートベース1本 ＋ 欧州EUレポートベース1本）】:
+   - 対象曜日は "${day}" です。5日分をまとめて作文・割り当てしないでください。
+   - 1つ目は【北米（US）向けアービトラージレポート／候補（region: "US"）】をもとに1スレッドを作成してください。
+   - 2つ目は【欧州（EU）向けアービトラージレポート／候補（region: "EU"）】をもとに1スレッドを作成してください。
+   - 各スレッド（US向け・EU向け）ごとに、その地域・対象カード・価格帯・仕様に合わせた【個別の hashtags 配列】を生成してください。`;
 
   const prompt = `あなたは越境【${categoryName}】事業における【X (Twitter) 専任のプロクリエイター】です。
 
 ${modeInstruction}
 
-【参照データ（チーフパッケージ／週間実績／選定候補）】:
+【参照データ（US/EUレポート・チーフパッケージ・選定候補）】:
 ${JSON.stringify(chiefPackage, null, 2)}
 
 【Xアナリストの戦術指示】:
@@ -164,16 +194,16 @@ ${JSON.stringify(xAccountReport || {}, null, 2)}
 
 ■ 必須発信ルール:
 1. 【1ポスト目の140文字制限厳守（最重要）】:
-   - mainPost（1ポスト目）は、改行・絵文字・ハッシュタグを含めて【絶対に140文字以内】で執筆すること（Gate 2 監査で自動検知されます）。
+   - 各スレッドの mainPost（1ポスト目）は、改行・絵文字・ハッシュタグを含めて【絶対に140文字以内】で執筆すること（Gate 2 監査で自動検知されます）。
    - 1ポスト目には絶対に外部リンク（URL）を貼らないこと（アルゴリズムによる表示回数制限を回避するため）。画像視認案内とスレッド誘導を含めること。
 2. 【スレッド構成】:
-   - dailyThreads には "${day}" の1件のみを含めてください。
    - threadPosts（2〜4ポスト目）で要点を分かりやすく展開してください。
    - infographicData.type は必ず "arbitrage" としてください。
 3. 【リンク配置ルール】:
    - 自社サイト・プロフィール・連絡先への誘導は、スレッド最終ポスト（またはリプライ欄想定文）にのみ配置すること。
 4. 【撒き餌原則】:
    - 事実（Fact & Result）のみを語り、仕入れ店舗名や具体的仕入れルートは絶対に漏洩させないこと。
+   - ノーマルとミラー/鑑定品など仕様差がある場合は、誤解のないよう状態・仕様の事実を簡潔に明記してください。
 
 ${rules}
 
@@ -184,20 +214,42 @@ ${rules}
   "dailyThreads": [
     {
       "day": "${day}",
-      "mainPost": "${day}の1ポスト目（140文字以内厳守、フック＋画像参照＋ツリー誘導）",
+      "region": "US",
+      "hashtags": ["#PokemonTCG", "#eBayUS", "#USD", "#JapanesePokemonCards", "#PokemonWholesale"],
+      "mainPost": "${day} 北米(US)1ポスト目（140文字以内厳守、フック＋画像参照＋ツリー誘導）",
       "threadPosts": [
-        "ツリー2ポスト目: 要点解説",
-        "ツリー3ポスト目: 比較・補足ポイント",
-        "ツリー4ポスト目: CTA・誘導"
+        "ツリー2ポスト目: US市場の価格差・成約事実",
+        "ツリー3ポスト目: 仕様・状態・注目ポイント",
+        "ツリー4ポスト目: 代理購入サービス・プロフ/DM/メール導線"
       ],
       "infographicData": {
         "type": "arbitrage",
-        "cardName": "${isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '実在のカード名または週間ハイライト名'}",
+        "cardName": "USレポートから選んだ実在のカード名",
         "jpPrice": "¥X,XXX",
         "overseasPrice": "$XX",
         "spread": "+¥X,XXX",
         "roi": "XX%",
-        "hookText": "Xのタイムラインで目を引く短い英語フック"
+        "hookText": "US投稿用の短い英語フック"
+      }
+    },
+    {
+      "day": "${day}",
+      "region": "EU",
+      "hashtags": ["#PokemonTCG", "#Cardmarket", "#EUR", "#JapanesePokemonCards", "#PokemonWholesale"],
+      "mainPost": "${day} 欧州(EU)1ポスト目（140文字以内厳守、フック＋画像参照＋ツリー誘導）",
+      "threadPosts": [
+        "ツリー2ポスト目: EU市場の価格差・成約事実",
+        "ツリー3ポスト目: 仕様・状態・注目ポイント",
+        "ツリー4ポスト目: 代理購入サービス・プロフ/DM/メール導線"
+      ],
+      "infographicData": {
+        "type": "arbitrage",
+        "cardName": "EUレポートから選んだ実在のカード名",
+        "jpPrice": "¥X,XXX",
+        "overseasPrice": "€XX",
+        "spread": "+¥X,XXX",
+        "roi": "XX%",
+        "hookText": "EU投稿用の短い英語フック"
       }
     }
   ]
