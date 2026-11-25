@@ -281,13 +281,21 @@ export async function enrichTrendCandidatesWithEbaySold(
 
     console.log('[TrendDebug] keywordsToSend:', uniqueKeywords);
 
-    // 1. アービトラージと同じ runApifySync（Task ➔ 404時 Actor フォールバック）で取得
-    const ebayItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
-      ebaySite: targetEbaySite,
-      keywords: uniqueKeywords,
-      count: 20,
-      exactMatch: false,
-    });
+    // 1. 400 Bad Request 回避のため、キーワードを3件ずつ分割して runApifySync で取得
+    const chunkSize = 3;
+    const ebayItems: any[] = [];
+    for (let i = 0; i < uniqueKeywords.length; i += chunkSize) {
+      const chunk = uniqueKeywords.slice(i, i + chunkSize);
+      const chunkItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
+        ebaySite: targetEbaySite,
+        keywords: chunk,
+        count: 20,
+        exactMatch: false,
+      });
+      if (Array.isArray(chunkItems)) {
+        ebayItems.push(...chunkItems);
+      }
+    }
 
     console.log(
       '[TrendDebug] ebayRawSample:',
@@ -739,7 +747,13 @@ export async function fetchDomesticTrendCandidates(
       if (filteredCandidates.length >= 12) break;
     }
 
-    console.log('[TrendDebug] filteredCandidates count:', filteredCandidates.length);
+    console.log('[TrendDebug] filteredCandidates count:', filteredCandidates.length, {
+      skipPriceOrUrl,
+      skipDup,
+      skipClassic,
+      skipPlayable,
+      skipRarity,
+    });
     if (filteredCandidates.length === 0) return [];
 
     // 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
