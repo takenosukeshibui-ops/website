@@ -558,7 +558,7 @@ export async function fetchDomesticTrendCandidates(
           const jsonStr = txt.slice(arrStart, arrEnd + 1);
           matchedLength = jsonStr.length;
           try {
-            const parsed = JSON.parse(jsonStr);
+            const parsed = new Function('return (' + jsonStr + ')')();
             if (Array.isArray(parsed)) {
               rows = parsed;
               break;
