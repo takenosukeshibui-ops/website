@@ -109,6 +109,244 @@ export default function DeskViews({
         return reg || '-';
     };
 
+    const triggerCsvDownload = (headers: string[], rows: string[][], filenameBase: string) => {
+        if (rows.length === 0) return;
+        const csvLines = [
+            headers.map(escapeCsvField).join(','),
+            ...rows.map(r => r.map(escapeCsvField).join(',')),
+        ];
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const blob = new Blob([bom, csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filenameBase}_${getTodayFileDate()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const triggerJsonDownload = (data: unknown, filenameBase: string) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filenameBase}_${getTodayFileDate()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const renderExportButtons = (onCsv: () => void, onJson: () => void, disabled: boolean = false) => (
+        <div className="flex items-center gap-1.5 ml-1">
+            <button
+                type="button"
+                onClick={onCsv}
+                disabled={disabled}
+                className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                title="Excelやスプレッドシートでの目視確認用"
+            >
+                📊 CSV
+            </button>
+            <button
+                type="button"
+                onClick={onJson}
+                disabled={disabled}
+                className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
+                title="AI検証用・構造化データ"
+            >
+                ｛ ｝ JSON
+            </button>
+        </div>
+    );
+
+    // 1. キュレーター CSV / JSON
+    const handleDownloadChiefCSV = () => {
+        const pkg = aiData?.chiefPackage;
+        if (!pkg) return;
+        const headers = ['曜日', '投稿種別', '地域', '対象カード・トピック', 'MVP', '無料フック(Fact)', '秘匿指示(Action)', '選定理由'];
+        const rows: string[][] = [];
+        const calendar = Array.isArray(pkg.contentCalendar) ? pkg.contentCalendar : [];
+        const mvpName = pkg.mvpHighlight?.cardName || pkg.chosenCardOrItem || '';
+
+        for (const dayItem of calendar as any[]) {
+            const dayLabel = DAY_LABELS[dayItem.dayOfWeek] || dayItem.dayOfWeek || '';
+            const items = Array.isArray(dayItem.items) && dayItem.items.length > 0 ? dayItem.items : [null];
+            for (const sub of items) {
+                const cardTitle = sub?.selectedCardOrTopic || dayItem.selectedCardOrTopic || '';
+                rows.push([
+                    dayLabel,
+                    dayItem.postType || 'arbitrage',
+                    formatRegionLabel(sub?.region),
+                    cardTitle,
+                    mvpName && cardTitle.includes(mvpName) ? 'MVP' : '',
+                    sub?.hookFact || dayItem.hookFact || '',
+                    sub?.hiddenActionReason || dayItem.hiddenActionReason || '',
+                    pkg.mvpHighlight?.selectionReason || pkg.selectionReason || '',
+                ]);
+            }
+        }
+        if (rows.length === 0) {
+            rows.push([
+                '-',
+                'arbitrage',
+                '-',
+                mvpName,
+                'MVP',
+                pkg.coreHookFact || '',
+                '',
+                pkg.mvpHighlight?.selectionReason || pkg.selectionReason || '',
+            ]);
+        }
+        triggerCsvDownload(headers, rows, 'Curator_Lineup');
+    };
+
+    const handleDownloadChiefJSON = () => {
+        if (!aiData?.chiefPackage) return;
+        triggerJsonDownload(aiData.chiefPackage, 'Curator_Lineup');
+    };
+
+    // 2. 品質・規約監査役 (Gate 2) CSV / JSON
+    const handleDownloadGate2CSV = () => {
+        if (gate2Audits.length === 0) return;
+        const headers = ['プラットフォーム', '対象曜日', '判定ステータス', '監査フィードバック'];
+        const rows = gate2Audits.map((item) => [
+            item.platform || '',
+            DAY_LABELS[item.day] || item.day || '',
+            item.status === 'passed' ? '配信承認' : item.status === 'pending' ? '監査待ち' : '修正要請',
+            item.feedback || '',
+        ]);
+        triggerCsvDownload(headers, rows, 'Quality_Audit_Gate2');
+    };
+
+    const handleDownloadGate2JSON = () => {
+        if (gate2Audits.length === 0) return;
+        triggerJsonDownload(gate2Audits, 'Quality_Audit_Gate2');
+    };
+
+    // 3. IG / X アナリスト CSV / JSON
+    const buildAccountRows = (report: any) => {
+        if (!report) return [];
+        const rows: string[][] = [];
+        const facts = Array.isArray(report.facts) ? report.facts : [];
+        for (const f of facts) {
+            rows.push([report.title || '', report.claim || '', 'Fact', f?.label || '', f?.value || '', report.soWhat || '']);
+        }
+        const reasons = Array.isArray(report.reasons) ? report.reasons : [];
+        reasons.forEach((r: string, i: number) => {
+            rows.push([report.title || '', report.claim || '', `Reason #${i + 1}`, '', r || '', report.soWhat || '']);
+        });
+        if (rows.length === 0) {
+            rows.push([report.title || '', report.claim || '', 'Summary', '', '', report.soWhat || '']);
+        }
+        return rows;
+    };
+
+    const handleDownloadIgAnalystCSV = () => {
+        triggerCsvDownload(
+            ['タイトル', '主張・結論', '区分', '項目名', '内容・数値', '示唆(So What)'],
+            buildAccountRows(aiData?.accountInsights),
+            'IG_Analyst_Report'
+        );
+    };
+
+    const handleDownloadIgAnalystJSON = () => {
+        if (!aiData?.accountInsights) return;
+        triggerJsonDownload(aiData.accountInsights, 'IG_Analyst_Report');
+    };
+
+    const handleDownloadXAnalystCSV = () => {
+        triggerCsvDownload(
+            ['タイトル', '主張・結論', '区分', '項目名', '内容・数値', '示唆(So What)'],
+            buildAccountRows(aiData?.xAccountInsights),
+            'X_Analyst_Report'
+        );
+    };
+
+    const handleDownloadXAnalystJSON = () => {
+        if (!aiData?.xAccountInsights) return;
+        triggerJsonDownload(aiData.xAccountInsights, 'X_Analyst_Report');
+    };
+
+    // 4. IG クリエイター CSV / JSON
+    const handleDownloadIgCreatorCSV = () => {
+        const posts = aiData?.snsPosts?.dailyPosts || [];
+        if (posts.length === 0) return;
+        const headers = ['曜日', 'テーマ', '推奨時間帯', 'カード名', '地域', '日本価格', '海外価格', '差額', 'ROI', 'ハッシュタグ', 'キャプション全文'];
+        const tagsStr = (aiData?.snsPosts?.hashtags || []).join(' ');
+        const rows = posts.map((p: any) => [
+            DAY_LABELS[p.day] || p.day || '',
+            p.theme || aiData?.snsPosts?.theme || '',
+            aiData?.snsPosts?.recommendedTiming || '',
+            p.infographicData?.cardName || '',
+            p.infographicData?.region || '',
+            p.infographicData?.jpPrice || '',
+            p.infographicData?.overseasPrice || '',
+            p.infographicData?.spread || '',
+            p.infographicData?.roi || '',
+            tagsStr,
+            p.caption || '',
+        ]);
+        triggerCsvDownload(headers, rows, 'IG_Creator_Posts');
+    };
+
+    const handleDownloadIgCreatorJSON = () => {
+        if (!aiData?.snsPosts) return;
+        triggerJsonDownload(aiData.snsPosts, 'IG_Creator_Posts');
+    };
+
+    // 5. X クリエイター CSV / JSON
+    const handleDownloadXCreatorCSV = () => {
+        const threads = aiData?.xPosts?.dailyThreads || [];
+        if (threads.length === 0) return;
+        const headers = ['曜日', 'テーマ', '1ポスト目文字数', '1ポスト目(フック)', '2ポスト目', '3ポスト目', '4ポスト目', 'カード名', '差額', 'ROI'];
+        const rows = threads.map((t: any) => {
+            const tp = Array.isArray(t.threadPosts) ? t.threadPosts : [];
+            return [
+                DAY_LABELS[t.day] || t.day || '',
+                aiData?.xPosts?.theme || '',
+                String((t.mainPost || '').length),
+                t.mainPost || '',
+                tp[0] || '',
+                tp[1] || '',
+                tp[2] || '',
+                t.infographicData?.cardName || '',
+                t.infographicData?.spread || '',
+                t.infographicData?.roi || '',
+            ];
+        });
+        triggerCsvDownload(headers, rows, 'X_Creator_Threads');
+    };
+
+    const handleDownloadXCreatorJSON = () => {
+        if (!aiData?.xPosts) return;
+        triggerJsonDownload(aiData.xPosts, 'X_Creator_Threads');
+    };
+
+    // 6. 有料コミュニティ (Sales DM) CSV / JSON
+    const handleDownloadSalesCSV = () => {
+        const dm = aiData?.salesDM;
+        if (!dm) return;
+        const headers = ['対象セグメント', 'オファー概要', '最低ロット条件', '推奨配送便', '推奨決済方法', 'Discordメッセージ全文', '商談・交渉ガイダンス'];
+        const rows = [[
+            dm.targetSegment || '',
+            dm.offerSummary || '',
+            dm.commercialTerms?.minimumOrderQty || '',
+            dm.commercialTerms?.shippingMethod || '',
+            dm.commercialTerms?.paymentMethod || '',
+            dm.discordMessage || '',
+            dm.negotiationTip || '',
+        ]];
+        triggerCsvDownload(headers, rows, 'Paid_Community_Offer');
+    };
+
+    const handleDownloadSalesJSON = () => {
+        if (!aiData?.salesDM) return;
+        triggerJsonDownload(aiData.salesDM, 'Paid_Community_Offer');
+    };
+
     const handleDownloadTrendAuditCSV = () => {
         if (allTrendAudits.length === 0) return;
         const headers = ['地域', '判定ステータス', 'カード名', '対象仮説', '実在性チェック', '大会規約チェック', '監査フィードバック'];
@@ -220,9 +458,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">キュレーター</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'chief' ? '選定中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadChiefCSV, handleDownloadChiefJSON, !aiData?.chiefPackage)}
+                            <button onClick={() => runSingleAi('chief')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'chief' ? '選定中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
 
                     {aiData?.chiefPackage?.strategyBlueprint && (
@@ -340,6 +581,7 @@ export default function DeskViews({
                             <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
                                 全承認: {gate2Audits.filter(a => a.status === 'passed').length} / {gate2Audits.length}
                             </span>
+                            {renderExportButtons(handleDownloadGate2CSV, handleDownloadGate2JSON, gate2Audits.length === 0)}
                         </div>
                     </div>
 
@@ -406,24 +648,7 @@ export default function DeskViews({
                             <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
                                 全適合率: {allTrendAudits.filter(a => a.status === 'passed').length} / {allTrendAudits.length} 件
                             </span>
-                            {allTrendAudits.length > 0 && (
-                                <div className="flex items-center gap-1.5 ml-1">
-                                    <button
-                                        onClick={handleDownloadTrendAuditCSV}
-                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
-                                        title="Excelやスプレッドシートでの目視確認用"
-                                    >
-                                        📊 CSV
-                                    </button>
-                                    <button
-                                        onClick={handleDownloadTrendAuditJSON}
-                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
-                                        title="AI検証用・構造化データ"
-                                    >
-                                        ｛ ｝ JSON
-                                    </button>
-                                </div>
-                            )}
+                            {allTrendAudits.length > 0 && renderExportButtons(handleDownloadTrendAuditCSV, handleDownloadTrendAuditJSON)}
                         </div>
                     </div>
 
@@ -530,24 +755,7 @@ export default function DeskViews({
                             <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
                                 全検算合致: {allArbAudits.filter(a => a.status === 'passed').length} / {allArbAudits.length} 件
                             </span>
-                            {allArbAudits.length > 0 && (
-                                <div className="flex items-center gap-1.5 ml-1">
-                                    <button
-                                        onClick={handleDownloadArbAuditCSV}
-                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
-                                        title="Excelやスプレッドシートでの目視確認用"
-                                    >
-                                        📊 CSV
-                                    </button>
-                                    <button
-                                        onClick={handleDownloadArbAuditJSON}
-                                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 transition shadow-sm flex items-center gap-1"
-                                        title="AI検証用・構造化データ"
-                                    >
-                                        ｛ ｝ JSON
-                                    </button>
-                                </div>
-                            )}
+                            {allArbAudits.length > 0 && renderExportButtons(handleDownloadArbAuditCSV, handleDownloadArbAuditJSON)}
                         </div>
                     </div>
 
@@ -648,9 +856,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">IG アナリスト</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'account' ? '分析中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadIgAnalystCSV, handleDownloadIgAnalystJSON, !aiData?.accountInsights)}
+                            <button onClick={() => runSingleAi('account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'account' ? '分析中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
                     <DocumentReportView report={aiData?.accountInsights || null} accentColor="pink" icon="📱" />
                 </div>
@@ -668,9 +879,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">X アナリスト</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'x_account' ? '分析中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadXAnalystCSV, handleDownloadXAnalystJSON, !aiData?.xAccountInsights)}
+                            <button onClick={() => runSingleAi('x_account')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'x_account' ? '分析中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
                     <DocumentReportView report={aiData?.xAccountInsights || null} accentColor="sky" icon="📈" />
                 </div>
@@ -688,9 +902,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">IG クリエイター</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'sns' ? '制作中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadIgCreatorCSV, handleDownloadIgCreatorJSON, !aiData?.snsPosts)}
+                            <button onClick={() => runSingleAi('sns')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'sns' ? '制作中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
@@ -989,9 +1206,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">X クリエイター</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadXCreatorCSV, handleDownloadXCreatorJSON, !aiData?.xPosts)}
+                            <button onClick={() => runSingleAi('x_posts')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'x_posts' || runningAction === 'x' ? '制作中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
@@ -1195,9 +1415,12 @@ export default function DeskViews({
                                 <h2 className="text-lg font-bold text-white">有料コミュニティ</h2>
                             </div>
                         </div>
-                        <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === 'sales' ? '作成中...' : '🔄 パイプラインを再実行'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {renderExportButtons(handleDownloadSalesCSV, handleDownloadSalesJSON, !aiData?.salesDM)}
+                            <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
+                                {runningAction === 'sales' ? '作成中...' : '🔄 パイプラインを再実行'}
+                            </button>
+                        </div>
                     </div>
                     {aiData?.salesDM ? (
                         <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
