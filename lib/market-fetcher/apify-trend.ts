@@ -102,6 +102,19 @@ function extractCharacterNamesJaFromEbayTitle(ebayTitle: string): string[] {
   return Array.from(names);
 }
 
+/**
+ * アービトラージ基準と合わせて鑑定品（PSA / BGS / CGC / TAG / ARS 等）を判定
+ */
+function isGradedListing(title: string, baseGrade: string): boolean {
+  if (baseGrade !== 'Raw' && baseGrade !== 'Sealed Box') {
+    return true;
+  }
+  const upper = title.toUpperCase();
+  return /\b(PSA|BGS|BECKETT|CGC|TAG|ARS|ACE|SGC|BCCG|CSG|GEM\s*MINT|PRISTINE|GRADED|SLAB)\b/.test(
+    upper
+  );
+}
+
 function extractMechanicSuffix(text: string): string {
   const m = text.match(/(?:^|[^A-Za-z])(VSTAR|VMAX|V-UNION|VUNION|EX|GX|V)(?=$|[^A-Za-z])/i);
   return m ? m[1].toUpperCase().replace('VUNION', 'V-UNION') : '';
@@ -205,19 +218,15 @@ function isCardNumberMatched(ebayCardNum: string, candidateCardNum: string): boo
   return eUpper === cUpper;
 }
 
-function getConditionPriorityScore(
-  conditionGrade: string,
-  officialCondition: EbayCardCondition | null
-): number {
+function getConditionPriorityScore(officialCondition: EbayCardCondition | null): number {
   if (officialCondition === 'Near mint or better') return 100;
   if (officialCondition === 'Lightly played (Excellent)') return 90;
   if (officialCondition === 'Moderately played (Very good)') return 80;
-  if (/^PSA\s*10\b/i.test(conditionGrade)) return 50;
   return 40;
 }
 
 /**
- * 国内トレンド候補に対して、eBayの実成約データ（価格＋個別 /itm/ URL）を厳格照合して紐づける
+ * 国内トレンド候補に対して、eBayの未鑑定（Raw）実成約データ（平均価格＋個別 /itm/ URL）を照合して紐づける
  */
 export async function enrichTrendCandidatesWithEbaySold(
   candidates: DomesticTrendCandidate[],
@@ -263,25 +272,12 @@ export async function enrichTrendCandidatesWithEbaySold(
       };
     });
 
-    console.log(
-      '[TrendDebug] candidateSpecs:',
-      candidateSpecs.map((s) => ({
-        idx: s.idx,
-        cardName: s.cardName,
-        candCardNum: s.cardNum,
-        enChar: s.enChar,
-        query: s.query,
-      }))
-    );
-
     const uniqueKeywords = Array.from(
       new Set(candidateSpecs.map((q) => q.query).filter(Boolean))
     );
     if (uniqueKeywords.length === 0) return candidates;
 
-    console.log('[TrendDebug] keywordsToSend:', uniqueKeywords);
-
-    // 1. 400 Bad Request 回避のため、キーワードを3件ずつ分割して runApifySync で取得
+    // 1. キーワードを3件ずつ分割して runApifySync で取得
     const chunkSize = 3;
     const ebayItems: any[] = [];
     for (let i = 0; i < uniqueKeywords.length; i += chunkSize) {
@@ -297,20 +293,9 @@ export async function enrichTrendCandidatesWithEbaySold(
       }
     }
 
-    console.log(
-      '[TrendDebug] ebayRawSample:',
-      ebayItems.slice(0, 2).map((it) => ({
-        title: it?.title,
-        url: it?.url,
-        itemUrl: it?.itemUrl,
-        link: it?.link,
-        itemId: it?.itemId,
-      }))
-    );
-
     const uniqueEbayItems = deduplicateEbayItems(ebayItems);
 
-    // 2. アービトラージと同一のノイズ・まとめ売り・クラシック期・通貨＆VATフィルタを適用
+    // 2. アービトラージ基準のノイズ・まとめ売り・クラシック期フィルタ＋鑑定品除外
     const preFilteredEbay = uniqueEbayItems
       .map((item) => {
         const rawUrl = String(
@@ -322,7 +307,7 @@ export async function enrichTrendCandidatesWithEbaySold(
         const soldLocal = parseEbaySoldPriceLocal(item, isEu);
         const title = String(item.title || '').trim();
         const baseGrade = detectConditionGrade(title);
-        const isGraded = baseGrade !== 'Raw' && baseGrade !== 'Sealed Box';
+        const isGraded = isGradedListing(title, baseGrade);
         const isNoise = isNoiseCard(title);
         const allCardNumbers = extractAllCardNumbers(title, isGraded);
         const charNamesJa = extractCharacterNamesJaFromEbayTitle(title);
@@ -337,38 +322,27 @@ export async function enrichTrendCandidatesWithEbaySold(
           isSet,
           isNoise,
           isClassicVintage,
+          isGraded,
           baseGrade,
           ebayUrl: rawUrl,
         };
       })
       .filter((item) => {
+        if (item.isGraded || item.baseGrade !== 'Raw') return false;
         if (item.isNoise || item.isSet || item.isClassicVintage) return false;
-        if (item.baseGrade === 'Sealed Box') return false;
         if (item.cardNumber === null || item.charNamesJa.length === 0) return false;
         if (item.soldLocal <= 0) return false;
         return true;
       });
 
-    console.log(
-      '[TrendDebug] preFilteredEbay:',
-      preFilteredEbay.map((it) => ({
-        title: it.title,
-        cardNumber: it.cardNumber,
-        charNamesJa: it.charNamesJa,
-        soldLocal: it.soldLocal,
-        ebayUrl: it.ebayUrl,
-      }))
-    );
-
     if (preFilteredEbay.length === 0) return candidates;
 
-    // 3. 国内トレンド候補と「キャラ名 ＋ 型番」で照合（パックコード・プロモ加点ルール準拠）
+    // 3. 国内トレンド候補と「キャラ名 ＋ 型番」で照合
     const matchedEntries: Array<{
       candidateIdx: number;
       title: string;
       soldLocal: number;
       cardNumber: string;
-      baseGrade: string;
       ebayUrl: string;
     }> = [];
 
@@ -419,34 +393,23 @@ export async function enrichTrendCandidatesWithEbaySold(
           title: item.title,
           soldLocal: item.soldLocal,
           cardNumber: item.cardNumber!,
-          baseGrade: item.baseGrade,
           ebayUrl: item.ebayUrl,
         });
       }
     }
 
-    console.log('[TrendDebug] matchedEntries:', matchedEntries);
-
     if (matchedEntries.length === 0) return candidates;
 
     // 4. 未鑑定品（Raw）の eBay 個別商品ページから公式 Card condition を一括取得（Heavily played は除外）
-    const rawItemUrls = matchedEntries
-      .filter((entry) => entry.baseGrade === 'Raw')
-      .map((entry) => entry.ebayUrl);
-
+    const rawItemUrls = matchedEntries.map((entry) => entry.ebayUrl);
     const officialConditionsMap = await fetchEbayOfficialConditions(rawItemUrls);
 
     const conditionVerifiedEntries = matchedEntries
       .map((entry) => {
-        let officialCondition: EbayCardCondition | null = null;
-        let conditionGrade = entry.baseGrade;
-
-        if (entry.baseGrade === 'Raw') {
-          officialCondition =
-            officialConditionsMap[entry.ebayUrl] ||
-            inferConditionFromTitleFallback(entry.title);
-          conditionGrade = `Raw (${officialCondition})`;
-        }
+        const officialCondition: EbayCardCondition | null =
+          officialConditionsMap[entry.ebayUrl] ||
+          inferConditionFromTitleFallback(entry.title);
+        const conditionGrade = `Raw (${officialCondition})`;
 
         return {
           ...entry,
@@ -458,7 +421,7 @@ export async function enrichTrendCandidatesWithEbaySold(
 
     if (conditionVerifiedEntries.length === 0) return candidates;
 
-    // 5. 「候補 × グレード（公式コンディション含む）」単位で合計・件数を集計し平均値を算出
+    // 5. 「候補 × コンディション」単位で合計・件数を集計し平均値を算出
     const groupedByCandidateAndGrade = new Map<
       number,
       Map<
@@ -497,14 +460,14 @@ export async function enrichTrendCandidatesWithEbaySold(
       }
     }
 
-    const enriched = candidates.map((c, idx) => {
+    return candidates.map((c, idx) => {
       const gradeMap = groupedByCandidateAndGrade.get(idx);
       if (!gradeMap || gradeMap.size === 0) return c;
 
       const groups = Array.from(gradeMap.values()).sort((a, b) => {
         const prioDiff =
-          getConditionPriorityScore(b.conditionGrade, b.officialCondition) -
-          getConditionPriorityScore(a.conditionGrade, a.officialCondition);
+          getConditionPriorityScore(b.officialCondition) -
+          getConditionPriorityScore(a.officialCondition);
         if (prioDiff !== 0) return prioDiff;
         return b.count - a.count;
       });
@@ -517,7 +480,7 @@ export async function enrichTrendCandidatesWithEbaySold(
       return {
         ...c,
         cardNumber: c.cardNumber || bestGroup.cardNumber,
-        ebaySoldLocalText: `${expectedCurrency} ${avgLocal} (約¥${avgJpy.toLocaleString()})`,
+        ebaySoldLocalText: `${expectedCurrency} ${avgLocal} (${bestGroup.count}件平均 / 約¥${avgJpy.toLocaleString()})`,
         ebaySoldJpy: avgJpy,
         ebayCondition: bestGroup.conditionGrade,
         ebayItemUrl: normalizeEbayUrl(
@@ -529,18 +492,6 @@ export async function enrichTrendCandidatesWithEbaySold(
         ebaySoldCount: bestGroup.count,
       };
     });
-
-    console.log(
-      '[TrendDebug] finalEbayUrls:',
-      enriched.slice(0, 12).map((c) => ({
-        cardName: c.cardName,
-        cardNumber: c.cardNumber,
-        ebaySoldCount: c.ebaySoldCount,
-        ebayItemUrl: c.ebayItemUrl,
-      }))
-    );
-
-    return enriched;
   } catch (error) {
     console.error(`[Apify Trend eBay Enrich Error (${region})]:`, error);
     return candidates;
@@ -617,14 +568,8 @@ export async function fetchDomesticTrendCandidates(
               rows = parsed;
               break;
             }
-          } catch (err) {
-            console.warn('[ApifyTrend] originalData 評価エラー:', err);
-          }
+          } catch (_) {}
         }
-      }
-
-      if (rows.length === 0) {
-        console.warn('[ApifyTrend] rows が 0 件 | title:', document.title, '| url:', location.href);
       }
 
       return rows.map((r, i) => {
@@ -683,19 +628,8 @@ export async function fetchDomesticTrendCandidates(
     }
 
     const rawItems: any[] = await res.json();
-    console.log(
-      '[TrendDebug] torechart rawItems count:',
-      Array.isArray(rawItems) ? rawItems.length : typeof rawItems
-    );
-
     const filteredCandidates: Array<DomesticTrendCandidate & { cardId: string }> = [];
     const seenUrls = new Set<string>();
-
-    let skipPriceOrUrl = 0;
-    let skipDup = 0;
-    let skipClassic = 0;
-    let skipPlayable = 0;
-    let skipRarity = 0;
 
     for (const item of rawItems) {
       if (!item || !item.cardName) continue;
@@ -705,26 +639,11 @@ export async function fetchDomesticTrendCandidates(
       const price = Number(item.currentPriceJpy) || 0;
       const detailUrl = String(item.detailUrl || '');
 
-      if (price <= 0 || !detailUrl) {
-        skipPriceOrUrl++;
-        continue;
-      }
-      if (seenUrls.has(detailUrl)) {
-        skipDup++;
-        continue;
-      }
-      if (isClassicVintageTitle(cardName)) {
-        skipClassic++;
-        continue;
-      }
-      if (isPlayableNonCollectible(cardName)) {
-        skipPlayable++;
-        continue;
-      }
-      if (!isCollectibleRarity(rarity, cardName, price)) {
-        skipRarity++;
-        continue;
-      }
+      if (price <= 0 || !detailUrl) continue;
+      if (seenUrls.has(detailUrl)) continue;
+      if (isClassicVintageTitle(cardName)) continue;
+      if (isPlayableNonCollectible(cardName)) continue;
+      if (!isCollectibleRarity(rarity, cardName, price)) continue;
 
       seenUrls.add(detailUrl);
 
@@ -747,13 +666,6 @@ export async function fetchDomesticTrendCandidates(
       if (filteredCandidates.length >= 12) break;
     }
 
-    console.log('[TrendDebug] filteredCandidates count:', filteredCandidates.length, {
-      skipPriceOrUrl,
-      skipDup,
-      skipClassic,
-      skipPlayable,
-      skipRarity,
-    });
     if (filteredCandidates.length === 0) return [];
 
     // 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
@@ -804,16 +716,6 @@ export async function fetchDomesticTrendCandidates(
         }
       }
     }
-
-    console.log(
-      '[TrendDebug] detailCardNumbers:',
-      filteredCandidates.map((c) => ({
-        cardId: c.cardId,
-        cardName: c.cardName,
-        cardNumber: c.cardNumber,
-        detailUrl: c.detailUrl,
-      }))
-    );
 
     return filteredCandidates.map(({ cardId: _cardId, ...rest }) => rest);
   } catch (err: any) {
