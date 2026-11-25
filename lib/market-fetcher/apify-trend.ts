@@ -1,5 +1,20 @@
 // lib/market-fetcher/apify-trend.ts
-import { extractPokemonNameEn } from './pokemon-dictionary';
+import { extractAllPokemonNamesJa, extractPokemonNameEn } from './pokemon-dictionary';
+import {
+  EbayCardCondition,
+  runApifySync,
+  deduplicateEbayItems,
+  parseEbaySoldPriceLocal,
+  isNoiseCard,
+  isClassicVintageCard,
+  extractAllCardNumbers,
+  extractCardNumber,
+  isMultiCardSet,
+  detectConditionGrade,
+  inferConditionFromTitleFallback,
+  fetchEbayOfficialConditions,
+  normalizeEbayUrl,
+} from './apify-arbitrage';
 
 const APIFY_TOKEN = (process.env.APIFY_API_TOKEN || '').trim();
 const EBAY_TASK_ID = (
@@ -63,13 +78,28 @@ const CHARACTER_EN_MAP: Array<[string, string]> = [
   ['チョッパー', 'Chopper'],
 ];
 
-function resolveCharacterNameEn(jaText: string): string {
-  const pokeEn = extractPokemonNameEn(jaText);
+function resolveCharacterNameEn(jaText: string, category: string = 'pokemon'): string {
+  const pokeEn = extractPokemonNameEn(jaText, category);
   if (pokeEn) return pokeEn;
   for (const [ja, en] of CHARACTER_EN_MAP) {
     if (jaText.includes(ja)) return en;
   }
   return '';
+}
+
+/**
+ * eBayタイトルから日本語キャラクター名を抽出（pokemon-dictionary ＋ CHARACTER_EN_MAP 対応）
+ */
+function extractCharacterNamesJaFromEbayTitle(ebayTitle: string): string[] {
+  const names = new Set<string>(extractAllPokemonNamesJa(ebayTitle));
+  const upper = ebayTitle.toUpperCase();
+  for (const [ja, en] of CHARACTER_EN_MAP) {
+    const tokens = en.toUpperCase().split(/\s+/).filter(Boolean);
+    if (tokens.length > 0 && tokens.every((t) => new RegExp(`\\b${t}\\b`).test(upper))) {
+      names.add(ja);
+    }
+  }
+  return Array.from(names);
 }
 
 function extractMechanicSuffix(text: string): string {
@@ -132,11 +162,9 @@ export function buildEnglishEbayQueryForTrend(
   cardNumber?: string
 ): string {
   const baseJa = cardName.replace(/[\(（].*?[\)）]/g, '').replace(/\[.*?\]/g, '').trim();
-  const enChar = resolveCharacterNameEn(baseJa);
+  const enChar = resolveCharacterNameEn(baseJa, category);
   const suffix = extractMechanicSuffix(baseJa);
-
-  const numMatch = (cardNumber || cardName).match(/\b(\d{2,3}\/\d{2,3}|(?:OP|ST|EB|PRB)\d{2}-\d{3}|\d{1,3}\/[A-Za-z0-9-]+)\b/);
-  const cardNum = numMatch ? numMatch[1] : '';
+  const cardNum = extractCardNumber(`${cardNumber || ''} ${cardName}`) || '';
 
   const rarityUpper = rarity.toUpperCase().trim();
   const cleanRarity = /^(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)$/.test(rarityUpper)
@@ -157,12 +185,6 @@ export function buildEnglishEbayQueryForTrend(
   return [baseJa, cleanRarity, gameWord].filter(Boolean).join(' ');
 }
 
-function isEbayNoiseListing(title: string): boolean {
-  return /\b(custom|parody|proxy|orica|replica|fake|jumbo|oversized|lot|joblot|bundle|set\s*of\s*\d+|complete\s*set|bulk|streamer|break|booster\s*box|booster\s*pack|empty|case\s*only|chinese|china|s-chinese|t-chinese|30thc|m6a|cbb\d*|korean|thai|indonesian)\b/i.test(
-    title
-  );
-}
-
 function matchesRarityInTitle(titleUpper: string, rarityUpper: string): boolean {
   if (!rarityUpper) return true;
   if (rarityUpper === 'SAR') {
@@ -174,239 +196,24 @@ function matchesRarityInTitle(titleUpper: string, rarityUpper: string): boolean 
   return new RegExp(`\\b${rarityUpper}\\b`).test(titleUpper);
 }
 
-function matchesCandidateTitleAndPrice(
-  title: string,
-  soldJpy: number,
-  enChar: string,
-  suffix: string,
-  rarityUpper: string,
-  cardNum: string,
-  domesticPriceJpy: number,
-  strictPriceCheck: boolean = true
-): { matched: boolean; isGraded: boolean } {
-  const titleUpper = title.toUpperCase();
-
-  if (cardNum && !titleUpper.includes(cardNum.toUpperCase())) {
-    return { matched: false, isGraded: false };
+function isCardNumberMatched(ebayCardNum: string, candidateCardNum: string): boolean {
+  const eUpper = ebayCardNum.toUpperCase();
+  const cUpper = candidateCardNum.toUpperCase();
+  if (/^\d{3}$/.test(cUpper)) {
+    return eUpper === cUpper || eUpper.startsWith(`${cUpper}/`);
   }
-
-  if (enChar) {
-    const tokens = enChar.toUpperCase().split(/\s+/).filter(Boolean);
-    if (!tokens.every((t) => titleUpper.includes(t))) {
-      return { matched: false, isGraded: false };
-    }
-  } else if (!cardNum) {
-    return { matched: false, isGraded: false };
-  }
-
-  if (suffix) {
-    if (suffix === 'V') {
-      if (!/\bV\b/.test(titleUpper)) return { matched: false, isGraded: false };
-    } else if (!new RegExp(`\\b${suffix}\\b`).test(titleUpper)) {
-      return { matched: false, isGraded: false };
-    }
-  } else {
-    if (/\b(VSTAR|VMAX|V-UNION|VUNION|EX|GX)\b/.test(titleUpper)) {
-      return { matched: false, isGraded: false };
-    }
-  }
-
-  if (!matchesRarityInTitle(titleUpper, rarityUpper)) {
-    return { matched: false, isGraded: false };
-  }
-
-  const isGraded = /\b(PSA|BGS|CGC|ARS|TAG|GRADE|GEM\s*MINT)\s*10\b/i.test(title);
-
-  if (strictPriceCheck && domesticPriceJpy > 0) {
-    const minValidJpy = isGraded
-      ? Math.max(2000, Math.round(domesticPriceJpy * 0.5))
-      : Math.round(domesticPriceJpy * 0.35);
-    const maxValidJpy = isGraded
-      ? Math.max(Math.round(domesticPriceJpy * 5.0), domesticPriceJpy + 35000)
-      : Math.max(Math.round(domesticPriceJpy * 3.5), domesticPriceJpy + 12000);
-
-    if (soldJpy < minValidJpy || soldJpy > maxValidJpy) {
-      return { matched: false, isGraded };
-    }
-  }
-
-  return { matched: true, isGraded };
+  return eUpper === cUpper;
 }
 
-function parseLocalizedNumber(val: unknown, isEu: boolean): number {
-  if (typeof val === 'number') return val;
-  const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
-  if (!cleaned) return 0;
-  const lastComma = cleaned.lastIndexOf(',');
-  const lastDot = cleaned.lastIndexOf('.');
-  if (lastComma !== -1 && lastDot !== -1) {
-    return lastComma > lastDot
-      ? Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0
-      : Number(cleaned.replace(/,/g, '')) || 0;
-  }
-  if (lastComma !== -1) {
-    return cleaned.length - lastComma - 1 === 2
-      ? Number(cleaned.replace(',', '.')) || 0
-      : Number(cleaned.replace(/,/g, '')) || 0;
-  }
-  if (lastDot !== -1 && isEu && cleaned.length - lastDot - 1 === 3) {
-    return Number(cleaned.replace(/\./g, '')) || 0;
-  }
-  return Number(cleaned) || 0;
-}
-
-async function runApifySync(
-  rawId: string,
-  token: string,
-  bodyPayload: Record<string, any>
-): Promise<any[]> {
-  const apiPathId = rawId.replace(/\//g, '~');
-
-  try {
-    const taskUrl = `https://api.apify.com/v2/actor-tasks/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
-    const taskRes = await fetch(taskUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bodyPayload),
-      cache: 'no-store',
-    });
-
-    if (taskRes.ok) {
-      const data = await taskRes.json();
-      return Array.isArray(data) ? data : [];
-    }
-
-    if (taskRes.status === 404) {
-      const actorUrl = `https://api.apify.com/v2/acts/${apiPathId}/run-sync-get-dataset-items?token=${token}`;
-      const actorRes = await fetch(actorUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload),
-        cache: 'no-store',
-      });
-
-      if (actorRes.ok) {
-        const data = await actorRes.json();
-        return Array.isArray(data) ? data : [];
-      }
-      const actorErr = await actorRes.text().catch(() => '');
-      console.warn(`[ApifyTrend] eBay Actor失敗 (${rawId}): ${actorRes.status} | ${actorErr}`);
-      return [];
-    }
-
-    const taskErr = await taskRes.text().catch(() => '');
-    console.warn(`[ApifyTrend] eBay Task失敗 (${rawId}): ${taskRes.status} | ${taskErr}`);
-    return [];
-  } catch (err) {
-    console.warn(`[ApifyTrend] eBay Task通信エラー (${rawId}):`, err);
-    return [];
-  }
-}
-
-/**
- * EBAY_TASK_ID で個別成約が不足した場合、Playwrightで直接eBay Soldページから /itm/ 個別URLと成約価格を抽出する
- */
-async function fetchEbaySoldFallbackViaPlaywright(
-  queries: Array<{ idx: number; query: string }>,
-  isEu: boolean
-): Promise<Array<{ candidateIdx: number; itemId: string; title: string; priceText: string }>> {
-  if (!APIFY_TOKEN || queries.length === 0) return [];
-
-  const ebayOrigin = isEu ? 'https://www.ebay.de' : 'https://www.ebay.com';
-  const startUrls = queries.slice(0, 8).map((q) => ({
-    url: `${ebayOrigin}/sch/i.html?_nkw=${encodeURIComponent(q.query)}&LH_Sold=1&LH_Complete=1&_sop=13`,
-    userData: { candidateIdx: q.idx },
-  }));
-
-  const ebayPageFunction = `async function pageFunction(context) {
-    const { page, request } = context;
-    const candidateIdx = request.userData && typeof request.userData.candidateIdx === 'number'
-      ? request.userData.candidateIdx
-      : -1;
-
-    await page.waitForSelector('a[href*="/itm/"]', { timeout: 12000 }).catch(() => {});
-    await page.waitForTimeout(1200);
-
-    return await page.evaluate(({ cIdx }) => {
-      const items = [];
-      const seenIds = new Set();
-      const anchors = Array.from(document.querySelectorAll('a[href*="/itm/"]'));
-
-      for (const a of anchors) {
-        const href = a.getAttribute('href') || '';
-        const idMatch = href.match(/\\/itm\\/(\\d{9,15})/);
-        if (!idMatch) continue;
-        const itemId = idMatch[1];
-        if (itemId === '123456' || seenIds.has(itemId)) continue;
-
-        let card = a.closest('li.s-item, li.s-card, div.s-item__wrapper, div.s-card__wrapper');
-        if (!card) {
-          let el = a.parentElement;
-          for (let i = 0; i < 5 && el; i++) {
-            const t = el.innerText || '';
-            if (t.length > 20 && t.length < 1000 && /(\\$|USD|EUR|€|JPY|¥)/.test(t)) {
-              card = el;
-              break;
-            }
-            el = el.parentElement;
-          }
-        }
-        if (!card) continue;
-
-        const titleEl = card.querySelector('.s-item__title, .s-card__title, h3, [role="heading"]');
-        const priceEl = card.querySelector('.s-item__price, .s-card__price');
-        const title = ((titleEl ? titleEl.textContent : a.textContent) || '')
-          .replace(/^(New Listing|新規出品)\\s*/i, '')
-          .replace(/Opens in a new window or tab/gi, '')
-          .replace(/\\s+/g, ' ')
-          .trim();
-        const priceText = ((priceEl ? priceEl.textContent : card.textContent) || '').replace(/\\s+/g, ' ').trim();
-
-        if (!title || title === 'Shop on eBay' || !priceText) continue;
-        seenIds.add(itemId);
-
-        items.push({
-          candidateIdx: cIdx,
-          itemId,
-          title,
-          priceText: priceText.slice(0, 200),
-        });
-        if (items.length >= 15) break;
-      }
-      return items;
-    }, { cIdx: candidateIdx });
-  }`;
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45_000);
-
-  try {
-    const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=40&memory=1024`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startUrls,
-          pageFunction: ebayPageFunction,
-          proxyConfiguration: { useApifyProxy: true },
-          maxRequestsPerCrawl: startUrls.length,
-          maxConcurrency: 4,
-          maxRequestRetries: 1,
-          requestHandlerTimeoutSecs: 20,
-        }),
-        cache: 'no-store',
-        signal: controller.signal,
-      }
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timeoutId);
-  }
+function getConditionPriorityScore(
+  conditionGrade: string,
+  officialCondition: EbayCardCondition | null
+): number {
+  if (officialCondition === 'Near mint or better') return 100;
+  if (officialCondition === 'Lightly played (Excellent)') return 90;
+  if (officialCondition === 'Moderately played (Very good)') return 80;
+  if (/^PSA\s*10\b/i.test(conditionGrade)) return 50;
+  return 40;
 }
 
 /**
@@ -418,215 +225,267 @@ export async function enrichTrendCandidatesWithEbaySold(
   category: string = 'pokemon',
   exchangeRateJpy: number = 155
 ): Promise<DomesticTrendCandidate[]> {
-  if (!APIFY_TOKEN || candidates.length === 0) {
+  if (!APIFY_TOKEN || !EBAY_TASK_ID || candidates.length === 0) {
     return candidates;
   }
 
-  const targetCount = Math.min(candidates.length, 12);
-  const targetCandidates = candidates.slice(0, targetCount);
-  const isEu = region === 'eu';
-  const targetEbaySite = isEu ? 'ebay.de' : 'ebay.com';
-  const targetOrigin = isEu ? 'https://www.ebay.de' : 'https://www.ebay.com';
-  const targetCurrency = isEu ? 'EUR' : 'USD';
+  try {
+    const targetCount = Math.min(candidates.length, 12);
+    const targetCandidates = candidates.slice(0, targetCount);
+    const isEu = region === 'eu';
+    const ebayRegion: 'us' | 'eu' = isEu ? 'eu' : 'us';
+    const targetEbaySite = isEu ? 'ebay.de' : 'ebay.com';
+    const targetOrigin = isEu ? 'https://www.ebay.de' : 'https://www.ebay.com';
+    const expectedCurrency: 'USD' | 'EUR' = isEu ? 'EUR' : 'USD';
 
-  const candidateSpecs = targetCandidates.map((c, idx) => {
-    const baseJa = c.cardName.replace(/[\(（].*?[\)）]/g, '').replace(/\[.*?\]/g, '').trim();
-    const numMatch = (c.cardNumber || c.cardName).match(
-      /\b(\d{2,3}\/\d{2,3}|(?:OP|ST|EB|PRB)\d{2}-\d{3}|\d{1,3}\/[A-Za-z0-9-]+)\b/
-    );
-    return {
-      idx,
-      query: buildEnglishEbayQueryForTrend(c.cardName, c.rarity, category, c.cardNumber),
-      enChar: resolveCharacterNameEn(baseJa),
-      suffix: extractMechanicSuffix(baseJa),
-      rarityUpper: (/^(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)$/i.test(c.rarity)
-        ? c.rarity
-        : ''
-      ).toUpperCase(),
-      cardNum: numMatch ? numMatch[1] : '',
-      domesticPriceJpy: c.currentPriceJpy,
-    };
-  });
+    const candidateSpecs = targetCandidates.map((c, idx) => {
+      const baseJa = c.cardName.replace(/[\(（].*?[\)）]/g, '').replace(/\[.*?\]/g, '').trim();
+      const candCardNum = extractCardNumber(`${c.cardNumber || ''} ${c.cardName}`);
+      const setBracketMatch = c.cardName.match(/\[([A-Za-z0-9+-]{2,})\]/);
+      const isJpPromo =
+        c.cardName.includes('プロモ') ||
+        c.rarity.toUpperCase() === 'PROMO' ||
+        /\/(?:[A-Z0-9]+-P|PPP|PLAY|T|P)\b/i.test(`${c.cardNumber || ''} ${c.cardName}`);
 
-  const groupedByIdx = new Map<
-    number,
-    Array<{ priceLocal: number; url: string; title: string; isPsa10: boolean }>
-  >();
+      return {
+        idx,
+        cardName: c.cardName,
+        query: buildEnglishEbayQueryForTrend(c.cardName, c.rarity, category, c.cardNumber),
+        enChar: resolveCharacterNameEn(baseJa, category),
+        suffix: extractMechanicSuffix(baseJa),
+        rarityUpper: (/^(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)$/i.test(c.rarity)
+          ? c.rarity
+          : ''
+        ).toUpperCase(),
+        cardNum: candCardNum,
+        setCode: setBracketMatch ? setBracketMatch[1].toUpperCase() : null,
+        isJpPromo,
+      };
+    });
 
-  // Step 1: EBAY_TASK_ID (count: 20) で一括取得
-  if (EBAY_TASK_ID) {
-    const uniqueKeywords = Array.from(new Set(candidateSpecs.map((q) => q.query)));
-    const rawSoldItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
+    const uniqueKeywords = Array.from(new Set(candidateSpecs.map((q) => q.query).filter(Boolean)));
+    if (uniqueKeywords.length === 0) return candidates;
+
+    // 1. アービトラージと同じ runApifySync（Task ➔ 404時 Actor フォールバック）で取得
+    const ebayItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
       ebaySite: targetEbaySite,
       keywords: uniqueKeywords,
       count: 20,
       exactMatch: false,
-      minPrice: 5,
     });
 
-    for (const item of rawSoldItems) {
-      if (!item) continue;
-      const title = String(item.title || '').trim();
-      const rawUrl = String(
-        item.url || item.itemUrl || item.link || (item.itemId ? `${targetOrigin}/itm/${item.itemId}` : '')
-      ).trim();
-      const idMatch = rawUrl.match(/\/itm\/(\d{9,15})/);
-      if (!title || !idMatch) continue;
-      if (isEbayNoiseListing(title)) continue;
+    const uniqueEbayItems = deduplicateEbayItems(ebayItems);
 
-      const canonicalUrl = `${targetOrigin}/itm/${idMatch[1]}`;
-      const rawCurrency = String(item.currency ?? item.soldCurrency ?? item.priceCurrency ?? '')
-        .toUpperCase()
-        .trim();
-      const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
-      const itemPriceCorpus = `${rawCurrency} ${rawPriceStr} ${String(item.formattedPrice ?? '')}`.toUpperCase();
+    // 2. アービトラージと同一のノイズ・まとめ売り・クラシック期・通貨＆VATフィルタを適用
+    const preFilteredEbay = uniqueEbayItems
+      .map((item) => {
+        const rawUrl = String(
+          item.url ||
+            item.itemUrl ||
+            item.link ||
+            (item.itemId ? `${targetOrigin}/itm/${item.itemId}` : '')
+        ).trim();
+        const soldLocal = parseEbaySoldPriceLocal(item, isEu);
+        const title = String(item.title || '').trim();
+        const baseGrade = detectConditionGrade(title);
+        const isGraded = baseGrade !== 'Raw' && baseGrade !== 'Sealed Box';
+        const isNoise = isNoiseCard(title);
+        const allCardNumbers = extractAllCardNumbers(title, isGraded);
+        const charNamesJa = extractCharacterNamesJaFromEbayTitle(title);
+        const isSet = isMultiCardSet(title, allCardNumbers);
+        const isClassicVintage = isClassicVintageCard(title, allCardNumbers);
 
-      let priceLocal = 0;
-      if (rawCurrency === 'JPY' || /^[¥￥]|JPY\s*[\d,]+/.test(itemPriceCorpus)) {
-        const jpyMatch = itemPriceCorpus.match(/(?:JPY|[¥￥])\s*([\d,]+)/);
-        const jpyVal = jpyMatch ? Number(jpyMatch[1].replace(/,/g, '')) : parseLocalizedNumber(rawPriceStr, false);
-        priceLocal = jpyVal > 0 ? Math.round((jpyVal / exchangeRateJpy) * 100) / 100 : 0;
-      } else if (isEu) {
-        const eurMatch =
-          itemPriceCorpus.match(/(?:CA\.?\s*)?(?:EUR|€)\s*([\d.,]+)/i) ||
-          itemPriceCorpus.match(/([\d.,]+)\s*(?:EUR|€)/i);
-        priceLocal = eurMatch
-          ? parseLocalizedNumber(eurMatch[1], true)
-          : typeof item.soldPrice === 'number'
-          ? item.soldPrice
-          : typeof item.price === 'number'
-          ? item.price
-          : parseLocalizedNumber(rawPriceStr, true);
-      } else {
-        const isUsdOk =
-          rawCurrency === '' || rawCurrency === 'USD' || rawCurrency === '$' || rawCurrency === 'US$';
-        const hasForeignSymbol =
-          itemPriceCorpus.includes('£') ||
-          itemPriceCorpus.includes('€') ||
-          /\b(GBP|EUR|CAD|AUD|CHF|SGD|CNY|KRW)\b/.test(itemPriceCorpus) ||
-          /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus);
-        if (isUsdOk && !hasForeignSymbol) {
-          priceLocal =
-            typeof item.soldPrice === 'number'
-              ? item.soldPrice
-              : typeof item.price === 'number'
-              ? item.price
-              : parseLocalizedNumber(rawPriceStr, false);
-        }
-      }
-
-      if (priceLocal <= 1) continue;
-      const soldJpy = Math.round(priceLocal * exchangeRateJpy);
-
-      // 全候補に対して厳格マッチング（先頭候補による横取りを防止）
-      for (const spec of candidateSpecs) {
-        const check = matchesCandidateTitleAndPrice(
+        return {
           title,
-          soldJpy,
-          spec.enChar,
-          spec.suffix,
-          spec.rarityUpper,
-          spec.cardNum,
-          spec.domesticPriceJpy,
-          true
-        );
-        if (!check.matched) continue;
+          soldLocal,
+          cardNumber: allCardNumbers[0] ?? null,
+          charNamesJa,
+          isSet,
+          isNoise,
+          isClassicVintage,
+          baseGrade,
+          ebayUrl: rawUrl,
+        };
+      })
+      .filter((item) => {
+        if (item.isNoise || item.isSet || item.isClassicVintage) return false;
+        if (item.baseGrade === 'Sealed Box') return false;
+        if (item.cardNumber === null || item.charNamesJa.length === 0) return false;
+        if (item.soldLocal <= 0) return false;
+        return true;
+      });
 
-        const list = groupedByIdx.get(spec.idx) || [];
-        if (!list.some((x) => x.url === canonicalUrl)) {
-          list.push({ priceLocal, url: canonicalUrl, title, isPsa10: check.isGraded });
-          groupedByIdx.set(spec.idx, list);
+    if (preFilteredEbay.length === 0) return candidates;
+
+    // 3. 国内トレンド候補と「キャラ名 ＋ 型番」で照合（パックコード・プロモ加点ルール準拠）
+    const matchedEntries: Array<{
+      candidateIdx: number;
+      title: string;
+      soldLocal: number;
+      cardNumber: string;
+      baseGrade: string;
+      ebayUrl: string;
+    }> = [];
+
+    for (const item of preFilteredEbay) {
+      const titleUpper = item.title.toUpperCase();
+      const isEbayPromo = /\bPROMO\b/.test(titleUpper);
+
+      const numberMatchedSpecs = candidateSpecs.filter(
+        (spec) =>
+          spec.cardNum !== null &&
+          isCardNumberMatched(item.cardNumber!, spec.cardNum) &&
+          item.charNamesJa.some((ja) => spec.cardName.includes(ja))
+      );
+
+      let winningSpec = numberMatchedSpecs[0] ?? null;
+
+      if (numberMatchedSpecs.length >= 2) {
+        const scored = numberMatchedSpecs.map((spec) => {
+          let score = 0;
+          if (spec.setCode && titleUpper.includes(spec.setCode)) score += 10;
+          if (isEbayPromo && spec.isJpPromo) score += 5;
+          else if (isEbayPromo && !spec.isJpPromo) score -= 5;
+          else if (!isEbayPromo && spec.isJpPromo) score -= 3;
+          return { spec, score };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        winningSpec = scored[0].spec;
+      }
+
+      if (!winningSpec) {
+        const itemSuffix = extractMechanicSuffix(item.title);
+        const fallbackSpecs = candidateSpecs.filter((spec) => {
+          if (spec.cardNum !== null) return false;
+          if (!item.charNamesJa.some((ja) => spec.cardName.includes(ja))) return false;
+          if (spec.suffix !== itemSuffix) return false;
+          if (!matchesRarityInTitle(titleUpper, spec.rarityUpper)) return false;
+          if (isEbayPromo !== spec.isJpPromo) return false;
+          return true;
+        });
+        if (fallbackSpecs.length > 0) {
+          winningSpec = fallbackSpecs[0];
         }
       }
-    }
-  }
 
-  // Step 2: 個別成約が4銘柄未満だった場合、未マッチ候補をPlaywrightで直接eBay Soldから補完取得
-  if (groupedByIdx.size < 4) {
-    const unmatchedQueries = candidateSpecs
-      .filter((s) => !groupedByIdx.has(s.idx) && Boolean(s.enChar || s.cardNum))
-      .slice(0, 8)
-      .map((s) => ({ idx: s.idx, query: s.query }));
-
-    const fallbackRows = await fetchEbaySoldFallbackViaPlaywright(unmatchedQueries, isEu);
-
-    for (const row of fallbackRows) {
-      if (!row || !row.itemId || !row.title || !row.priceText) continue;
-      if (isEbayNoiseListing(row.title)) continue;
-
-      const pText = row.priceText.toUpperCase();
-      // "100.00 to 200.00" のようなレンジ表記は除外
-      if (/\bTO\b|\bBIS\b|～|~/.test(pText)) continue;
-
-      let priceLocal = 0;
-      const jpyMatch = pText.match(/(?:JPY|[¥￥])\s*([\d,]+)/);
-      const eurMatch = pText.match(/(?:EUR|€)\s*([\d.,]+)|([\d.,]+)\s*(?:EUR|€)/);
-      const usdMatch = pText.match(/(?:US\s*\$|USD|\$)\s*([\d,.]+)/);
-
-      if (jpyMatch) {
-        const jpyVal = Number(jpyMatch[1].replace(/,/g, '')) || 0;
-        priceLocal = jpyVal > 0 ? Math.round((jpyVal / exchangeRateJpy) * 100) / 100 : 0;
-      } else if (isEu && eurMatch) {
-        priceLocal = parseLocalizedNumber(eurMatch[1] || eurMatch[2], true);
-      } else if (!isEu && usdMatch && !/\b(C|AU|NZ|HK|S)\s*\$/.test(pText)) {
-        priceLocal = parseLocalizedNumber(usdMatch[1], false);
-      } else if (eurMatch) {
-        const eurVal = parseLocalizedNumber(eurMatch[1] || eurMatch[2], true);
-        priceLocal = isEu ? eurVal : Math.round(eurVal * 1.08 * 100) / 100;
+      if (winningSpec) {
+        matchedEntries.push({
+          candidateIdx: winningSpec.idx,
+          title: item.title,
+          soldLocal: item.soldLocal,
+          cardNumber: item.cardNumber!,
+          baseGrade: item.baseGrade,
+          ebayUrl: item.ebayUrl,
+        });
       }
+    }
 
-      if (priceLocal <= 1) continue;
-      const soldJpy = Math.round(priceLocal * exchangeRateJpy);
-      const canonicalUrl = `${targetOrigin}/itm/${row.itemId}`;
+    if (matchedEntries.length === 0) return candidates;
 
-      const targetSpecs =
-        row.candidateIdx >= 0 && row.candidateIdx < candidateSpecs.length
-          ? [candidateSpecs[row.candidateIdx]]
-          : candidateSpecs;
+    // 4. 未鑑定品（Raw）の eBay 個別商品ページから公式 Card condition を一括取得（Heavily played は除外）
+    const rawItemUrls = matchedEntries
+      .filter((entry) => entry.baseGrade === 'Raw')
+      .map((entry) => entry.ebayUrl);
 
-      for (const spec of targetSpecs) {
-        const check = matchesCandidateTitleAndPrice(
-          row.title,
-          soldJpy,
-          spec.enChar,
-          spec.suffix,
-          spec.rarityUpper,
-          spec.cardNum,
-          spec.domesticPriceJpy,
-          true
-        );
-        if (!check.matched) continue;
+    const officialConditionsMap = await fetchEbayOfficialConditions(rawItemUrls);
 
-        const list = groupedByIdx.get(spec.idx) || [];
-        if (!list.some((x) => x.url === canonicalUrl)) {
-          list.push({ priceLocal, url: canonicalUrl, title: row.title, isPsa10: check.isGraded });
-          groupedByIdx.set(spec.idx, list);
+    const conditionVerifiedEntries = matchedEntries
+      .map((entry) => {
+        let officialCondition: EbayCardCondition | null = null;
+        let conditionGrade = entry.baseGrade;
+
+        if (entry.baseGrade === 'Raw') {
+          officialCondition =
+            officialConditionsMap[entry.ebayUrl] ||
+            inferConditionFromTitleFallback(entry.title);
+          conditionGrade = `Raw (${officialCondition})`;
         }
+
+        return {
+          ...entry,
+          officialCondition,
+          conditionGrade,
+        };
+      })
+      .filter((entry) => entry.officialCondition !== 'Heavily played (Poor)');
+
+    if (conditionVerifiedEntries.length === 0) return candidates;
+
+    // 5. 「候補 × グレード（公式コンディション含む）」単位で合計・件数を集計し平均値を算出
+    const groupedByCandidateAndGrade = new Map<
+      number,
+      Map<
+        string,
+        {
+          cardNumber: string;
+          conditionGrade: string;
+          officialCondition: EbayCardCondition | null;
+          totalLocal: number;
+          count: number;
+          ebayUrl: string;
+        }
+      >
+    >();
+
+    for (const entry of conditionVerifiedEntries) {
+      let gradeMap = groupedByCandidateAndGrade.get(entry.candidateIdx);
+      if (!gradeMap) {
+        gradeMap = new Map();
+        groupedByCandidateAndGrade.set(entry.candidateIdx, gradeMap);
+      }
+
+      const existing = gradeMap.get(entry.conditionGrade);
+      if (existing) {
+        existing.totalLocal += entry.soldLocal;
+        existing.count += 1;
+      } else {
+        gradeMap.set(entry.conditionGrade, {
+          cardNumber: entry.cardNumber,
+          conditionGrade: entry.conditionGrade,
+          officialCondition: entry.officialCondition,
+          totalLocal: entry.soldLocal,
+          count: 1,
+          ebayUrl: entry.ebayUrl,
+        });
       }
     }
+
+    return candidates.map((c, idx) => {
+      const gradeMap = groupedByCandidateAndGrade.get(idx);
+      if (!gradeMap || gradeMap.size === 0) return c;
+
+      const groups = Array.from(gradeMap.values()).sort((a, b) => {
+        const prioDiff =
+          getConditionPriorityScore(b.conditionGrade, b.officialCondition) -
+          getConditionPriorityScore(a.conditionGrade, a.officialCondition);
+        if (prioDiff !== 0) return prioDiff;
+        return b.count - a.count;
+      });
+
+      const bestGroup = groups[0];
+      const avgLocal = Math.round((bestGroup.totalLocal / bestGroup.count) * 100) / 100;
+      const avgJpy = Math.round(avgLocal * exchangeRateJpy);
+      const spec = candidateSpecs[idx];
+
+      return {
+        ...c,
+        cardNumber: c.cardNumber || bestGroup.cardNumber,
+        ebaySoldLocalText: `${expectedCurrency} ${avgLocal} (約¥${avgJpy.toLocaleString()})`,
+        ebaySoldJpy: avgJpy,
+        ebayCondition: bestGroup.conditionGrade,
+        ebayItemUrl: normalizeEbayUrl(
+          bestGroup.ebayUrl,
+          bestGroup.cardNumber,
+          ebayRegion,
+          spec?.enChar
+        ),
+        ebaySoldCount: bestGroup.count,
+      };
+    });
+  } catch (error) {
+    console.error(`[Apify Trend eBay Enrich Error (${region})]:`, error);
+    return candidates;
   }
-
-  return candidates.map((c, idx) => {
-    const soldList = groupedByIdx.get(idx);
-    if (!soldList || soldList.length === 0) return c;
-
-    const rawOnly = soldList.filter((s) => !s.isPsa10);
-    const activePool = rawOnly.length >= 1 ? rawOnly : soldList;
-    activePool.sort((a, b) => a.priceLocal - b.priceLocal);
-
-    const mid = activePool[Math.floor(activePool.length / 2)];
-    const priceJpy = Math.round(mid.priceLocal * exchangeRateJpy);
-    const symbol = targetCurrency === 'EUR' ? '€' : '$';
-
-    return {
-      ...c,
-      ebaySoldLocalText: `約¥${priceJpy.toLocaleString()} (${symbol}${mid.priceLocal.toFixed(2)})`,
-      ebaySoldJpy: priceJpy,
-      ebayCondition: mid.isPsa10 ? 'PSA 10' : 'Raw NM',
-      ebayItemUrl: mid.url,
-      ebaySoldCount: soldList.length,
-    };
-  });
 }
 
 export async function fetchDomesticTrendCandidates(
@@ -726,7 +585,7 @@ export async function fetchDomesticTrendCandidates(
           || blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)\\b/i);
         const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
 
-        const numMatch = blockText.match(/\\b(\\d{2,3}\\/\\d{2,3}|(?:OP|ST|EB|PRB)\\d{2}-\\d{3}|\\d{1,3}\\/(?:SV-P|S-P|SM-P|XY-P))\\b/i);
+        const numMatch = blockText.match(/\\b(\\d{2,3}\\/\\d{2,3}|(?:OP|ST|EB|PRB)\\d{2}-\\d{3}|\\d{1,3}\\/(?:[A-Z0-9]+-P|PPP|PLAY|T|P))\\b/i);
         const cardNumber = numMatch ? numMatch[1] : '';
 
         const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*%|7日前\\s*[:：]\\s*[¥￥]?\\s*[\\d,]+円?)/g);

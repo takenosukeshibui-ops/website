@@ -19,7 +19,7 @@ export interface VerifiedArbitrageCandidate {
   ebayUrl: string;
 }
 
-type EbayCardCondition =
+export type EbayCardCondition =
   | 'Near mint or better'
   | 'Lightly played (Excellent)'
   | 'Moderately played (Very good)'
@@ -36,6 +36,36 @@ const POKECAZILLA_TASK_ID = (
   process.env.APIFY_POKECAZILLA_TASK_ID ||
   'kempt_tapestry_mg3/pokemon-price-search'
 ).trim();
+
+export const EU_MEMBER_COUNTRIES = new Set([
+  'DEUTSCHLAND', 'GERMANY',
+  'FRANKREICH', 'FRANCE',
+  'ITALIEN', 'ITALY',
+  'SPANIEN', 'SPAIN',
+  'NIEDERLANDE', 'NETHERLANDS',
+  'BELGIEN', 'BELGIUM',
+  'ÖSTERREICH', 'OESTERREICH', 'AUSTRIA',
+  'POLEN', 'POLAND',
+  'SCHWEDEN', 'SWEDEN',
+  'FINNLAND', 'FINLAND',
+  'DÄNEMARK', 'DAENEMARK', 'DENMARK',
+  'IRLAND', 'IRELAND',
+  'PORTUGAL',
+  'GRIECHENLAND', 'GREECE',
+  'TSCHECHIEN', 'TSCHECHISCHE REPUBLIK', 'CZECH REPUBLIC', 'CZECHIA',
+  'UNGARN', 'HUNGARY',
+  'RUMÄNIEN', 'RUMAENIEN', 'ROMANIA',
+  'BULGARIEN', 'BULGARIA',
+  'KROATIEN', 'CROATIA',
+  'SLOWAKEI', 'SLOVAKIA',
+  'SLOWENIEN', 'SLOVENIA',
+  'LITAUEN', 'LITHUANIA',
+  'LETTLAND', 'LATVIA',
+  'ESTLAND', 'ESTONIA',
+  'LUXEMBURG', 'LUXEMBOURG',
+  'MALTA',
+  'ZYPERN', 'CYPRUS',
+]);
 
 interface DayLocalPriceRange {
   minLocal?: number;
@@ -93,7 +123,7 @@ function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): D
 /**
  * Apify API v2 同期実行ヘルパー
  */
-async function runApifySync(
+export async function runApifySync(
   rawId: string,
   token: string,
   bodyPayload: Record<string, any>,
@@ -110,7 +140,8 @@ async function runApifySync(
   });
 
   if (taskRes.ok) {
-    return await taskRes.json();
+    const data = await taskRes.json();
+    return Array.isArray(data) ? data : [];
   }
 
   if (taskRes.status === 404) {
@@ -123,7 +154,8 @@ async function runApifySync(
     });
 
     if (actorRes.ok) {
-      return await actorRes.json();
+      const data = await actorRes.json();
+      return Array.isArray(data) ? data : [];
     }
 
     throw new Error(`Apify API Error (${rawId}): ${actorRes.status} ${actorRes.statusText}`);
@@ -132,13 +164,113 @@ async function runApifySync(
   throw new Error(`Apify Task API Error (${rawId}): ${taskRes.status} ${taskRes.statusText}`);
 }
 
+export function deduplicateEbayItems(ebayItems: any[]): any[] {
+  const uniqueEbayItems: any[] = [];
+  const seenItemIds = new Set<string>();
+  for (const item of ebayItems) {
+    if (!item) continue;
+    const rawUrl = String(item.url || item.itemUrl || item.link || '');
+    const urlIdMatch = rawUrl.match(/\/itm\/(\d+)/);
+    const itemId = String(item.itemId || (urlIdMatch ? urlIdMatch[1] : rawUrl)).trim();
+    if (itemId) {
+      if (seenItemIds.has(itemId)) continue;
+      seenItemIds.add(itemId);
+    }
+    uniqueEbayItems.push(item);
+  }
+  return uniqueEbayItems;
+}
+
+export function parseLocalizedNumber(val: unknown, isEu: boolean): number {
+  if (typeof val === 'number') return val;
+  const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
+  if (!cleaned) return 0;
+
+  const lastComma = cleaned.lastIndexOf(',');
+  const lastDot = cleaned.lastIndexOf('.');
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    return lastComma > lastDot
+      ? Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0
+      : Number(cleaned.replace(/,/g, '')) || 0;
+  }
+  if (lastComma !== -1) {
+    const decimals = cleaned.length - lastComma - 1;
+    return decimals === 2
+      ? Number(cleaned.replace(',', '.')) || 0
+      : Number(cleaned.replace(/,/g, '')) || 0;
+  }
+  if (lastDot !== -1 && isEu && cleaned.length - lastDot - 1 === 3) {
+    return Number(cleaned.replace(/\./g, '')) || 0;
+  }
+  return Number(cleaned) || 0;
+}
+
+export function parseEbaySoldPriceLocal(item: any, isEu: boolean): number {
+  const expectedCurrency = isEu ? 'EUR' : 'USD';
+  const rawCurrency = String(
+    item.currency ?? item.soldCurrency ?? item.priceCurrency ?? ''
+  )
+    .toUpperCase()
+    .trim();
+  const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
+  const rawUrl = String(item.url || item.itemUrl || item.link || '');
+  const itemPriceCorpus = `${rawCurrency} ${rawPriceStr} ${String(
+    item.formattedPrice ?? item.priceText ?? ''
+  )}`.toUpperCase();
+
+  let soldLocal = 0;
+
+  if (isEu) {
+    const eurExplicitMatch =
+      itemPriceCorpus.match(/(?:CA\.?\s*)?(?:EUR|€)\s*([\d.,]+)/i) ||
+      itemPriceCorpus.match(/([\d.,]+)\s*(?:EUR|€)/i);
+
+    if (eurExplicitMatch) {
+      soldLocal = parseLocalizedNumber(eurExplicitMatch[1], true);
+    } else {
+      soldLocal =
+        typeof item.soldPrice === 'number'
+          ? item.soldPrice
+          : typeof item.price === 'number'
+          ? item.price
+          : parseLocalizedNumber(rawPriceStr, true);
+    }
+
+    const locUpper = String(item.itemLocation || '').toUpperCase().trim();
+    const isNonEuSeller = locUpper !== '' && !EU_MEMBER_COUNTRIES.has(locUpper);
+    if (isNonEuSeller && soldLocal > 0 && soldLocal <= 180) {
+      soldLocal = Math.round((soldLocal / 1.19) * 100) / 100;
+    }
+  } else {
+    const isUsdMismatch =
+      (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
+      itemPriceCorpus.includes('£') ||
+      itemPriceCorpus.includes('€') ||
+      /\b(GBP|EUR|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
+      /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus) ||
+      /ebay\.(co\.uk|de|fr|it|es|ca|com\.au|com\.sg|com\.hk)/i.test(rawUrl);
+
+    if (!isUsdMismatch) {
+      soldLocal =
+        typeof item.soldPrice === 'number'
+          ? item.soldPrice
+          : typeof item.price === 'number'
+          ? item.price
+          : parseLocalizedNumber(rawPriceStr, false);
+    }
+  }
+
+  return soldLocal;
+}
+
 /**
  * eBayタイトルからトレカ型番をすべて抽出する
  */
 /**
  * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
  */
-function isNoiseCard(title: string): boolean {
+export function isNoiseCard(title: string): boolean {
   return /\b(CUSTOM|PARODY|PROXY|ORICA|FAN\s*ART|REPLICA|FAKE|FÄLSCHUNG|GEFÄLSCHT|KOPIE|NACHDRUCK|JUMBO|OVERSIZED|STICKER|AUFKLEBER|SEALS?|CARDDASS|SEALDASS|TOPSUN|CHINESES?|CHINESISCH|KOREAN|KOREANISCH|THAI|INDONESIAN)\b/i.test(
     title
   );
@@ -147,7 +279,7 @@ function isNoiseCard(title: string): boolean {
 /**
  * クラシック・ヴィンテージ期（旧裏〜PCG期・1996〜2006年）のカードか判定（国内相場取得停止中のため除外）
  */
-function isClassicVintageCard(title: string, cardNumbers: string[]): boolean {
+export function isClassicVintageCard(title: string, cardNumbers: string[]): boolean {
   const upper = title.toUpperCase();
 
   // 1. 旧裏〜PCG期・初期セットを示すキーワード・発売年（1996〜2006）
@@ -227,7 +359,7 @@ export function extractCardNumber(title: string): string | null {
   return all.length > 0 ? all[0] : null;
 }
 
-function isMultiCardSet(title: string, cardNumbers: string[]): boolean {
+export function isMultiCardSet(title: string, cardNumbers: string[]): boolean {
   const upper = title.toUpperCase();
 
   // 複数枚セット・まとめ売りを示すキーワード（単なるパック名末尾の "Clay Burst Set" 等は通す）
@@ -260,7 +392,7 @@ function isMultiCardSet(title: string, cardNumbers: string[]): boolean {
 /**
  * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
  */
-function detectConditionGrade(title: string): string {
+export function detectConditionGrade(title: string): string {
   const upper = title.toUpperCase();
   const modifier = '(?:(?:PRISTINE|GEM\\s*MINT|MINT|GRADED|BLACK\\s*LABEL|GOLD\\s*LABEL)\\s+)*';
 
@@ -305,7 +437,7 @@ function detectConditionGrade(title: string): string {
 /**
  * eBay商品ページから公式Card conditionが取得できなかった場合のタイトル補助判定
  */
-function inferConditionFromTitleFallback(title: string): EbayCardCondition {
+export function inferConditionFromTitleFallback(title: string): EbayCardCondition {
   const upper = title.toUpperCase();
   if (/\b(POOR|HEAVILY\s*PLAYED|DMG|DAMAGED)\b|\bHP\b(?!\s*\d)/.test(upper)) {
     return 'Heavily played (Poor)';
@@ -322,8 +454,12 @@ function inferConditionFromTitleFallback(title: string): EbayCardCondition {
 /**
  * 未鑑定品のeBay個別商品ページから公式の Card condition を一括取得する
  */
-async function fetchEbayOfficialConditions(urls: string[]) {
+export async function fetchEbayOfficialConditions(
+  urls: string[]
+): Promise<{ [url: string]: EbayCardCondition }> {
   const conditionMap: { [url: string]: EbayCardCondition } = {};
+  if (!APIFY_TOKEN) return conditionMap;
+
   const uniqueUrls = urls.filter(
     (u, index, self) => Boolean(u) && u.startsWith('http') && self.indexOf(u) === index
   );
@@ -399,7 +535,7 @@ function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: 
 /**
  * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
  */
-function normalizeEbayUrl(
+export function normalizeEbayUrl(
   rawUrl: string | undefined,
   cardNumber: string,
   region: 'us' | 'eu',
@@ -503,146 +639,16 @@ export async function fetchRealArbitrageCandidates(
       ebayTaskPayload.maxPrice = priceRange.maxLocal;
     }
 
+
     // 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
-    const ebayItems = await runApifySync(
-      EBAY_TASK_ID,
-      APIFY_TOKEN,
-      ebayTaskPayload
-    );
-
-    // 複数キーワードでヒットした同一出品（同じ itemId）を重複排除
-    const uniqueEbayItems: any[] = [];
-    const seenItemIds = new Set<string>();
-    for (const item of ebayItems) {
-      if (!item) continue;
-      const rawUrl = String(item.url || item.itemUrl || '');
-      const urlIdMatch = rawUrl.match(/\/itm\/(\d+)/);
-      const itemId = String(item.itemId || (urlIdMatch ? urlIdMatch[1] : rawUrl)).trim();
-      if (itemId) {
-        if (seenItemIds.has(itemId)) continue;
-        seenItemIds.add(itemId);
-      }
-      uniqueEbayItems.push(item);
-    }
-
-    // EU加盟国リスト（ドイツ語・英語表記：これ以外の国からの出品にはebay.de上で19%輸入VATが加算される）
-    const euMemberCountries = new Set([
-      'DEUTSCHLAND', 'GERMANY',
-      'FRANKREICH', 'FRANCE',
-      'ITALIEN', 'ITALY',
-      'SPANIEN', 'SPAIN',
-      'NIEDERLANDE', 'NETHERLANDS',
-      'BELGIEN', 'BELGIUM',
-      'ÖSTERREICH', 'OESTERREICH', 'AUSTRIA',
-      'POLEN', 'POLAND',
-      'SCHWEDEN', 'SWEDEN',
-      'FINNLAND', 'FINLAND',
-      'DÄNEMARK', 'DAENEMARK', 'DENMARK',
-      'IRLAND', 'IRELAND',
-      'PORTUGAL',
-      'GRIECHENLAND', 'GREECE',
-      'TSCHECHIEN', 'TSCHECHISCHE REPUBLIK', 'CZECH REPUBLIC', 'CZECHIA',
-      'UNGARN', 'HUNGARY',
-      'RUMÄNIEN', 'RUMAENIEN', 'ROMANIA',
-      'BULGARIEN', 'BULGARIA',
-      'KROATIEN', 'CROATIA',
-      'SLOWAKEI', 'SLOVAKIA',
-      'SLOWENIEN', 'SLOVENIA',
-      'LITAUEN', 'LITHUANIA',
-      'LETTLAND', 'LATVIA',
-      'ESTLAND', 'ESTONIA',
-      'LUXEMBURG', 'LUXEMBOURG',
-      'MALTA',
-      'ZYPERN', 'CYPRUS',
-    ]);
+    const ebayItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, ebayTaskPayload);
+    const uniqueEbayItems = deduplicateEbayItems(ebayItems);
 
     // 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
     const preFilteredEbay = uniqueEbayItems
       .map((item) => {
-        const rawCurrency = String(
-          item.currency ?? item.soldCurrency ?? item.priceCurrency ?? ''
-        )
-          .toUpperCase()
-          .trim();
-        const rawPriceStr = String(item.soldPrice ?? item.price ?? '');
         const rawUrl = String(item.url || item.itemUrl || '');
-        const itemPriceCorpus = `${rawCurrency} ${rawPriceStr} ${String(
-          item.formattedPrice ?? item.priceText ?? ''
-        )}`.toUpperCase();
-
-        const parseLocalizedNumber = (val: unknown): number => {
-          if (typeof val === 'number') return val;
-          const cleaned = String(val || '').replace(/[^\d.,]/g, '').trim();
-          if (!cleaned) return 0;
-
-          const lastComma = cleaned.lastIndexOf(',');
-          const lastDot = cleaned.lastIndexOf('.');
-
-          if (lastComma !== -1 && lastDot !== -1) {
-            // 欧州式 (1.250,99) vs 米国式 (1,250.99)
-            return lastComma > lastDot
-              ? Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0
-              : Number(cleaned.replace(/,/g, '')) || 0;
-          }
-          if (lastComma !== -1) {
-            const decimals = cleaned.length - lastComma - 1;
-            return decimals === 2
-              ? Number(cleaned.replace(',', '.')) || 0
-              : Number(cleaned.replace(/,/g, '')) || 0;
-          }
-          if (lastDot !== -1 && isEu && cleaned.length - lastDot - 1 === 3) {
-            return Number(cleaned.replace(/\./g, '')) || 0;
-          }
-          return Number(cleaned) || 0;
-        };
-
-        let soldLocal = 0;
-
-        if (isEu) {
-          // 「Ca. EUR 37,05」「EUR 19,99」「19,99 €」などEUR表記が含まれていればそのユーロ額を優先抽出
-          const eurExplicitMatch =
-            itemPriceCorpus.match(/(?:CA\.?\s*)?(?:EUR|€)\s*([\d.,]+)/i) ||
-            itemPriceCorpus.match(/([\d.,]+)\s*(?:EUR|€)/i);
-
-          if (eurExplicitMatch) {
-            soldLocal = parseLocalizedNumber(eurExplicitMatch[1]);
-          } else {
-            // EUR明記がない場合（GBP単独など）は除外せずそのままの数値を採用
-            soldLocal =
-              typeof item.soldPrice === 'number'
-                ? item.soldPrice
-                : typeof item.price === 'number'
-                ? item.price
-                : parseLocalizedNumber(rawPriceStr);
-          }
-
-          // EU加盟国以外（イギリス・日本・米国等）からの150EUR以下出品はebay.de一覧で19%の輸入VATが上乗せされるため控除
-          const locUpper = String(item.itemLocation || '').toUpperCase().trim();
-          const isNonEuSeller = locUpper !== '' && !euMemberCountries.has(locUpper);
-          if (isNonEuSeller && soldLocal > 0 && soldLocal <= 180) {
-            soldLocal = Math.round((soldLocal / 1.19) * 100) / 100;
-          }
-        } else {
-          // 北米（US）は従来通り USD のみ許可
-          const isUsdMismatch =
-            (rawCurrency !== '' && rawCurrency !== expectedCurrency) ||
-            itemPriceCorpus.includes('£') ||
-            itemPriceCorpus.includes('€') ||
-            /\b(GBP|EUR|CAD|AUD|JPY|CHF|SGD|NZD|HKD|MXN|CNY|KRW)\b/.test(itemPriceCorpus) ||
-            /\b(C|AU|NZ|HK|S)\s*\$/.test(itemPriceCorpus) ||
-            /ebay\.(co\.uk|de|fr|it|es|ca|com\.au|com\.sg|com\.hk)/i.test(rawUrl);
-
-          if (!isUsdMismatch) {
-            soldLocal =
-              typeof item.soldPrice === 'number'
-                ? item.soldPrice
-                : typeof item.price === 'number'
-                ? item.price
-                : parseLocalizedNumber(rawPriceStr);
-          }
-        }
-
-      
+        const soldLocal = parseEbaySoldPriceLocal(item, isEu);
         const title = String(item.title || '');
         const baseGrade = detectConditionGrade(title);
         const isGraded = baseGrade !== 'Raw' && baseGrade !== 'Sealed Box';
