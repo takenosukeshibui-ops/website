@@ -1097,6 +1097,98 @@ export async function executeWisePayout(targetUserId: string, amount: number)
 const transactionId = crypto.randomUUID() // 標準の globalThis.crypto を使用
 </file>
 
+<file path="app/AiDashboard/components/ChatPanel.tsx">
+// app/AiDashboard/components/ChatPanel.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
+⋮----
+interface ChatPanelProps {
+    activeCategory: CategoryKey;
+    aiActiveDesk: string;
+    activeTrendRegion: RegionKey;
+    activeArbitrageRegion: RegionKey;
+    aiData: IntelligenceData | null;
+    runSingleAi: (action: string, region?: RegionKey) => void;
+    runningAction: string | null;
+}
+⋮----
+const scrollToBottom = () =>
+⋮----
+const getActiveAgentKey = (desk: string): string | null =>
+⋮----
+const getDeskTitle = (desk: string): string =>
+⋮----
+const fetchKnowledge = async () =>
+⋮----
+const handleDeleteKnowledge = async (id: string) =>
+⋮----
+const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
+⋮----
+const handleSendChatMessage = async (e: React.FormEvent) =>
+⋮----
+const fetchChatLogs = async () =>
+⋮----
+{/* RSI / Knowledge List は省略せずに残す */}
+⋮----
+onChange=
+</file>
+
+<file path="app/AiDashboard/components/Sidebar.tsx">
+// app/AiDashboard/components/Sidebar.tsx
+import React from 'react';
+import { RegionKey, CategoryKey } from '../types';
+⋮----
+interface SidebarProps {
+    activeCategory: CategoryKey;
+    setActiveCategory: (category: CategoryKey) => void;
+    aiActiveDesk: string;
+    setAiActiveDesk: (desk: string) => void;
+    activeTrendRegion: RegionKey;
+    setActiveTrendRegion: (region: RegionKey) => void;
+    activeArbitrageRegion: RegionKey;
+    setActiveArbitrageRegion: (region: RegionKey) => void;
+    history: any[];
+    selectedRecordId: string | null;
+    onSelectHistory: (target: any) => void;
+    aiLoading: boolean;
+    runningAction: string | null;
+}
+⋮----
+export default function Sidebar({
+    activeCategory, setActiveCategory,
+    aiActiveDesk, setAiActiveDesk,
+    activeTrendRegion, setActiveTrendRegion,
+    activeArbitrageRegion, setActiveArbitrageRegion,
+    history, selectedRecordId, onSelectHistory,
+    aiLoading, runningAction
+}: SidebarProps)
+⋮----
+{/* 商材カテゴリー切り替え */}
+⋮----
+{/* メニューリスト本体（監査役もこの中に含める） */}
+⋮----
+{/* 🔮 市場トレンドリサーチチーム */}
+⋮----
+{/* 💎 アービトラージリサーチチーム */}
+⋮----
+{/* 🌟 アービトラージ監査担当 */}
+⋮----
+{/* 👑 キュレーター */}
+<div onClick={() =>
+⋮----
+{/* 📸 Instagram運営グループ */}
+⋮----
+{/* 🐦 X運営グループ */}
+⋮----
+{/* ✉️ 有料コミュニティ */}
+⋮----
+{/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
+⋮----
+{/* 過去サイクル履歴選択 */}
+⋮----
+<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
+</file>
+
 <file path="app/api/admin/fedex/shipment/route.ts">
 // app/api/admin/fedex/shipment/route.ts
 import { createClient } from '@/lib/supabase/server'
@@ -1196,6 +1288,29 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson } from '../helpers';
 ⋮----
 export async function runSalesDM(chiefPackage: any)
+</file>
+
+<file path="app/api/ai/intelligence/helpers.ts">
+// app/api/ai/intelligence/helpers.ts
+import { createClient } from '@/lib/supabase/server';
+⋮----
+export function parseAIJson(content: string): any
+⋮----
+// 1. マークダウンコードブロック (```json ... ```) の除去
+⋮----
+// 2. 末尾カンマ (Trailing Comma: ,} や ,]) の削除
+⋮----
+// 3. バックアップ修復: JSON文字列プロパティ内のエスケープ漏れ " や未処理文字の自動修復
+⋮----
+// キーと値の境界以外の部分にある孤立した二重引用符をシングルクォートに置換して救済
+⋮----
+// 4. 最終フェイルセーフ: 生改行や制御文字を置換
+⋮----
+// カテゴリ表示名変換
+export function getCategoryName(category: string = 'pokemon'): string
+⋮----
+// RSI学習ルールの取得ヘルパー
+export async function getAgentRules(agentKey: string): Promise<string>
 </file>
 
 <file path="app/api/ai/knowledge/route.ts">
@@ -2664,29 +2779,6 @@ export async function runAccountAnalysis(category: string = 'pokemon')
 export async function runXAccountAnalysis(sharedInsights?: any)
 </file>
 
-<file path="app/api/ai/intelligence/helpers.ts">
-// app/api/ai/intelligence/helpers.ts
-import { createClient } from '@/lib/supabase/server';
-⋮----
-export function parseAIJson(content: string): any
-⋮----
-// 1. マークダウンコードブロック (```json ... ```) の除去
-⋮----
-// 2. 末尾カンマ (Trailing Comma: ,} や ,]) の削除
-⋮----
-// 3. バックアップ修復: JSON文字列プロパティ内のエスケープ漏れ " や未処理文字の自動修復
-⋮----
-// キーと値の境界以外の部分にある孤立した二重引用符をシングルクォートに置換して救済
-⋮----
-// 4. 最終フェイルセーフ: 生改行や制御文字を置換
-⋮----
-// カテゴリ表示名変換
-export function getCategoryName(category: string = 'pokemon'): string
-⋮----
-// RSI学習ルールの取得ヘルパー
-export async function getAgentRules(agentKey: string): Promise<string>
-</file>
-
 <file path="app/api/pipeline/start/route.ts">
 // app/api/pipeline/start/route.ts
 ⋮----
@@ -2837,6 +2929,73 @@ export async function verifyAndEnrichArbitrageItems(
 // アジア市場、または該当なしの場合は更新なし
 </file>
 
+<file path="lib/instagram.ts">
+// lib/instagram.ts
+⋮----
+interface InstagramPostParams {
+  caption: string;
+  imageUrl?: string;
+  imageUrls?: string[];
+}
+⋮----
+interface InstagramPostResult {
+  success: boolean;
+  postId?: string;
+  error?: string;
+}
+⋮----
+/**
+ * 環境変数からトークンを取得し、不要な引用符や空白をサニタイズする内部ヘルパー
+ */
+function getSanitizedCredentials()
+⋮----
+// Vercel設定時に誤って混入した前後のダブルクォート・シングルクォートを除去
+⋮----
+/**
+ * Instagram Graph API を使って画像をフィード投稿する
+ */
+export async function publishToInstagram({
+  caption,
+  imageUrl,
+  imageUrls, // 👈 引数に追加
+}: InstagramPostParams): Promise<InstagramPostResult>
+⋮----
+imageUrls, // 👈 引数に追加
+⋮----
+// 送信対象の画像URLリストを確定
+⋮----
+// ----------------------------------------------------
+// A. カルーセル投稿フロー
+// ----------------------------------------------------
+// 1. 各スライド画像の子コンテナを並列作成 (is_carousel_item: true)
+⋮----
+// 2. Meta側の画像処理を待機 (4秒)
+⋮----
+// 3. 親カルーセルコンテナを作成して子スライド群を束ねる
+⋮----
+// ----------------------------------------------------
+// B. 従来の単一画像投稿フロー
+// ----------------------------------------------------
+⋮----
+// 4. Meta側の最適化完了を待機 (4秒)
+⋮----
+// 5. 投稿 (media_publish) の実行
+⋮----
+/**
+ * 自社Instagramアカウントの過去投稿とエンゲージメント（いいね・コメント数）を取得する
+ * @param limit 取得する過去の投稿数（デフォルト5件）
+ */
+export async function getInstagramInsights(limit: number = 5)
+⋮----
+// 1. 環境変数が未設定の場合は安全に空配列を返却
+⋮----
+// 🌟 Vercelログ上で実際に使用されているトークンの先頭・末尾・文字数を出力して照合
+⋮----
+// 2. 4秒以上応答がない場合はタイムアウト（サーバーレス関数のフリーズ防止）
+⋮----
+// トークン失効・無効時も例外をスローせず、安全に空配列を返してパイプラインを継続させる
+</file>
+
 <file path="lib/twitter.ts">
 // lib/twitter.ts
 import { TwitterApi } from 'twitter-api-v2';
@@ -2961,98 +3120,6 @@ SET search_path = public;
     "typescript": "^5"
   }
 }
-</file>
-
-<file path="app/AiDashboard/components/ChatPanel.tsx">
-// app/AiDashboard/components/ChatPanel.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
-⋮----
-interface ChatPanelProps {
-    activeCategory: CategoryKey;
-    aiActiveDesk: string;
-    activeTrendRegion: RegionKey;
-    activeArbitrageRegion: RegionKey;
-    aiData: IntelligenceData | null;
-    runSingleAi: (action: string, region?: RegionKey) => void;
-    runningAction: string | null;
-}
-⋮----
-const scrollToBottom = () =>
-⋮----
-const getActiveAgentKey = (desk: string): string | null =>
-⋮----
-const getDeskTitle = (desk: string): string =>
-⋮----
-const fetchKnowledge = async () =>
-⋮----
-const handleDeleteKnowledge = async (id: string) =>
-⋮----
-const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
-⋮----
-const handleSendChatMessage = async (e: React.FormEvent) =>
-⋮----
-const fetchChatLogs = async () =>
-⋮----
-{/* RSI / Knowledge List は省略せずに残す */}
-⋮----
-onChange=
-</file>
-
-<file path="app/AiDashboard/components/Sidebar.tsx">
-// app/AiDashboard/components/Sidebar.tsx
-import React from 'react';
-import { RegionKey, CategoryKey } from '../types';
-⋮----
-interface SidebarProps {
-    activeCategory: CategoryKey;
-    setActiveCategory: (category: CategoryKey) => void;
-    aiActiveDesk: string;
-    setAiActiveDesk: (desk: string) => void;
-    activeTrendRegion: RegionKey;
-    setActiveTrendRegion: (region: RegionKey) => void;
-    activeArbitrageRegion: RegionKey;
-    setActiveArbitrageRegion: (region: RegionKey) => void;
-    history: any[];
-    selectedRecordId: string | null;
-    onSelectHistory: (target: any) => void;
-    aiLoading: boolean;
-    runningAction: string | null;
-}
-⋮----
-export default function Sidebar({
-    activeCategory, setActiveCategory,
-    aiActiveDesk, setAiActiveDesk,
-    activeTrendRegion, setActiveTrendRegion,
-    activeArbitrageRegion, setActiveArbitrageRegion,
-    history, selectedRecordId, onSelectHistory,
-    aiLoading, runningAction
-}: SidebarProps)
-⋮----
-{/* 商材カテゴリー切り替え */}
-⋮----
-{/* メニューリスト本体（監査役もこの中に含める） */}
-⋮----
-{/* 🔮 市場トレンドリサーチチーム */}
-⋮----
-{/* 💎 アービトラージリサーチチーム */}
-⋮----
-{/* 🌟 アービトラージ監査担当 */}
-⋮----
-{/* 👑 キュレーター */}
-<div onClick={() =>
-⋮----
-{/* 📸 Instagram運営グループ */}
-⋮----
-{/* 🐦 X運営グループ */}
-⋮----
-{/* ✉️ 有料コミュニティ */}
-⋮----
-{/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
-⋮----
-{/* 過去サイクル履歴選択 */}
-⋮----
-<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
 </file>
 
 <file path="app/AiDashboard/types.ts">
@@ -3591,169 +3658,6 @@ next: { revalidate: 86400 }, // 1日キャッシュ
 // フォールバック: Cardmarket公式検索URL
 </file>
 
-<file path="lib/instagram.ts">
-// lib/instagram.ts
-⋮----
-interface InstagramPostParams {
-  caption: string;
-  imageUrl?: string;
-  imageUrls?: string[];
-}
-⋮----
-interface InstagramPostResult {
-  success: boolean;
-  postId?: string;
-  error?: string;
-}
-⋮----
-/**
- * 環境変数からトークンを取得し、不要な引用符や空白をサニタイズする内部ヘルパー
- */
-function getSanitizedCredentials()
-⋮----
-// Vercel設定時に誤って混入した前後のダブルクォート・シングルクォートを除去
-⋮----
-/**
- * Instagram Graph API を使って画像をフィード投稿する
- */
-export async function publishToInstagram({
-  caption,
-  imageUrl,
-  imageUrls, // 👈 引数に追加
-}: InstagramPostParams): Promise<InstagramPostResult>
-⋮----
-imageUrls, // 👈 引数に追加
-⋮----
-// 送信対象の画像URLリストを確定
-⋮----
-// ----------------------------------------------------
-// A. カルーセル投稿フロー
-// ----------------------------------------------------
-// 1. 各スライド画像の子コンテナを並列作成 (is_carousel_item: true)
-⋮----
-// 2. Meta側の画像処理を待機 (4秒)
-⋮----
-// 3. 親カルーセルコンテナを作成して子スライド群を束ねる
-⋮----
-// ----------------------------------------------------
-// B. 従来の単一画像投稿フロー
-// ----------------------------------------------------
-⋮----
-// 4. Meta側の最適化完了を待機 (4秒)
-⋮----
-// 5. 投稿 (media_publish) の実行
-⋮----
-/**
- * 自社Instagramアカウントの過去投稿とエンゲージメント（いいね・コメント数）を取得する
- * @param limit 取得する過去の投稿数（デフォルト5件）
- */
-export async function getInstagramInsights(limit: number = 5)
-⋮----
-// 1. 環境変数が未設定の場合は安全に空配列を返却
-⋮----
-// 🌟 Vercelログ上で実際に使用されているトークンの先頭・末尾・文字数を出力して照合
-⋮----
-// 2. 4秒以上応答がない場合はタイムアウト（サーバーレス関数のフリーズ防止）
-⋮----
-// トークン失効・無効時も例外をスローせず、安全に空配列を返してパイプラインを継続させる
-</file>
-
-<file path="app/api/ai/intelligence/agents/contentCreator.ts">
-// app/api/ai/intelligence/agents/contentCreator.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
-⋮----
-// 6. Instagram専任投稿クリエイター（動的週間カレンダー ＆ 2股転換カルーセル特化）
-export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
-⋮----
-// 7. X (Twitter) 専任クリエイター（140字フック ＆ 4ポストスレッド特化）
-export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
-</file>
-
-<file path="lib/market-fetcher/pokemon-dictionary.ts">
-// lib/market-fetcher/pokemon-dictionary.ts
-⋮----
-/**
- * 全ポケモン（全国図鑑 #0001〜#1025）・表記揺れ・主要トレーナー日英変換辞書
- * 新しいキャラクターや表記揺れを追加する場合は、ここに "英語名": "日本語名" を追加するだけでOKです。
- */
-⋮----
-// ==========================================
-// 第1世代（カントー：#0001〜#0151）
-// ==========================================
-⋮----
-// ==========================================
-// 第2世代（ジョウト：#0152〜#0251）
-// ==========================================
-⋮----
-// ==========================================
-// 第3世代（ホウエン：#0252〜#0386）
-// ==========================================
-⋮----
-// ==========================================
-// 第4世代（シンオウ：#0387〜#0493）
-// ==========================================
-⋮----
-// ==========================================
-// 第5世代（イッシュ：#0494〜#0649）
-// ==========================================
-⋮----
-// ==========================================
-// 第6世代（カロス：#0650〜#0721）
-// ==========================================
-⋮----
-// ==========================================
-// 第7世代（アローラ：#0722〜#0809）
-// ==========================================
-⋮----
-// ==========================================
-// 第8世代（ガラル・ヒスイ：#0810〜#0905）
-// ==========================================
-⋮----
-// ==========================================
-// 第9世代（パルデア・キタカミ・ブルーベリー：#0906〜#1025）
-// ==========================================
-⋮----
-// ==========================================
-// 表記揺れ・特殊記号補完（eBay出品タイトル対策）
-// ==========================================
-⋮----
-// ==========================================
-// 主要トレーナー・サポート
-// ==========================================
-⋮----
-// 追加トレーナー・サポート（高騰ランキング頻出枠）
-⋮----
-/**
- * ワンピースカード主要キャラクター日英変換辞書
- * （ポケモンの部分一致誤爆を防ぐため分離管理）
- */
-⋮----
-// 英語タイトル抽出用：英語名の文字数降順（例: MEWTWO -> MEW）
-⋮----
-// 日本語からの逆引き用：日本語名の文字数降順（例: ブラッキー -> ラッキー、リザードン -> リザード）
-⋮----
-// ワンピース逆引き用：日本語名の文字数降順
-⋮----
-/**
- * eBayタイトルから該当するすべてのポケモン・トレーナー名を抽出し、日本語名配列で返す（複数セット検知用）
- */
-export function extractAllPokemonNamesJa(ebayTitle: string): string[]
-⋮----
-/**
- * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
- */
-export function extractPokemonNameJa(ebayTitle: string): string | null
-⋮----
-/**
- * 日本語カード名から英語のキャラクター名を逆引きする（category指定でワンピースにも対応）
- */
-export function extractPokemonNameEn(
-  jaCardName: string,
-  category: string = 'pokemon'
-): string | null
-</file>
-
 <file path="app/AiDashboard/components/DeskViews.tsx">
 // app/AiDashboard/components/DeskViews.tsx
 import React, { useState, useEffect } from 'react';
@@ -3860,6 +3764,102 @@ onClick=
 {/* ========================================================= */}
 {/* 💬 有料コミュニティ */}
 {/* ========================================================= */}
+</file>
+
+<file path="app/api/ai/intelligence/agents/contentCreator.ts">
+// app/api/ai/intelligence/agents/contentCreator.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
+⋮----
+// 6. Instagram専任投稿クリエイター（動的週間カレンダー ＆ 2股転換カルーセル特化）
+export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
+⋮----
+// 7. X (Twitter) 専任クリエイター（140字フック ＆ 4ポストスレッド特化）
+export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
+</file>
+
+<file path="lib/market-fetcher/pokemon-dictionary.ts">
+// lib/market-fetcher/pokemon-dictionary.ts
+⋮----
+/**
+ * 全ポケモン（全国図鑑 #0001〜#1025）・表記揺れ・主要トレーナー日英変換辞書
+ * 新しいキャラクターや表記揺れを追加する場合は、ここに "英語名": "日本語名" を追加するだけでOKです。
+ */
+⋮----
+// ==========================================
+// 第1世代（カントー：#0001〜#0151）
+// ==========================================
+⋮----
+// ==========================================
+// 第2世代（ジョウト：#0152〜#0251）
+// ==========================================
+⋮----
+// ==========================================
+// 第3世代（ホウエン：#0252〜#0386）
+// ==========================================
+⋮----
+// ==========================================
+// 第4世代（シンオウ：#0387〜#0493）
+// ==========================================
+⋮----
+// ==========================================
+// 第5世代（イッシュ：#0494〜#0649）
+// ==========================================
+⋮----
+// ==========================================
+// 第6世代（カロス：#0650〜#0721）
+// ==========================================
+⋮----
+// ==========================================
+// 第7世代（アローラ：#0722〜#0809）
+// ==========================================
+⋮----
+// ==========================================
+// 第8世代（ガラル・ヒスイ：#0810〜#0905）
+// ==========================================
+⋮----
+// ==========================================
+// 第9世代（パルデア・キタカミ・ブルーベリー：#0906〜#1025）
+// ==========================================
+⋮----
+// ==========================================
+// 表記揺れ・特殊記号補完（eBay出品タイトル対策）
+// ==========================================
+⋮----
+// ==========================================
+// 主要トレーナー・サポート
+// ==========================================
+⋮----
+// 追加トレーナー・サポート（高騰ランキング頻出枠）
+⋮----
+/**
+ * ワンピースカード主要キャラクター日英変換辞書
+ * （ポケモンの部分一致誤爆を防ぐため分離管理）
+ */
+⋮----
+// 英語タイトル抽出用：英語名の文字数降順（例: MEWTWO -> MEW）
+⋮----
+// 日本語からの逆引き用：日本語名の文字数降順（例: ブラッキー -> ラッキー、リザードン -> リザード）
+⋮----
+// ワンピース逆引き用：日本語名の文字数降順
+⋮----
+/**
+ * eBayタイトルから該当するすべてのポケモン・トレーナー名を抽出し、日本語名配列で返す（複数セット検知用）
+ */
+export function extractAllPokemonNamesJa(ebayTitle: string): string[]
+⋮----
+/**
+ * eBayタイトルから英語のポケモン・トレーナー名を抽出し、日本語名に変換する
+ */
+export function extractPokemonNameJa(ebayTitle: string): string | null
+⋮----
+/**
+ * 日本語カード名から英語のキャラクター名を逆引きする（category指定でワンピースにも対応）
+ */
+export function extractPokemonNameEn(
+  jaCardName: string,
+  category: string = 'pokemon'
+): string | null
 </file>
 
 <file path="app/api/ai/intelligence/agents/marketTrend.ts">
@@ -4035,26 +4035,6 @@ export async function POST(req: Request)
 // ------------------------------------------------------------------------
 </file>
 
-<file path="app/api/pipeline/status/route.ts">
-// app/api/pipeline/status/route.ts
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-⋮----
-function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string
-⋮----
-export async function GET(req: Request)
-⋮----
-// 1. 履歴一覧返却
-⋮----
-// 2. 特定サイクルの全データ取得
-⋮----
-// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
-const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
-⋮----
-// 4. トレンドレポート復元
-const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
-</file>
-
 <file path="app/AiDashboard/index.tsx">
 // app/AiDashboard/index.tsx
 ⋮----
@@ -4117,285 +4097,24 @@ const fetchLatestCycles = async () =>
 {/* メインデスクビュー */}
 </file>
 
-<file path="lib/market-fetcher/apify-trend.ts">
-// lib/market-fetcher/apify-trend.ts
-import { extractPokemonNameEn } from './pokemon-dictionary';
+<file path="app/api/pipeline/status/route.ts">
+// app/api/pipeline/status/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 ⋮----
-export interface DomesticTrendCandidate {
-  cardName: string;
-  cardNumber?: string;
-  rarity: string;
-  currentPriceJpy: number;
-  trendMetric: string;
-  detailUrl: string;
-  sourceSite: string;
-  ebaySoldLocalText?: string;
-  ebaySoldJpy?: number;
-  ebayCondition?: string;
-  ebayItemUrl?: string;
-  ebaySoldCount?: number;
-}
+function buildEbayFallbackUrl(cardName?: string, conditionGrade?: string): string
 ⋮----
-// トレーナーズ・ワンピース主要キャラ英語辞書（pokemon-dictionary補完用）
+export async function GET(req: Request)
 ⋮----
-function resolveCharacterNameEn(jaText: string): string
+// 1. 履歴一覧返却
 ⋮----
-function extractMechanicSuffix(text: string): string
+// 2. 特定サイクルの全データ取得
 ⋮----
-function isClassicVintageTitle(text: string): boolean
+// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
+const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
 ⋮----
-function isPlayableNonCollectible(text: string): boolean
-⋮----
-function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number): boolean
-⋮----
-export function buildEnglishEbayQueryForTrend(
-  cardName: string,
-  rarity: string,
-  category: string,
-  cardNumber?: string
-): string
-⋮----
-function isEbayNoiseListing(title: string): boolean
-⋮----
-function matchesRarityInTitle(titleUpper: string, rarityUpper: string): boolean
-⋮----
-function matchesCandidateTitleAndPrice(
-  title: string,
-  soldJpy: number,
-  enChar: string,
-  suffix: string,
-  rarityUpper: string,
-  cardNum: string,
-  domesticPriceJpy: number,
-  strictPriceCheck: boolean = true
-): { matched: boolean; isGraded: boolean }
-⋮----
-function parseLocalizedNumber(val: unknown, isEu: boolean): number
-⋮----
-async function runApifySync(
-  rawId: string,
-  token: string,
-  bodyPayload: Record<string, any>
-): Promise<any[]>
-⋮----
-/**
- * EBAY_TASK_ID で個別成約が不足した場合、Playwrightで直接eBay Soldページから /itm/ 個別URLと成約価格を抽出する
- */
-async function fetchEbaySoldFallbackViaPlaywright(
-  queries: Array<{ idx: number; query: string }>,
-  isEu: boolean
-): Promise<Array<{ candidateIdx: number; itemId: string; title: string; priceText: string }>>
-⋮----
-/**
- * 国内トレンド候補に対して、eBayの実成約データ（価格＋個別 /itm/ URL）を厳格照合して紐づける
- */
-export async function enrichTrendCandidatesWithEbaySold(
-  candidates: DomesticTrendCandidate[],
-  region: 'us' | 'eu' | 'asia',
-  category: string = 'pokemon',
-  exchangeRateJpy: number = 155
-): Promise<DomesticTrendCandidate[]>
-⋮----
-// Step 1: EBAY_TASK_ID (count: 20) で一括取得
-⋮----
-// 全候補に対して厳格マッチング（先頭候補による横取りを防止）
-⋮----
-// Step 2: 個別成約が4銘柄未満だった場合、未マッチ候補をPlaywrightで直接eBay Soldから補完取得
-⋮----
-// "100.00 to 200.00" のようなレンジ表記は除外
-⋮----
-export async function fetchDomesticTrendCandidates(
-  category: string = 'pokemon'
-): Promise<DomesticTrendCandidate[]>
-⋮----
-// 上昇額ランキング（rankingType=0）を優先ソートし、高額・主力SARが先頭12件に必ず入るように整列
-</file>
-
-<file path="lib/market-fetcher/apify-arbitrage.ts">
-// lib/market-fetcher/apify-arbitrage.ts
-import { extractAllPokemonNamesJa } from './pokemon-dictionary';
-⋮----
-export interface VerifiedArbitrageCandidate {
-  cardName: string;
-  cardNumber: string;
-  conditionGrade: string;
-  jpBuyPriceJPY: number;
-  jpShopName: string;
-  currency: 'USD' | 'EUR';
-  ebaySoldForeign: number;
-  ebaySoldJpy: number;
-  netProceedsJpy: number;
-  priceSpreadJPY: number;
-  spreadROI: number;
-  liquidity: string;
-  pokecazillaUrl: string;
-  ebayUrl: string;
-}
-⋮----
-type EbayCardCondition =
-  | 'Near mint or better'
-  | 'Lightly played (Excellent)'
-  | 'Moderately played (Very good)'
-  | 'Heavily played (Poor)';
-⋮----
-interface DayLocalPriceRange {
-  minLocal?: number;
-  maxLocal?: number;
-  minSpreadJpy: number;
-}
-⋮----
-/**
- * 曜日（targetDay）の仕入れ目安レンジをそのまま eBay 検索用の現地通貨（USD / EUR）価格帯に換算する
- */
-function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): DayLocalPriceRange
-⋮----
-case 'Monday': // 〜3,000円
-⋮----
-case 'Tuesday': // 3,000円〜10,000円
-case 'Sunday':  // 3,000円〜10,000円
-⋮----
-case 'Wednesday': // 10,000円〜30,000円
-case 'Saturday':  // 10,000円〜30,000円
-⋮----
-case 'Thursday': // 30,000円〜80,000円
-⋮----
-case 'Friday': // 80,000円〜
-⋮----
-/**
- * Apify API v2 同期実行ヘルパー
- */
-async function runApifySync(
-  rawId: string,
-  token: string,
-  bodyPayload: Record<string, any>,
-  actorFallbackPayload?: Record<string, any>
-): Promise<any[]>
-⋮----
-/**
- * eBayタイトルからトレカ型番をすべて抽出する
- */
-/**
- * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
- */
-function isNoiseCard(title: string): boolean
-⋮----
-/**
- * クラシック・ヴィンテージ期（旧裏〜PCG期・1996〜2006年）のカードか判定（国内相場取得停止中のため除外）
- */
-function isClassicVintageCard(title: string, cardNumbers: string[]): boolean
-⋮----
-// 1. 旧裏〜PCG期・初期セットを示すキーワード・発売年（1996〜2006）
-⋮----
-// 2. スラッシュなしの3桁図鑑番号のみ（例: #025, #149）かつモダン世代の年号・シリーズ表記がない場合
-⋮----
-/**
- * eBayタイトルからトレカ型番をすべて抽出する
- */
-export function extractAllCardNumbers(title: string, isGraded: boolean = false): string[]
-⋮----
-// 2桁〜3桁の通常型番に対応（例: 096/071, 15/080, 025/165）
-⋮----
-// 1桁〜3桁のプロモ型番に対応（例: 001/SV-P, 28/SM-P, 005/T, 001/PPP, 001/P, 010/PLAY）
-⋮----
-// スラッシュ省略プロモ表記（例: 098 XY-P -> 098/XY-P）
-⋮----
-// ハイフン省略プロモ表記（例: #107PCGP -> 107/PCG-P）
-⋮----
-// 鑑定品でスラッシュ型番が取れなかった場合のみ、PSAラベルの #001 表記（3桁）を救出
-⋮----
-export function extractCardNumber(title: string): string | null
-⋮----
-function isMultiCardSet(title: string, cardNumbers: string[]): boolean
-⋮----
-// 複数枚セット・まとめ売りを示すキーワード（単なるパック名末尾の "Clay Burst Set" 等は通す）
-⋮----
-// タイトル内に異なる型番が2つ以上含まれている場合（例: 037/040 & 044/040）
-⋮----
-/**
- * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
- */
-function detectConditionGrade(title: string): string
-⋮----
-/**
- * eBay商品ページから公式Card conditionが取得できなかった場合のタイトル補助判定
- */
-function inferConditionFromTitleFallback(title: string): EbayCardCondition
-⋮----
-/**
- * 未鑑定品のeBay個別商品ページから公式の Card condition を一括取得する
- */
-async function fetchEbayOfficialConditions(urls: string[])
-⋮----
-/**
- * ポケカジラURLの正規化（相対パス補完・404防止）
- */
-function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string
-⋮----
-/**
- * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
- */
-function normalizeEbayUrl(
-  rawUrl: string | undefined,
-  cardNumber: string,
-  region: 'us' | 'eu',
-  pokemonNameEn?: string
-): string
-⋮----
-/**
- * Apify 2段階スクレイピングを実行し、「ポケモン名 ＋ 型番」一致・状態◎最安値の実売サヤ取り候補を返す
- */
-export async function fetchRealArbitrageCandidates(
-  category: string = 'pokemon',
-  exchangeRateJpy: number = 155,
-  targetDay: string = 'Thursday',
-  region: 'us' | 'eu' = 'us'
-): Promise<VerifiedArbitrageCandidate[]>
-⋮----
-// 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
-⋮----
-// 複数キーワードでヒットした同一出品（同じ itemId）を重複排除
-⋮----
-// EU加盟国リスト（ドイツ語・英語表記：これ以外の国からの出品にはebay.de上で19%輸入VATが加算される）
-⋮----
-// 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
-⋮----
-const parseLocalizedNumber = (val: unknown): number =>
-⋮----
-// 欧州式 (1.250,99) vs 米国式 (1,250.99)
-⋮----
-// 「Ca. EUR 37,05」「EUR 19,99」「19,99 €」などEUR表記が含まれていればそのユーロ額を優先抽出
-⋮----
-// EUR明記がない場合（GBP単独など）は除外せずそのままの数値を採用
-⋮----
-// EU加盟国以外（イギリス・日本・米国等）からの150EUR以下出品はebay.de一覧で19%の輸入VATが上乗せされるため控除
-⋮----
-// 北米（US）は従来通り USD のみ許可
-⋮----
-// 3. ポケカジラ検索用の startUrls を重複なし生成（コンディション取得と並列実行するため先に作成）
-⋮----
-// 2.5 & 4. 「eBay公式コンディション取得」と「ポケカジラ検索」を並列実行して大幅時短
-⋮----
-// 同じ「ポケモン名 ＋ 型番 ＋ グレード（公式コンディション含む）」ごとに集計
-⋮----
-// スラッシュあり型番だけでなく、末尾の3桁数字（例: "レックウザ 122" -> "122"）も正しく抽出
-⋮----
-continue; // 全状態ランクで在庫がない場合のみスキップ
-⋮----
-// 3桁数字のみ（例: "083"）で照合する際、分母が一致する別カード（例: "010/083"）の誤爆を防止
-⋮----
-// 5. eBay公式コンディションに対応するポケカジラの状態ランク最安値と突合
-⋮----
-// パック・シリーズコード一致加点（例: [WCS23], [XY7], [sv8a]）
-⋮----
-// プロモ表記の一致・矛盾判定
-⋮----
-// 鑑定品・未開封は状態◎（Mint）在庫がある場合のみ採用（状態○への妥協を廃止）
-⋮----
-// Very good ➔ 状態△・B・C・傷有り最安を優先（なければ状態○/A-）
-⋮----
-// Excellent ➔ 状態○/A-最安を優先（なければ状態◎）
-⋮----
-// 未鑑定 Near mint or better ➔ 状態◎最安を優先（なければ状態○/A-）
+// 4. トレンドレポート復元
+const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
 </file>
 
 <file path="app/AiDashboard/components/DocumentReport.tsx">
@@ -4440,6 +4159,281 @@ const handleDownloadJSON = () =>
 {/* 成約ボリューム実績 (7日 & 30日) */}
 ⋮----
 {/* 日本仕入れ（ポケカジラ最安値比較） */}
+</file>
+
+<file path="lib/market-fetcher/apify-trend.ts">
+// lib/market-fetcher/apify-trend.ts
+import { extractAllPokemonNamesJa, extractPokemonNameEn } from './pokemon-dictionary';
+import {
+  EbayCardCondition,
+  runApifySync,
+  deduplicateEbayItems,
+  parseEbaySoldPriceLocal,
+  isNoiseCard,
+  isClassicVintageCard,
+  extractAllCardNumbers,
+  extractCardNumber,
+  isMultiCardSet,
+  detectConditionGrade,
+  inferConditionFromTitleFallback,
+  fetchEbayOfficialConditions,
+  normalizeEbayUrl,
+} from './apify-arbitrage';
+⋮----
+export interface DomesticTrendCandidate {
+  cardName: string;
+  cardNumber?: string;
+  rarity: string;
+  currentPriceJpy: number;
+  trendMetric: string;
+  detailUrl: string;
+  sourceSite: string;
+  ebaySoldLocalText?: string;
+  ebaySoldJpy?: number;
+  ebayCondition?: string;
+  ebayItemUrl?: string;
+  ebaySoldCount?: number;
+}
+⋮----
+// トレーナーズ・ワンピース主要キャラ英語辞書（pokemon-dictionary補完用）
+⋮----
+function resolveCharacterNameEn(jaText: string, category: string = 'pokemon'): string
+⋮----
+/**
+ * eBayタイトルから日本語キャラクター名を抽出（pokemon-dictionary ＋ CHARACTER_EN_MAP 対応）
+ */
+function extractCharacterNamesJaFromEbayTitle(ebayTitle: string): string[]
+⋮----
+/**
+ * アービトラージ基準と合わせて鑑定品（PSA / BGS / CGC / TAG / ARS 等）を判定
+ */
+function isGradedListing(title: string, baseGrade: string): boolean
+⋮----
+function extractMechanicSuffix(text: string): string
+⋮----
+function isClassicVintageTitle(text: string): boolean
+⋮----
+function isPlayableNonCollectible(text: string): boolean
+⋮----
+function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number): boolean
+⋮----
+export function buildEnglishEbayQueryForTrend(
+  cardName: string,
+  rarity: string,
+  category: string,
+  cardNumber?: string
+): string
+⋮----
+function matchesRarityInTitle(titleUpper: string, rarityUpper: string): boolean
+⋮----
+function isCardNumberMatched(ebayCardNum: string, candidateCardNum: string): boolean
+⋮----
+function getConditionPriorityScore(officialCondition: EbayCardCondition | null): number
+⋮----
+/**
+ * 国内トレンド候補に対して、eBayの未鑑定（Raw）実成約データ（平均価格＋個別 /itm/ URL）を照合して紐づける
+ */
+export async function enrichTrendCandidatesWithEbaySold(
+  candidates: DomesticTrendCandidate[],
+  region: 'us' | 'eu' | 'asia',
+  category: string = 'pokemon',
+  exchangeRateJpy: number = 155
+): Promise<DomesticTrendCandidate[]>
+⋮----
+// 1. キーワードを3件ずつ分割して runApifySync で取得
+⋮----
+// 2. アービトラージ基準のノイズ・まとめ売り・クラシック期フィルタ＋鑑定品除外
+⋮----
+// 3. 国内トレンド候補と「キャラ名 ＋ 型番」で照合
+⋮----
+// 4. 未鑑定品（Raw）の eBay 個別商品ページから公式 Card condition を一括取得（Heavily played は除外）
+⋮----
+// 5. 「候補 × コンディション」単位で合計・件数を集計し平均値を算出
+⋮----
+export async function fetchDomesticTrendCandidates(
+  category: string = 'pokemon'
+): Promise<DomesticTrendCandidate[]>
+⋮----
+// 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
+</file>
+
+<file path="lib/market-fetcher/apify-arbitrage.ts">
+// lib/market-fetcher/apify-arbitrage.ts
+import { extractAllPokemonNamesJa } from './pokemon-dictionary';
+⋮----
+export interface VerifiedArbitrageCandidate {
+  cardName: string;
+  cardNumber: string;
+  conditionGrade: string;
+  jpBuyPriceJPY: number;
+  jpShopName: string;
+  currency: 'USD' | 'EUR';
+  ebaySoldForeign: number;
+  ebaySoldJpy: number;
+  netProceedsJpy: number;
+  priceSpreadJPY: number;
+  spreadROI: number;
+  liquidity: string;
+  pokecazillaUrl: string;
+  ebayUrl: string;
+}
+⋮----
+export type EbayCardCondition =
+  | 'Near mint or better'
+  | 'Lightly played (Excellent)'
+  | 'Moderately played (Very good)'
+  | 'Heavily played (Poor)';
+⋮----
+interface DayLocalPriceRange {
+  minLocal?: number;
+  maxLocal?: number;
+  minSpreadJpy: number;
+}
+⋮----
+/**
+ * 曜日（targetDay）の仕入れ目安レンジをそのまま eBay 検索用の現地通貨（USD / EUR）価格帯に換算する
+ */
+function getLocalPriceRangeForDay(targetDay: string, exchangeRateJpy: number): DayLocalPriceRange
+⋮----
+case 'Monday': // 〜3,000円
+⋮----
+case 'Tuesday': // 3,000円〜10,000円
+case 'Sunday':  // 3,000円〜10,000円
+⋮----
+case 'Wednesday': // 10,000円〜30,000円
+case 'Saturday':  // 10,000円〜30,000円
+⋮----
+case 'Thursday': // 30,000円〜80,000円
+⋮----
+case 'Friday': // 80,000円〜
+⋮----
+/**
+ * Apify API v2 同期実行ヘルパー
+ */
+export async function runApifySync(
+  rawId: string,
+  token: string,
+  bodyPayload: Record<string, any>,
+  actorFallbackPayload?: Record<string, any>
+): Promise<any[]>
+⋮----
+export function deduplicateEbayItems(ebayItems: any[]): any[]
+⋮----
+export function parseLocalizedNumber(val: unknown, isEu: boolean): number
+⋮----
+export function parseEbaySoldPriceLocal(item: any, isEu: boolean): number
+⋮----
+/**
+ * eBayタイトルからトレカ型番をすべて抽出する
+ */
+/**
+ * カスタム品・ジャンボカード・カードダス等の対象外アイテムを除外する
+ */
+export function isNoiseCard(title: string): boolean
+⋮----
+/**
+ * クラシック・ヴィンテージ期（旧裏〜PCG期・1996〜2006年）のカードか判定（国内相場取得停止中のため除外）
+ */
+export function isClassicVintageCard(title: string, cardNumbers: string[]): boolean
+⋮----
+// 1. 旧裏〜PCG期・初期セットを示すキーワード・発売年（1996〜2006）
+⋮----
+// 2. スラッシュなしの3桁図鑑番号のみ（例: #025, #149）かつモダン世代の年号・シリーズ表記がない場合
+⋮----
+/**
+ * eBayタイトルからトレカ型番をすべて抽出する
+ */
+export function extractAllCardNumbers(title: string, isGraded: boolean = false): string[]
+⋮----
+// 2桁〜3桁の通常型番に対応（例: 096/071, 15/080, 025/165）
+⋮----
+// 1桁〜3桁のプロモ型番に対応（例: 001/SV-P, 28/SM-P, 005/T, 001/PPP, 001/P, 010/PLAY）
+⋮----
+// スラッシュ省略プロモ表記（例: 098 XY-P -> 098/XY-P）
+⋮----
+// ハイフン省略プロモ表記（例: #107PCGP -> 107/PCG-P）
+⋮----
+// 鑑定品でスラッシュ型番が取れなかった場合のみ、PSAラベルの #001 表記（3桁）を救出
+⋮----
+export function extractCardNumber(title: string): string | null
+⋮----
+export function isMultiCardSet(title: string, cardNumbers: string[]): boolean
+⋮----
+// 複数枚セット・まとめ売りを示すキーワード（単なるパック名末尾の "Clay Burst Set" 等は通す）
+⋮----
+// タイトル内に異なる型番が2つ以上含まれている場合（例: 037/040 & 044/040）
+⋮----
+/**
+ * タイトルから状態グレードを推定（鑑定品・未開封のすり抜けを完全防止）
+ */
+export function detectConditionGrade(title: string): string
+⋮----
+/**
+ * eBay商品ページから公式Card conditionが取得できなかった場合のタイトル補助判定
+ */
+export function inferConditionFromTitleFallback(title: string): EbayCardCondition
+⋮----
+/**
+ * 未鑑定品のeBay個別商品ページから公式の Card condition を一括取得する
+ */
+export async function fetchEbayOfficialConditions(
+  urls: string[]
+): Promise<{ [url: string]: EbayCardCondition }>
+⋮----
+/**
+ * ポケカジラURLの正規化（相対パス補完・404防止）
+ */
+function normalizePokecazillaUrl(rawUrl: string | undefined, fallbackSearchUrl: string): string
+⋮----
+/**
+ * eBay URLの正規化（対象地域に合わせて ebay.com / ebay.de に統一）
+ */
+export function normalizeEbayUrl(
+  rawUrl: string | undefined,
+  cardNumber: string,
+  region: 'us' | 'eu',
+  pokemonNameEn?: string
+): string
+⋮----
+/**
+ * Apify 2段階スクレイピングを実行し、「ポケモン名 ＋ 型番」一致・状態◎最安値の実売サヤ取り候補を返す
+ */
+export async function fetchRealArbitrageCandidates(
+  category: string = 'pokemon',
+  exchangeRateJpy: number = 155,
+  targetDay: string = 'Thursday',
+  region: 'us' | 'eu' = 'us'
+): Promise<VerifiedArbitrageCandidate[]>
+⋮----
+// 1. eBay Sold Listings を地域サイト＆曜日価格帯指定で同期実行
+⋮----
+// 2. 対象通貨（USならUSD / EUならEUR）かつ「ポケモン名＋型番」が特定できた成約のみ抽出
+⋮----
+// 3. ポケカジラ検索用の startUrls を重複なし生成（コンディション取得と並列実行するため先に作成）
+⋮----
+// 2.5 & 4. 「eBay公式コンディション取得」と「ポケカジラ検索」を並列実行して大幅時短
+⋮----
+// 同じ「ポケモン名 ＋ 型番 ＋ グレード（公式コンディション含む）」ごとに集計
+⋮----
+// スラッシュあり型番だけでなく、末尾の3桁数字（例: "レックウザ 122" -> "122"）も正しく抽出
+⋮----
+continue; // 全状態ランクで在庫がない場合のみスキップ
+⋮----
+// 3桁数字のみ（例: "083"）で照合する際、分母が一致する別カード（例: "010/083"）の誤爆を防止
+⋮----
+// 5. eBay公式コンディションに対応するポケカジラの状態ランク最安値と突合
+⋮----
+// パック・シリーズコード一致加点（例: [WCS23], [XY7], [sv8a]）
+⋮----
+// プロモ表記の一致・矛盾判定
+⋮----
+// 鑑定品・未開封は状態◎（Mint）在庫がある場合のみ採用（状態○への妥協を廃止）
+⋮----
+// Very good ➔ 状態△・B・C・傷有り最安を優先（なければ状態○/A-）
+⋮----
+// Excellent ➔ 状態○/A-最安を優先（なければ状態◎）
+⋮----
+// 未鑑定 Near mint or better ➔ 状態◎最安を優先（なければ状態○/A-）
 </file>
 
 <file path="app/api/ai/intelligence/agents/arbitrage.ts">

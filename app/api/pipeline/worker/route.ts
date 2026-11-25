@@ -12,6 +12,10 @@ import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/content
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 
+const ARBITRAGE_DAYS = ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+// 市場トレンド・的中実績は現在保留中のため動作停止フラグ（廃止はせず保持）
+const MARKET_TREND_ENABLED = false;
+
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
   if (!cardNumber) return cleanName;
@@ -71,7 +75,7 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品）
+  // 1. アービトラージ候補抽出（全5スロット × 価格帯 × 本命＋代替候補）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -83,7 +87,7 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        // A. 本命商品のURL正規化（カードラッシュ上書きを廃止しポケカジラURLを保持）
+        // A. 本命商品のURL正規化
         if (tier?.mainItem && tier.mainItem.cardName) {
           const mainItem = tier.mainItem;
           const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
@@ -99,7 +103,11 @@ async function processAndSaveRegionResearch(
           );
           mainItem.jpEvidenceUrl = mainEvidenceUrl;
 
-          const resolvedEbayUrl = resolveIndividualEbayUrl(mainItem.sourceEvidenceUrl, mainItem.cardName, mainItem.cardNumber);
+          const resolvedEbayUrl = resolveIndividualEbayUrl(
+            mainItem.sourceEvidenceUrl,
+            mainItem.cardName,
+            mainItem.cardNumber
+          );
           mainItem.sourceEvidenceUrl = resolvedEbayUrl;
 
           const liquidityStr = `7日: ${mainItem.salesVolume7d || '確認中'} / 30日: ${mainItem.salesVolume30d || '1件以上'}`;
@@ -155,7 +163,7 @@ async function processAndSaveRegionResearch(
           });
         }
 
-        // B. 代替候補商品（2商品）のURL正規化
+        // B. 代替候補商品のURL正規化
         if (Array.isArray(tier?.subItems)) {
           for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
             const subItem = tier.subItems[sIdx];
@@ -173,7 +181,11 @@ async function processAndSaveRegionResearch(
             );
             subItem.jpEvidenceUrl = subEvidenceUrl;
 
-            const resolvedSubEbayUrl = resolveIndividualEbayUrl(subItem.sourceEvidenceUrl, subItem.cardName, subItem.cardNumber);
+            const resolvedSubEbayUrl = resolveIndividualEbayUrl(
+              subItem.sourceEvidenceUrl,
+              subItem.cardName,
+              subItem.cardNumber
+            );
             subItem.sourceEvidenceUrl = resolvedSubEbayUrl;
 
             const subLiquidityStr = `7日: ${subItem.salesVolume7d || '確認中'} / 30日: ${subItem.salesVolume30d || '1件以上'}`;
@@ -224,8 +236,8 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 2. トレンド候補抽出
-  if (trendReport?.hypotheses) {
+  // 2. トレンド候補抽出（保留中につき動作停止・コードは保持）
+  if (MARKET_TREND_ENABLED && trendReport?.hypotheses) {
     const hypotheses = Array.isArray(trendReport.hypotheses)
       ? trendReport.hypotheses
       : [trendReport.hypotheses];
@@ -282,7 +294,6 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 3. DB一括登録（アービトラージ・トレンドともに確定済みのため曖昧検索上書きは行わない）
   if (researchRows.length > 0) {
     await supabase.from('ai_research_items').insert(researchRows);
   }
@@ -301,7 +312,10 @@ export async function POST(req: Request) {
 
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayDayName = days[new Date().getDay()];
-  const targetDay = bodyTargetDay || todayDayName;
+  const rawTargetDay = bodyTargetDay || todayDayName;
+  const targetDay = ARBITRAGE_DAYS.includes(rawTargetDay as (typeof ARBITRAGE_DAYS)[number])
+    ? rawTargetDay
+    : 'Thursday';
 
   if (action === 'stop') {
     await supabase.from('ai_pipeline_cycles').update({ status: 'partially_failed' }).eq('id', cycleId);
@@ -328,16 +342,13 @@ export async function POST(req: Request) {
   };
 
   try {
-    // 🌟 曜日（targetDay）に完全連動：月曜は市場トレンド予測、火〜日曜はアービトラージのみ実行
-    const isTrendDay = targetDay === 'Monday';
-
-    // Phase 1-A: 北米リサーチ
+    // Phase 1-A: 北米リサーチ（市場トレンドは保留中のため停止）
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
       const [igTactics, trendUS, sayaUS] = await Promise.all([
         runAccountAnalysis(cycle.category),
-        isTrendDay ? runMarketTrend('us', cycle.category) : Promise.resolve(null),
-        !isTrendDay ? runSayaAnalysis('us', cycle.category, targetDay) : Promise.resolve(null),
+        MARKET_TREND_ENABLED ? runMarketTrend('us', cycle.category) : Promise.resolve(null),
+        runSayaAnalysis('us', cycle.category, targetDay),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS, trendUS);
 
@@ -355,11 +366,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'us_research_completed' });
     }
 
-    // Phase 1-B: 欧州リサーチ
+    // Phase 1-B: 欧州リサーチ（市場トレンドは保留中のため停止）
     if ((cycle.status as string) === 'researching_eu') {
       const [trendEU, sayaEU] = await Promise.all([
-        isTrendDay ? runMarketTrend('eu', cycle.category) : Promise.resolve(null),
-        !isTrendDay ? runSayaAnalysis('eu', cycle.category, targetDay) : Promise.resolve(null),
+        MARKET_TREND_ENABLED ? runMarketTrend('eu', cycle.category) : Promise.resolve(null),
+        runSayaAnalysis('eu', cycle.category, targetDay),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU, trendEU);
 
@@ -368,7 +379,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'eu_research_completed' });
     }
 
-    // Phase 1-C: アジアリサーチ ＆ Xアナリスト
+    // Phase 1-C: アジアリサーチ（市場トレンドは保留中のため停止）＆ Xアナリスト
     if ((cycle.status as string) === 'researching_asia') {
       const { data: igTacticRow } = await supabase
         .from('ai_platform_tactics')
@@ -378,8 +389,8 @@ export async function POST(req: Request) {
         .single();
 
       const [trendAsia, sayaAsia, xTactics] = await Promise.all([
-        isTrendDay ? runMarketTrend('asia', cycle.category) : Promise.resolve(null),
-        !isTrendDay ? runSayaAnalysis('asia', cycle.category, targetDay) : Promise.resolve(null),
+        MARKET_TREND_ENABLED ? runMarketTrend('asia', cycle.category) : Promise.resolve(null),
+        runSayaAnalysis('asia', cycle.category, targetDay),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
       await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia, trendAsia);
@@ -430,22 +441,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
-    // Phase 3: キュレーター動的選定
+    // Phase 3: キュレーター動的選定（火曜〜土曜の5日分アービトラージ選定）
     if (cycle.status === 'curating') {
       let { data: passedCandidates } = await supabase
         .from('ai_research_items')
         .select('*')
         .eq('cycle_id', cycleId)
+        .eq('agent_key', 'arbitrage')
         .eq('gate1_status', 'passed');
 
       if (!passedCandidates || passedCandidates.length === 0) {
-        const fallbackRes = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId);
+        const fallbackRes = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .eq('agent_key', 'arbitrage');
         passedCandidates = fallbackRes.data || [];
       }
 
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
       const curationResult = await runCuratorSelection((passedCandidates as any) || [], tactics || [], cycle.category);
-      const weeklyLineup = curationResult?.weeklyLineup || [];
+      const weeklyLineup = (curationResult?.weeklyLineup || []).filter((d) =>
+        ARBITRAGE_DAYS.includes(d.day as (typeof ARBITRAGE_DAYS)[number])
+      );
       const mvpItemId = curationResult?.mvpItemId;
 
       await supabase.from('ai_research_items').update({ is_selected: false, is_mvp: false, assigned_day: null }).eq('cycle_id', cycleId);
@@ -477,15 +495,15 @@ export async function POST(req: Request) {
       }
 
       if (selectedCount === 0 && passedCandidates.length > 0) {
-        const fallbackTopItems = passedCandidates.slice(0, 7);
+        const fallbackTopItems = passedCandidates.slice(0, ARBITRAGE_DAYS.length);
         for (let i = 0; i < fallbackTopItems.length; i++) {
           await supabase
             .from('ai_research_items')
             .update({
               is_selected: true,
               is_mvp: i === 0,
-              assigned_day: days[i % days.length],
-              core_hook_fact: '今週の注目カード',
+              assigned_day: ARBITRAGE_DAYS[i % ARBITRAGE_DAYS.length],
+              core_hook_fact: '今週の注目アービトラージ枠',
               curator_rationale: '市場相場・粗利ROI基準での選定',
             })
             .eq('id', fallbackTopItems[i].id);
@@ -497,16 +515,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
-    // Phase 4: 原稿生成
+    // Phase 4: 原稿生成（火曜〜土曜の5日分アービトラージ投稿を生成）
     if (cycle.status === 'generating_content') {
       let { data: approvedItems } = await supabase
         .from('ai_research_items')
         .select('*')
         .eq('cycle_id', cycleId)
+        .eq('agent_key', 'arbitrage')
         .eq('is_selected', true);
 
       if (!approvedItems || approvedItems.length === 0) {
-        const { data: fallbackItems } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).limit(7);
+        const { data: fallbackItems } = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .eq('agent_key', 'arbitrage')
+          .limit(5);
         approvedItems = fallbackItems || [];
       }
 
@@ -515,12 +539,12 @@ export async function POST(req: Request) {
       const xTactic = tactics?.find((t) => t.platform === 'x');
       const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
 
-      const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const structuredWeeklyLineup = daysOfWeek.map((day, idx) => {
+      const structuredWeeklyLineup = ARBITRAGE_DAYS.map((day, idx) => {
         let dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
         if (dayItems.length === 0 && approvedItems?.[idx]) dayItems = [approvedItems[idx]];
         return {
           day,
+          contentType: 'arbitrage',
           items: dayItems.map((item) => ({
             itemId: item.id,
             region: item.region,
@@ -530,7 +554,7 @@ export async function POST(req: Request) {
             targetSoldPrice: item.target_sold_price_local,
             priceSpreadJPY: item.price_spread_jpy,
             spreadROI: `${item.spread_roi_percent}%`,
-            coreHookFact: item.core_hook_fact || '注目ピックアップ',
+            coreHookFact: item.core_hook_fact || '注目アービトラージ枠',
             rationale: item.curator_rationale || '価格差基準',
           })),
         };
@@ -539,6 +563,7 @@ export async function POST(req: Request) {
       const chiefPackage = {
         chosenCardOrItem: mvpItem?.card_name || '注目カード',
         mvpHighlight: mvpItem || {},
+        activeDays: [...ARBITRAGE_DAYS],
         weeklyLineup: structuredWeeklyLineup,
         approvedItems: approvedItems || [],
       };
@@ -550,7 +575,7 @@ export async function POST(req: Request) {
       ]);
 
       const deliverableRows: any[] = [];
-      for (const day of daysOfWeek) {
+      for (const day of ARBITRAGE_DAYS) {
         const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
         const primaryItem = dayItems.find((i) => i.is_mvp) || dayItems[0] || mvpItem;
 
@@ -606,7 +631,10 @@ export async function POST(req: Request) {
       for (const res of auditResults) {
         const current = deliverables?.find((d) => d.id === res.deliverableId);
         if (res.passed) {
-          await supabase.from('ai_content_deliverables').update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: null }).eq('id', res.deliverableId);
+          await supabase
+            .from('ai_content_deliverables')
+            .update({ gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: null })
+            .eq('id', res.deliverableId);
         } else {
           let updatedPayload = current?.content_payload;
           if (res.feedback?.includes('140文字') || res.feedback?.includes('文字数')) {
@@ -619,7 +647,16 @@ export async function POST(req: Request) {
               });
             }
           }
-          await supabase.from('ai_content_deliverables').update({ content_payload: updatedPayload, gate2_status: 'passed', status: 'approved', gate2_checks: res.checks, gate2_feedback: `【自動補正済】${res.feedback}` }).eq('id', res.deliverableId);
+          await supabase
+            .from('ai_content_deliverables')
+            .update({
+              content_payload: updatedPayload,
+              gate2_status: 'passed',
+              status: 'approved',
+              gate2_checks: res.checks,
+              gate2_feedback: `【自動補正済】${res.feedback}`,
+            })
+            .eq('id', res.deliverableId);
         }
       }
 

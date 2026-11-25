@@ -2,7 +2,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
 
-// 6. Instagram専任投稿クリエイター（動的週間カレンダー ＆ 2股転換カルーセル特化）
+// 6. Instagram専任投稿クリエイター（火曜〜土曜 5日分アービトラージ特化）
 export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon') {
   const categoryName = getCategoryName(category);
   const rules = await getAgentRules('sns');
@@ -18,24 +18,20 @@ export async function runSnsPosts(chiefPackage: any, accountReport: any, categor
 海外で日本語版ポケモンカードを取り扱う事業者（カードショップ・リセラー・大口コレクター）に向け、
 自社の【越境代理購入サービス】への利用・アカウント登録を促すこと（プロフィールリンクへ誘導）。
 ※海外バイヤー向けのため、【キャプション本文（caption）および hookText はすべて英語（English）で執筆すること】を厳守してください。英語非ネイティブのバイヤーでもスムーズに理解できるよう、難解な語彙を避けたシンプルで自然なビジネス英語を用いてください。
+※現在「市場トレンド」および「的中実績」は保留中のため動作停止としています。**火曜日〜土曜日（Tuesday〜Saturday）の5日分をすべて「アービトラージ（日米/日欧/日亜の価格差・実成約実績）」投稿**として作成してください。
 
-【チーフ・キュレーター編成パッケージ（今週の動的週間ラインナップ）】:
+【チーフ・キュレーター編成パッケージ（火曜〜土曜のアービトラージ週間ラインナップ）】:
 ${JSON.stringify(chiefPackage, null, 2)}
 
 【IGアナリストからの直近分析＆制作レギュレーション】:
 ${JSON.stringify(accountReport, null, 2)}
 
 ■ 必須制作ルール:
-1. 【キュレーターの動的編成への完全準拠】:
-   - 曜日のテーマは固定ではありません。上記チーフパッケージ内の weeklyLineup（月〜日の各曜日に割り振られた contentType, slotKey, themeLabel, items）に100%従って各曜日の投稿を執筆してください。
-   - 【アービトラージ枠の日】:
-     * 必ず配置された【北米（us）・欧州（eu）・アジア（asia）の3商品】の確定価格差（Fact）をすべて盛り込んだ「3市場比較カルーセル」を構成すること。
-   - 【先行トレンド予測枠の日】:
-     * なぜ今後跳ねるのかの客観的シグナル（大会・在庫枯渇など）と注目銘柄を提示し、「見返せるように保存（Save）」を促す構成にすること。
-   - 【的中実績（答え合わせ）枠の日】:
-     * 「過去に予測したカードが実際に海外で跳ねた確定事実」を対比提示し、アカウントの権威性を確立してDiscordへ誘導すること。
+1. 【火曜〜土曜 5日分のアービトラージ投稿作成】:
+   - dailyPosts には "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" の5日分のみを含めてください。
+   - 各日の投稿はすべてアービトラージ（国内調達価格と海外実成約価格の乖離・粗利事実）を中心に構成し、北米（us）・欧州（eu）・アジア（asia）の比較事実を盛り込んでください。
 2. 【答えを教えない撒き餌原則（Hook & Hold）】:
-   - 投稿で開示するのは「確定価格差」「海外急騰率」「実成約事実（Fact & Result）」のみ。
+   - 投稿で開示するのは「確定価格差」「海外実成約価格」「ROI・成約実績（Fact & Result）」のみ。
    - 日本国内の仕入れ店舗名、仕入れルート、詳細ノウハウ（Action & Reason）は絶対に投稿本文に書かないこと（Gate 2 監査で弾かれます）。
 3. 【自社代理購入サービスへの英語CTA配置（最重要・各キャプション末尾にそのまま配置）】:
    - 各曜日の caption 本文の末尾には、以下のブロックをそのまま配置すること:
@@ -56,13 +52,13 @@ We buy directly from Japanese markets and ship worldwide to your door!
 お問い合わせ・ご相談はインスタDMまたはメールよりお気軽にお問い合わせください。
 4. 【画像生成データの出力原則（最重要）】:
    - 著作権およびVeRO違反を防ぐため、カードのイラスト画像や他者の撮影画像は絶対に使用しません。
-   - 代わりに、システムが「価格差インフォグラフィック」を自動生成（合成）するための正確なテキストデータ（infographicData）を出力してください。
+   - 代わりに、システムが「価格差インフォグラフィック」を自動生成（合成）するための正確なテキストデータ（infographicData）を出力してください。infographicData.type は必ず "arbitrage" としてください。
 
 ${rules}
 
 以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
 {
-  "theme": "チーフ選定に基づく今週の週間撒き餌テーマ",
+  "theme": "火〜土5日間のアービトラージ撒き餌テーマ",
   "recommendedTiming": "アナリスト推奨に基づく最適な投稿時間帯（例: 日本時間 21:00）",
   "hashtags": [
     "#PokemonTCG", "#PokemonCards", "#PokemonWholesale", "#JapanesePokemonCards", "#B2B", "#PokemonReseller", "#WorldwideJaPan"
@@ -70,11 +66,11 @@ ${rules}
   "discordCTA": "プロフリンク・ハイライトへ誘導する2股CTAテンプレート文",
   "dailyPosts": [
     {
-      "day": "Monday",
-      "theme": "weeklyLineupの月曜テーマ（例: 海外先行トレンド急騰予測 または 現行モダン3市場比較）",
-      "caption": "月曜フルキャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
+      "day": "Tuesday",
+      "theme": "火曜アービトラージテーマ",
+      "caption": "火曜フルキャプション全文（本文＋2股CTA＋ハッシュタグを含む完全版）",
       "infographicData": {
-        "type": "arbitrage または trend",
+        "type": "arbitrage",
         "cardName": "実在のカード名（※イラストではなく文字として画像に印字します）",
         "region": "US または EU または ASIA",
         "jpPrice": "¥X,XXX",
@@ -84,12 +80,10 @@ ${rules}
         "hookText": "画像内に大きく印字する短い英語の煽り文句（例: Massive Spread!）"
       }
     },
-    { "day": "Tuesday", "theme": "火曜テーマ", "caption": "火曜フルキャプション全文", "infographicData": { ... } },
-    { "day": "Wednesday", "theme": "水曜テーマ", "caption": "水曜フルキャプション全文", "infographicData": { ... } },
-    { "day": "Thursday", "theme": "木曜テーマ", "caption": "木曜フルキャプション全文", "infographicData": { ... } },
-    { "day": "Friday", "theme": "金曜テーマ", "caption": "金曜フルキャプション全文", "infographicData": { ... } },
-    { "day": "Saturday", "theme": "土曜テーマ", "caption": "土曜フルキャプション全文", "infographicData": { ... } },
-    { "day": "Sunday", "theme": "日曜テーマ", "caption": "日曜フルキャプション全文", "infographicData": { ... } }
+    { "day": "Wednesday", "theme": "水曜アービトラージテーマ", "caption": "水曜フルキャプション全文", "infographicData": { "type": "arbitrage", "cardName": "", "region": "US", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Thursday", "theme": "木曜アービトラージテーマ", "caption": "木曜フルキャプション全文", "infographicData": { "type": "arbitrage", "cardName": "", "region": "US", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Friday", "theme": "金曜アービトラージテーマ", "caption": "金曜フルキャプション全文", "infographicData": { "type": "arbitrage", "cardName": "", "region": "US", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Saturday", "theme": "土曜アービトラージテーマ", "caption": "土曜フルキャプション全文", "infographicData": { "type": "arbitrage", "cardName": "", "region": "US", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } }
   ]
 }`;
 
@@ -97,7 +91,7 @@ ${rules}
   return parseAIJson(res.content.toString());
 }
 
-// 7. X (Twitter) 専任クリエイター（140字フック ＆ 4ポストスレッド特化）
+// 7. X (Twitter) 専任クリエイター（火曜〜土曜 5日分アービトラージ特化・140字フック ＆ 4ポストスレッド）
 export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon') {
   const categoryName = getCategoryName(category);
   const rules = await getAgentRules('x');
@@ -108,8 +102,9 @@ export async function runXPosts(chiefPackage: any, xAccountReport?: any, categor
   });
 
   const prompt = `あなたは越境【${categoryName}】事業における【X (Twitter) 専任のプロクリエイター】です。
+※現在「市場トレンド」および「的中実績」は保留中のため動作停止としています。**火曜日〜土曜日（Tuesday〜Saturday）の5日分をすべて「アービトラージ（価格差・実成約実績）」スレッド**として作成してください。
 
-【チーフ・キュレーター編成パッケージ（今週の動的週間ラインナップ）】:
+【チーフ・キュレーター編成パッケージ（火曜〜土曜のアービトラージ週間ラインナップ）】:
 ${JSON.stringify(chiefPackage, null, 2)}
 
 【Xアナリストの戦術指示】:
@@ -119,11 +114,10 @@ ${JSON.stringify(xAccountReport || {}, null, 2)}
 1. 【1ポスト目の140文字制限厳守（最重要）】:
    - 各曜日の mainPost（1ポスト目）は、改行・絵文字・ハッシュタグを含めて【絶対に140文字以内】で執筆すること（Gate 2 監査で自動検知されます）。
    - 1ポスト目には絶対に外部リンク（URL）を貼らないこと（アルゴリズムによる表示回数制限を回避するため）。画像4枚の視認案内とスレッド誘導を含めること。
-2. 【キュレーターの動的編成への完全準拠】:
-   - チーフパッケージ内の weeklyLineup に従い、全7曜日（Monday〜Sunday）のスレッドを生成してください。
-   - アービトラージ枠の日：ツリー2〜3ポスト目で北米・欧州・アジアの3市場相場と国内相場の乖離事実を対比させること。
-   - トレンド予測枠の日：海外市場で検知された先行シグナルと注目銘柄の波及ロジックを展開すること。
-   - 的中実績枠の日：過去予測と現在確定成約価格の跳ね上がり実績を開示すること。
+2. 【火曜〜土曜 5日分のアービトラージスレッド作成】:
+   - dailyThreads には "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" の5日分のみを含めてください。
+   - ツリー2〜3ポスト目で北米・欧州・アジアの相場と国内相場の乖離・成約実績を対比させてください。
+   - infographicData.type は必ず "arbitrage" としてください。
 3. 【リンク配置ルール】:
    - VIP Discord ＆ 自社サイトURLへの誘導は、スレッド最終ポスト（またはリプライ欄想定文）にのみ配置すること。
 4. 【撒き餌原則】:
@@ -133,19 +127,19 @@ ${rules}
 
 以下のJSON形式のみを出力してください（Markdown装飾や前後の解説テキストは不要です）:
 {
-  "theme": "X用拡散フックテーマ",
+  "theme": "X用アービトラージ拡散フックテーマ",
   "xCallToAction": "固定ポストまたはリプライ欄に貼る誘導テキスト",
   "dailyThreads": [
     {
-      "day": "Monday",
-      "mainPost": "月曜1ポスト目（140文字以内厳守、フック＋インフォグラフィック画像参照＋ツリー誘導）",
+      "day": "Tuesday",
+      "mainPost": "火曜1ポスト目（140文字以内厳守、フック＋インフォグラフィック画像参照＋ツリー誘導）",
       "threadPosts": [
-        "ツリー2ポスト目: 事実データ展開",
-        "ツリー3ポスト目: 要因分析・示唆",
+        "ツリー2ポスト目: アービトラージ価格差・成約事実データ展開",
+        "ツリー3ポスト目: 地域別乖離・注目ポイント",
         "ツリー4ポスト目: 2股CTA"
       ],
       "infographicData": {
-        "type": "arbitrage または trend",
+        "type": "arbitrage",
         "cardName": "実在のカード名",
         "jpPrice": "¥X,XXX",
         "overseasPrice": "$XX",
@@ -154,12 +148,10 @@ ${rules}
         "hookText": "Xのタイムラインで目を引く短い英語フック"
       }
     },
-    { "day": "Tuesday", "mainPost": "火曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
-    { "day": "Wednesday", "mainPost": "水曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
-    { "day": "Thursday", "mainPost": "木曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
-    { "day": "Friday", "mainPost": "金曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
-    { "day": "Saturday", "mainPost": "土曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] },
-    { "day": "Sunday", "mainPost": "日曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"] }
+    { "day": "Wednesday", "mainPost": "水曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"], "infographicData": { "type": "arbitrage", "cardName": "", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Thursday", "mainPost": "木曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"], "infographicData": { "type": "arbitrage", "cardName": "", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Friday", "mainPost": "金曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"], "infographicData": { "type": "arbitrage", "cardName": "", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } },
+    { "day": "Saturday", "mainPost": "土曜1ポスト目（140字以内）", "threadPosts": ["ツリー2", "ツリー3", "ツリー4"], "infographicData": { "type": "arbitrage", "cardName": "", "jpPrice": "", "overseasPrice": "", "spread": "", "roi": "", "hookText": "" } }
   ]
 }`;
 
