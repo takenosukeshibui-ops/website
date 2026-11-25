@@ -501,111 +501,51 @@ export async function fetchDomesticTrendCandidates(
   }
 
   const domainCategory = category === 'onepiece' ? 'onepiece' : 'pokemon';
-  const targetUrls = [
-    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0` },
-  ];
+  const rankingUrl = `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0`;
 
-  const pageFunction = `async function pageFunction(context) {
+  const listPageFunction = `async function pageFunction(context) {
     const { page, request } = context;
-
-    await page.waitForSelector('a[href*="detail"]', { timeout: 12000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
 
     return await page.evaluate(({ reqUrl, domainCat }) => {
-      const results = [];
-      const seen = new Set();
-      const anchors = Array.from(document.querySelectorAll('a'));
+      const scripts = Array.from(document.querySelectorAll('script'));
+      let rows = [];
 
-      for (const a of anchors) {
-        const href = (a.getAttribute('href') || '').trim();
-        if (!href || href.startsWith('#') || href.startsWith('javascript:')) continue;
-
-        if (/\\/(priceup|pricedown|ranking|search|about|privacy|contact|login|signup|terms|faq)\\b/i.test(href) && !href.includes('id=')) {
-          continue;
-        }
-        if (href === '/' || href === '/pokemon' || href === '/onepiece' || href === '/pokemon/' || href === '/onepiece/') {
-          continue;
-        }
-
-        let fullUrl = '';
+      for (const s of scripts) {
+        const txt = s.textContent || '';
+        const match = txt.match(/const\\s+originalData\\s*=\\s*(\\[[\\s\\S]*?\\]);/);
+        if (!match) continue;
         try {
-          fullUrl = new URL(href, reqUrl).href;
-        } catch (e) {
-          continue;
-        }
-
-        if (!fullUrl.startsWith('https://torechart.com/')) continue;
-        fullUrl = fullUrl.replace(
-          /^https:\\/\\/torechart\\.com\\/detail/i,
-          'https://torechart.com/' + domainCat + '/detail'
-        );
-
-        let container = a;
-        let foundPrice = false;
-        for (let i = 0; i < 6; i++) {
-          const txt = container.innerText || container.textContent || '';
-          if (/[¥￥]\\s*[\\d,]{3,}|[\\d,]{3,}\\s*円/.test(txt)) {
-            foundPrice = true;
+          const parsed = JSON.parse(match[1]);
+          if (Array.isArray(parsed)) {
+            rows = parsed;
             break;
           }
-          const parent = container.parentElement;
-          if (!parent || ['BODY', 'HTML', 'MAIN', 'TABLE'].includes(parent.tagName)) break;
-          container = parent;
-        }
-        if (!foundPrice) continue;
-
-        const blockText = (container.innerText || container.textContent || '').replace(/\\s+/g, ' ').trim();
-        if (!blockText || blockText.length > 500) continue;
-
-        const priceMatch = blockText.match(/[¥￥]\\s*([\\d,]{3,})/) || blockText.match(/([\\d,]{3,})\\s*円/);
-        if (!priceMatch) continue;
-        const currentPriceJpy = Number(priceMatch[1].replace(/,/g, '')) || 0;
-        if (currentPriceJpy < 500) continue;
-
-        let cardName = (a.innerText || a.textContent || '').replace(/\\s+/g, ' ').trim();
-        cardName = cardName
-          .replace(/^\\d+\\s*位\\s*/, '')
-          .replace(/[¥￥]\\s*[\\d,]+.*/g, '')
-          .replace(/[\\d,]+\\s*円.*/g, '')
-          .replace(/レア度\\s*[:：].*/g, '')
-          .replace(/7日前\\s*[:：].*/g, '')
-          .trim();
-
-        if (!cardName || cardName.length < 2) {
-          cardName = blockText
-            .replace(/^\\d+\\s*位\\s*/, '')
-            .split(/[¥￥]\\s*[\\d,]+|[\\d,]+\\s*円/)[0]
-            .replace(/レア度\\s*[:：].*/g, '')
-            .trim();
-        }
-        if (!cardName || cardName.length < 2 || cardName.length > 80) continue;
-
-        const rarityMatch = blockText.match(/レア度\\s*[:：]\\s*([^\\s/・|]+)/)
-          || blockText.match(/\\b(SAR|AR|CSR|CHR|UR|HR|MUR|BWR|SR|SP|SEC|PROMO)\\b/i);
-        const rarity = rarityMatch && rarityMatch[1] !== 'なし' ? rarityMatch[1].trim() : '';
-
-        const numMatch = blockText.match(/\\b(\\d{2,3}\\/\\d{2,3}|(?:OP|ST|EB|PRB)\\d{2}-\\d{3}|\\d{1,3}\\/(?:[A-Z0-9]+-P|PPP|PLAY|T|P))\\b/i);
-        const cardNumber = numMatch ? numMatch[1] : '';
-
-        const diffMatches = blockText.match(/([+＋][\\d,]+\\s*円|[+＋]?\\d+(?:\\.\\d+)?\\s*%|7日前\\s*[:：]\\s*[¥￥]?\\s*[\\d,]+円?)/g);
-        const trendMetric = diffMatches ? Array.from(new Set(diffMatches)).join(' / ') : '週間高騰ランキング上位';
-
-        if (seen.has(fullUrl)) continue;
-        seen.add(fullUrl);
-
-        results.push({
-          sourceUrl: reqUrl,
-          isAmountRanking: reqUrl.includes('rankingType=0'),
-          cardName,
-          cardNumber,
-          rarity,
-          currentPriceJpy,
-          trendMetric,
-          detailUrl: fullUrl,
-        });
+        } catch (_) {}
       }
 
-      return results;
+      return rows.map((r, i) => {
+        const id = String(r.id || '').trim();
+        const name = String(r.name || '').trim();
+        const price = Number(r.price) || 0;
+        const priceOld = Number(r.priceOld) || 0;
+        const resultVal = Number(r.result) || 0;
+        const rarity = r.rarity_name && r.rarity_name !== 'なし' ? String(r.rarity_name).trim() : '';
+        const diffSign = resultVal > 0 ? '+' : '';
+        const trendMetric = resultVal !== 0
+          ? \`\${diffSign}\${resultVal.toLocaleString()}円 (7日前: ¥\${priceOld.toLocaleString()})\`
+          : '週間高騰ランキング上位';
+
+        return {
+          rank: i + 1,
+          id,
+          cardName: name,
+          rarity,
+          currentPriceJpy: price,
+          trendMetric,
+          detailUrl: id ? \`https://torechart.com/\${domainCat}/detail?cardid=\${encodeURIComponent(id)}\` : reqUrl,
+        };
+      });
     }, { reqUrl: request.url, domainCat: '${domainCategory}' });
   }`;
 
@@ -619,12 +559,13 @@ export async function fetchDomesticTrendCandidates(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startUrls: targetUrls,
-          pageFunction,
+          startUrls: [{ url: rankingUrl }],
+          pageFunction: listPageFunction,
+          waitUntil: 'domcontentloaded',
           proxyConfiguration: { useApifyProxy: true },
-          maxRequestsPerCrawl: targetUrls.length,
+          maxRequestsPerCrawl: 1,
           maxConcurrency: 1,
-          maxRequestRetries: 1,
+          maxRequestRetries: 0,
           requestHandlerTimeoutSecs: 45,
         }),
         cache: 'no-store',
@@ -639,16 +580,13 @@ export async function fetchDomesticTrendCandidates(
     }
 
     const rawItems: any[] = await res.json();
-    // 上昇額ランキング（rankingType=0）を優先ソートし、高額・主力SARが先頭12件に必ず入るように整列
-    rawItems.sort((a, b) => Number(Boolean(b?.isAmountRanking)) - Number(Boolean(a?.isAmountRanking)));
-
-    const candidates: DomesticTrendCandidate[] = [];
+    const filteredCandidates: Array<DomesticTrendCandidate & { cardId: string }> = [];
     const seenUrls = new Set<string>();
 
     for (const item of rawItems) {
       if (!item || !item.cardName) continue;
+      const cardId = String(item.id || '').trim();
       const cardName = String(item.cardName).trim();
-      const cardNumber = item.cardNumber ? String(item.cardNumber).trim() : undefined;
       const rarity = String(item.rarity || '').trim();
       const price = Number(item.currentPriceJpy) || 0;
       const detailUrl = String(item.detailUrl || '');
@@ -666,18 +604,72 @@ export async function fetchDomesticTrendCandidates(
           ? `${cardName} (${rarity})`
           : cardName;
 
-      candidates.push({
+      filteredCandidates.push({
+        cardId,
         cardName: displayName,
-        cardNumber,
+        cardNumber: undefined,
         rarity: rarity || 'コレクション枠',
         currentPriceJpy: price,
         trendMetric: String(item.trendMetric || '週間高騰ランキング上位'),
         detailUrl,
         sourceSite: 'トレチャ (torechart.com)',
       });
+
+      if (filteredCandidates.length >= 12) break;
     }
 
-    return candidates.slice(0, 20);
+    if (filteredCandidates.length === 0) return [];
+
+    // 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
+    const detailTargets = filteredCandidates.filter((c) => Boolean(c.cardId));
+    if (detailTargets.length > 0) {
+      const detailPageFunction = `async function pageFunction(context) {
+        const { $, request } = context;
+        let cardNumber = '';
+
+        $('dl.cardstatuslist dt').each((_, dtEl) => {
+          const label = $(dtEl).text().replace(/\\s+/g, '').trim();
+          if (label.includes('カード型番') || label.includes('型番')) {
+            const val = $(dtEl).next('dd').text().replace(/\\s+/g, ' ').trim();
+            if (val && val !== '-' && val !== 'なし') {
+              cardNumber = val;
+            }
+          }
+        });
+
+        return {
+          url: request.url,
+          cardNumber,
+        };
+      }`;
+
+      const detailRows = await runApifySync('apify/cheerio-scraper', APIFY_TOKEN, {
+        startUrls: detailTargets.map((c) => ({ url: c.detailUrl })),
+        pageFunction: detailPageFunction,
+        proxyConfiguration: { useApifyProxy: true },
+        maxRequestsPerCrawl: detailTargets.length,
+        maxConcurrency: 10,
+        maxRequestRetries: 1,
+        requestHandlerTimeoutSecs: 15,
+        ignoreSslErrors: true,
+      });
+
+      const cardNumByUrl = new Map<string, string>();
+      for (const row of detailRows) {
+        if (row && row.url && row.cardNumber) {
+          cardNumByUrl.set(String(row.url), String(row.cardNumber).trim());
+        }
+      }
+
+      for (const cand of filteredCandidates) {
+        const fetchedNum = cardNumByUrl.get(cand.detailUrl);
+        if (fetchedNum) {
+          cand.cardNumber = fetchedNum;
+        }
+      }
+    }
+
+    return filteredCandidates.map(({ cardId: _cardId, ...rest }) => rest);
   } catch (err: any) {
     if (err?.name === 'AbortError') {
       console.warn('[ApifyTrend] torechart.com 取得が95秒でタイムアウトしたためスキップしました');
