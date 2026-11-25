@@ -609,8 +609,14 @@ export async function fetchDomesticTrendCandidates(
               rows = parsed;
               break;
             }
-          } catch (_) {}
+          } catch (err) {
+            console.warn('[ApifyTrend] originalData 評価エラー:', err);
+          }
         }
+      }
+
+      if (rows.length === 0) {
+        console.warn('[ApifyTrend] rows が 0 件 | title:', document.title, '| url:', location.href);
       }
 
       return rows.map((r, i) => {
@@ -677,6 +683,12 @@ export async function fetchDomesticTrendCandidates(
     const filteredCandidates: Array<DomesticTrendCandidate & { cardId: string }> = [];
     const seenUrls = new Set<string>();
 
+    let skipPriceOrUrl = 0;
+    let skipDup = 0;
+    let skipClassic = 0;
+    let skipPlayable = 0;
+    let skipRarity = 0;
+
     for (const item of rawItems) {
       if (!item || !item.cardName) continue;
       const cardId = String(item.id || '').trim();
@@ -685,11 +697,26 @@ export async function fetchDomesticTrendCandidates(
       const price = Number(item.currentPriceJpy) || 0;
       const detailUrl = String(item.detailUrl || '');
 
-      if (price <= 0 || !detailUrl) continue;
-      if (seenUrls.has(detailUrl)) continue;
-      if (isClassicVintageTitle(cardName)) continue;
-      if (isPlayableNonCollectible(cardName)) continue;
-      if (!isCollectibleRarity(rarity, cardName, price)) continue;
+      if (price <= 0 || !detailUrl) {
+        skipPriceOrUrl++;
+        continue;
+      }
+      if (seenUrls.has(detailUrl)) {
+        skipDup++;
+        continue;
+      }
+      if (isClassicVintageTitle(cardName)) {
+        skipClassic++;
+        continue;
+      }
+      if (isPlayableNonCollectible(cardName)) {
+        skipPlayable++;
+        continue;
+      }
+      if (!isCollectibleRarity(rarity, cardName, price)) {
+        skipRarity++;
+        continue;
+      }
 
       seenUrls.add(detailUrl);
 
