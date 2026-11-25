@@ -4,11 +4,9 @@ export const maxDuration = 300;
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
-import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
-import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -90,14 +88,13 @@ export async function POST(req: Request) {
           let tiers: any[] = [];
           if (Array.isArray(slot.tiers)) {
             tiers = slot.tiers;
-          } else if (typeof slot.tiers === 'object') {
+          } else if (slot.tiers && typeof slot.tiers === 'object') {
             tiers = Object.values(slot.tiers);
           }
 
           for (const tier of tiers) {
             if (!tier) continue;
 
-            // 本命
             if (tier.mainItem && tier.mainItem.cardName) {
               const main = tier.mainItem;
               const buy = parseInt(String(main.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
@@ -158,7 +155,6 @@ export async function POST(req: Request) {
               });
             }
 
-            // 代替候補
             if (Array.isArray(tier.subItems)) {
               for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
                 const sub = tier.subItems[sIdx];
@@ -223,69 +219,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 2. 市場トレンドアナリスト単独再実行 (US / EU / ASIA)
-    // ------------------------------------------------------------------------
-    if (action === 'trend' && region) {
-      const trendReport = await runMarketTrend(region, effectiveCategory);
-      await supabase
-        .from('ai_research_items')
-        .delete()
-        .eq('cycle_id', cycleId)
-        .eq('agent_key', 'trend')
-        .eq('region', region);
-
-      const researchRows: any[] = [];
-      for (const hypo of trendReport?.hypotheses || []) {
-        if (!hypo) continue;
-        for (const item of hypo.items || []) {
-          if (!item) continue;
-          const anyItem = item as any;
-          const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-          const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
-          const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
-          const spread = Math.max(0, targetJpy - buy);
-          const url =
-            anyItem.jpEvidenceUrl && String(anyItem.jpEvidenceUrl).startsWith('https://torechart.com/')
-              ? String(anyItem.jpEvidenceUrl)
-              : buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, effectiveCategory, item.cardName);
-          const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);
-
-          researchRows.push({
-            cycle_id: cycleId,
-            agent_key: 'trend',
-            region,
-            slot_key: hypo.headline || 'トレンド先行シグナル',
-            price_tier: 'middle',
-            card_name: item.cardName,
-            condition_grade: item.condition || 'Raw NM',
-            jp_buy_price_jpy: buy,
-            target_sold_price_local: item.currentLocalPrice || '$0',
-            target_sold_price_jpy: targetJpy,
-            price_spread_jpy: spread,
-            spread_roi_percent: buy > 0 ? Math.round((spread / buy) * 100) : 30,
-            liquidity_indicator: hypo.timeframe || '約2週間後',
-            research_insight: item.impactLogic || '',
-            raw_payload: {
-              ...item,
-              reportSummary: trendReport?.summary,
-              hypothesis: hypo,
-              jpEvidenceUrl: url,
-              sourceEvidenceUrl: resolvedTrendEbayUrl,
-            },
-            gate1_status: 'passed',
-            is_selected: false,
-          });
-        }
-      }
-
-      if (researchRows.length > 0) {
-        await supabase.from('ai_research_items').insert(researchRows);
-      }
-      return NextResponse.json({ success: true, message: `市場トレンド (${region.toUpperCase()}) を単独更新しました` });
-    }
-
-    // ------------------------------------------------------------------------
-    // 3. Instagramアナリスト単独再実行
+    // 2. Instagramアナリスト単独再実行
     // ------------------------------------------------------------------------
     if (action === 'account') {
       const igTactics = await runAccountAnalysis(effectiveCategory);
@@ -301,7 +235,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 4. Xアナリスト単独再実行
+    // 3. Xアナリスト単独再実行
     // ------------------------------------------------------------------------
     if (action === 'x_account') {
       const xTactics = await runXAccountAnalysis();
@@ -317,7 +251,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 5. チーフマネージャー（キュレーター選定）単独再実行
+    // 4. チーフマネージャー（キュレーター選定）単独再実行
     // ------------------------------------------------------------------------
     if (action === 'chief') {
       const { data: candidates } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId);
@@ -349,7 +283,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 6. Instagramクリエイター（原稿）単独再生成
+    // 5. Instagramクリエイター（原稿）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'sns') {
       const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
@@ -363,7 +297,7 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 7. Xクリエイター（スレッド）単独再生成
+    // 6. Xクリエイター（スレッド）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'x_posts' || action === 'x') {
       const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
@@ -374,19 +308,6 @@ export async function POST(req: Request) {
       const xPosts = await runXPosts(chiefPackage, tactics?.raw_insights, effectiveCategory);
       await supabase.from('ai_content_deliverables').update({ content_payload: xPosts }).eq('cycle_id', cycleId).eq('platform', 'x');
       return NextResponse.json({ success: true, message: 'Xスレッド原稿を単独再生成しました' });
-    }
-
-    // ------------------------------------------------------------------------
-    // 8. コミュニティ営業 (Discord) 単独再生成
-    // ------------------------------------------------------------------------
-    if (action === 'sales') {
-      const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
-      const mvp = items?.find((i) => i.is_mvp) || items?.[0];
-      const chiefPackage = { chosenCardOrItem: mvp?.card_name, mvpHighlight: mvp, approvedItems: items || [] };
-
-      const salesDM = await runSalesDM(chiefPackage);
-      await supabase.from('ai_content_deliverables').update({ content_payload: salesDM }).eq('cycle_id', cycleId).eq('platform', 'discord');
-      return NextResponse.json({ success: true, message: 'Discordオファーを単独再生成しました' });
     }
 
     return NextResponse.json({ success: false, error: '対応していないアクションです' }, { status: 400 });

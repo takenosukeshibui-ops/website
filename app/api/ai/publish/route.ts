@@ -15,36 +15,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 1. Discord への送信
-    // ==========================================
-    if (platform === 'discord') {
-      const webhookUrl = process.env.DISCORD_WEBHOOK_SALES_DM;
-      if (!webhookUrl) {
-        return NextResponse.json(
-          { success: false, error: '環境変数 DISCORD_WEBHOOK_SALES_DM が設定されていません' },
-          { status: 500 }
-        );
-      }
-
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: content.slice(0, 1990),
-          username: 'Worldwide Japan Intelligence Bot',
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Discord送信エラー: ${res.statusText} (${errorText})`);
-      }
-
-      return NextResponse.json({ success: true, message: 'Discordへメッセージを直接送信しました！' });
-    }
-
-    // ==========================================
-    // 2. Instagram への自動投稿 (Graph API: 単一画像 / カルーセル両対応)
+    // 1. Instagram への自動投稿 (Graph API: 単一画像 / カルーセル両対応)
     // ==========================================
     if (platform === 'instagram') {
       const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
@@ -72,7 +43,6 @@ export async function POST(req: Request) {
 
       if (isCarousel) {
         // --- A. カルーセル投稿フロー ---
-        // 1. 各スライド用の子メディアコンテナを並列作成
         const childContainerIds: string[] = [];
         for (const imgUrl of targetImages) {
           const itemRes = await fetch(
@@ -95,10 +65,8 @@ export async function POST(req: Request) {
           childContainerIds.push(itemData.id);
         }
 
-        // 2. Meta側の画像処理を待機
         await new Promise((resolve) => setTimeout(resolve, 4000));
 
-        // 3. 親カルーセルコンテナ (media_type: CAROUSEL) を作成
         const carouselRes = await fetch(
           `https://graph.facebook.com/v26.0/${accountId}/media`,
           {
@@ -140,10 +108,8 @@ export async function POST(req: Request) {
         finalCreationId = containerData.id;
       }
 
-      // Metaサーバー側の最適化を待機
       await new Promise((resolve) => setTimeout(resolve, 4000));
 
-      // 投稿 (media_publish) の実行
       const publishRes = await fetch(
         `https://graph.facebook.com/v26.0/${accountId}/media_publish`,
         {
@@ -170,7 +136,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 3. X (Twitter) へのスレッド自動投稿
+    // 2. X (Twitter) へのスレッド自動投稿
     // ==========================================
     if (platform === 'x') {
       const targetMainPost = mainPost || content;

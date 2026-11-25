@@ -2717,55 +2717,6 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="app/api/ai/intelligence/agents/curator.ts">
-// app/api/ai/intelligence/agents/curator.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
-⋮----
-export interface CuratorItemSelection {
-  itemId: string;
-  region: 'us' | 'eu' | 'asia';
-  role: string;
-  isMvp: boolean;
-  coreHookFact: string;
-  rationale: string;
-}
-⋮----
-export interface CuratorDailyLineup {
-  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-  contentType: 'arbitrage' | 'market_trend' | 'trend_track_record';
-  slotKey: string;
-  themeLabel: string;
-  items: CuratorItemSelection[];
-  dayRationale: string;
-}
-⋮----
-export interface CuratorStrategyBlueprint {
-  headline: string;
-  adaptationRationale: string;
-  slotDistribution: Record<string, number>;
-}
-⋮----
-export interface CuratorResponse {
-  strategyBlueprint: CuratorStrategyBlueprint;
-  mvpItemId: string;
-  weeklyLineup: CuratorDailyLineup[];
-}
-⋮----
-export async function runCuratorSelection(
-  researchCandidates: any[],
-  platformTactics?: any[],
-  category: string = 'pokemon'
-): Promise<CuratorResponse | null>
-⋮----
-// SNSアナリスト（IG / X）からの示唆を抽出
-⋮----
-// トークン節約のため候補データを要約
-⋮----
-agentKey: c.agent_key, // 'arbitrage' | 'trend'
-region: c.region,       // 'us' | 'eu' | 'asia'
-</file>
-
 <file path="app/api/ai/intelligence/agents/snsAccount.ts">
 // app/api/ai/intelligence/agents/snsAccount.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -3557,6 +3508,50 @@ export interface PipelineProgressState {
 }
 </file>
 
+<file path="app/api/ai/intelligence/agents/curator.ts">
+// app/api/ai/intelligence/agents/curator.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
+⋮----
+export interface CuratorItemSelection {
+  itemId: string;
+  region: 'us' | 'eu' | 'asia';
+  role: string;
+  isMvp: boolean;
+  coreHookFact: string;
+  rationale: string;
+}
+⋮----
+export interface CuratorDailyLineup {
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+  contentType: 'arbitrage' | 'market_trend' | 'trend_track_record';
+  slotKey: string;
+  themeLabel: string;
+  items: CuratorItemSelection[];
+  dayRationale: string;
+}
+⋮----
+export interface CuratorStrategyBlueprint {
+  headline: string;
+  adaptationRationale: string;
+  slotDistribution: Record<string, number>;
+}
+⋮----
+export interface CuratorResponse {
+  strategyBlueprint: CuratorStrategyBlueprint;
+  mvpItemId: string;
+  weeklyLineup: CuratorDailyLineup[];
+}
+⋮----
+// 市場トレンド・的中実績は保留中のため動作停止（型とロジックは保持）
+⋮----
+export async function runCuratorSelection(
+  researchCandidates: any[],
+  platformTactics?: any[],
+  category: string = 'pokemon'
+): Promise<CuratorResponse | null>
+</file>
+
 <file path="app/api/ai/publish/route.ts">
 // app/api/ai/publish/route.ts
 import { NextResponse } from 'next/server';
@@ -3699,6 +3694,48 @@ const escapeCsvField = (val: unknown) =>
 const getTodayFileDate = () =>
 const formatRegionLabel = (reg?: string) =>
 ⋮----
+const triggerCsvDownload = (headers: string[], rows: string[][], filenameBase: string) =>
+⋮----
+const triggerJsonDownload = (data: unknown, filenameBase: string) =>
+⋮----
+const renderExportButtons = (onCsv: () => void, onJson: () => void, disabled: boolean = false) =>
+⋮----
+// 1. キュレーター CSV / JSON
+const handleDownloadChiefCSV = () =>
+⋮----
+const handleDownloadChiefJSON = () =>
+⋮----
+// 2. 品質・規約監査役 (Gate 2) CSV / JSON
+const handleDownloadGate2CSV = () =>
+⋮----
+const handleDownloadGate2JSON = () =>
+⋮----
+// 3. IG / X アナリスト CSV / JSON
+const buildAccountRows = (report: any) =>
+⋮----
+const handleDownloadIgAnalystCSV = () =>
+⋮----
+const handleDownloadIgAnalystJSON = () =>
+⋮----
+const handleDownloadXAnalystCSV = () =>
+⋮----
+const handleDownloadXAnalystJSON = () =>
+⋮----
+// 4. IG クリエイター CSV / JSON
+const handleDownloadIgCreatorCSV = () =>
+⋮----
+const handleDownloadIgCreatorJSON = () =>
+⋮----
+// 5. X クリエイター CSV / JSON
+const handleDownloadXCreatorCSV = () =>
+⋮----
+const handleDownloadXCreatorJSON = () =>
+⋮----
+// 6. 有料コミュニティ (Sales DM) CSV / JSON
+const handleDownloadSalesCSV = () =>
+⋮----
+const handleDownloadSalesJSON = () =>
+⋮----
 const handleDownloadTrendAuditCSV = () =>
 ⋮----
 const handleDownloadTrendAuditJSON = () =>
@@ -3711,11 +3748,11 @@ const handleDownloadArbAuditJSON = () =>
 {/* 👑 キュレーターデスク */}
 {/* ========================================================= */}
 ⋮----
-<button onClick=
-⋮----
 {/* ========================================================= */}
 {/* 🛡️ 品質・規約監査役デスク（Gate 2 配信コンテンツ規約専任） */}
 {/* ========================================================= */}
+⋮----
+
 ⋮----
 {/* ========================================================= */}
 {/* 🛡️ 市場トレンド監査 デスク (Gate 1-B) */}
@@ -3724,6 +3761,8 @@ const handleDownloadArbAuditJSON = () =>
 {/* ========================================================= */}
 {/* 💎 アービトラージアナリスト (北米 / 欧州 / アジア 各担当デスク) */}
 {/* ========================================================= */}
+⋮----
+<button onClick=
 ⋮----
 {/* ========================================================= */}
 {/* 📊 IG アナリスト */}
@@ -3771,10 +3810,10 @@ onClick=
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { parseAIJson, getAgentRules, getCategoryName } from '../helpers';
 ⋮----
-// 6. Instagram専任投稿クリエイター（動的週間カレンダー ＆ 2股転換カルーセル特化）
+// 6. Instagram専任投稿クリエイター（火曜〜土曜 5日分アービトラージ特化）
 export async function runSnsPosts(chiefPackage: any, accountReport: any, category: string = 'pokemon')
 ⋮----
-// 7. X (Twitter) 専任クリエイター（140字フック ＆ 4ポストスレッド特化）
+// 7. X (Twitter) 専任クリエイター（火曜〜土曜 5日分アービトラージ特化・140字フック ＆ 4ポストスレッド）
 export async function runXPosts(chiefPackage: any, xAccountReport?: any, category: string = 'pokemon')
 </file>
 
@@ -3860,6 +3899,68 @@ export function extractPokemonNameEn(
   jaCardName: string,
   category: string = 'pokemon'
 ): string | null
+</file>
+
+<file path="app/AiDashboard/index.tsx">
+// app/AiDashboard/index.tsx
+⋮----
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
+import Sidebar from './components/Sidebar';
+import DeskViews from './components/DeskViews';
+import ChatPanel from './components/ChatPanel';
+⋮----
+interface PhaseDetail {
+    step: string;
+    title: string;
+    percent: number;
+    color: string;
+    activeAgents: string[];
+}
+⋮----
+// 🌟 北米リサーチ
+⋮----
+// 🌟 欧州リサーチ
+⋮----
+// 🌟 アジアリサーチ
+⋮----
+const loadCycleData = async (cycleId: string) =>
+⋮----
+const handleSelectHistory = (target: any) =>
+⋮----
+// 🌟 各AIデスクごとの完全単独再実行ハンドラー
+const runSingleAi = async (action: string, region?: RegionKey) =>
+⋮----
+// 強制停止ハンドラー
+const handleStopPipeline = async () =>
+⋮----
+// パイプライン開始処理
+const runIntelligenceAnalysis = async () =>
+⋮----
+// 🌟 進行対象のフェーズ一覧
+⋮----
+// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
+⋮----
+// 完了・失敗時の停止処理
+⋮----
+const handleCopy = (text: string, key: string) =>
+⋮----
+const handlePublishToDiscord = async (content: string) =>
+⋮----
+// app/AiDashboard/index.tsx 内
+const handlePublishToInstagram = async (
+    content: string, 
+    typeKey: string, 
+    images?: string[] | string
+) =>
+⋮----
+const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
+⋮----
+const fetchLatestCycles = async () =>
+⋮----
+{/* 進捗ゲージ */}
+⋮----
+{/* メインデスクビュー */}
 </file>
 
 <file path="app/api/ai/intelligence/agents/marketTrend.ts">
@@ -4033,68 +4134,6 @@ export async function POST(req: Request)
 // ------------------------------------------------------------------------
 // 8. コミュニティ営業 (Discord) 単独再生成
 // ------------------------------------------------------------------------
-</file>
-
-<file path="app/AiDashboard/index.tsx">
-// app/AiDashboard/index.tsx
-⋮----
-import React, { useState, useEffect, useRef } from 'react';
-import { IntelligenceData, RegionKey, CategoryKey, PipelinePhase, PipelineProgressState } from './types';
-import Sidebar from './components/Sidebar';
-import DeskViews from './components/DeskViews';
-import ChatPanel from './components/ChatPanel';
-⋮----
-interface PhaseDetail {
-    step: string;
-    title: string;
-    percent: number;
-    color: string;
-    activeAgents: string[];
-}
-⋮----
-// 🌟 北米リサーチ
-⋮----
-// 🌟 欧州リサーチ
-⋮----
-// 🌟 アジアリサーチ
-⋮----
-const loadCycleData = async (cycleId: string) =>
-⋮----
-const handleSelectHistory = (target: any) =>
-⋮----
-// 🌟 各AIデスクごとの完全単独再実行ハンドラー
-const runSingleAi = async (action: string, region?: RegionKey) =>
-⋮----
-// 強制停止ハンドラー
-const handleStopPipeline = async () =>
-⋮----
-// パイプライン開始処理
-const runIntelligenceAnalysis = async () =>
-⋮----
-// 🌟 進行対象のフェーズ一覧
-⋮----
-// 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
-⋮----
-// 完了・失敗時の停止処理
-⋮----
-const handleCopy = (text: string, key: string) =>
-⋮----
-const handlePublishToDiscord = async (content: string) =>
-⋮----
-// app/AiDashboard/index.tsx 内
-const handlePublishToInstagram = async (
-    content: string, 
-    typeKey: string, 
-    images?: string[] | string
-) =>
-⋮----
-const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
-⋮----
-const fetchLatestCycles = async () =>
-⋮----
-{/* 進捗ゲージ */}
-⋮----
-{/* メインデスクビュー */}
 </file>
 
 <file path="app/api/pipeline/status/route.ts">
@@ -4542,6 +4581,8 @@ import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/content
 import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 ⋮----
+// 市場トレンド・的中実績は現在保留中のため動作停止フラグ（廃止はせず保持）
+⋮----
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
 ⋮----
 // 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）
@@ -4567,15 +4608,13 @@ async function processAndSaveRegionResearch(
   trendReport: any
 )
 ⋮----
-// 1. アービトラージ候補抽出（全5スロット × 1価格帯 × 3商品）
+// 1. アービトラージ候補抽出（全5スロット × 価格帯 × 本命＋代替候補）
 ⋮----
-// A. 本命商品のURL正規化（カードラッシュ上書きを廃止しポケカジラURLを保持）
+// A. 本命商品のURL正規化
 ⋮----
-// B. 代替候補商品（2商品）のURL正規化
+// B. 代替候補商品のURL正規化
 ⋮----
-// 2. トレンド候補抽出
-⋮----
-// 3. DB一括登録（アービトラージ・トレンドともに確定済みのため曖昧検索上書きは行わない）
+// 2. トレンド候補抽出（保留中につき動作停止・コードは保持）
 ⋮----
 // ============================================================================
 // メインハンドラー
@@ -4584,19 +4623,17 @@ export async function POST(req: Request)
 ⋮----
 const dispatchNext = () =>
 ⋮----
-// 🌟 曜日（targetDay）に完全連動：月曜は市場トレンド予測、火〜日曜はアービトラージのみ実行
+// Phase 1-A: 北米リサーチ（市場トレンドは保留中のため停止）
 ⋮----
-// Phase 1-A: 北米リサーチ
+// Phase 1-B: 欧州リサーチ（市場トレンドは保留中のため停止）
 ⋮----
-// Phase 1-B: 欧州リサーチ
-⋮----
-// Phase 1-C: アジアリサーチ ＆ Xアナリスト
+// Phase 1-C: アジアリサーチ（市場トレンドは保留中のため停止）＆ Xアナリスト
 ⋮----
 // Phase 2: Gate 1 監査
 ⋮----
-// Phase 3: キュレーター動的選定
+// Phase 3: キュレーター動的選定（火曜〜土曜の5日分アービトラージ選定）
 ⋮----
-// Phase 4: 原稿生成
+// Phase 4: 原稿生成（火曜〜土曜の5日分アービトラージ投稿を生成）
 ⋮----
 // Phase 5: Gate 2 監査
 </file>

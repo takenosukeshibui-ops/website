@@ -5,7 +5,6 @@ import DocumentReportView from './DocumentReport';
 
 interface DeskViewsProps {
     aiActiveDesk: string;
-    activeTrendRegion: RegionKey | 'audit';
     activeArbitrageRegion: RegionKey | 'audit';
     aiData: IntelligenceData | null;
     gate1Audits?: (Gate1AuditItem & { agentKey?: string; priceTier?: string })[];
@@ -16,8 +15,6 @@ interface DeskViewsProps {
     copiedKey: string | null;
     handlePublishToInstagram: (content: string, typeKey: string, images?: string[] | string) => void;
     isPublishingInstagram: string | null;
-    handlePublishToDiscord: (content: string) => void;
-    isPublishingDiscord: boolean;
     handlePublishToX: (mainPost: string, threadPosts: string[], imageUrl?: string) => void;
     isPublishingX: boolean;
 }
@@ -34,40 +31,34 @@ const buildInfographicUrl = (info: any) => {
 };
 
 export default function DeskViews({
-    aiActiveDesk, activeTrendRegion, activeArbitrageRegion, aiData,
+    aiActiveDesk, activeArbitrageRegion, aiData,
     gate1Audits = [], gate2Audits = [],
     runningAction, runSingleAi, handleCopy, copiedKey,
     handlePublishToInstagram, isPublishingInstagram,
-    handlePublishToDiscord, isPublishingDiscord,
     handlePublishToX, isPublishingX
 }: DeskViewsProps) {
     const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
     const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
     const [currentIgSlideIdx, setCurrentIgSlideIdx] = useState<number>(0);
 
-    // 曜日変更時にカルーセルスライドを1枚目にリセット
     useEffect(() => {
         setCurrentIgSlideIdx(0);
     }, [selectedIgDay]);
 
-    // Instagramの選択された曜日の投稿データ取得
     const currentIgDaily = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(selectedIgDay) || p.day === selectedIgDay);
     const igPostText = currentIgDaily?.caption || '';
     const igImageUrl = buildInfographicUrl(currentIgDaily?.infographicData);
 
-    // インフォグラフィック仕様に合わせたスライド配列
     const igSlides: string[] = [
         '1枚目(表紙): 価格差インフォグラフィック画像（自動合成）',
-        '2枚目: VIP Discord ＆ 自社代理購入 への誘導CTA'
+        '2枚目: 自社代理購入 への誘導CTA'
     ];
 
-    // Xの選択された曜日のスレッドデータ取得
     const currentXDaily = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(selectedXDay) || t.day === selectedXDay);
     const xMainPost: string = currentXDaily?.mainPost || '';
     const xThreadPosts: string[] = currentXDaily?.threadPosts || [];
     const xImageUrl = buildInfographicUrl(currentXDaily?.infographicData);
 
-    // 動的曜日ボタン
     const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
         const post = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(day) || p.day === day);
         return { key: day, label: DAY_LABELS[day], desc: post?.theme || 'スロット未定' };
@@ -79,21 +70,11 @@ export default function DeskViews({
         return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : 'スレッド未定' };
     });
 
-    const allTrendAudits = gate1Audits.filter(a => {
-        return a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
-    });
+    const allArbAudits = gate1Audits.filter(a => a.agentKey !== 'trend');
 
-    const allArbAudits = gate1Audits.filter(a => {
-        const isTrend = a.agentKey === 'trend' || a.slot?.includes('🔥') || a.slot?.includes('シグナル') || a.slot?.includes('Rank') || (!a.priceTier && (a.slot?.length || 0) > 20);
-        return !isTrend;
-    });
-
-    const isTrendAudit = aiActiveDesk === 'desk_trend_audit' || activeTrendRegion === 'audit';
     const isArbAudit = aiActiveDesk === 'desk_arbitrage_audit' || activeArbitrageRegion === 'audit';
-    const safeTrendRegion: RegionKey | undefined = activeTrendRegion !== 'audit' ? activeTrendRegion : undefined;
     const safeArbRegion: RegionKey | undefined = activeArbitrageRegion !== 'audit' ? activeArbitrageRegion : undefined;
 
-    const activeTrendReport = safeTrendRegion ? aiData?.trendInsights?.[safeTrendRegion] || null : null;
     const activeArbReport = safeArbRegion ? aiData?.profitableCards?.[safeArbRegion] || null : null;
 
     const escapeCsvField = (val: unknown) => `"${(val ?? '').toString().replace(/"/g, '""')}"`;
@@ -162,7 +143,6 @@ export default function DeskViews({
         </div>
     );
 
-    // 1. キュレーター CSV / JSON
     const handleDownloadChiefCSV = () => {
         const pkg = aiData?.chiefPackage;
         if (!pkg) return;
@@ -208,7 +188,6 @@ export default function DeskViews({
         triggerJsonDownload(aiData.chiefPackage, 'Curator_Lineup');
     };
 
-    // 2. 品質・規約監査役 (Gate 2) CSV / JSON
     const handleDownloadGate2CSV = () => {
         if (gate2Audits.length === 0) return;
         const headers = ['プラットフォーム', '対象曜日', '判定ステータス', '監査フィードバック'];
@@ -226,7 +205,6 @@ export default function DeskViews({
         triggerJsonDownload(gate2Audits, 'Quality_Audit_Gate2');
     };
 
-    // 3. IG / X アナリスト CSV / JSON
     const buildAccountRows = (report: any) => {
         if (!report) return [];
         const rows: string[][] = [];
@@ -270,7 +248,6 @@ export default function DeskViews({
         triggerJsonDownload(aiData.xAccountInsights, 'X_Analyst_Report');
     };
 
-    // 4. IG クリエイター CSV / JSON
     const handleDownloadIgCreatorCSV = () => {
         const posts = aiData?.snsPosts?.dailyPosts || [];
         if (posts.length === 0) return;
@@ -297,7 +274,6 @@ export default function DeskViews({
         triggerJsonDownload(aiData.snsPosts, 'IG_Creator_Posts');
     };
 
-    // 5. X クリエイター CSV / JSON
     const handleDownloadXCreatorCSV = () => {
         const threads = aiData?.xPosts?.dailyThreads || [];
         if (threads.length === 0) return;
@@ -323,78 +299,6 @@ export default function DeskViews({
     const handleDownloadXCreatorJSON = () => {
         if (!aiData?.xPosts) return;
         triggerJsonDownload(aiData.xPosts, 'X_Creator_Threads');
-    };
-
-    // 6. 有料コミュニティ (Sales DM) CSV / JSON
-    const handleDownloadSalesCSV = () => {
-        const dm = aiData?.salesDM;
-        if (!dm) return;
-        const headers = ['対象セグメント', 'オファー概要', '最低ロット条件', '推奨配送便', '推奨決済方法', 'Discordメッセージ全文', '商談・交渉ガイダンス'];
-        const rows = [[
-            dm.targetSegment || '',
-            dm.offerSummary || '',
-            dm.commercialTerms?.minimumOrderQty || '',
-            dm.commercialTerms?.shippingMethod || '',
-            dm.commercialTerms?.paymentMethod || '',
-            dm.discordMessage || '',
-            dm.negotiationTip || '',
-        ]];
-        triggerCsvDownload(headers, rows, 'Paid_Community_Offer');
-    };
-
-    const handleDownloadSalesJSON = () => {
-        if (!aiData?.salesDM) return;
-        triggerJsonDownload(aiData.salesDM, 'Paid_Community_Offer');
-    };
-
-    const handleDownloadTrendAuditCSV = () => {
-        if (allTrendAudits.length === 0) return;
-        const headers = ['地域', '判定ステータス', 'カード名', '対象仮説', '実在性チェック', '大会規約チェック', '監査フィードバック'];
-        const rows = [headers.join(',')];
-
-        for (const item of allTrendAudits) {
-            const statusLabel =
-                item.status === 'passed' ? '規約適合' :
-                item.status === 'pending' ? '監査待ち' : '差し戻し';
-            const existCheck =
-                item.checks?.card_existence_verified === true ? 'OK' :
-                item.checks?.card_existence_verified === false ? 'NG' : '-';
-            const tourneyCheck =
-                item.checks?.official_tournament_compliant === true ? 'OK' :
-                item.checks?.official_tournament_compliant === false ? 'NG' : '-';
-
-            rows.push([
-                escapeCsvField(formatRegionLabel(item.region)),
-                escapeCsvField(statusLabel),
-                escapeCsvField(item.card),
-                escapeCsvField(item.slot),
-                escapeCsvField(existCheck),
-                escapeCsvField(tourneyCheck),
-                escapeCsvField(item.feedback || '')
-            ].join(','));
-        }
-
-        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-        const blob = new Blob([bom, rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Trend_Audit_Gate1B_${getTodayFileDate()}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleDownloadTrendAuditJSON = () => {
-        if (allTrendAudits.length === 0) return;
-        const blob = new Blob([JSON.stringify(allTrendAudits, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Trend_Audit_Gate1B_${getTodayFileDate()}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     };
 
     const handleDownloadArbAuditCSV = () => {
@@ -507,7 +411,7 @@ export default function DeskViews({
                                         <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                                             <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分スロット）
                                         </h4>
-                                        <span className="text-[10px] text-slate-400">Gate 1 検算・論理監査 合格品</span>
+                                        <span className="text-[10px] text-slate-400">Gate 1 検算 合格品</span>
                                     </div>
                                     <div className="space-y-3">
                                         {aiData.chiefPackage.contentCalendar.map((dailyItem: any, cIdx: number) => (
@@ -574,7 +478,7 @@ export default function DeskViews({
                             <span className="text-3xl">🛡️</span>
                             <div>
                                 <h2 className="text-lg font-bold text-white">品質・規約監査役デスク</h2>
-                                <p className="text-xs text-slate-400">Gate 2（配信コンテンツ表現・撒き餌原則・機密漏洩・2股導線）最終監査結果</p>
+                                <p className="text-xs text-slate-400">Gate 2（配信コンテンツ表現・撒き餌原則・機密漏洩・CTA導線）最終監査結果</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -588,7 +492,7 @@ export default function DeskViews({
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
                         <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
                             <h3 className="text-sm font-bold text-orange-300 flex items-center gap-2">
-                                <span>🔍</span> SNS・Discord 配信原稿 監査レポート一覧
+                                <span>🔍</span> SNS 配信原稿 監査レポート一覧
                             </h3>
                             <span className="text-xs text-slate-400">「答えを教えない撒き餌原則」および仕入れ先ワード漏洩の厳格審査</span>
                         </div>
@@ -601,7 +505,7 @@ export default function DeskViews({
                                     <div key={idx} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800/80 space-y-2 text-xs">
                                         <div className="flex justify-between items-center">
                                             <span className="font-bold text-white uppercase flex items-center gap-1.5">
-                                                <span>{item.platform === 'instagram' ? '📸' : item.platform === 'x' ? '🐦' : '💬'}</span>
+                                                <span>{item.platform === 'instagram' ? '📸' : '🐦'}</span>
                                                 <span>{item.platform} 配信原稿</span>
                                             </span>
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -624,113 +528,6 @@ export default function DeskViews({
                             </div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* 🛡️ 市場トレンド監査 デスク (Gate 1-B) */}
-            {/* ========================================================= */}
-            {(aiActiveDesk === 'desk_trend_audit' || (aiActiveDesk.startsWith('desk_trend') && isTrendAudit)) && (
-                <div className="w-full space-y-6 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <span className="text-3xl">🛡️</span>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h2 className="text-lg font-bold text-white">市場トレンド監査</h2>
-                                    <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-bold font-mono">
-                                        Gate 1-B
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg font-bold font-mono">
-                                全適合率: {allTrendAudits.filter(a => a.status === 'passed').length} / {allTrendAudits.length} 件
-                            </span>
-                            {allTrendAudits.length > 0 && renderExportButtons(handleDownloadTrendAuditCSV, handleDownloadTrendAuditJSON)}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {(['us', 'eu', 'asia'] as const).map(reg => {
-                            const regAudits = allTrendAudits.filter(a => a.region?.toLowerCase() === reg);
-                            const passedCount = regAudits.filter(a => a.status === 'passed').length;
-                            const regLabel = reg === 'us' ? '北米市場' : reg === 'eu' ? '欧州市場' : 'アジア市場';
-                            return (
-                                <div key={reg} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1.5 shadow-md">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="font-bold text-slate-300">{regLabel}</span>
-                                        <span className="font-mono text-amber-400 font-bold">{passedCount} / {regAudits.length} 適合</span>
-                                    </div>
-                                    <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                                        <div
-                                            className="bg-amber-500 h-1.5 rounded-full transition-all"
-                                            style={{ width: `${regAudits.length > 0 ? (passedCount / regAudits.length) * 100 : 0}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
-                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-                            <h3 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                <span>📋</span> トレンド仮説・選定銘柄 監査詳細一覧
-                            </h3>
-                            <span className="text-xs text-slate-400">Play! Pokémon 大会使用不可カードの煽り排除チェック</span>
-                        </div>
-
-                        {allTrendAudits.length === 0 ? (
-                            <p className="text-xs text-slate-500 italic py-8 text-center">監査レコードはまだありません（全リサーチ実行後に表示されます）</p>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[620px] overflow-y-auto pr-1">
-                                {allTrendAudits.map((item, idx) => (
-                                    <div key={idx} className="bg-slate-950 p-3.5 rounded-lg border border-slate-800/80 space-y-2 text-xs">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-bold text-white truncate max-w-[200px]">{item.card}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                item.status === 'passed' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                                            }`}>
-                                                {item.status === 'passed' ? '✔ 規約適合' : '✖ 差し戻し'}
-                                            </span>
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 flex justify-between">
-                                            <span className="truncate max-w-[200px]">{item.slot}</span>
-                                            <span className="font-mono text-slate-300 uppercase">地域: {item.region}</span>
-                                        </div>
-                                        {item.feedback && (
-                                            <div className="bg-amber-500/10 p-2.5 rounded border border-amber-500/20 mt-1">
-                                                <span className="text-[10px] text-amber-400 font-bold block mb-1">💬 監査指摘・差し戻し理由</span>
-                                                <p className="text-[11px] text-amber-200 leading-relaxed whitespace-pre-wrap">{item.feedback}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* 🔮 市場トレンドアナリスト (北米 / 欧州 / アジア 各担当デスク) */}
-            {/* ========================================================= */}
-            {aiActiveDesk.startsWith('desk_trend') && !isTrendAudit && safeTrendRegion && (
-                <div className="w-full space-y-5 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <span className="text-3xl">🔮</span>
-                            <div>
-                                <h2 className="text-lg font-bold text-white">市場トレンドアナリスト ({safeTrendRegion === 'us' ? '北米' : safeTrendRegion === 'eu' ? '欧州' : 'アジア'})</h2>
-                            </div>
-                        </div>
-                        <button onClick={() => runSingleAi('trend', safeTrendRegion)} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                            {runningAction === `trend_${safeTrendRegion}` ? '調査中...' : '🔄 パイプラインを再実行'}
-                        </button>
-                    </div>
-                    <DocumentReportView report={activeTrendReport} accentColor="amber" icon="📈" />
                 </div>
             )}
 
@@ -930,7 +727,6 @@ export default function DeskViews({
 
                     {aiData?.snsPosts ? (
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                            {/* 左カラム: 原稿テキスト・スライド指示・ハッシュタグ */}
                             <div className="xl:col-span-7 space-y-5">
                                 <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-4 shadow-xl">
                                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
@@ -962,7 +758,6 @@ export default function DeskViews({
                                         </div>
                                     )}
 
-                                    {/* カルーセルスライド制作指示リスト */}
                                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                         <h4 className="text-xs font-bold text-amber-300 mb-2 flex items-center gap-1.5">
                                             <span>🖼️</span> カルーセル画像スライド構成指示（全{igSlides.length}枚）
@@ -991,7 +786,6 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
-                                    {/* 推奨ハッシュタグ */}
                                     {aiData?.snsPosts?.hashtags && aiData.snsPosts.hashtags.length > 0 && (
                                         <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
                                             <div className="flex justify-between items-center">
@@ -1011,7 +805,6 @@ export default function DeskViews({
                                         </div>
                                     )}
 
-                                    {/* 投稿キャプション本文 */}
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <h4 className="text-xs font-bold text-white">📝 【{DAY_LABELS[selectedIgDay]}】投稿キャプション全文</h4>
@@ -1020,7 +813,6 @@ export default function DeskViews({
                                                     {copiedKey === `ig_${selectedIgDay}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
                                                 {(() => {
-                                                    // カルーセル用スライド画像の組み立て
                                                     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
                                                     const currentCardTitle = aiData?.chiefPackage?.mvpHighlight?.cardName || 'Featured Card';
                                                     const slide1Url = `${baseUrl}/api/og?cardName=${encodeURIComponent(currentCardTitle)}&type=${selectedIgDay}`;
@@ -1046,7 +838,6 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 右カラム: Instagram アプリ実機風プレビュー */}
                             <div className="xl:col-span-5 flex flex-col items-center">
                                 <div className="w-full max-w-[360px] bg-black rounded-[32px] border-[5px] border-slate-700 shadow-2xl overflow-hidden text-white font-sans text-xs">
                                     <div className="h-5 bg-black flex justify-between items-center px-6 pt-1 text-[10px] text-slate-400 font-mono">
@@ -1103,9 +894,6 @@ export default function DeskViews({
                                                     </p>
                                                     {currentIgSlideIdx === igSlides.length - 1 && (
                                                         <div className="pt-2 flex justify-center gap-1.5">
-                                                            <span className="text-[9px] bg-purple-600/80 text-white px-2 py-0.5 rounded font-bold">
-                                                                VIP Discord ➔
-                                                            </span>
                                                             <span className="text-[9px] bg-blue-600/80 text-white px-2 py-0.5 rounded font-bold">
                                                                 自社代理購入 ➔
                                                             </span>
@@ -1234,7 +1022,6 @@ export default function DeskViews({
 
                     {aiData?.xPosts ? (
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                            {/* 左カラム: 原稿テキスト・スレッドリスト */}
                             <div className="xl:col-span-7 space-y-5">
                                 <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-4 shadow-xl">
                                     <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
@@ -1263,7 +1050,6 @@ export default function DeskViews({
                                         </div>
                                     )}
 
-                                    {/* 1ポスト目 */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
@@ -1292,7 +1078,6 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
-                                    {/* 2〜4ポスト目 */}
                                     <div className="space-y-2 pt-2 border-t border-slate-800">
                                         <h4 className="text-xs font-bold text-slate-300">🧵 スレッド展開 (2〜4ポスト目)</h4>
                                         {xThreadPosts.map((tp: string, idx: number) => (
@@ -1310,7 +1095,6 @@ export default function DeskViews({
                                 </div>
                             </div>
 
-                            {/* 右カラム: X (Twitter) 公式風スレッドプレビュー */}
                             <div className="xl:col-span-5 flex flex-col items-center">
                                 <div className="w-full max-w-[400px] bg-black border border-slate-800 rounded-2xl p-4 shadow-2xl text-white font-sans text-xs space-y-4">
                                     <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
@@ -1320,7 +1104,6 @@ export default function DeskViews({
                                         <span className="text-[10px] text-slate-500">最新アルゴリズム適合</span>
                                     </div>
 
-                                    {/* 1ポスト目（メインフック） */}
                                     <div className="space-y-3 relative">
                                         {xThreadPosts.length > 0 && (
                                             <div className="absolute left-4 top-10 bottom-[-16px] w-[2px] bg-slate-800" />
@@ -1341,7 +1124,6 @@ export default function DeskViews({
                                                     {xMainPost}
                                                 </p>
 
-                                                {/* 添付画像プレビュー枠 */}
                                                 <div 
                                                     className="mt-2.5 rounded-xl overflow-hidden border border-slate-800/80 aspect-square bg-slate-950 bg-cover bg-center"
                                                     style={xImageUrl ? { backgroundImage: `url('${xImageUrl}')` } : {}}
@@ -1363,7 +1145,6 @@ export default function DeskViews({
                                         </div>
                                     </div>
 
-                                    {/* 2ポスト目以降（スレッドツリー表示） */}
                                     {xThreadPosts.map((threadText: string, tIdx: number) => {
                                         const isLast = tIdx === xThreadPosts.length - 1;
                                         return (
@@ -1399,69 +1180,6 @@ export default function DeskViews({
                         </div>
                     ) : (
                         <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだX投稿が生成されていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
-                    )}
-                </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* 💬 有料コミュニティ */}
-            {/* ========================================================= */}
-            {aiActiveDesk === 'desk_sales' && (
-                <div className="w-full space-y-6 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <span className="text-3xl">💬</span>
-                            <div>
-                                <h2 className="text-lg font-bold text-white">有料コミュニティ</h2>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {renderExportButtons(handleDownloadSalesCSV, handleDownloadSalesJSON, !aiData?.salesDM)}
-                            <button onClick={() => runSingleAi('sales')} disabled={Boolean(runningAction)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold shadow-md transition">
-                                {runningAction === 'sales' ? '作成中...' : '🔄 パイプラインを再実行'}
-                            </button>
-                        </div>
-                    </div>
-                    {aiData?.salesDM ? (
-                        <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-5 space-y-5 shadow-xl">
-                            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
-                                <div>
-                                    <span className="text-[10px] uppercase font-mono tracking-widest text-purple-400 font-bold block mb-1">VIP Community Wholesale Offer</span>
-                                    <h3 className="text-base font-bold text-white">{aiData.salesDM.offerSummary}</h3>
-                                </div>
-                                <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2.5 py-1 rounded-lg font-bold">対象: {aiData.salesDM.targetSegment}</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    <span className="text-[10px] text-slate-400 block mb-1">最低ロット条件</span>
-                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.minimumOrderQty}</span>
-                                </div>
-                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    <span className="text-[10px] text-slate-400 block mb-1">推奨配送便</span>
-                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.shippingMethod}</span>
-                                </div>
-                                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                    <span className="text-[10px] text-slate-400 block mb-1">推奨決済方法</span>
-                                    <span className="text-xs text-white font-bold">{aiData.salesDM.commercialTerms?.paymentMethod}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="text-xs font-bold text-white">✉️ Discord投稿メッセージ全文</h4>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleCopy(aiData?.salesDM?.discordMessage || '', 'dm')} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">{copiedKey === 'dm' ? '✓ コピー完了' : 'コピー'}</button>
-                                        <button onClick={() => handlePublishToDiscord(aiData?.salesDM?.discordMessage || '')} disabled={isPublishingDiscord} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95">{isPublishingDiscord ? '送信中...' : '🚀 Discordへ送信'}</button>
-                                    </div>
-                                </div>
-                                <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-60 overflow-y-auto leading-relaxed">{aiData?.salesDM?.discordMessage}</pre>
-                            </div>
-                            <div className="bg-purple-950/20 p-3 rounded-lg border border-purple-900/30">
-                                <h4 className="text-xs font-bold text-purple-300 mb-1">💡 商談・交渉ガイダンス</h4>
-                                <p className="text-xs text-slate-300 leading-relaxed">{aiData?.salesDM?.negotiationTip}</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center py-8 text-slate-500 text-xs bg-slate-900 border border-slate-800 rounded-xl">まだDiscordオファーが生成されていません。「🚀 全AIに一斉調査・発信制作を指示」を実行してください。</div>
                     )}
                 </div>
             )}

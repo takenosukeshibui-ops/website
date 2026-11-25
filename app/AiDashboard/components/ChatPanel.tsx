@@ -5,7 +5,6 @@ import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } 
 interface ChatPanelProps {
     activeCategory: CategoryKey;
     aiActiveDesk: string;
-    activeTrendRegion: RegionKey;
     activeArbitrageRegion: RegionKey;
     aiData: IntelligenceData | null;
     runSingleAi: (action: string, region?: RegionKey) => void;
@@ -15,7 +14,6 @@ interface ChatPanelProps {
 export default function ChatPanel({
     activeCategory,
     aiActiveDesk,
-    activeTrendRegion,
     activeArbitrageRegion,
     aiData,
     runSingleAi,
@@ -26,7 +24,7 @@ export default function ChatPanel({
     const [isChatSubmitting, setIsChatSubmitting] = useState(false);
     const [knowledgeList, setKnowledgeList] = useState<KnowledgeItem[]>([]);
     const [showKnowledgePanel, setShowKnowledgePanel] = useState(false);
-    
+
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -41,15 +39,12 @@ export default function ChatPanel({
 
     const getActiveAgentKey = (desk: string): string | null => {
         if (desk === 'desk_audit') return 'auditor';
-        if (desk.startsWith('desk_trend_audit')) return 'trend_audit';
         if (desk.startsWith('desk_arbitrage_audit')) return 'arbitrage_audit';
-        if (desk.startsWith('desk_trend')) return 'trend';
         if (desk.startsWith('desk_arbitrage')) return 'arbitrage';
         if (desk === 'desk_x_account') return 'x_account';
         if (desk === 'desk_account') return 'account';
         if (desk === 'desk_sns') return 'sns';
         if (desk === 'desk_x') return 'x';
-        if (desk === 'desk_sales') return 'sales';
         if (desk === 'desk_chief') return 'chief';
         if (desk.startsWith('desk_')) return desk.replace('desk_', '');
         return null;
@@ -57,16 +52,13 @@ export default function ChatPanel({
 
     const getDeskTitle = (desk: string): string => {
         if (desk === 'desk_audit') return '🛡️ 品質・規約監査役';
-        if (desk === 'desk_trend_audit') return '🛡️ 市場トレンド監査';
         if (desk === 'desk_arbitrage_audit') return '⚖️ アービトラージ監査担当';
         if (desk === 'desk_chief') return '👑 キュレーター';
-        if (desk.startsWith('desk_trend')) return `🔮 市場アナリスト (${activeTrendRegion.toUpperCase()})`;
         if (desk.startsWith('desk_arbitrage')) return `💎 アービトラージアナリスト (${activeArbitrageRegion.toUpperCase()})`;
         if (desk === 'desk_account') return '📊 IG アナリスト';
         if (desk === 'desk_x_account') return '📈 X アナリスト';
         if (desk === 'desk_sns') return '🎨 IG クリエイター';
         if (desk === 'desk_x') return '✍️ X クリエイター';
-        if (desk === 'desk_sales') return '✉️ 有料コミュニティ';
         return '担当AI';
     };
 
@@ -99,15 +91,12 @@ export default function ChatPanel({
         const senderToAgentKey: Record<string, string> = {
             'キュレーター': 'chief',
             '品質・規約監査役': 'auditor',
-            '市場トレンド監査': 'trend_audit',
             'アービトラージ監査担当': 'arbitrage_audit',
-            '市場アナリスト': 'trend',
             'アービトラージアナリスト': 'arbitrage',
             'IG アナリスト': 'account',
             'X アナリスト': 'x_account',
             'IG クリエイター': 'sns',
             'X クリエイター': 'x',
-            '有料コミュニティ': 'sales'
         };
         let agentKey = senderToAgentKey[sender];
         if (isUserMessage) {
@@ -158,9 +147,7 @@ export default function ChatPanel({
         setChatCommand('');
         setIsChatSubmitting(true);
 
-        const currentRegion = aiActiveDesk.startsWith('desk_trend')
-            ? activeTrendRegion
-            : aiActiveDesk.startsWith('desk_arbitrage')
+        const currentRegion = aiActiveDesk.startsWith('desk_arbitrage')
             ? activeArbitrageRegion
             : undefined;
 
@@ -264,7 +251,6 @@ export default function ChatPanel({
                             </button>
                         </div>
                     </div>
-                    {/* RSI / Knowledge List は省略せずに残す */}
                     {aiData?.rsiReport && (
                         <div className="bg-slate-950 p-3 rounded-lg border border-amber-500/30 text-xs space-y-2">
                             <div className="flex justify-between items-center text-slate-300">
@@ -274,11 +260,7 @@ export default function ChatPanel({
                                 <span className="text-[10px] text-slate-500">直近予測ログと実相場を突合分析</span>
                             </div>
                             <p className="text-slate-300 leading-relaxed">{aiData.rsiReport.overallEvaluation}</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 text-[11px]">
-                                <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                                    <span className="text-amber-400 font-bold block mb-0.5">🔮 トレンド重み付け補正</span>
-                                    <p className="text-slate-400">{aiData.rsiReport.trendWeightAdjustments?.rationale}</p>
-                                </div>
+                            <div className="grid grid-cols-1 gap-2 pt-1 text-[11px]">
                                 <div className="bg-slate-900 p-2 rounded border border-slate-800">
                                     <span className="text-emerald-400 font-bold block mb-0.5">💎 サヤスプレッド監査</span>
                                     <p className="text-slate-400">{aiData.rsiReport.arbitrageSpreadAudits?.rationale}</p>

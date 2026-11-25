@@ -65,12 +65,11 @@ export async function GET(req: Request) {
 
     const igDeliverable = deliverables.find((d) => d.platform === 'instagram');
     const xDeliverable = deliverables.find((d) => d.platform === 'x');
-    const discordDeliverable = deliverables.find((d) => d.platform === 'discord');
 
     const igTactic = tactics.find((t) => t.platform === 'instagram');
     const xTactic = tactics.find((t) => t.platform === 'x');
 
-    // 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
+    // 3. サヤ取りレポート復元
     const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') => {
       const items = researchItems.filter((i) => i.agent_key === 'arbitrage' && i.region === regionKey);
       if (items.length === 0) return null;
@@ -167,50 +166,6 @@ export async function GET(req: Request) {
       };
     };
 
-    // 4. トレンドレポート復元
-    const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') => {
-      const items = researchItems.filter((i) => i.agent_key === 'trend' && i.region === regionKey);
-      if (items.length === 0) return null;
-
-      const hypoMap: Record<string, any> = {};
-      let summaryObj: any = null;
-
-      for (const item of items) {
-        const headline = item.slot_key;
-        if (!hypoMap[headline]) {
-          hypoMap[headline] = {
-            headline,
-            signal: item.raw_payload?.hypothesis?.signal || item.research_insight,
-            timeframe: item.liquidity_indicator || '約2週間後',
-            items: [],
-          };
-        }
-        if (item.raw_payload) {
-          const ebayUrl = item.raw_payload?.sourceEvidenceUrl || buildEbayFallbackUrl(item.card_name, item.condition_grade);
-          hypoMap[headline].items.push({
-            cardName: item.card_name,
-            condition: item.condition_grade,
-            jpBuyPriceJPY: `¥${item.jp_buy_price_jpy.toLocaleString()}`,
-            currentLocalPrice: item.target_sold_price_local,
-            impactLogic: item.research_insight,
-            jpEvidenceUrl: item.raw_payload?.jpEvidenceUrl,
-            sourceEvidenceUrl: ebayUrl,
-          });
-          if (item.raw_payload.reportSummary && !summaryObj) {
-            summaryObj = item.raw_payload.reportSummary;
-          }
-        }
-      }
-
-      return {
-        title: `【${regionKey.toUpperCase()}】市場トレンドレポート`,
-        claim: `${regionKey.toUpperCase()}市場の急騰先行シグナル`,
-        createdAt: cycle.created_at,
-        summary: summaryObj,
-        hypotheses: Object.values(hypoMap),
-      };
-    };
-
     const mvpItem = researchItems.find((i) => i.is_mvp);
 
     const formattedData = {
@@ -218,11 +173,6 @@ export async function GET(req: Request) {
       pipelineStatus: cycle.status,
       category: cycle.category,
       targetWeek: cycle.target_week,
-      trendInsights: {
-        us: buildTrendInsights('us'),
-        eu: buildTrendInsights('eu'),
-        asia: buildTrendInsights('asia'),
-      },
       profitableCards: {
         us: buildProfitableCards('us'),
         eu: buildProfitableCards('eu'),
@@ -244,7 +194,6 @@ export async function GET(req: Request) {
       },
       snsPosts: igDeliverable?.content_payload || null,
       xPosts: xDeliverable?.content_payload || null,
-      salesDM: discordDeliverable?.content_payload || null,
       gate1Audits: researchItems
         .filter((i) => i.gate1_status !== 'pending')
         .map((i) => ({

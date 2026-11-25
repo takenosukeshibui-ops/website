@@ -27,7 +27,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         title: '世界3大市場リサーチ (準備中)',
         percent: 15,
         color: 'bg-indigo-500',
-        activeAgents: ['リサーチチーム']
+        activeAgents: ['アービトラージリサーチチーム']
     },
     // 🌟 北米リサーチ
     researching_us: {
@@ -35,7 +35,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         title: '北米(US)市場リサーチ ＆ 価格差検証中...',
         percent: 20,
         color: 'bg-indigo-500',
-        activeAgents: ['🔮 市場トレンド (US)', '💎 アービトラージ (US)', '📊 IG アナリスト']
+        activeAgents: ['💎 アービトラージ (US)', '📊 IG アナリスト']
     },
     // 🌟 欧州リサーチ
     researching_eu: {
@@ -43,7 +43,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         title: '欧州(EU)市場リサーチ ＆ 価格差検証中...',
         percent: 30,
         color: 'bg-indigo-500',
-        activeAgents: ['🔮 市場トレンド (EU)', '💎 アービトラージ (EU)']
+        activeAgents: ['💎 アービトラージ (EU)']
     },
     // 🌟 アジアリサーチ
     researching_asia: {
@@ -51,21 +51,20 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         title: 'アジア市場リサーチ ＆ Xアナリスト分析中...',
         percent: 40,
         color: 'bg-indigo-500',
-        activeAgents: ['🔮 市場トレンド (Asia)', '💎 アービトラージ (Asia)', '📈 X アナリスト']
+        activeAgents: ['💎 アービトラージ (Asia)', '📈 X アナリスト']
     },
     gate1_auditing: {
         step: 'STEP 2 / 5',
-        title: '商材データ・トレンド論理 一次監査',
+        title: '商材データ 一次監査',
         percent: 50,
         color: 'bg-amber-500',
         activeAgents: [
-            '⚖️ アービトラージ監査担当 (Gate 1-A)',
-            '🛡️ 市場トレンド監査担当 (Gate 1-B)'
+            '⚖️ アービトラージ監査担当 (Gate 1-A)'
         ]
     },
     curating: {
         step: 'STEP 3 / 5',
-        title: '7日分スロット編成 ＆ 看板MVP選定',
+        title: 'スロット編成 ＆ 看板MVP選定',
         percent: 65,
         color: 'bg-purple-500',
         activeAgents: [
@@ -74,13 +73,12 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     },
     generating_content: {
         step: 'STEP 4 / 5',
-        title: 'SNS原稿・オファー制作',
+        title: 'SNS原稿制作',
         percent: 80,
         color: 'bg-pink-500',
         activeAgents: [
             '🎨 IG クリエイター',
-            '✍️ X クリエイター',
-            '✉️ 有料コミュニティ'
+            '✍️ X クリエイター'
         ]
     },
     gate2_auditing: {
@@ -94,11 +92,11 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
     },
     ready_to_publish: {
         step: 'COMPLETE',
-        title: '全フェーズ完了！全15原稿の配信準備が完了しました',
+        title: '全フェーズ完了！配信原稿の準備が完了しました',
         percent: 100,
         color: 'bg-emerald-500',
         activeAgents: [
-            '✔ 全13AI 稼働完了（各デスクで原稿確認・自動配信可能）'
+            '✔ 稼働完了（各デスクで原稿確認・自動配信可能）'
         ]
     },
     partially_failed: {
@@ -122,7 +120,6 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
 export default function AiDashboard() {
     const [activeCategory, setActiveCategory] = useState<CategoryKey>('pokemon');
     const [aiActiveDesk, setAiActiveDesk] = useState<string>('desk_chief');
-    const [activeTrendRegion, setActiveTrendRegion] = useState<RegionKey>('us');
     const [activeArbitrageRegion, setActiveArbitrageRegion] = useState<RegionKey>('us');
     const [aiData, setAiData] = useState<IntelligenceData | null>(null);
     const [aiLoading, setAiLoading] = useState<boolean>(false);
@@ -130,7 +127,6 @@ export default function AiDashboard() {
     const [history, setHistory] = useState<any[]>([]);
     const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
-    const [isPublishingDiscord, setIsPublishingDiscord] = useState<boolean>(false);
     const [isPublishingInstagram, setIsPublishingInstagram] = useState<string | null>(null);
     const [isPublishingX, setIsPublishingX] = useState<boolean>(false);
     const [isStopping, setIsStopping] = useState<boolean>(false);
@@ -151,13 +147,11 @@ export default function AiDashboard() {
             const json = await res.json();
             if (json.success && json.data) {
                 setAiData({
-                    trendInsights: json.data.trendInsights || { us: null, eu: null, asia: null },
                     profitableCards: json.data.profitableCards || { us: null, eu: null, asia: null },
                     chiefPackage: json.data.chiefPackage || null,
                     proofPackage: null,
                     snsPosts: json.data.snsPosts || null,
                     xPosts: json.data.xPosts || null,
-                    salesDM: json.data.salesDM || null,
                     accountInsights: json.data.accountInsights || null,
                     xAccountInsights: json.data.xAccountInsights || null,
                     rsiReport: null,
@@ -188,14 +182,12 @@ export default function AiDashboard() {
 
         const deskNames: Record<string, string> = {
             chief: 'チーフ（AIキュレーター選定）',
-            trend: `市場トレンドアナリスト (${region?.toUpperCase() || ''})`,
             arbitrage: `アービトラージアナリスト (${region?.toUpperCase() || ''})`,
             account: '自社Instagramアナリスト',
             x_account: '自社Xアナリスト',
             sns: 'Instagramクリエイター (原稿制作)',
             x_posts: 'Xクリエイター (スレッド制作)',
             x: 'Xクリエイター (スレッド制作)',
-            sales: 'コミュニティ営業 (Discordオファー)'
         };
         const targetName = deskNames[action] || action;
         if (!window.confirm(`【${targetName}】のみを単独再実行しますか？\n（他のAIデータや全体パイプラインは維持されます）`)) return;
@@ -309,12 +301,10 @@ export default function AiDashboard() {
                         if (json.data) {
                             setAiData(prev => ({
                                 ...prev,
-                                trendInsights: json.data.trendInsights || prev?.trendInsights,
                                 profitableCards: json.data.profitableCards || prev?.profitableCards,
                                 chiefPackage: json.data.chiefPackage,
                                 snsPosts: json.data.snsPosts,
                                 xPosts: json.data.xPosts,
-                                salesDM: json.data.salesDM,
                                 accountInsights: json.data.accountInsights || prev?.accountInsights,
                                 xAccountInsights: json.data.xAccountInsights || prev?.xAccountInsights,
                             } as any));
@@ -355,7 +345,7 @@ export default function AiDashboard() {
                                 pollIntervalRef.current = null;
                             }
                             setAiLoading(false);
-                            
+
                             const listRes = await fetch(`/api/pipeline/status?list=true&category=${activeCategory}`);
                             const listJson = await listRes.json();
                             if (listJson.success && listJson.cycles) {
@@ -368,9 +358,9 @@ export default function AiDashboard() {
                 }
             }, 3000);
 
-        } catch (err: any) { 
-            alert(`分析エラー: ${err.message || '予期せぬエラー'}`); 
-            setAiLoading(false); 
+        } catch (err: any) {
+            alert(`分析エラー: ${err.message || '予期せぬエラー'}`);
+            setAiLoading(false);
         }
     };
 
@@ -386,47 +376,36 @@ export default function AiDashboard() {
         navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(null), 2000);
     };
 
-    const handlePublishToDiscord = async (content: string) => {
-        if (!window.confirm('DiscordのVIPチャンネルへ送信しますか？')) return;
-        setIsPublishingDiscord(true);
+    // app/AiDashboard/index.tsx 内
+    const handlePublishToInstagram = async (
+        content: string,
+        typeKey: string,
+        images?: string[] | string
+    ) => {
+        if (!window.confirm(`Instagram に【${typeKey}】原稿を自動投稿しますか？`)) return;
+        setIsPublishingInstagram(typeKey);
         try {
-            const res = await fetch('/api/ai/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: 'discord', content }) });
+            const payload: any = { platform: 'instagram', content };
+            if (Array.isArray(images)) {
+                payload.imageUrls = images;
+            } else if (images) {
+                payload.imageUrl = images;
+            }
+
+            const res = await fetch('/api/ai/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
             alert(`完了: ${json.message}`);
-        } catch (err: any) { alert(`送信エラー: ${err.message}`); } finally { setIsPublishingDiscord(false); }
-    };
-
-    // app/AiDashboard/index.tsx 内
-const handlePublishToInstagram = async (
-    content: string, 
-    typeKey: string, 
-    images?: string[] | string
-) => {
-    if (!window.confirm(`Instagram に【${typeKey}】原稿を自動投稿しますか？`)) return;
-    setIsPublishingInstagram(typeKey);
-    try {
-        const payload: any = { platform: 'instagram', content };
-        if (Array.isArray(images)) {
-            payload.imageUrls = images;
-        } else if (images) {
-            payload.imageUrl = images;
+        } catch (err: any) {
+            alert(`投稿エラー: ${err.message}`);
+        } finally {
+            setIsPublishingInstagram(null);
         }
-
-        const res = await fetch('/api/ai/publish', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error);
-        alert(`完了: ${json.message}`);
-    } catch (err: any) {
-        alert(`投稿エラー: ${err.message}`);
-    } finally {
-        setIsPublishingInstagram(null);
-    }
-};
+    };
 
     const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) => {
         if (!window.confirm('X (Twitter) 公式アカウントへスレッドを自動投稿しますか？')) return;
@@ -472,7 +451,6 @@ const handlePublishToInstagram = async (
             <Sidebar
                 activeCategory={activeCategory} setActiveCategory={setActiveCategory}
                 aiActiveDesk={aiActiveDesk} setAiActiveDesk={setAiActiveDesk}
-                activeTrendRegion={activeTrendRegion} setActiveTrendRegion={setActiveTrendRegion}
                 activeArbitrageRegion={activeArbitrageRegion} setActiveArbitrageRegion={setActiveArbitrageRegion}
                 history={history} selectedRecordId={selectedRecordId} onSelectHistory={handleSelectHistory}
                 aiLoading={aiLoading} runningAction={runningAction}
@@ -500,7 +478,7 @@ const handlePublishToInstagram = async (
                             disabled={Boolean(runningAction)}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow flex items-center gap-2 disabled:opacity-50 transition active:scale-95"
                         >
-                            <span>🚀 全13AIに一斉調査・発信制作を指示</span>
+                            <span>🚀 全AIに一斉調査・発信制作を指示</span>
                         </button>
                     )}
                 </header>
@@ -556,7 +534,7 @@ const handlePublishToInstagram = async (
                             {(pipelineProgress.gate1Audits.length > 0 || pipelineProgress.gate2Audits.length > 0) && (
                                 <div className="pt-2 border-t border-slate-800/80 flex flex-wrap gap-5 text-xs">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-slate-400">⚖️ Gate 1 (アービトラージ・トレンド監査):</span>
+                                        <span className="text-slate-400">⚖️ Gate 1 (アービトラージ監査):</span>
                                         <span className={`font-mono font-bold ${
                                             pipelineProgress.gate1Audits.every(a => a.status === 'passed') ? 'text-emerald-400' : 'text-amber-400'
                                         }`}>
@@ -577,19 +555,18 @@ const handlePublishToInstagram = async (
                     )}
 
                     {/* メインデスクビュー */}
-                    <DeskViews 
-                        aiActiveDesk={aiActiveDesk} activeTrendRegion={activeTrendRegion} activeArbitrageRegion={activeArbitrageRegion}
+                    <DeskViews
+                        aiActiveDesk={aiActiveDesk} activeArbitrageRegion={activeArbitrageRegion}
                         aiData={aiData}
                         gate1Audits={pipelineProgress.gate1Audits}
                         gate2Audits={pipelineProgress.gate2Audits}
                         runningAction={runningAction} runSingleAi={runSingleAi}
                         handleCopy={handleCopy} copiedKey={copiedKey}
                         handlePublishToInstagram={handlePublishToInstagram} isPublishingInstagram={isPublishingInstagram}
-                        handlePublishToDiscord={handlePublishToDiscord} isPublishingDiscord={isPublishingDiscord}
                         handlePublishToX={handlePublishToX} isPublishingX={isPublishingX}
                     />
-                    <ChatPanel 
-                        aiActiveDesk={aiActiveDesk} activeTrendRegion={activeTrendRegion} activeArbitrageRegion={activeArbitrageRegion}
+                    <ChatPanel
+                        aiActiveDesk={aiActiveDesk} activeArbitrageRegion={activeArbitrageRegion}
                         aiData={aiData} runSingleAi={runSingleAi} runningAction={runningAction} activeCategory={activeCategory}
                     />
                 </div>

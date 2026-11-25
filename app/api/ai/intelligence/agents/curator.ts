@@ -13,7 +13,7 @@ export interface CuratorItemSelection {
 
 export interface CuratorDailyLineup {
   day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-  contentType: 'arbitrage' | 'market_trend' | 'trend_track_record';
+  contentType: 'arbitrage';
   slotKey: string;
   themeLabel: string;
   items: CuratorItemSelection[];
@@ -32,9 +32,6 @@ export interface CuratorResponse {
   weeklyLineup: CuratorDailyLineup[];
 }
 
-// 市場トレンド・的中実績は保留中のため動作停止（型とロジックは保持）
-const ENABLE_TREND_AND_TRACK_RECORD = false;
-
 export async function runCuratorSelection(
   researchCandidates: any[],
   platformTactics?: any[],
@@ -51,9 +48,7 @@ export async function runCuratorSelection(
     apiKey,
   });
 
-  const filteredCandidates = ENABLE_TREND_AND_TRACK_RECORD
-    ? researchCandidates
-    : researchCandidates.filter((c) => c.agent_key === 'arbitrage');
+  const filteredCandidates = researchCandidates.filter((c) => c.agent_key === 'arbitrage');
 
   const igTactic = platformTactics?.find((t) => t.platform === 'instagram');
   const xTactic = platformTactics?.find((t) => t.platform === 'x');
@@ -80,7 +75,7 @@ export async function runCuratorSelection(
 
   const prompt = `あなたは越境【${categoryName}】事業の最高編成責任者【チーフ・キュレーター】です。
 SNSアナリストからのプラットフォーム反響示唆（RSI）と、Gate 1を通過した合格銘柄リストを精査し、**火曜日〜土曜日（Tuesday〜Saturday）の5日間**の【アービトラージ週間コンテンツ・ポートフォリオ】を編成してください。
-※現在「市場トレンド（market_trend）」および「的中実績（trend_track_record）」は保留中のため動作停止としています。**火曜〜土曜の5日間すべて contentType: "arbitrage" のアービトラージ投稿のみ**で構成してください。
+**火曜〜土曜の5日間すべて contentType: "arbitrage" のアービトラージ投稿のみ**で構成してください。
 
 【SNSアナリストからの直近スロット傾斜示唆（RSI）】:
 ${JSON.stringify(curatorDirectives, null, 2)}

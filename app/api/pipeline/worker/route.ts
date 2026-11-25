@@ -3,18 +3,14 @@ export const maxDuration = 300;
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
 import { runGate1Audit } from '@/app/api/pipeline/gates/gate1';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
-import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 
 const ARBITRAGE_DAYS = ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
-// 市場トレンド・的中実績は現在保留中のため動作停止フラグ（廃止はせず保持）
-const MARKET_TREND_ENABLED = false;
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -31,7 +27,6 @@ function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string 
   return `${cleanName} ${trimmedNum}`.trim();
 }
 
-// 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）
 function buildSafePokecazillaUrl(
   aiUrl: string | undefined,
   category: string,
@@ -47,7 +42,6 @@ function buildSafePokecazillaUrl(
   return `https://pokecazilla.com/${domainPath}/products/list?category_id=${categoryId}&name=${encodeURIComponent(query)}`;
 }
 
-// 🌟 個別成約詳細URL (/itm/...) の保持・フォールバック関数
 function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): string {
   if (aiUrl && aiUrl.startsWith('http')) {
     return aiUrl;
@@ -64,8 +58,7 @@ async function processAndSaveRegionResearch(
   cycleId: string,
   category: string,
   region: 'us' | 'eu' | 'asia',
-  sayaReport: any,
-  trendReport: any
+  sayaReport: any
 ) {
   const researchRows: any[] = [];
   const platformDefault =
@@ -75,7 +68,6 @@ async function processAndSaveRegionResearch(
       ? 'Cardmarket / eBay DE'
       : 'Shopee / Carousell';
 
-  // 1. アービトラージ候補抽出（全5スロット × 価格帯 × 本命＋代替候補）
   if (sayaReport?.slots && Array.isArray(sayaReport.slots)) {
     for (const slot of sayaReport.slots) {
       if (!slot) continue;
@@ -87,7 +79,6 @@ async function processAndSaveRegionResearch(
       }
 
       for (const tier of tiers) {
-        // A. 本命商品のURL正規化
         if (tier?.mainItem && tier.mainItem.cardName) {
           const mainItem = tier.mainItem;
           const buy = parseInt(String(mainItem.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
@@ -163,7 +154,6 @@ async function processAndSaveRegionResearch(
           });
         }
 
-        // B. 代替候補商品のURL正規化
         if (Array.isArray(tier?.subItems)) {
           for (let sIdx = 0; sIdx < tier.subItems.length; sIdx++) {
             const subItem = tier.subItems[sIdx];
@@ -236,64 +226,6 @@ async function processAndSaveRegionResearch(
     }
   }
 
-  // 2. トレンド候補抽出（保留中につき動作停止・コードは保持）
-  if (MARKET_TREND_ENABLED && trendReport?.hypotheses) {
-    const hypotheses = Array.isArray(trendReport.hypotheses)
-      ? trendReport.hypotheses
-      : [trendReport.hypotheses];
-
-    for (const hypo of hypotheses) {
-      if (!hypo) continue;
-      const items = Array.isArray(hypo.items) ? hypo.items : [];
-      for (const item of items) {
-        if (!item || !item.cardName) continue;
-        const anyItem = item as any;
-        const buy = parseInt(String(item.jpBuyPriceJPY || 0).replace(/[^0-9]/g, '')) || 1000;
-        const match = String(item.currentLocalPrice || '').match(/約[¥￥]([0-9,]+)/);
-        const targetJpy = match ? parseInt(match[1].replace(/,/g, '')) : Math.round(buy * 1.4);
-        const spread = Math.max(0, targetJpy - buy);
-        const roi = buy > 0 ? Math.round((spread / buy) * 100) : 30;
-
-        const trendEvidenceUrl =
-          anyItem.jpEvidenceUrl &&
-          (String(anyItem.jpEvidenceUrl).startsWith('https://torechart.com/') ||
-            String(anyItem.jpEvidenceUrl).startsWith('https://pokeca-chart.com/'))
-            ? String(anyItem.jpEvidenceUrl)
-            : buildSafePokecazillaUrl(anyItem.jpEvidenceUrl, category, item.cardName);
-        const resolvedTrendEbayUrl = resolveIndividualEbayUrl(anyItem.sourceEvidenceUrl, item.cardName);
-
-        researchRows.push({
-          cycle_id: cycleId,
-          agent_key: 'trend',
-          region,
-          slot_key: hypo.headline || 'trend_hypothesis',
-          price_tier: 'middle',
-          card_name: item.cardName,
-          condition_grade: item.condition || 'Raw NM',
-          jp_buy_price_jpy: buy,
-          target_sold_price_local: item.currentLocalPrice || '$0',
-          target_sold_price_jpy: targetJpy,
-          price_spread_jpy: spread,
-          spread_roi_percent: roi,
-          liquidity_indicator: hypo.timeframe || '2週間〜1ヶ月',
-          research_insight: item.impactLogic || hypo.signal || '',
-          raw_payload: {
-            ...item,
-            jpEvidenceUrl: trendEvidenceUrl,
-            sourcePlatform: item.sourcePlatform || platformDefault,
-            evidenceNote: item.evidenceNote || '国内先行高騰シグナル基準',
-            sourceEvidenceUrl: resolvedTrendEbayUrl,
-            reportSummary: trendReport.summary,
-            hypothesisSignal: hypo.signal,
-            hypothesisTimeframe: hypo.timeframe,
-          },
-          gate1_status: 'pending',
-          is_selected: false,
-        });
-      }
-    }
-  }
-
   if (researchRows.length > 0) {
     await supabase.from('ai_research_items').insert(researchRows);
   }
@@ -342,15 +274,14 @@ export async function POST(req: Request) {
   };
 
   try {
-    // Phase 1-A: 北米リサーチ（市場トレンドは保留中のため停止）
+    // Phase 1-A: 北米リサーチ
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
-      const [igTactics, trendUS, sayaUS] = await Promise.all([
+      const [igTactics, sayaUS] = await Promise.all([
         runAccountAnalysis(cycle.category),
-        MARKET_TREND_ENABLED ? runMarketTrend('us', cycle.category) : Promise.resolve(null),
         runSayaAnalysis('us', cycle.category, targetDay),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS, trendUS);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS);
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
@@ -366,20 +297,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'us_research_completed' });
     }
 
-    // Phase 1-B: 欧州リサーチ（市場トレンドは保留中のため停止）
+    // Phase 1-B: 欧州リサーチ
     if ((cycle.status as string) === 'researching_eu') {
-      const [trendEU, sayaEU] = await Promise.all([
-        MARKET_TREND_ENABLED ? runMarketTrend('eu', cycle.category) : Promise.resolve(null),
-        runSayaAnalysis('eu', cycle.category, targetDay),
-      ]);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU, trendEU);
+      const sayaEU = await runSayaAnalysis('eu', cycle.category, targetDay);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
       dispatchNext();
       return NextResponse.json({ success: true, step: 'eu_research_completed' });
     }
 
-    // Phase 1-C: アジアリサーチ（市場トレンドは保留中のため停止）＆ Xアナリスト
+    // Phase 1-C: アジアリサーチ ＆ Xアナリスト
     if ((cycle.status as string) === 'researching_asia') {
       const { data: igTacticRow } = await supabase
         .from('ai_platform_tactics')
@@ -388,12 +316,11 @@ export async function POST(req: Request) {
         .eq('platform', 'instagram')
         .single();
 
-      const [trendAsia, sayaAsia, xTactics] = await Promise.all([
-        MARKET_TREND_ENABLED ? runMarketTrend('asia', cycle.category) : Promise.resolve(null),
+      const [sayaAsia, xTactics] = await Promise.all([
         runSayaAnalysis('asia', cycle.category, targetDay),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia, trendAsia);
+      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia);
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
@@ -568,10 +495,9 @@ export async function POST(req: Request) {
         approvedItems: approvedItems || [],
       };
 
-      const [snsPosts, xPosts, salesDM] = await Promise.all([
+      const [snsPosts, xPosts] = await Promise.all([
         runSnsPosts(chiefPackage, igTactic?.raw_insights, cycle.category),
         runXPosts(chiefPackage, xTactic?.raw_insights, cycle.category),
-        runSalesDM(chiefPackage),
       ]);
 
       const deliverableRows: any[] = [];
@@ -602,17 +528,6 @@ export async function POST(req: Request) {
           }
         );
       }
-
-      deliverableRows.push({
-        cycle_id: cycleId,
-        research_item_id: mvpItem?.id || null,
-        platform: 'discord',
-        post_type: 'wholesale_offer',
-        day_of_week: 'Weekly',
-        content_payload: salesDM,
-        status: 'pending',
-        gate2_status: 'pending',
-      });
 
       await supabase.from('ai_content_deliverables').delete().eq('cycle_id', cycleId);
       await supabase.from('ai_content_deliverables').insert(deliverableRows);

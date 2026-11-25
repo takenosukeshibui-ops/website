@@ -8,19 +8,13 @@ import { getCategoryName } from '../intelligence/helpers';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-// 🌟 全エージェントのプロファイルを完全網羅
+// 🌟 エージェントのプロファイル
 const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: string; instruction: string }> = {
   chief: {
     name: 'チーフマネージャー',
     avatar: '👑',
     role: '最高意思決定・全体戦略ディレクター',
-    instruction: '全体戦略、案件選定理由、週間コンテンツカレンダー（7日分）の編成、各SNSや営業部隊へのディレクション方針について答えてください。'
-  },
-  trend: {
-    name: '市場アナリスト',
-    avatar: '🔮',
-    role: '海外トレンド調査員',
-    instruction: '日本のトレカに関する海外市場トレンド（5スロット：ヴィンテージ、プロモ、モダン、BOX等）について答えてください。'
+    instruction: '全体戦略、案件選定理由、週間コンテンツカレンダーの編成、各SNS部隊へのディレクション方針について答えてください。'
   },
   arbitrage: {
     name: 'アービトラージアナリスト',
@@ -44,19 +38,13 @@ const AGENT_PROFILES: Record<string, { name: string; avatar: string; role: strin
     name: 'Instagram担当',
     avatar: '📸',
     role: 'Instagram投稿クリエイター',
-    instruction: '海外向けInstagram投稿のカルーセル構成、キャプション、トーンや2股導線（Discord/自社サイト）について答えてください。'
+    instruction: '海外向けInstagram投稿のカルーセル構成、キャプション、トーンや導線について答えてください。'
   },
   x: {
     name: 'Xクリエイター',
     avatar: '🐦',
     role: 'X (Twitter) 専任クリエイター',
     instruction: 'X (Twitter) の140字フック、ツリー展開、添付画像レイアウトやリプ欄導線について答えてください。'
-  },
-  sales: {
-    name: '有料コミュニティ担当',
-    avatar: '✉️',
-    role: 'Discord営業担当',
-    instruction: '海外大口バイヤー向けのDiscord実務商談メッセージ、ロットオファー、交渉対策について答えてください。'
   },
 };
 
@@ -98,7 +86,6 @@ ${regionName ? `【担当地域】${regionName}` : ''}
 
 【現在の最新ダッシュボード状況】
 - チーフパッケージ: ${JSON.stringify(contextData?.chiefPackage?.mvpHighlight || contextData?.chiefPackage?.chosenCardOrItem || '未選定')}
-- トレンド抽出状況: ${JSON.stringify(contextData?.trendInsights ? Object.keys(contextData.trendInsights) : [])}
 - 発掘サヤカード: ${JSON.stringify(contextData?.profitableCards ? Object.keys(contextData.profitableCards) : [])}
 
 💡【社内ルール・過去の学習ナレッジ（最優先で遵守すること）】
@@ -142,7 +129,6 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
 
-    // ユーザーメッセージをDBに安全に保存
     try {
       await supabase.from('ai_chat_logs').insert({
         desk_id: target,
@@ -155,21 +141,18 @@ export async function POST(req: Request) {
       console.warn('ai_chat_logs insert warning (user):', dbErr);
     }
 
-    // ターゲットの柔軟なマッピング
     let targetAgents: string[] = [];
     if (target === 'analysis_team') {
-      targetAgents = ['trend', 'arbitrage', 'account'];
+      targetAgents = ['arbitrage', 'account'];
     } else if (target === 'execution_team') {
-      targetAgents = ['sns', 'x', 'sales'];
+      targetAgents = ['sns', 'x'];
     } else {
       let cleanKey = target.replace('desk_', '');
-      if (cleanKey.startsWith('trend')) cleanKey = 'trend';
-      else if (cleanKey.startsWith('arbitrage')) cleanKey = 'arbitrage';
+      if (cleanKey.startsWith('arbitrage')) cleanKey = 'arbitrage';
       else if (cleanKey === 'x_account') cleanKey = 'x_account';
       else if (cleanKey === 'x') cleanKey = 'x';
       else if (cleanKey === 'account') cleanKey = 'account';
       else if (cleanKey === 'sns') cleanKey = 'sns';
-      else if (cleanKey === 'sales') cleanKey = 'sales';
       else if (cleanKey === 'chief') cleanKey = 'chief';
 
       if (AGENT_PROFILES[cleanKey]) {
@@ -181,12 +164,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: `無効な宛先デスクです: ${target}` }, { status: 400 });
     }
 
-    // 各AIの回答を生成
     const replies = (await Promise.all(
       targetAgents.map((agentKey) => getAgentReply(agentKey, message, contextData, category, region, supabase))
     )).filter(Boolean);
 
-    // AIの回答をDBに安全に保存
     try {
       for (const rep of replies) {
         if (rep) {
@@ -210,7 +191,6 @@ export async function POST(req: Request) {
   }
 }
 
-// 過去のチャット履歴を取得するエンドポイント
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);

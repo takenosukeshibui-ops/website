@@ -7,8 +7,6 @@ interface SidebarProps {
     setActiveCategory: (category: CategoryKey) => void;
     aiActiveDesk: string;
     setAiActiveDesk: (desk: string) => void;
-    activeTrendRegion: RegionKey;
-    setActiveTrendRegion: (region: RegionKey) => void;
     activeArbitrageRegion: RegionKey;
     setActiveArbitrageRegion: (region: RegionKey) => void;
     history: any[];
@@ -21,8 +19,7 @@ interface SidebarProps {
 export default function Sidebar({
     activeCategory, setActiveCategory,
     aiActiveDesk, setAiActiveDesk,
-    activeTrendRegion, setActiveTrendRegion,
-    activeArbitrageRegion, setActiveArbitrageRegion,
+    setActiveArbitrageRegion,
     history, selectedRecordId, onSelectHistory,
     aiLoading, runningAction
 }: SidebarProps) {
@@ -33,7 +30,7 @@ export default function Sidebar({
                     <span className="text-2xl">🤖</span>
                     <h1 className="text-base font-bold tracking-wider text-slate-100">AI STAFF OFFICE</h1>
                 </div>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">自律進化 13 Agents</span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">自律進化 9 Agents</span>
             </div>
 
             {/* 商材カテゴリー切り替え */}
@@ -53,26 +50,6 @@ export default function Sidebar({
             {/* メニューリスト本体（監査役もこの中に含める） */}
             <div className="flex-1 p-3 space-y-2 overflow-y-auto">
                 <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-2">Command & Desks</h2>
-
-                {/* 🔮 市場トレンドリサーチチーム */}
-                <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
-                    <div className="flex items-center justify-between px-2 py-0.5 text-xs font-bold text-amber-300">
-                        <span className="flex items-center gap-1.5"><span>🔮</span> 市場トレンドリサーチチーム</span>
-                        <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">4名</span>
-                    </div>
-                    <div className="mt-1 space-y-1">
-                        {([{ key: 'us', label: '北米担当アナリスト' }, { key: 'eu', label: '欧州担当アナリスト' }, { key: 'asia', label: 'アジア担当アナリスト' }] as const).map(item => (
-                            <button key={item.key} type="button" onClick={() => { setActiveTrendRegion(item.key); setAiActiveDesk(`desk_trend_${item.key}`); }} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === `desk_trend_${item.key}` ? 'bg-amber-600 text-white font-bold shadow' : 'text-slate-300 hover:bg-slate-800/80'}`}>
-                                <span>{item.label}</span>
-                            </button>
-                        ))}
-                        {/* 🌟 市場トレンド監査担当 */}
-                        <button type="button" onClick={() => setAiActiveDesk('desk_trend_audit')} className={`w-full text-left px-2 py-1 rounded-lg text-xs flex justify-between items-center transition ${aiActiveDesk === 'desk_trend_audit' ? 'bg-amber-600 text-white font-bold shadow' : 'text-amber-300/80 hover:bg-slate-800/80'}`}>
-                            <span>🛡️ 市場トレンド監査担当</span>
-                            <span className="text-[9px] font-mono px-1 py-0.2 bg-amber-500/20 rounded">Gate 1-B</span>
-                        </button>
-                    </div>
-                </div>
 
                 {/* 💎 アービトラージリサーチチーム */}
                 <div className="border border-slate-700/60 rounded-xl p-2 bg-slate-900/60">
@@ -137,15 +114,7 @@ export default function Sidebar({
                     </div>
                 </div>
 
-                {/* ✉️ 有料コミュニティ */}
-                <div onClick={() => setAiActiveDesk('desk_sales')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_sales' ? 'bg-purple-500/20 border-purple-500 shadow-md ring-1 ring-purple-500/40' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80'}`}>
-                    <div className="h-8 w-8 rounded-full bg-purple-500/20 flex items-center justify-center text-base shrink-0 border border-purple-500/40 text-purple-300">✉️</div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-purple-200 truncate">有料コミュニティ</p>
-                    </div>
-                </div>
-
-                {/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
+                {/* 🛡️ Gate 2 監査役 */}
                 <div onClick={() => setAiActiveDesk('desk_audit')} className={`border rounded-xl p-2.5 flex items-center gap-3 cursor-pointer transition-all ${aiActiveDesk === 'desk_audit' ? 'bg-orange-500/20 border-orange-500 shadow-md ring-1 ring-orange-500/40' : 'bg-slate-800/60 border-orange-500/30 hover:bg-slate-800/90'}`}>
                     <div className="h-9 w-9 rounded-full bg-orange-500/20 flex items-center justify-center text-lg shrink-0 border border-orange-500/40 text-orange-300">🛡️</div>
                     <div className="flex-1 min-w-0">

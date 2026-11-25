@@ -104,63 +104,10 @@ export interface MultiSlotArbitrageReport {
 }
 
 // ==========================================
-// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
-// ==========================================
-export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
-export type CardCondition = 'Raw NM' | 'PSA10';
-
-export interface MarketTrendCardItem {
-  rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
-  cardName: string;           // 実在カード名 (型番 / レアリティ)
-  condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
-  conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
-  jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
-  currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-  timeframe?: string;         // 売り時目安
-  exitStrategy?: string;      // 推奨出口戦略
-  impactLogic?: string;       // 波及ロジック
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-
-export interface MarketTrendHypothesis {
-  headline: string;           // トレンド核心タイトル
-  signal: string;             // 検知された客観的シグナル・事実
-  timeframe: string;          // トレンド全体の想定ピーク時期
-  items: MarketTrendCardItem[]; // トレンド合致銘柄
-}
-
-export interface MarketTrendExecutiveSummary {
-  headline: string;
-  trendDynamics: {
-    catalystOverview: string;
-    japanPriceLag: string;
-  };
-  strategicHighlights: {
-    mvpCatalystCard: string;
-    optimalExitWindow: string;
-  };
-  riskAlert: {
-    hypeTrapWarning: string;
-    gradingVsRawStrategy: string;
-  };
-  actionDirectives: string[];
-}
-
-export interface MarketTrendReport {
-  title: string;
-  claim: string;
-  createdAt?: string;
-  summary?: MarketTrendExecutiveSummary;
-  hypotheses: MarketTrendHypothesis[];
-}
-
-// ==========================================
 // 🌟 インフォグラフィック・画像生成共通型定義
 // ==========================================
 export interface InfographicData {
-  type: 'arbitrage' | 'trend';
+  type: 'arbitrage';
   cardName: string;
   region?: RegionKey | string;
   jpPrice: string;
@@ -191,7 +138,6 @@ export interface ContentCalendarItem {
   directiveForCreator?: {
     instagramAngle: string;
     xTwitterAngle: string;
-    discordOfferAngle: string;
   };
 }
 
@@ -202,7 +148,7 @@ export interface CuratorStrategyBlueprint {
 }
 
 export interface ChiefPackageData {
-  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
+  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'GlobalCatalog';
   winningRegion?: 'us' | 'eu' | 'asia' | 'global';
   leadMagnetTitle?: string;
   chosenCardOrItem?: string;
@@ -215,9 +161,9 @@ export interface ChiefPackageData {
     selectionReason: string;
   } | null;
   regionalMatrix?: {
-    us: { topArbitrage: string; topTrend: string; summary: string };
-    eu: { topArbitrage: string; topTrend: string; summary: string };
-    asia: { topArbitrage: string; topTrend: string; summary: string };
+    us: { topArbitrage: string; summary: string };
+    eu: { topArbitrage: string; summary: string };
+    asia: { topArbitrage: string; summary: string };
   };
   globalInsight?: string;
   contentCalendar?: ContentCalendarItem[];
@@ -228,7 +174,6 @@ export interface ChiefPackageData {
   creativeDirective?: {
     instagramAngle: string;
     xTwitterAngle?: string;
-    discordOfferAngle: string;
   };
 }
 
@@ -245,7 +190,6 @@ export interface ProofPackageData {
     afterImageDesc: string;
     comparisonLayout: string;
   };
-  discordCTA: string;
 }
 
 export interface SnsPostsData {
@@ -259,9 +203,7 @@ export interface SnsPostsData {
   posts?: {
     hybridPost: string;
     arbitragePost: string;
-    trendPost: string;
   };
-  discordCTA: string;
   dailyPosts?: {
     day: string;
     theme?: string;
@@ -285,18 +227,6 @@ export interface XPostsData {
   }[];
 }
 
-export interface SalesDMData {
-  targetSegment: string;
-  offerSummary: string;
-  discordMessage: string;
-  commercialTerms: {
-    minimumOrderQty: string;
-    shippingMethod: string;
-    paymentMethod: string;
-  };
-  negotiationTip: string;
-}
-
 export interface RSIAutoRule {
   targetAgent: string;
   ruleText: string;
@@ -305,10 +235,6 @@ export interface RSIAutoRule {
 export interface RSIReportData {
   overallEvaluation: string;
   accuracyScore: number;
-  trendWeightAdjustments: {
-    recommendedPattern: string;
-    rationale: string;
-  };
   arbitrageSpreadAudits: {
     spreadReliabilityScore: string;
     recommendedMinimumSpread: string;
@@ -325,7 +251,6 @@ export interface RegionalContainer<T> {
 
 // 🌟 統合インテリジェンスデータ
 export interface IntelligenceData {
-  trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
   profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
   chiefPackage: ChiefPackageData | null;
   proofPackage?: ProofPackageData | null;
@@ -333,7 +258,6 @@ export interface IntelligenceData {
   xAccountInsights?: StrategicReport | null;
   snsPosts: SnsPostsData | null;
   xPosts?: XPostsData | null;
-  salesDM: SalesDMData | null;
   rsiReport?: RSIReportData | null;
 }
 

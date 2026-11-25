@@ -9,7 +9,7 @@ export interface Gate2AuditResult {
     secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
     teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
     format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
-    cta_guideline_compliant: boolean;    // プロフリンク・VIP導線の整合性
+    cta_guideline_compliant: boolean;    // プロフリンク導線の整合性
   };
   feedback: string | null;
 }
@@ -54,7 +54,7 @@ export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: b
     if (item.platform === 'x') {
       const dailyThread = payload?.dailyThreads?.find((t: any) => t.day?.includes(item.day_of_week) || t.day === item.day_of_week);
       const mainPost = dailyThread?.mainPost || payload?.mainPost || '';
-      
+
       if (mainPost.length > 140) {
         results.push({
           deliverableId: item.id,
@@ -91,15 +91,15 @@ export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: b
   });
 
   const prompt = `あなたは越境トレカ販売の最高品質・コンプライアンス監査役【Gate 2: Content & Legal Guard】です。
-以下のSNSおよびDiscordの配信原稿を監査し、合否を判定してください。
+以下のSNS配信原稿を監査し、合否を判定してください。
 
 【厳格監査基準】:
 1. 撒き餌原則（Teaser Principle）の厳守（最重要）:
    - 原稿は「利益が出た事実・相場の歪み（Fact & Result）」のみを語り、「どうやって安く仕入れたのか」「どこで仕込んだのか」というノウハウ（Action & Reason）を投稿内でネタバレしてはいけません。ノウハウを完全に解説している原稿は即却下（passed: false）。
 2. 誇大広告・断定表現の排除:
    - 「絶対に値上がりする」「元本保証」「100%利益」などの金融・投資詐欺的な断定表現は却下。
-3. 2股CTA導線の整合性:
-   - 一般向けSNSは「プロフィールリンク」または「VIPコミュニティ」への誘導が含まれていること。
+3. CTA導線の整合性:
+   - 投稿内に「プロフィールリンク」等への誘導が含まれていること。
 
 【監査対象原稿リスト】:
 ${JSON.stringify(
@@ -109,9 +109,7 @@ ${JSON.stringify(
     day: i.day_of_week,
     sampleContent: i.platform === 'instagram'
       ? (i.content_payload?.dailyPosts?.find((p: any) => p.day?.includes(i.day_of_week))?.caption || '').slice(0, 300)
-      : i.platform === 'x'
-      ? (i.content_payload?.dailyThreads?.find((t: any) => t.day?.includes(i.day_of_week))?.mainPost || '')
-      : (i.content_payload?.discordMessage || '').slice(0, 300)
+      : (i.content_payload?.dailyThreads?.find((t: any) => t.day?.includes(i.day_of_week))?.mainPost || '')
   })),
   null,
   2
