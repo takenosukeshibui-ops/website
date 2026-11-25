@@ -263,7 +263,6 @@ export async function enrichTrendCandidatesWithEbaySold(
       };
     });
 
-    // ★ 2. candidateSpecs 生成直後
     console.log(
       '[TrendDebug] candidateSpecs:',
       candidateSpecs.map((s) => ({
@@ -290,7 +289,6 @@ export async function enrichTrendCandidatesWithEbaySold(
       exactMatch: false,
     });
 
-    // ★ 3a. ebayItems 取得直後
     console.log(
       '[TrendDebug] ebayRawSample:',
       ebayItems.slice(0, 2).map((it) => ({
@@ -343,7 +341,6 @@ export async function enrichTrendCandidatesWithEbaySold(
         return true;
       });
 
-    // ★ 3b. preFilteredEbay 生成直後
     console.log(
       '[TrendDebug] preFilteredEbay:',
       preFilteredEbay.map((it) => ({
@@ -420,7 +417,6 @@ export async function enrichTrendCandidatesWithEbaySold(
       }
     }
 
-    // ★ 4a. matchedEntries 確定直後
     console.log('[TrendDebug] matchedEntries:', matchedEntries);
 
     if (matchedEntries.length === 0) return candidates;
@@ -526,7 +522,6 @@ export async function enrichTrendCandidatesWithEbaySold(
       };
     });
 
-    // ★ 4b. 最終返却直前
     console.log(
       '[TrendDebug] finalEbayUrls:',
       enriched.slice(0, 12).map((c) => ({
@@ -674,6 +669,11 @@ export async function fetchDomesticTrendCandidates(
     }
 
     const rawItems: any[] = await res.json();
+    console.log(
+      '[TrendDebug] torechart rawItems count:',
+      Array.isArray(rawItems) ? rawItems.length : typeof rawItems
+    );
+
     const filteredCandidates: Array<DomesticTrendCandidate & { cardId: string }> = [];
     const seenUrls = new Set<string>();
 
@@ -712,6 +712,7 @@ export async function fetchDomesticTrendCandidates(
       if (filteredCandidates.length >= 12) break;
     }
 
+    console.log('[TrendDebug] filteredCandidates count:', filteredCandidates.length);
     if (filteredCandidates.length === 0) return [];
 
     // 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
@@ -763,7 +764,6 @@ export async function fetchDomesticTrendCandidates(
       }
     }
 
-    // ★ 1. 詳細ページ型番反映直後
     console.log(
       '[TrendDebug] detailCardNumbers:',
       filteredCandidates.map((c) => ({
