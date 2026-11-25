@@ -7,10 +7,34 @@ import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
 import { runGate1Audit } from '@/app/api/pipeline/gates/gate1';
-import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
+import { runSnsPosts, runXPosts, ALL_DAYS, ContentDay } from '@/app/api/ai/intelligence/agents/contentCreator';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
 
-const ARBITRAGE_DAYS = ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+function resolveTargetDay(rawDay?: string): ContentDay {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+  const candidate = (rawDay || days[new Date().getDay()]).trim();
+  const found = ALL_DAYS.find((d) => d.toLowerCase() === candidate.toLowerCase());
+  return found || 'Thursday';
+}
+
+function mergeDeliverablePayload(existingPayload: any, generatedPayload: any, day: ContentDay, arrayKey: 'dailyPosts' | 'dailyThreads') {
+  if (!generatedPayload) return existingPayload || null;
+  const base = existingPayload && typeof existingPayload === 'object' ? { ...existingPayload } : {};
+  const prevList: any[] = Array.isArray(base[arrayKey]) ? base[arrayKey] : [];
+  const nextList: any[] = Array.isArray(generatedPayload[arrayKey]) ? generatedPayload[arrayKey] : [];
+
+  const filteredPrev = prevList.filter((entry) => entry?.day !== day);
+  const mergedList = [...filteredPrev, ...nextList];
+
+  return {
+    ...base,
+    theme: generatedPayload.theme ?? base.theme ?? '',
+    recommendedTiming: generatedPayload.recommendedTiming ?? base.recommendedTiming,
+    hashtags: generatedPayload.hashtags ?? base.hashtags,
+    xCallToAction: generatedPayload.xCallToAction ?? base.xCallToAction,
+    [arrayKey]: mergedList,
+  };
+}
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -242,12 +266,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'cycleId is required' }, { status: 400 });
   }
 
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const todayDayName = days[new Date().getDay()];
-  const rawTargetDay = bodyTargetDay || todayDayName;
-  const targetDay = ARBITRAGE_DAYS.includes(rawTargetDay as (typeof ARBITRAGE_DAYS)[number])
-    ? rawTargetDay
-    : 'Thursday';
+  const targetDay = resolveTargetDay(bodyTargetDay);
+  const isSundayDigest = targetDay === 'Sunday';
+  const isMondayServiceGuide = targetDay === 'Monday';
+  const shouldRunArbitrageResearch = !isSundayDigest && !isMondayServiceGuide;
 
   if (action === 'stop') {
     await supabase.from('ai_pipeline_cycles').update({ status: 'partially_failed' }).eq('id', cycleId);
@@ -274,14 +296,18 @@ export async function POST(req: Request) {
   };
 
   try {
-    // Phase 1-A: 北米リサーチ
+    // Phase 1-A: 北米リサーチ（日曜まとめ・月曜サービス解説時はスキップして次へ）
     if (cycle.status === 'initialized' || cycle.status === 'researching') {
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_us' as any }).eq('id', cycleId);
       const [igTactics, sayaUS] = await Promise.all([
         runAccountAnalysis(cycle.category),
-        runSayaAnalysis('us', cycle.category, targetDay),
+        shouldRunArbitrageResearch
+          ? runSayaAnalysis('us', cycle.category, targetDay)
+          : Promise.resolve(null),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS);
+      if (sayaUS) {
+        await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'us', sayaUS);
+      }
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
@@ -299,8 +325,12 @@ export async function POST(req: Request) {
 
     // Phase 1-B: 欧州リサーチ
     if ((cycle.status as string) === 'researching_eu') {
-      const sayaEU = await runSayaAnalysis('eu', cycle.category, targetDay);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU);
+      const sayaEU = shouldRunArbitrageResearch
+        ? await runSayaAnalysis('eu', cycle.category, targetDay)
+        : null;
+      if (sayaEU) {
+        await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'eu', sayaEU);
+      }
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'researching_asia' as any }).eq('id', cycleId);
       dispatchNext();
@@ -317,16 +347,20 @@ export async function POST(req: Request) {
         .single();
 
       const [sayaAsia, xTactics] = await Promise.all([
-        runSayaAnalysis('asia', cycle.category, targetDay),
+        shouldRunArbitrageResearch
+          ? runSayaAnalysis('asia', cycle.category, targetDay)
+          : Promise.resolve(null),
         runXAccountAnalysis(igTacticRow?.raw_insights || {}),
       ]);
-      await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia);
+      if (sayaAsia) {
+        await processAndSaveRegionResearch(supabase, cycleId, cycle.category, 'asia', sayaAsia);
+      }
 
       await supabase.from('ai_platform_tactics').upsert({
         cycle_id: cycleId,
         platform: 'x',
         recommended_timing: xTactics?.facts?.[2]?.value || '日本時間 20:00',
-        hook_guidelines: '140字フック＋画像4枚案内',
+        hook_guidelines: '140字フック＋画像案内',
         structure_blueprint: xTactics?.curatorDirectives || xTactics?.facts || {},
         raw_insights: xTactics || {},
       }, { onConflict: 'cycle_id,platform' });
@@ -368,7 +402,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'gate1_completed' });
     }
 
-    // Phase 3: キュレーター動的選定（火曜〜土曜の5日分アービトラージ選定）
+    // Phase 3: キュレーター選定（対象日1日分または日曜まとめ用）
     if (cycle.status === 'curating') {
       let { data: passedCandidates } = await supabase
         .from('ai_research_items')
@@ -388,15 +422,16 @@ export async function POST(req: Request) {
 
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
       const curationResult = await runCuratorSelection((passedCandidates as any) || [], tactics || [], cycle.category);
-      const weeklyLineup = (curationResult?.weeklyLineup || []).filter((d) =>
-        ARBITRAGE_DAYS.includes(d.day as (typeof ARBITRAGE_DAYS)[number])
-      );
       const mvpItemId = curationResult?.mvpItemId;
 
       await supabase.from('ai_research_items').update({ is_selected: false, is_mvp: false, assigned_day: null }).eq('cycle_id', cycleId);
 
       let selectedCount = 0;
-      for (const daily of weeklyLineup) {
+      const lineupDays = (curationResult?.weeklyLineup || []).filter((d) =>
+        ALL_DAYS.includes(d.day as ContentDay)
+      );
+
+      for (const daily of lineupDays) {
         for (const item of daily.items || []) {
           const anyItem = item as any;
           const matched = passedCandidates.find(
@@ -411,7 +446,7 @@ export async function POST(req: Request) {
               .update({
                 is_selected: true,
                 is_mvp: Boolean(item.isMvp) || matched.id === mvpItemId,
-                assigned_day: daily.day,
+                assigned_day: targetDay,
                 core_hook_fact: item.coreHookFact || daily.themeLabel,
                 curator_rationale: item.rationale || daily.dayRationale,
               })
@@ -422,15 +457,15 @@ export async function POST(req: Request) {
       }
 
       if (selectedCount === 0 && passedCandidates.length > 0) {
-        const fallbackTopItems = passedCandidates.slice(0, ARBITRAGE_DAYS.length);
+        const fallbackTopItems = passedCandidates.slice(0, 3);
         for (let i = 0; i < fallbackTopItems.length; i++) {
           await supabase
             .from('ai_research_items')
             .update({
               is_selected: true,
               is_mvp: i === 0,
-              assigned_day: ARBITRAGE_DAYS[i % ARBITRAGE_DAYS.length],
-              core_hook_fact: '今週の注目アービトラージ枠',
+              assigned_day: targetDay,
+              core_hook_fact: `${targetDay}の注目アービトラージ枠`,
               curator_rationale: '市場相場・粗利ROI基準での選定',
             })
             .eq('id', fallbackTopItems[i].id);
@@ -442,7 +477,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, step: 'curation_completed' });
     }
 
-    // Phase 4: 原稿生成（火曜〜土曜の5日分アービトラージ投稿を生成）
+    // Phase 4: 原稿生成（対象日1日分：火〜土アービトラージ / 日曜5日まとめ / 月曜サービス解説）
     if (cycle.status === 'generating_content') {
       let { data: approvedItems } = await supabase
         .from('ai_research_items')
@@ -457,80 +492,75 @@ export async function POST(req: Request) {
           .select('*')
           .eq('cycle_id', cycleId)
           .eq('agent_key', 'arbitrage')
-          .limit(5);
+          .limit(3);
         approvedItems = fallbackItems || [];
+      }
+
+      let weeklyDigestItems: any[] = [];
+      if (isSundayDigest) {
+        const { data: recentSelected } = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('agent_key', 'arbitrage')
+          .eq('is_selected', true)
+          .order('created_at', { ascending: false })
+          .limit(15);
+        weeklyDigestItems = recentSelected || [];
       }
 
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId);
       const igTactic = tactics?.find((t) => t.platform === 'instagram');
       const xTactic = tactics?.find((t) => t.platform === 'x');
-      const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0];
-
-      const structuredWeeklyLineup = ARBITRAGE_DAYS.map((day, idx) => {
-        let dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
-        if (dayItems.length === 0 && approvedItems?.[idx]) dayItems = [approvedItems[idx]];
-        return {
-          day,
-          contentType: 'arbitrage',
-          items: dayItems.map((item) => ({
-            itemId: item.id,
-            region: item.region,
-            cardName: item.card_name,
-            condition: item.condition_grade,
-            jpBuyPriceJPY: item.jp_buy_price_jpy,
-            targetSoldPrice: item.target_sold_price_local,
-            priceSpreadJPY: item.price_spread_jpy,
-            spreadROI: `${item.spread_roi_percent}%`,
-            coreHookFact: item.core_hook_fact || '注目アービトラージ枠',
-            rationale: item.curator_rationale || '価格差基準',
-          })),
-        };
-      });
+      const mvpItem = approvedItems?.find((i) => i.is_mvp) || approvedItems?.[0] || weeklyDigestItems?.[0];
 
       const chiefPackage = {
-        chosenCardOrItem: mvpItem?.card_name || '注目カード',
+        targetDay,
+        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_arbitrage',
+        chosenCardOrItem: mvpItem?.card_name || (isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '注目カード'),
         mvpHighlight: mvpItem || {},
-        activeDays: [...ARBITRAGE_DAYS],
-        weeklyLineup: structuredWeeklyLineup,
         approvedItems: approvedItems || [],
+        weeklyDigestItems,
       };
 
       const [snsPosts, xPosts] = await Promise.all([
-        runSnsPosts(chiefPackage, igTactic?.raw_insights, cycle.category),
-        runXPosts(chiefPackage, xTactic?.raw_insights, cycle.category),
+        runSnsPosts(chiefPackage, igTactic?.raw_insights, cycle.category, targetDay),
+        runXPosts(chiefPackage, xTactic?.raw_insights, cycle.category, targetDay),
       ]);
 
-      const deliverableRows: any[] = [];
-      for (const day of ARBITRAGE_DAYS) {
-        const dayItems = approvedItems?.filter((i) => i.assigned_day === day) || [];
-        const primaryItem = dayItems.find((i) => i.is_mvp) || dayItems[0] || mvpItem;
+      const { data: existingDeliverables } = await supabase
+        .from('ai_content_deliverables')
+        .select('*')
+        .eq('cycle_id', cycleId);
 
-        deliverableRows.push(
-          {
-            cycle_id: cycleId,
-            research_item_id: primaryItem?.id || null,
-            platform: 'instagram',
-            post_type: 'carousel',
-            day_of_week: day,
-            content_payload: snsPosts,
-            status: 'pending',
-            gate2_status: 'pending',
-          },
-          {
-            cycle_id: cycleId,
-            research_item_id: primaryItem?.id || null,
-            platform: 'x',
-            post_type: 'thread',
-            day_of_week: day,
-            content_payload: xPosts,
-            status: 'pending',
-            gate2_status: 'pending',
-          }
-        );
-      }
+      const existingIg = existingDeliverables?.find((d) => d.platform === 'instagram');
+      const existingX = existingDeliverables?.find((d) => d.platform === 'x');
+
+      const mergedIgPayload = mergeDeliverablePayload(existingIg?.content_payload, snsPosts, targetDay, 'dailyPosts');
+      const mergedXPayload = mergeDeliverablePayload(existingX?.content_payload, xPosts, targetDay, 'dailyThreads');
 
       await supabase.from('ai_content_deliverables').delete().eq('cycle_id', cycleId);
-      await supabase.from('ai_content_deliverables').insert(deliverableRows);
+      await supabase.from('ai_content_deliverables').insert([
+        {
+          cycle_id: cycleId,
+          research_item_id: mvpItem?.id || null,
+          platform: 'instagram',
+          post_type: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'service_guide' : 'carousel',
+          day_of_week: targetDay,
+          content_payload: mergedIgPayload,
+          status: 'pending',
+          gate2_status: 'pending',
+        },
+        {
+          cycle_id: cycleId,
+          research_item_id: mvpItem?.id || null,
+          platform: 'x',
+          post_type: isSundayDigest ? 'weekly_digest_thread' : isMondayServiceGuide ? 'service_guide_thread' : 'thread',
+          day_of_week: targetDay,
+          content_payload: mergedXPayload,
+          status: 'pending',
+          gate2_status: 'pending',
+        },
+      ]);
 
       await supabase.from('ai_pipeline_cycles').update({ status: 'gate2_auditing' }).eq('id', cycleId);
       dispatchNext();

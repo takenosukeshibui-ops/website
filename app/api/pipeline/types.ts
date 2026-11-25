@@ -43,7 +43,7 @@ export interface DeliverableRecord {
   id: string;
   cycle_id: string;
   research_item_id?: string;
-  platform: 'instagram' | 'x' | 'discord';
+  platform: 'instagram' | 'x';
   day_of_week: string;
   post_type: string;
   content_payload: any;

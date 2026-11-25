@@ -14,12 +14,12 @@ export async function GET(req: NextRequest) {
     const overseasPrice = searchParams.get('overseasPrice') || '$1,150';
     const spread = searchParams.get('spread') || '+¥50,000';
     const roi = searchParams.get('roi') || '42%';
-    const hookText = searchParams.get('hookText') || 'Sealed Box Investment Opportunity';
+    const hookText = searchParams.get('hookText') || 'Cross-Border Arbitrage Opportunity';
 
     // =========================================================================
-    // 1. カルーセル2枚目: 日本語版ポケカ事業者向け 代理購入特化スライド (?type=cta)
+    // 1. 代理購入サービス解説 / CTA スライド (?type=cta または ?type=Monday)
     // =========================================================================
-    if (type === 'cta') {
+    if (type === 'cta' || type === 'Monday') {
       return new ImageResponse(
         (
           <div
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
                   marginBottom: '10px',
                 }}
               >
-                FOR JAPANESE POKÉMON CARD RESELLERS & SHOPS
+                FOR JAPANESE CARD RESELLERS & SHOPS
               </div>
               <div
                 style={{
@@ -249,11 +249,11 @@ export async function GET(req: NextRequest) {
     }
 
     // =========================================================================
-    // 2. カルーセル1枚目: 価格差インフォグラフィック表紙スライド
+    // 2. アービトラージ / 5日まとめ インフォグラフィック表紙スライド
     // =========================================================================
-    const isArbitrage = type === 'arbitrage';
-    const accentColor = isArbitrage ? '#10b981' : '#f59e0b';
-    const badgeLabel = isArbitrage ? 'ARBITRAGE SPREAD' : 'MARKET TREND SIGNAL';
+    const isWeeklyDigest = type === 'Sunday';
+    const accentColor = '#10b981';
+    const badgeLabel = isWeeklyDigest ? 'WEEKLY ARBITRAGE DIGEST' : 'ARBITRAGE SPREAD';
 
     return new ImageResponse(
       (

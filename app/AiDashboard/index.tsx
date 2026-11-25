@@ -14,6 +14,16 @@ interface PhaseDetail {
     activeAgents: string[];
 }
 
+const TARGET_DAY_OPTIONS: { value: string; label: string }[] = [
+    { value: 'Monday', label: '月曜（サービス解説）' },
+    { value: 'Tuesday', label: '火曜（アービトラージ）' },
+    { value: 'Wednesday', label: '水曜（アービトラージ）' },
+    { value: 'Thursday', label: '木曜（アービトラージ）' },
+    { value: 'Friday', label: '金曜（アービトラージ）' },
+    { value: 'Saturday', label: '土曜（アービトラージ）' },
+    { value: 'Sunday', label: '日曜（5日まとめ）' },
+];
+
 const PHASE_DETAILS: Record<string, PhaseDetail> = {
     initialized: {
         step: 'PREPARE',
@@ -29,7 +39,6 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         color: 'bg-indigo-500',
         activeAgents: ['アービトラージリサーチチーム']
     },
-    // 🌟 北米リサーチ
     researching_us: {
         step: 'STEP 1 / 5',
         title: '北米(US)市場リサーチ ＆ 価格差検証中...',
@@ -37,7 +46,6 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         color: 'bg-indigo-500',
         activeAgents: ['💎 アービトラージ (US)', '📊 IG アナリスト']
     },
-    // 🌟 欧州リサーチ
     researching_eu: {
         step: 'STEP 1 / 5',
         title: '欧州(EU)市場リサーチ ＆ 価格差検証中...',
@@ -45,7 +53,6 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
         color: 'bg-indigo-500',
         activeAgents: ['💎 アービトラージ (EU)']
     },
-    // 🌟 アジアリサーチ
     researching_asia: {
         step: 'STEP 1 / 5',
         title: 'アジア市場リサーチ ＆ Xアナリスト分析中...',
@@ -119,6 +126,7 @@ const PHASE_DETAILS: Record<string, PhaseDetail> = {
 
 export default function AiDashboard() {
     const [activeCategory, setActiveCategory] = useState<CategoryKey>('pokemon');
+    const [targetDay, setTargetDay] = useState<string>('Thursday');
     const [aiActiveDesk, setAiActiveDesk] = useState<string>('desk_chief');
     const [activeArbitrageRegion, setActiveArbitrageRegion] = useState<RegionKey>('us');
     const [aiData, setAiData] = useState<IntelligenceData | null>(null);
@@ -172,7 +180,6 @@ export default function AiDashboard() {
         loadCycleData(target.id);
     };
 
-    // 🌟 各AIデスクごとの完全単独再実行ハンドラー
     const runSingleAi = async (action: string, region?: RegionKey) => {
         const targetCycleId = selectedRecordId || pipelineProgress.cycleId;
         if (!targetCycleId) {
@@ -190,7 +197,7 @@ export default function AiDashboard() {
             x: 'Xクリエイター (スレッド制作)',
         };
         const targetName = deskNames[action] || action;
-        if (!window.confirm(`【${targetName}】のみを単独再実行しますか？\n（他のAIデータや全体パイプラインは維持されます）`)) return;
+        if (!window.confirm(`【${targetName}】（対象: ${targetDay}）のみを単独再実行しますか？\n（他のAIデータや全体パイプラインは維持されます）`)) return;
 
         setRunningAction(`${action}_${region || ''}`);
         try {
@@ -201,7 +208,8 @@ export default function AiDashboard() {
                     cycleId: targetCycleId,
                     action,
                     region,
-                    category: activeCategory
+                    category: activeCategory,
+                    targetDay,
                 })
             });
             const json = await res.json();
@@ -216,7 +224,6 @@ export default function AiDashboard() {
         }
     };
 
-    // 強制停止ハンドラー
     const handleStopPipeline = async () => {
         if (!window.confirm('現在実行中の全AIパイプラインを強制停止しますか？')) return;
 
@@ -234,7 +241,7 @@ export default function AiDashboard() {
                 await fetch('/api/pipeline/worker', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cycleId: targetCycleId, action: 'stop' }),
+                    body: JSON.stringify({ cycleId: targetCycleId, action: 'stop', targetDay }),
                 });
             } catch (e) {
                 console.error('停止通知エラー:', e);
@@ -261,7 +268,6 @@ export default function AiDashboard() {
         }
     };
 
-    // パイプライン開始処理
     const runIntelligenceAnalysis = async () => {
         if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
@@ -275,7 +281,7 @@ export default function AiDashboard() {
             const res = await fetch('/api/pipeline/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ category: activeCategory, triggerType: 'manual' }),
+                body: JSON.stringify({ category: activeCategory, triggerType: 'manual', targetDay }),
             });
             const { cycleId } = await res.json();
             if (!cycleId) throw new Error('パイプラインの開始に失敗しました');
@@ -310,7 +316,6 @@ export default function AiDashboard() {
                             } as any));
                         }
 
-                        // 🌟 進行対象のフェーズ一覧
                         const activePhases: string[] = [
                             'initialized',
                             'researching',
@@ -323,22 +328,20 @@ export default function AiDashboard() {
                             'gate2_auditing'
                         ];
 
-                        // 🌟 ステータスが新しく切り替わった瞬間に「1度だけ」Workerを起動（多重実行を完全防止）
                         if (
                             activePhases.includes(currentStatus) &&
                             lastDispatchedPhaseRef.current !== currentStatus
                         ) {
                             lastDispatchedPhaseRef.current = currentStatus;
-                            console.log(`🚀 [Client Dispatch] 新しいフェーズ [${currentStatus}] の実行を指示します`);
+                            console.log(`🚀 [Client Dispatch] 新しいフェーズ [${currentStatus}] (${targetDay}) の実行を指示します`);
 
                             fetch('/api/pipeline/worker', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ cycleId }),
+                                body: JSON.stringify({ cycleId, targetDay }),
                             }).catch(e => console.error('Worker dispatch error:', e));
                         }
 
-                        // 完了・失敗時の停止処理
                         if (['ready_to_publish', 'partially_failed', 'completed'].includes(currentStatus)) {
                             if (pollIntervalRef.current) {
                                 clearInterval(pollIntervalRef.current);
@@ -376,7 +379,6 @@ export default function AiDashboard() {
         navigator.clipboard.writeText(text); setCopiedKey(key); setTimeout(() => setCopiedKey(null), 2000);
     };
 
-    // app/AiDashboard/index.tsx 内
     const handlePublishToInstagram = async (
         content: string,
         typeKey: string,
@@ -457,7 +459,20 @@ export default function AiDashboard() {
             />
 
             <div className="flex-1 flex flex-col relative bg-slate-950/50">
-                <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-end px-6 shrink-0">
+                <header className="h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur flex items-center justify-end gap-3 px-6 shrink-0">
+                    <select
+                        value={targetDay}
+                        onChange={(e) => setTargetDay(e.target.value)}
+                        disabled={aiLoading || Boolean(runningAction)}
+                        className="bg-slate-800 text-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                        {TARGET_DAY_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
+
                     {aiLoading ? (
                         <div className="flex items-center gap-3 animate-fadeIn">
                             <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg shadow-sm">
@@ -484,7 +499,6 @@ export default function AiDashboard() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-6 pb-28">
-                    {/* 進捗ゲージ */}
                     {currentPhase && (
                         <div className="mb-6 p-4 bg-slate-900 border border-slate-700/80 rounded-xl shadow-xl animate-fadeIn space-y-3">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-800 pb-2">
@@ -554,7 +568,6 @@ export default function AiDashboard() {
                         </div>
                     )}
 
-                    {/* メインデスクビュー */}
                     <DeskViews
                         aiActiveDesk={aiActiveDesk} activeArbitrageRegion={activeArbitrageRegion}
                         aiData={aiData}

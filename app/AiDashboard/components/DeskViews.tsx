@@ -24,6 +24,16 @@ const DAY_LABELS: Record<string, string> = {
     Friday: '金曜', Saturday: '土曜', Sunday: '日曜'
 };
 
+const DAY_DEFAULT_ROLE: Record<string, string> = {
+    Monday: 'サービス解説',
+    Tuesday: 'アービトラージ',
+    Wednesday: 'アービトラージ',
+    Thursday: 'アービトラージ',
+    Friday: 'アービトラージ',
+    Saturday: 'アービトラージ',
+    Sunday: '5日まとめ',
+};
+
 const buildInfographicUrl = (info: any) => {
     if (!info) return undefined;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
@@ -37,9 +47,19 @@ export default function DeskViews({
     handlePublishToInstagram, isPublishingInstagram,
     handlePublishToX, isPublishingX
 }: DeskViewsProps) {
-    const [selectedIgDay, setSelectedIgDay] = useState<string>('Monday');
-    const [selectedXDay, setSelectedXDay] = useState<string>('Monday');
+    const [selectedIgDay, setSelectedIgDay] = useState<string>('Tuesday');
+    const [selectedXDay, setSelectedXDay] = useState<string>('Tuesday');
     const [currentIgSlideIdx, setCurrentIgSlideIdx] = useState<number>(0);
+
+    useEffect(() => {
+        const firstIgDay = aiData?.snsPosts?.dailyPosts?.[0]?.day;
+        if (firstIgDay) setSelectedIgDay(firstIgDay);
+    }, [aiData?.snsPosts?.dailyPosts]);
+
+    useEffect(() => {
+        const firstXDay = aiData?.xPosts?.dailyThreads?.[0]?.day;
+        if (firstXDay) setSelectedXDay(firstXDay);
+    }, [aiData?.xPosts?.dailyThreads]);
 
     useEffect(() => {
         setCurrentIgSlideIdx(0);
@@ -61,13 +81,13 @@ export default function DeskViews({
 
     const dynamicIgDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
         const post = aiData?.snsPosts?.dailyPosts?.find(p => p.day?.includes(day) || p.day === day);
-        return { key: day, label: DAY_LABELS[day], desc: post?.theme || 'スロット未定' };
+        return { key: day, label: DAY_LABELS[day], desc: post?.theme || DAY_DEFAULT_ROLE[day] || '未作成' };
     });
 
     const dynamicXDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
         const thread = aiData?.xPosts?.dailyThreads?.find(t => t.day?.includes(day) || t.day === day);
         const match = thread?.mainPost?.match(/\((.*?)\)/);
-        return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : 'スレッド未定' };
+        return { key: day, label: DAY_LABELS[day], desc: match ? match[1] : DAY_DEFAULT_ROLE[day] || '未作成' };
     });
 
     const allArbAudits = gate1Audits.filter(a => a.agentKey !== 'trend');
@@ -391,7 +411,7 @@ export default function DeskViews({
                             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                                 <div>
                                     <span className="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold block mb-1">
-                                        Weekly Selected MVP Highlight
+                                        Selected MVP Highlight
                                     </span>
                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                         <span>🏆</span>
@@ -409,7 +429,7 @@ export default function DeskViews({
                                 <div>
                                     <div className="flex justify-between items-center mb-2.5 border-b border-slate-800 pb-1.5">
                                         <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                                            <span>📅</span> 週間コンテンツカレンダー（月曜〜日曜 7日分スロット）
+                                            <span>📅</span> 選定コンテンツ一覧
                                         </h4>
                                         <span className="text-[10px] text-slate-400">Gate 1 検算 合格品</span>
                                     </div>
@@ -424,7 +444,7 @@ export default function DeskViews({
                                                         {dailyItem.postType}
                                                     </span>
                                                 </div>
-                                                
+
                                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 text-xs">
                                                     {(dailyItem.items || []).map((sub: any, subIdx: number) => (
                                                         <div key={subIdx} className="bg-slate-900/60 p-2.5 rounded border border-slate-800/40 flex flex-col justify-between space-y-2">
@@ -747,10 +767,10 @@ export default function DeskViews({
                                                 <span>🖼️</span>
                                                 <span className="font-bold">インフォグラフィック画像が生成されました</span>
                                             </div>
-                                            <a 
-                                                href={igImageUrl} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
+                                            <a
+                                                href={igImageUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 className="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-white font-bold transition flex items-center gap-1 shadow-md"
                                             >
                                                 👁️ 画像プレビュー
@@ -769,8 +789,8 @@ export default function DeskViews({
                                                 const desc = parts.slice(1).join(':');
                                                 const isSelected = currentIgSlideIdx === i;
                                                 return (
-                                                    <div 
-                                                        key={i} 
+                                                    <div
+                                                        key={i}
                                                         onClick={() => setCurrentIgSlideIdx(i)}
                                                         className={`p-2 rounded cursor-pointer transition flex items-start gap-2 border ${
                                                             isSelected ? 'bg-pink-950/40 border-pink-500/50 text-white' : 'hover:bg-slate-900/80 border-transparent text-slate-400'
@@ -792,7 +812,7 @@ export default function DeskViews({
                                                 <h4 className="text-xs font-bold text-pink-300 flex items-center gap-1.5">
                                                     <span>🏷️</span> 推奨ハッシュタグ
                                                 </h4>
-                                                <button 
+                                                <button
                                                     onClick={() => handleCopy(aiData?.snsPosts?.hashtags?.join(' ') || '', 'ig_tags')}
                                                     className="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded text-slate-300 transition"
                                                 >
@@ -814,14 +834,24 @@ export default function DeskViews({
                                                 </button>
                                                 {(() => {
                                                     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                                                    const currentCardTitle = aiData?.chiefPackage?.mvpHighlight?.cardName || 'Featured Card';
-                                                    const slide1Url = `${baseUrl}/api/og?cardName=${encodeURIComponent(currentCardTitle)}&type=${selectedIgDay}`;
+                                                    const info = currentIgDaily?.infographicData;
+                                                    const currentCardTitle = info?.cardName || aiData?.chiefPackage?.mvpHighlight?.cardName || 'Featured Card';
+                                                    const params = new URLSearchParams({
+                                                        type: selectedIgDay,
+                                                        cardName: currentCardTitle,
+                                                        jpPrice: info?.jpPrice || '',
+                                                        overseasPrice: info?.overseasPrice || '',
+                                                        spread: info?.spread || '',
+                                                        roi: info?.roi || '',
+                                                        hookText: info?.hookText || '',
+                                                    });
+                                                    const slide1Url = `${baseUrl}/api/og?${params.toString()}`;
                                                     const slide2Url = `${baseUrl}/api/og?type=cta`;
                                                     const carouselSlideImages = [slide1Url, slide2Url];
 
                                                     return (
-                                                        <button 
-                                                            onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, carouselSlideImages)} 
+                                                        <button
+                                                            onClick={() => handlePublishToInstagram(igPostText, selectedIgDay, carouselSlideImages)}
                                                             disabled={Boolean(isPublishingInstagram)}
                                                             className="text-xs bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-bold px-3 py-1 rounded-lg shadow-md transition active:scale-95 disabled:opacity-50"
                                                         >
@@ -832,7 +862,7 @@ export default function DeskViews({
                                             </div>
                                         </div>
                                         <pre className="p-3 bg-slate-950 rounded-lg text-xs text-slate-300 whitespace-pre-wrap font-sans border border-slate-800 max-h-56 overflow-y-auto leading-relaxed">
-                                            {igPostText}
+                                            {igPostText || 'この曜日の投稿はまだ作成されていません。'}
                                         </pre>
                                     </div>
                                 </div>
@@ -902,17 +932,17 @@ export default function DeskViews({
                                                 </div>
                                             )}
                                         </div>
-                                        
+
                                         {currentIgSlideIdx === 0 && igImageUrl && (
-                                            <div 
-                                                className="absolute inset-0 opacity-40 z-0 bg-cover bg-center" 
-                                                style={{ backgroundImage: `url('${igImageUrl}')` }} 
+                                            <div
+                                                className="absolute inset-0 opacity-40 z-0 bg-cover bg-center"
+                                                style={{ backgroundImage: `url('${igImageUrl}')` }}
                                             />
                                         )}
 
                                         <div className="absolute inset-y-0 left-1 flex items-center z-10">
                                             {currentIgSlideIdx > 0 && (
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => setCurrentIgSlideIdx(prev => Math.max(0, prev - 1))}
                                                     className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs shadow-md backdrop-blur"
@@ -923,7 +953,7 @@ export default function DeskViews({
                                         </div>
                                         <div className="absolute inset-y-0 right-1 flex items-center z-10">
                                             {currentIgSlideIdx < igSlides.length - 1 && (
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => setCurrentIgSlideIdx(prev => Math.min(igSlides.length - 1, prev + 1))}
                                                     className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xs shadow-md backdrop-blur"
@@ -935,11 +965,11 @@ export default function DeskViews({
 
                                         <div className="flex justify-center gap-1 self-center z-10">
                                             {igSlides.map((_, dotIdx) => (
-                                                <div 
-                                                    key={dotIdx} 
+                                                <div
+                                                    key={dotIdx}
                                                     className={`h-1.5 rounded-full transition-all ${
                                                         currentIgSlideIdx === dotIdx ? 'w-4 bg-pink-500' : 'w-1.5 bg-slate-600'
-                                                    }`} 
+                                                    }`}
                                                 />
                                             ))}
                                         </div>
@@ -1039,10 +1069,10 @@ export default function DeskViews({
                                                 <span>🖼️</span>
                                                 <span className="font-bold">インフォグラフィック画像が生成されました</span>
                                             </div>
-                                            <a 
-                                                href={xImageUrl} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
+                                            <a
+                                                href={xImageUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                                 className="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg text-white font-bold transition flex items-center gap-1 shadow-md"
                                             >
                                                 👁️ 画像プレビュー
@@ -1064,8 +1094,8 @@ export default function DeskViews({
                                                 <button onClick={() => handleCopy(xMainPost, `x_main_${selectedXDay}`)} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-slate-300">
                                                     {copiedKey === `x_main_${selectedXDay}` ? '✓ コピー完了' : 'コピー'}
                                                 </button>
-                                                <button 
-                                                    onClick={() => handlePublishToX(xMainPost, xThreadPosts, xImageUrl)} 
+                                                <button
+                                                    onClick={() => handlePublishToX(xMainPost, xThreadPosts, xImageUrl)}
                                                     disabled={isPublishingX}
                                                     className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg shadow-md disabled:opacity-50 flex items-center gap-1 transition active:scale-95"
                                                 >
@@ -1074,7 +1104,7 @@ export default function DeskViews({
                                             </div>
                                         </div>
                                         <div className="p-3 bg-slate-950 rounded-lg text-xs text-white font-mono border border-sky-500/30 leading-relaxed">
-                                            {xMainPost}
+                                            {xMainPost || 'この曜日のスレッドはまだ作成されていません。'}
                                         </div>
                                     </div>
 
@@ -1124,7 +1154,7 @@ export default function DeskViews({
                                                     {xMainPost}
                                                 </p>
 
-                                                <div 
+                                                <div
                                                     className="mt-2.5 rounded-xl overflow-hidden border border-slate-800/80 aspect-square bg-slate-950 bg-cover bg-center"
                                                     style={xImageUrl ? { backgroundImage: `url('${xImageUrl}')` } : {}}
                                                 >

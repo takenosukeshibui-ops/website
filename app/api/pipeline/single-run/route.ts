@@ -6,7 +6,38 @@ import { createClient } from '@/lib/supabase/server';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
-import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
+import { runSnsPosts, runXPosts, ALL_DAYS, ContentDay } from '@/app/api/ai/intelligence/agents/contentCreator';
+
+function resolveTargetDay(rawDay?: string): ContentDay {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+  const candidate = (rawDay || days[new Date().getDay()]).trim();
+  const found = ALL_DAYS.find((d) => d.toLowerCase() === candidate.toLowerCase());
+  return found || 'Thursday';
+}
+
+function mergeDeliverablePayload(
+  existingPayload: any,
+  generatedPayload: any,
+  day: ContentDay,
+  arrayKey: 'dailyPosts' | 'dailyThreads'
+) {
+  if (!generatedPayload) return existingPayload || null;
+  const base = existingPayload && typeof existingPayload === 'object' ? { ...existingPayload } : {};
+  const prevList: any[] = Array.isArray(base[arrayKey]) ? base[arrayKey] : [];
+  const nextList: any[] = Array.isArray(generatedPayload[arrayKey]) ? generatedPayload[arrayKey] : [];
+
+  const filteredPrev = prevList.filter((entry) => entry?.day !== day);
+  const mergedList = [...filteredPrev, ...nextList];
+
+  return {
+    ...base,
+    theme: generatedPayload.theme ?? base.theme ?? '',
+    recommendedTiming: generatedPayload.recommendedTiming ?? base.recommendedTiming,
+    hashtags: generatedPayload.hashtags ?? base.hashtags,
+    xCallToAction: generatedPayload.xCallToAction ?? base.xCallToAction,
+    [arrayKey]: mergedList,
+  };
+}
 
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string {
   const cleanName = cardName.replace(/\s*[\(（].*?[\)）]/g, '').trim();
@@ -58,11 +89,12 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
     const effectiveCategory = category || 'pokemon';
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const targetDay = bodyTargetDay || days[new Date().getDay()];
+    const targetDay = resolveTargetDay(bodyTargetDay);
+    const isSundayDigest = targetDay === 'Sunday';
+    const isMondayServiceGuide = targetDay === 'Monday';
 
     console.log(`\n==============================================`);
-    console.log(`🎯 [Single AI Run] Action: ${action} | Region: ${region || 'none'} | Cycle: ${cycleId}`);
+    console.log(`🎯 [Single AI Run] Action: ${action} | Region: ${region || 'none'} | Day: ${targetDay} | Cycle: ${cycleId}`);
     console.log(`==============================================\n`);
 
     // ------------------------------------------------------------------------
@@ -272,7 +304,7 @@ export async function POST(req: Request) {
             await supabase.from('ai_research_items').update({
               is_selected: true,
               is_mvp: Boolean(item.isMvp) || matched.id === curationResult?.mvpItemId,
-              assigned_day: daily.day,
+              assigned_day: targetDay,
               core_hook_fact: item.coreHookFact || daily.themeLabel,
               curator_rationale: item.rationale || daily.dayRationale,
             }).eq('id', matched.id);
@@ -283,31 +315,123 @@ export async function POST(req: Request) {
     }
 
     // ------------------------------------------------------------------------
-    // 5. Instagramクリエイター（原稿）単独再生成
+    // 5. Instagramクリエイター（対象日1日分原稿）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'sns') {
       const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId).eq('platform', 'instagram').single();
-      const mvp = items?.find((i) => i.is_mvp) || items?.[0];
-      const chiefPackage = { chosenCardOrItem: mvp?.card_name, mvpHighlight: mvp, approvedItems: items || [] };
 
-      const snsPosts = await runSnsPosts(chiefPackage, tactics?.raw_insights, effectiveCategory);
-      await supabase.from('ai_content_deliverables').update({ content_payload: snsPosts }).eq('cycle_id', cycleId).eq('platform', 'instagram');
-      return NextResponse.json({ success: true, message: 'Instagram投稿原稿を単独再生成しました' });
+      let weeklyDigestItems: any[] = [];
+      if (isSundayDigest) {
+        const { data: recentSelected } = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('agent_key', 'arbitrage')
+          .eq('is_selected', true)
+          .order('created_at', { ascending: false })
+          .limit(15);
+        weeklyDigestItems = recentSelected || [];
+      }
+
+      const mvp = items?.find((i) => i.is_mvp) || items?.[0] || weeklyDigestItems?.[0];
+      const chiefPackage = {
+        targetDay,
+        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_arbitrage',
+        chosenCardOrItem: mvp?.card_name || (isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '注目カード'),
+        mvpHighlight: mvp || {},
+        approvedItems: items || [],
+        weeklyDigestItems,
+      };
+
+      const snsPosts = await runSnsPosts(chiefPackage, tactics?.raw_insights, effectiveCategory, targetDay);
+      const { data: existingIg } = await supabase
+        .from('ai_content_deliverables')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .eq('platform', 'instagram')
+        .single();
+
+      const mergedPayload = mergeDeliverablePayload(existingIg?.content_payload, snsPosts, targetDay, 'dailyPosts');
+
+      if (existingIg) {
+        await supabase
+          .from('ai_content_deliverables')
+          .update({ content_payload: mergedPayload, day_of_week: targetDay })
+          .eq('id', existingIg.id);
+      } else {
+        await supabase.from('ai_content_deliverables').insert({
+          cycle_id: cycleId,
+          research_item_id: mvp?.id || null,
+          platform: 'instagram',
+          post_type: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'service_guide' : 'carousel',
+          day_of_week: targetDay,
+          content_payload: mergedPayload,
+          status: 'pending',
+          gate2_status: 'pending',
+        });
+      }
+
+      return NextResponse.json({ success: true, message: `Instagram投稿原稿 (${targetDay}) を単独再生成しました` });
     }
 
     // ------------------------------------------------------------------------
-    // 6. Xクリエイター（スレッド）単独再生成
+    // 6. Xクリエイター（対象日1日分スレッド）単独再生成
     // ------------------------------------------------------------------------
     if (action === 'x_posts' || action === 'x') {
       const { data: items } = await supabase.from('ai_research_items').select('*').eq('cycle_id', cycleId).eq('is_selected', true);
       const { data: tactics } = await supabase.from('ai_platform_tactics').select('*').eq('cycle_id', cycleId).eq('platform', 'x').single();
-      const mvp = items?.find((i) => i.is_mvp) || items?.[0];
-      const chiefPackage = { chosenCardOrItem: mvp?.card_name, mvpHighlight: mvp, approvedItems: items || [] };
 
-      const xPosts = await runXPosts(chiefPackage, tactics?.raw_insights, effectiveCategory);
-      await supabase.from('ai_content_deliverables').update({ content_payload: xPosts }).eq('cycle_id', cycleId).eq('platform', 'x');
-      return NextResponse.json({ success: true, message: 'Xスレッド原稿を単独再生成しました' });
+      let weeklyDigestItems: any[] = [];
+      if (isSundayDigest) {
+        const { data: recentSelected } = await supabase
+          .from('ai_research_items')
+          .select('*')
+          .eq('agent_key', 'arbitrage')
+          .eq('is_selected', true)
+          .order('created_at', { ascending: false })
+          .limit(15);
+        weeklyDigestItems = recentSelected || [];
+      }
+
+      const mvp = items?.find((i) => i.is_mvp) || items?.[0] || weeklyDigestItems?.[0];
+      const chiefPackage = {
+        targetDay,
+        mode: isSundayDigest ? 'weekly_digest' : isMondayServiceGuide ? 'proxy_service_guide' : 'daily_arbitrage',
+        chosenCardOrItem: mvp?.card_name || (isMondayServiceGuide ? 'Japan Proxy Sourcing Service' : '注目カード'),
+        mvpHighlight: mvp || {},
+        approvedItems: items || [],
+        weeklyDigestItems,
+      };
+
+      const xPosts = await runXPosts(chiefPackage, tactics?.raw_insights, effectiveCategory, targetDay);
+      const { data: existingX } = await supabase
+        .from('ai_content_deliverables')
+        .select('*')
+        .eq('cycle_id', cycleId)
+        .eq('platform', 'x')
+        .single();
+
+      const mergedPayload = mergeDeliverablePayload(existingX?.content_payload, xPosts, targetDay, 'dailyThreads');
+
+      if (existingX) {
+        await supabase
+          .from('ai_content_deliverables')
+          .update({ content_payload: mergedPayload, day_of_week: targetDay })
+          .eq('id', existingX.id);
+      } else {
+        await supabase.from('ai_content_deliverables').insert({
+          cycle_id: cycleId,
+          research_item_id: mvp?.id || null,
+          platform: 'x',
+          post_type: isSundayDigest ? 'weekly_digest_thread' : isMondayServiceGuide ? 'service_guide_thread' : 'thread',
+          day_of_week: targetDay,
+          content_payload: mergedPayload,
+          status: 'pending',
+          gate2_status: 'pending',
+        });
+      }
+
+      return NextResponse.json({ success: true, message: `Xスレッド原稿 (${targetDay}) を単独再生成しました` });
     }
 
     return NextResponse.json({ success: false, error: '対応していないアクションです' }, { status: 400 });

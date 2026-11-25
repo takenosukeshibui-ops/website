@@ -106,8 +106,6 @@ app/
           arbitrage.ts
           contentCreator.ts
           curator.ts
-          marketTrend.ts
-          salesDM.ts
           snsAccount.ts
         helpers.ts
       knowledge/
@@ -168,7 +166,6 @@ dictionaries/
 lib/
   market-fetcher/
     apify-arbitrage.ts
-    apify-trend.ts
     card-master.ts
     cardmarket.ts
     ebay.ts
@@ -1097,98 +1094,6 @@ export async function executeWisePayout(targetUserId: string, amount: number)
 const transactionId = crypto.randomUUID() // 標準の globalThis.crypto を使用
 </file>
 
-<file path="app/AiDashboard/components/ChatPanel.tsx">
-// app/AiDashboard/components/ChatPanel.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
-⋮----
-interface ChatPanelProps {
-    activeCategory: CategoryKey;
-    aiActiveDesk: string;
-    activeTrendRegion: RegionKey;
-    activeArbitrageRegion: RegionKey;
-    aiData: IntelligenceData | null;
-    runSingleAi: (action: string, region?: RegionKey) => void;
-    runningAction: string | null;
-}
-⋮----
-const scrollToBottom = () =>
-⋮----
-const getActiveAgentKey = (desk: string): string | null =>
-⋮----
-const getDeskTitle = (desk: string): string =>
-⋮----
-const fetchKnowledge = async () =>
-⋮----
-const handleDeleteKnowledge = async (id: string) =>
-⋮----
-const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
-⋮----
-const handleSendChatMessage = async (e: React.FormEvent) =>
-⋮----
-const fetchChatLogs = async () =>
-⋮----
-{/* RSI / Knowledge List は省略せずに残す */}
-⋮----
-onChange=
-</file>
-
-<file path="app/AiDashboard/components/Sidebar.tsx">
-// app/AiDashboard/components/Sidebar.tsx
-import React from 'react';
-import { RegionKey, CategoryKey } from '../types';
-⋮----
-interface SidebarProps {
-    activeCategory: CategoryKey;
-    setActiveCategory: (category: CategoryKey) => void;
-    aiActiveDesk: string;
-    setAiActiveDesk: (desk: string) => void;
-    activeTrendRegion: RegionKey;
-    setActiveTrendRegion: (region: RegionKey) => void;
-    activeArbitrageRegion: RegionKey;
-    setActiveArbitrageRegion: (region: RegionKey) => void;
-    history: any[];
-    selectedRecordId: string | null;
-    onSelectHistory: (target: any) => void;
-    aiLoading: boolean;
-    runningAction: string | null;
-}
-⋮----
-export default function Sidebar({
-    activeCategory, setActiveCategory,
-    aiActiveDesk, setAiActiveDesk,
-    activeTrendRegion, setActiveTrendRegion,
-    activeArbitrageRegion, setActiveArbitrageRegion,
-    history, selectedRecordId, onSelectHistory,
-    aiLoading, runningAction
-}: SidebarProps)
-⋮----
-{/* 商材カテゴリー切り替え */}
-⋮----
-{/* メニューリスト本体（監査役もこの中に含める） */}
-⋮----
-{/* 🔮 市場トレンドリサーチチーム */}
-⋮----
-{/* 💎 アービトラージリサーチチーム */}
-⋮----
-{/* 🌟 アービトラージ監査担当 */}
-⋮----
-{/* 👑 キュレーター */}
-<div onClick={() =>
-⋮----
-{/* 📸 Instagram運営グループ */}
-⋮----
-{/* 🐦 X運営グループ */}
-⋮----
-{/* ✉️ 有料コミュニティ */}
-⋮----
-{/* 🛡️ Gate 2 監査役（スクロール範囲内に移動） */}
-⋮----
-{/* 過去サイクル履歴選択 */}
-⋮----
-<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
-</file>
-
 <file path="app/api/admin/fedex/shipment/route.ts">
 // app/api/admin/fedex/shipment/route.ts
 import { createClient } from '@/lib/supabase/server'
@@ -1254,40 +1159,6 @@ export async function POST(req: Request)
 // [NEW] 柔軟な ID 取得ロジック (ルート id, links 配列, Href等からの抽出)
 ⋮----
 // 5. 請求書の送信 (Send Invoice)
-</file>
-
-<file path="app/api/ai/chat/route.ts">
-// app/api/ai/chat/route.ts
-⋮----
-import { NextResponse } from 'next/server';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server';
-import { getCategoryName } from '../intelligence/helpers';
-⋮----
-// 🌟 全エージェントのプロファイルを完全網羅
-⋮----
-async function getAgentReply(agentKey: string, userMessage: string, contextData: any, category: string, region: string | undefined, supabase: any)
-⋮----
-export async function POST(req: Request)
-⋮----
-// ユーザーメッセージをDBに安全に保存
-⋮----
-// ターゲットの柔軟なマッピング
-⋮----
-// 各AIの回答を生成
-⋮----
-// AIの回答をDBに安全に保存
-⋮----
-// 過去のチャット履歴を取得するエンドポイント
-export async function GET(req: Request)
-</file>
-
-<file path="app/api/ai/intelligence/agents/salesDM.ts">
-// app/api/ai/intelligence/agents/salesDM.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../helpers';
-⋮----
-export async function runSalesDM(chiefPackage: any)
 </file>
 
 <file path="app/api/ai/intelligence/helpers.ts">
@@ -1386,94 +1257,6 @@ export async function GET(req: Request)
 // Vercel Cron の認証検証（環境変数 CRON_SECRET がある場合）
 ⋮----
 // 🌟 新しい非同期パイプラインを triggerType='cron' でキックオフ（即時 202 応答）
-</file>
-
-<file path="app/api/pipeline/gates/gate1.ts">
-// app/api/pipeline/gates/gate1.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../../ai/intelligence/helpers';
-import { ResearchItemRecord } from '../types';
-⋮----
-export interface Gate1AuditResult {
-  itemId: string;
-  passed: boolean;
-  checks: {
-    card_existence_verified: boolean;
-    roi_calculation_valid: boolean;
-    official_tournament_compliant: boolean;
-  };
-  feedback: string | null;
-}
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1-A: アービトラージ数値マージン監査（コードによる0.01秒の決定論的検算）
-// ----------------------------------------------------------------------------
-export function runArbitrageMathAudit(items: ResearchItemRecord[]): Gate1AuditResult[]
-⋮----
-// 1. 異常値チェック（仕入れ値0円、利益なし、ROI 10%未満）
-⋮----
-// 2. 申告値との四則計算チェック（許容誤差: 差額 ±150円, ROI ±3%）
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1-B: 市場トレンド相場・レポート論理監査（LLMによる文章 & 銘柄審査）
-// ----------------------------------------------------------------------------
-export async function runTrendIntelligenceAudit(
-  items: ResearchItemRecord[],
-  category: string = 'pokemon'
-): Promise<Gate1AuditResult[]>
-⋮----
-// レポートの仮説・文章インサイトと銘柄をセットで審査プロンプトへ渡す
-⋮----
-// ----------------------------------------------------------------------------
-// Gate 1 統括エントリーポイント（並列実行）
-// ----------------------------------------------------------------------------
-export async function runGate1Audit(
-  items: ResearchItemRecord[],
-  category: string = 'pokemon'
-): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }>
-⋮----
-// Gate 1-A（コード検算）と Gate 1-B（LLMトレンド文章監査）を並列実行
-</file>
-
-<file path="app/api/pipeline/gates/gate2.ts">
-// app/api/pipeline/gates/gate2.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { parseAIJson } from '../../ai/intelligence/helpers';
-⋮----
-export interface Gate2AuditResult {
-  deliverableId: string;
-  passed: boolean;
-  checks: {
-    secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
-    teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
-    format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
-    cta_guideline_compliant: boolean;    // プロフリンク・VIP導線の整合性
-  };
-  feedback: string | null;
-}
-⋮----
-secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
-teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
-format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
-cta_guideline_compliant: boolean;    // プロフリンク・VIP導線の整合性
-⋮----
-// 🌟 絶対に外部発信原稿に含めてはならない仕入れ先・国内リテール禁止ワード
-⋮----
-export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: boolean; results: Gate2AuditResult[] }>
-⋮----
-// --------------------------------------------------------------------------
-// 1. コードによる決定論的チェック（禁止ワード検索 ＆ 文字数測定）
-// --------------------------------------------------------------------------
-⋮----
-// A. 禁止ワードの完全一致チェック
-⋮----
-// B. X (Twitter) の1ポスト目文字数測定（140文字以内）
-⋮----
-// 機械判定をパスしたものはLLMの定性・文脈審査へ
-⋮----
-// --------------------------------------------------------------------------
-// 2. LLMによる「撒き餌原則・コンプライアンス・導線」定性審査
-// --------------------------------------------------------------------------
 </file>
 
 <file path="app/api/pipeline/types.ts">
@@ -2045,6 +1828,63 @@ onClick={(e) => e.stopPropagation()} // [NEW] クライアントコンポーネ�
     "submittingButton": "送信中..."
   }
 }
+</file>
+
+<file path="lib/market-fetcher/ebay.ts">
+// app/lib/market-fetcher/ebay.ts
+⋮----
+interface EbayPriceResult {
+  platform: 'ebay_us' | 'ebay_uk' | 'ebay_de';
+  currency: string;
+  priceLocal: number;
+  priceJpy: number;
+  itemUrl: string;
+  condition: string;
+  title: string;
+}
+⋮----
+// マーケットプレイスIDと通貨マッピング
+⋮----
+async function getEbayAppToken(): Promise<string>
+⋮----
+export async function fetchEbayPrice(
+  query: string,
+  targetRegion: 'us' | 'uk' | 'de'
+): Promise<EbayPriceResult | null>
+⋮----
+// 固定価格 (即決) かつ美品/鑑定品をフィルタ
+⋮----
+// 最安値・基準値を抽出
+</file>
+
+<file path="lib/market-fetcher/tcgplayer.ts">
+// app/lib/market-fetcher/tcgplayer.ts
+⋮----
+interface TcgPriceResult {
+  cardName: string;
+  marketPriceUSD: number;
+  marketPriceJPY: number;
+  directLowUSD: number | null;
+  subType: string; // "Normal", "Holofoil", etc.
+  url: string;
+}
+⋮----
+subType: string; // "Normal", "Holofoil", etc.
+⋮----
+export async function fetchTcgplayerPrice(
+  categoryId: number = 3, // ポケモンカード: 3
+  cardSearchName: string
+): Promise<TcgPriceResult | null>
+⋮----
+categoryId: number = 3, // ポケモンカード: 3
+⋮----
+// TCGcsv のカテゴリ別日次価格エンドポイント
+⋮----
+next: { revalidate: 86400 }, // 1日キャッシュ
+⋮----
+// カード名でヒットするアイテムを検索
+⋮----
+const rate = 155; // 為替レート (USD/JPY)
 </file>
 
 <file path="lib/supabase/migrations/20261031_create_shared_blackboard.sql">
@@ -2717,6 +2557,103 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="app/AiDashboard/components/ChatPanel.tsx">
+// app/AiDashboard/components/ChatPanel.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { IntelligenceData, RegionKey, ChatMessage, KnowledgeItem, CategoryKey } from '../types';
+⋮----
+interface ChatPanelProps {
+    activeCategory: CategoryKey;
+    aiActiveDesk: string;
+    activeArbitrageRegion: RegionKey;
+    aiData: IntelligenceData | null;
+    runSingleAi: (action: string, region?: RegionKey) => void;
+    runningAction: string | null;
+}
+⋮----
+const scrollToBottom = () =>
+⋮----
+const getActiveAgentKey = (desk: string): string | null =>
+⋮----
+const getDeskTitle = (desk: string): string =>
+⋮----
+const fetchKnowledge = async () =>
+⋮----
+const handleDeleteKnowledge = async (id: string) =>
+⋮----
+const handlePinKnowledge = async (sender: string, text: string, isUserMessage: boolean = false) =>
+⋮----
+const handleSendChatMessage = async (e: React.FormEvent) =>
+⋮----
+const fetchChatLogs = async () =>
+⋮----
+onChange=
+</file>
+
+<file path="app/AiDashboard/components/Sidebar.tsx">
+// app/AiDashboard/components/Sidebar.tsx
+import React from 'react';
+import { RegionKey, CategoryKey } from '../types';
+⋮----
+interface SidebarProps {
+    activeCategory: CategoryKey;
+    setActiveCategory: (category: CategoryKey) => void;
+    aiActiveDesk: string;
+    setAiActiveDesk: (desk: string) => void;
+    activeArbitrageRegion: RegionKey;
+    setActiveArbitrageRegion: (region: RegionKey) => void;
+    history: any[];
+    selectedRecordId: string | null;
+    onSelectHistory: (target: any) => void;
+    aiLoading: boolean;
+    runningAction: string | null;
+}
+⋮----
+export default function Sidebar({
+    activeCategory, setActiveCategory,
+    aiActiveDesk, setAiActiveDesk,
+    setActiveArbitrageRegion,
+    history, selectedRecordId, onSelectHistory,
+    aiLoading, runningAction
+}: SidebarProps)
+⋮----
+{/* 商材カテゴリー切り替え */}
+⋮----
+{/* メニューリスト本体（監査役もこの中に含める） */}
+⋮----
+{/* 💎 アービトラージリサーチチーム */}
+⋮----
+{/* 👑 キュレーター */}
+<div onClick={() =>
+⋮----
+{/* 📸 Instagram運営グループ */}
+⋮----
+{/* 🐦 X運営グループ */}
+⋮----
+{/* 🛡️ Gate 2 監査役 */}
+⋮----
+{/* 過去サイクル履歴選択 */}
+⋮----
+<select value={selectedRecordId || ''} disabled={aiLoading || Boolean(runningAction)} onChange={(e) =>
+</file>
+
+<file path="app/api/ai/chat/route.ts">
+// app/api/ai/chat/route.ts
+⋮----
+import { NextResponse } from 'next/server';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createClient } from '@/lib/supabase/server';
+import { getCategoryName } from '../intelligence/helpers';
+⋮----
+// 🌟 エージェントのプロファイル
+⋮----
+async function getAgentReply(agentKey: string, userMessage: string, contextData: any, category: string, region: string | undefined, supabase: any)
+⋮----
+export async function POST(req: Request)
+⋮----
+export async function GET(req: Request)
+</file>
+
 <file path="app/api/ai/intelligence/agents/snsAccount.ts">
 // app/api/ai/intelligence/agents/snsAccount.ts
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -2728,6 +2665,119 @@ export async function runAccountAnalysis(category: string = 'pokemon')
 ⋮----
 // 5. Xアナリスト
 export async function runXAccountAnalysis(sharedInsights?: any)
+</file>
+
+<file path="app/api/cron/sync-overseas-prices/route.ts">
+// app/api/cron/sync-overseas-prices/route.ts
+export const maxDuration = 60; // Vercel 実行時間拡張対応[cite: 1]
+⋮----
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { fetchEbayPrice } from '@/lib/market-fetcher/ebay';
+import { fetchTcgplayerPrice } from '@/lib/market-fetcher/tcgplayer';
+import { fetchCardmarketPrice } from '@/lib/market-fetcher/cardmarket';
+import { COMPREHENSIVE_SEED_CARDS, SeedCardDefinition } from '@/lib/market-fetcher/card-master';
+⋮----
+// APIレート制限およびバースト負荷を回避するための並行実行ヘルパー
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]>
+⋮----
+// @ts-ignore
+⋮----
+export async function POST(req: Request)
+⋮----
+// スロットクエリ指定があれば絞り込み、なければ全スロット対象（型を明示）
+⋮----
+// 3件ずつ並行で外部API（eBay US/UK/DE、TCGplayer、Cardmarket）から取得
+⋮----
+// 1. eBay US (北米・USD)
+⋮----
+// 2. TCGplayer (北米・USD)
+⋮----
+// 3. Cardmarket (欧州・EUR)
+⋮----
+// 4. eBay DE (欧州ドイツ・EUR)
+⋮----
+// 5. eBay UK (英国・GBP)
+⋮----
+const supabase = await createClient(); //[cite: 1]
+</file>
+
+<file path="app/api/pipeline/gates/gate1.ts">
+// app/api/pipeline/gates/gate1.ts
+import { ResearchItemRecord } from '../types';
+⋮----
+export interface Gate1AuditResult {
+  itemId: string;
+  passed: boolean;
+  checks: {
+    card_existence_verified: boolean;
+    roi_calculation_valid: boolean;
+    official_tournament_compliant: boolean;
+  };
+  feedback: string | null;
+}
+⋮----
+// ----------------------------------------------------------------------------
+// Gate 1-A: アービトラージ数値マージン監査（コードによる0.01秒の決定論的検算）
+// ----------------------------------------------------------------------------
+export function runArbitrageMathAudit(items: ResearchItemRecord[]): Gate1AuditResult[]
+⋮----
+// 1. 異常値チェック（仕入れ値0円、利益なし、ROI 10%未満）
+⋮----
+// 2. 申告値との四則計算チェック（許容誤差: 差額 ±150円, ROI ±3%）
+⋮----
+// ----------------------------------------------------------------------------
+// Gate 1 統括エントリーポイント
+// ----------------------------------------------------------------------------
+export async function runGate1Audit(
+  items: ResearchItemRecord[],
+  _category: string = 'pokemon'
+): Promise<{ allPassed: boolean; results: Gate1AuditResult[] }>
+</file>
+
+<file path="app/api/pipeline/gates/gate2.ts">
+// app/api/pipeline/gates/gate2.ts
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { parseAIJson } from '../../ai/intelligence/helpers';
+⋮----
+export interface Gate2AuditResult {
+  deliverableId: string;
+  passed: boolean;
+  checks: {
+    secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
+    teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
+    format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
+    cta_guideline_compliant: boolean;    // プロフリンク導線の整合性
+  };
+  feedback: string | null;
+}
+⋮----
+secret_leak_free: boolean;           // 仕入れ先ワード・仕込みルートの漏洩なし
+teaser_principle_compliant: boolean; // 撒き餌原則（Fact/Resultのみ、ノウハウ秘匿）
+format_and_length_valid: boolean;    // X140文字制限、投稿構成の整合性
+cta_guideline_compliant: boolean;    // プロフリンク導線の整合性
+⋮----
+// 🌟 絶対に外部発信原稿に含めてはならない仕入れ先・国内リテール禁止ワード
+⋮----
+export async function runGate2Audit(deliverables: any[]): Promise<{ allPassed: boolean; results: Gate2AuditResult[] }>
+⋮----
+// --------------------------------------------------------------------------
+// 1. コードによる決定論的チェック（禁止ワード検索 ＆ 文字数測定）
+// --------------------------------------------------------------------------
+⋮----
+// A. 禁止ワードの完全一致チェック
+⋮----
+// B. X (Twitter) の1ポスト目文字数測定（140文字以内）
+⋮----
+// 機械判定をパスしたものはLLMの定性・文脈審査へ
+⋮----
+// --------------------------------------------------------------------------
+// 2. LLMによる「撒き餌原則・コンプライアンス・導線」定性審査
+// --------------------------------------------------------------------------
 </file>
 
 <file path="app/api/pipeline/start/route.ts">
@@ -2780,61 +2830,31 @@ tcgCategoryId: number; // 3: Pokemon
 // -------------------------------------------------------------
 </file>
 
-<file path="lib/market-fetcher/ebay.ts">
-// app/lib/market-fetcher/ebay.ts
+<file path="lib/market-fetcher/cardmarket.ts">
+// lib/market-fetcher/cardmarket.ts
 ⋮----
-interface EbayPriceResult {
-  platform: 'ebay_us' | 'ebay_uk' | 'ebay_de';
-  currency: string;
-  priceLocal: number;
-  priceJpy: number;
-  itemUrl: string;
-  condition: string;
-  title: string;
-}
-⋮----
-// マーケットプレイスIDと通貨マッピング
-⋮----
-async function getEbayAppToken(): Promise<string>
-⋮----
-export async function fetchEbayPrice(
-  query: string,
-  targetRegion: 'us' | 'uk' | 'de'
-): Promise<EbayPriceResult | null>
-⋮----
-// 固定価格 (即決) かつ美品/鑑定品をフィルタ
-⋮----
-// 最安値・基準値を抽出
-</file>
-
-<file path="lib/market-fetcher/tcgplayer.ts">
-// app/lib/market-fetcher/tcgplayer.ts
-⋮----
-interface TcgPriceResult {
+export interface CardmarketPriceResult {
   cardName: string;
-  marketPriceUSD: number;
-  marketPriceJPY: number;
-  directLowUSD: number | null;
-  subType: string; // "Normal", "Holofoil", etc.
+  trendPriceEUR: number;
+  lowPriceEUR: number;
+  avg30EUR: number;
+  priceJpy: number;
   url: string;
 }
 ⋮----
-subType: string; // "Normal", "Holofoil", etc.
+// ユーロ対日本円の基準レート
 ⋮----
-export async function fetchTcgplayerPrice(
-  categoryId: number = 3, // ポケモンカード: 3
-  cardSearchName: string
-): Promise<TcgPriceResult | null>
+export async function fetchCardmarketPrice(
+  cardSearchName: string,
+  category: 'Pokemon' | 'OnePiece' | 'YuGiOh' = 'Pokemon'
+): Promise<CardmarketPriceResult | null>
 ⋮----
-categoryId: number = 3, // ポケモンカード: 3
-⋮----
-// TCGcsv のカテゴリ別日次価格エンドポイント
+// Pokemon TCG OpenAPI / Cardmarket スナップショットエンドポイント
+// （APIキー不要で Cardmarket の trendPrice, avg30, lowPrice を取得可能）
 ⋮----
 next: { revalidate: 86400 }, // 1日キャッシュ
 ⋮----
-// カード名でヒットするアイテムを検索
-⋮----
-const rate = 155; // 為替レート (USD/JPY)
+// フォールバック: Cardmarket公式検索URL
 </file>
 
 <file path="lib/market-fetcher/verifier.ts">
@@ -3201,78 +3221,10 @@ export interface MultiSlotArbitrageReport {
 exchangeRate?: { currency: string; rateJPY: number; label: string }; // 🌟 リアルタイム為替レート
 ⋮----
 // ==========================================
-// 🌟 市場トレンド（因果関係・上位5銘柄）型定義
-// ==========================================
-export type ConvictionLevel = 'High' | 'Mid' | 'Speculative';
-export type CardCondition = 'Raw NM' | 'PSA10';
-⋮----
-export interface MarketTrendCardItem {
-  rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
-  cardName: string;           // 実在カード名 (型番 / レアリティ)
-  condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
-  conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
-  jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
-  currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-  timeframe?: string;         // 売り時目安
-  exitStrategy?: string;      // 推奨出口戦略
-  impactLogic?: string;       // 波及ロジック
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-⋮----
-rankLabel: string;          // "Rank 1 (最本命)", "Rank 2 (高連動)", ..., "Rank 5 (先行大穴)"
-cardName: string;           // 実在カード名 (型番 / レアリティ)
-condition: CardCondition | string;   // 推奨状態 (Raw NM / PSA10)
-conviction?: ConvictionLevel; // 確信度 (High / Mid / Speculative)
-jpBuyPriceJPY: string;      // 🇯🇵 日本調達原価 (例: "¥4,500")
-currentLocalPrice: string;  // 🇺🇸 現地現在相場 (例: "$35 (約¥5,400)")
-timeframe?: string;         // 売り時目安
-exitStrategy?: string;      // 推奨出口戦略
-impactLogic?: string;       // 波及ロジック
-⋮----
-export interface MarketTrendHypothesis {
-  headline: string;           // トレンド核心タイトル
-  signal: string;             // 検知された客観的シグナル・事実
-  timeframe: string;          // トレンド全体の想定ピーク時期
-  items: MarketTrendCardItem[]; // トレンド合致銘柄
-}
-⋮----
-headline: string;           // トレンド核心タイトル
-signal: string;             // 検知された客観的シグナル・事実
-timeframe: string;          // トレンド全体の想定ピーク時期
-items: MarketTrendCardItem[]; // トレンド合致銘柄
-⋮----
-export interface MarketTrendExecutiveSummary {
-  headline: string;
-  trendDynamics: {
-    catalystOverview: string;
-    japanPriceLag: string;
-  };
-  strategicHighlights: {
-    mvpCatalystCard: string;
-    optimalExitWindow: string;
-  };
-  riskAlert: {
-    hypeTrapWarning: string;
-    gradingVsRawStrategy: string;
-  };
-  actionDirectives: string[];
-}
-⋮----
-export interface MarketTrendReport {
-  title: string;
-  claim: string;
-  createdAt?: string;
-  summary?: MarketTrendExecutiveSummary;
-  hypotheses: MarketTrendHypothesis[];
-}
-⋮----
-// ==========================================
 // 🌟 インフォグラフィック・画像生成共通型定義
 // ==========================================
 export interface InfographicData {
-  type: 'arbitrage' | 'trend';
+  type: 'arbitrage';
   cardName: string;
   region?: RegionKey | string;
   jpPrice: string;
@@ -3303,7 +3255,6 @@ export interface ContentCalendarItem {
   directiveForCreator?: {
     instagramAngle: string;
     xTwitterAngle: string;
-    discordOfferAngle: string;
   };
 }
 ⋮----
@@ -3316,7 +3267,7 @@ export interface CuratorStrategyBlueprint {
 }
 ⋮----
 export interface ChiefPackageData {
-  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'TypeB_Trend' | 'GlobalCatalog';
+  selectedLeadMagnetType?: 'TypeA_Arbitrage' | 'GlobalCatalog';
   winningRegion?: 'us' | 'eu' | 'asia' | 'global';
   leadMagnetTitle?: string;
   chosenCardOrItem?: string;
@@ -3329,9 +3280,9 @@ export interface ChiefPackageData {
     selectionReason: string;
   } | null;
   regionalMatrix?: {
-    us: { topArbitrage: string; topTrend: string; summary: string };
-    eu: { topArbitrage: string; topTrend: string; summary: string };
-    asia: { topArbitrage: string; topTrend: string; summary: string };
+    us: { topArbitrage: string; summary: string };
+    eu: { topArbitrage: string; summary: string };
+    asia: { topArbitrage: string; summary: string };
   };
   globalInsight?: string;
   contentCalendar?: ContentCalendarItem[];
@@ -3342,7 +3293,6 @@ export interface ChiefPackageData {
   creativeDirective?: {
     instagramAngle: string;
     xTwitterAngle?: string;
-    discordOfferAngle: string;
   };
 }
 ⋮----
@@ -3359,7 +3309,6 @@ export interface ProofPackageData {
     afterImageDesc: string;
     comparisonLayout: string;
   };
-  discordCTA: string;
 }
 ⋮----
 export interface SnsPostsData {
@@ -3373,9 +3322,7 @@ export interface SnsPostsData {
   posts?: {
     hybridPost: string;
     arbitragePost: string;
-    trendPost: string;
   };
-  discordCTA: string;
   dailyPosts?: {
     day: string;
     theme?: string;
@@ -3399,18 +3346,6 @@ export interface XPostsData {
   }[];
 }
 ⋮----
-export interface SalesDMData {
-  targetSegment: string;
-  offerSummary: string;
-  discordMessage: string;
-  commercialTerms: {
-    minimumOrderQty: string;
-    shippingMethod: string;
-    paymentMethod: string;
-  };
-  negotiationTip: string;
-}
-⋮----
 export interface RSIAutoRule {
   targetAgent: string;
   ruleText: string;
@@ -3419,10 +3354,6 @@ export interface RSIAutoRule {
 export interface RSIReportData {
   overallEvaluation: string;
   accuracyScore: number;
-  trendWeightAdjustments: {
-    recommendedPattern: string;
-    rationale: string;
-  };
   arbitrageSpreadAudits: {
     spreadReliabilityScore: string;
     recommendedMinimumSpread: string;
@@ -3439,7 +3370,6 @@ export interface RegionalContainer<T> {
 ⋮----
 // 🌟 統合インテリジェンスデータ
 export interface IntelligenceData {
-  trendInsights: RegionalContainer<MarketTrendReport | StrategicReport> | null;
   profitableCards: RegionalContainer<MultiSlotArbitrageReport | StrategicReport> | null;
   chiefPackage: ChiefPackageData | null;
   proofPackage?: ProofPackageData | null;
@@ -3447,7 +3377,6 @@ export interface IntelligenceData {
   xAccountInsights?: StrategicReport | null;
   snsPosts: SnsPostsData | null;
   xPosts?: XPostsData | null;
-  salesDM: SalesDMData | null;
   rsiReport?: RSIReportData | null;
 }
 ⋮----
@@ -3524,7 +3453,7 @@ export interface CuratorItemSelection {
 ⋮----
 export interface CuratorDailyLineup {
   day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-  contentType: 'arbitrage' | 'market_trend' | 'trend_track_record';
+  contentType: 'arbitrage';
   slotKey: string;
   themeLabel: string;
   items: CuratorItemSelection[];
@@ -3543,8 +3472,6 @@ export interface CuratorResponse {
   weeklyLineup: CuratorDailyLineup[];
 }
 ⋮----
-// 市場トレンド・的中実績は保留中のため動作停止（型とロジックは保持）
-⋮----
 export async function runCuratorSelection(
   researchCandidates: any[],
   platformTactics?: any[],
@@ -3560,97 +3487,18 @@ import { publishThreadToX } from '@/lib/twitter';
 export async function POST(req: Request)
 ⋮----
 // ==========================================
-// 1. Discord への送信
-// ==========================================
-⋮----
-// ==========================================
-// 2. Instagram への自動投稿 (Graph API: 単一画像 / カルーセル両対応)
+// 1. Instagram への自動投稿 (Graph API: 単一画像 / カルーセル両対応)
 // ==========================================
 ⋮----
 // スライド対象画像のリストアップ
 ⋮----
 // --- A. カルーセル投稿フロー ---
-// 1. 各スライド用の子メディアコンテナを並列作成
-⋮----
-// 2. Meta側の画像処理を待機
-⋮----
-// 3. 親カルーセルコンテナ (media_type: CAROUSEL) を作成
 ⋮----
 // --- B. 単一画像投稿フロー ---
 ⋮----
-// Metaサーバー側の最適化を待機
-⋮----
-// 投稿 (media_publish) の実行
-⋮----
 // ==========================================
-// 3. X (Twitter) へのスレッド自動投稿
+// 2. X (Twitter) へのスレッド自動投稿
 // ==========================================
-</file>
-
-<file path="app/api/cron/sync-overseas-prices/route.ts">
-// app/api/cron/sync-overseas-prices/route.ts
-export const maxDuration = 60; // Vercel 実行時間拡張対応[cite: 1]
-⋮----
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { fetchEbayPrice } from '@/lib/market-fetcher/ebay';
-import { fetchTcgplayerPrice } from '@/lib/market-fetcher/tcgplayer';
-import { fetchCardmarketPrice } from '@/lib/market-fetcher/cardmarket';
-import { COMPREHENSIVE_SEED_CARDS, SeedCardDefinition } from '@/lib/market-fetcher/card-master';
-⋮----
-// APIレート制限およびバースト負荷を回避するための並行実行ヘルパー
-async function mapConcurrent<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>
-): Promise<R[]>
-⋮----
-// @ts-ignore
-⋮----
-export async function POST(req: Request)
-⋮----
-// スロットクエリ指定があれば絞り込み、なければ全スロット対象（型を明示）
-⋮----
-// 3件ずつ並行で外部API（eBay US/UK/DE、TCGplayer、Cardmarket）から取得
-⋮----
-// 1. eBay US (北米・USD)
-⋮----
-// 2. TCGplayer (北米・USD)
-⋮----
-// 3. Cardmarket (欧州・EUR)
-⋮----
-// 4. eBay DE (欧州ドイツ・EUR)
-⋮----
-// 5. eBay UK (英国・GBP)
-⋮----
-const supabase = await createClient(); //[cite: 1]
-</file>
-
-<file path="lib/market-fetcher/cardmarket.ts">
-// lib/market-fetcher/cardmarket.ts
-⋮----
-export interface CardmarketPriceResult {
-  cardName: string;
-  trendPriceEUR: number;
-  lowPriceEUR: number;
-  avg30EUR: number;
-  priceJpy: number;
-  url: string;
-}
-⋮----
-// ユーロ対日本円の基準レート
-⋮----
-export async function fetchCardmarketPrice(
-  cardSearchName: string,
-  category: 'Pokemon' | 'OnePiece' | 'YuGiOh' = 'Pokemon'
-): Promise<CardmarketPriceResult | null>
-⋮----
-// Pokemon TCG OpenAPI / Cardmarket スナップショットエンドポイント
-// （APIキー不要で Cardmarket の trendPrice, avg30, lowPrice を取得可能）
-⋮----
-next: { revalidate: 86400 }, // 1日キャッシュ
-⋮----
-// フォールバック: Cardmarket公式検索URL
 </file>
 
 <file path="app/AiDashboard/components/DeskViews.tsx">
@@ -3661,7 +3509,6 @@ import DocumentReportView from './DocumentReport';
 ⋮----
 interface DeskViewsProps {
     aiActiveDesk: string;
-    activeTrendRegion: RegionKey | 'audit';
     activeArbitrageRegion: RegionKey | 'audit';
     aiData: IntelligenceData | null;
     gate1Audits?: (Gate1AuditItem & { agentKey?: string; priceTier?: string })[];
@@ -3672,23 +3519,11 @@ interface DeskViewsProps {
     copiedKey: string | null;
     handlePublishToInstagram: (content: string, typeKey: string, images?: string[] | string) => void;
     isPublishingInstagram: string | null;
-    handlePublishToDiscord: (content: string) => void;
-    isPublishingDiscord: boolean;
     handlePublishToX: (mainPost: string, threadPosts: string[], imageUrl?: string) => void;
     isPublishingX: boolean;
 }
 ⋮----
 const buildInfographicUrl = (info: any) =>
-⋮----
-// 曜日変更時にカルーセルスライドを1枚目にリセット
-⋮----
-// Instagramの選択された曜日の投稿データ取得
-⋮----
-// インフォグラフィック仕様に合わせたスライド配列
-⋮----
-// Xの選択された曜日のスレッドデータ取得
-⋮----
-// 動的曜日ボタン
 ⋮----
 const escapeCsvField = (val: unknown) =>
 const getTodayFileDate = () =>
@@ -3700,17 +3535,14 @@ const triggerJsonDownload = (data: unknown, filenameBase: string) =>
 ⋮----
 const renderExportButtons = (onCsv: () => void, onJson: () => void, disabled: boolean = false) =>
 ⋮----
-// 1. キュレーター CSV / JSON
 const handleDownloadChiefCSV = () =>
 ⋮----
 const handleDownloadChiefJSON = () =>
 ⋮----
-// 2. 品質・規約監査役 (Gate 2) CSV / JSON
 const handleDownloadGate2CSV = () =>
 ⋮----
 const handleDownloadGate2JSON = () =>
 ⋮----
-// 3. IG / X アナリスト CSV / JSON
 const buildAccountRows = (report: any) =>
 ⋮----
 const handleDownloadIgAnalystCSV = () =>
@@ -3721,24 +3553,13 @@ const handleDownloadXAnalystCSV = () =>
 ⋮----
 const handleDownloadXAnalystJSON = () =>
 ⋮----
-// 4. IG クリエイター CSV / JSON
 const handleDownloadIgCreatorCSV = () =>
 ⋮----
 const handleDownloadIgCreatorJSON = () =>
 ⋮----
-// 5. X クリエイター CSV / JSON
 const handleDownloadXCreatorCSV = () =>
 ⋮----
 const handleDownloadXCreatorJSON = () =>
-⋮----
-// 6. 有料コミュニティ (Sales DM) CSV / JSON
-const handleDownloadSalesCSV = () =>
-⋮----
-const handleDownloadSalesJSON = () =>
-⋮----
-const handleDownloadTrendAuditCSV = () =>
-⋮----
-const handleDownloadTrendAuditJSON = () =>
 ⋮----
 const handleDownloadArbAuditCSV = () =>
 ⋮----
@@ -3755,53 +3576,15 @@ const handleDownloadArbAuditJSON = () =>
 
 ⋮----
 {/* ========================================================= */}
-{/* 🛡️ 市場トレンド監査 デスク (Gate 1-B) */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 💎 アービトラージアナリスト (北米 / 欧州 / アジア 各担当デスク) */}
+{/* ⚖️💎 アービトラージ監査担当 デスク (Gate 1-A) */}
 {/* ========================================================= */}
 ⋮----
 <button onClick=
 ⋮----
-{/* ========================================================= */}
-{/* 📊 IG アナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 📈 X アナリスト */}
-{/* ========================================================= */}
-⋮----
-{/* ========================================================= */}
-{/* 🎨 IG クリエイター（投稿プレビュー統合） */}
-{/* ========================================================= */}
-⋮----
-{/* 左カラム: 原稿テキスト・スライド指示・ハッシュタグ */}
-⋮----
-{/* 推奨ハッシュタグ */}
-⋮----
-// カルーセル用スライド画像の組み立て
-⋮----
 onClick=
-⋮----
-{/* 右カラム: Instagram アプリ実機風プレビュー */}
 ⋮----
 {/* ========================================================= */}
 {/* ✍️ X クリエイター（スレッドプレビュー統合） */}
-{/* ========================================================= */}
-⋮----
-{/* 左カラム: 原稿テキスト・スレッドリスト */}
-⋮----
-{/* 2〜4ポスト目 */}
-⋮----
-{/* 右カラム: X (Twitter) 公式風スレッドプレビュー */}
-⋮----
-{/* 1ポスト目（メインフック） */}
-⋮----
-{/* 2ポスト目以降（スレッドツリー表示） */}
-⋮----
-{/* ========================================================= */}
-{/* 💬 有料コミュニティ */}
 {/* ========================================================= */}
 </file>
 
@@ -3901,6 +3684,40 @@ export function extractPokemonNameEn(
 ): string | null
 </file>
 
+<file path="app/api/og/route.tsx">
+// app/api/og/route.tsx
+import { ImageResponse } from 'next/og';
+import { NextRequest } from 'next/server';
+⋮----
+// =========================================================================
+// 1. カルーセル2枚目: 日本語版ポケカ事業者向け 代理購入特化スライド (?type=cta)
+// =========================================================================
+⋮----
+{/* 中央: 3大ベネフィット */}
+⋮----
+{/* ポイント1: 手数料5% */}
+⋮----
+{/* ポイント2: 国際送料 1枚あたり約3円 */}
+⋮----
+{/* ポイント3: 国内複数ショップからの一括調達 */}
+⋮----
+{/* 下部: CTAボタン & お問い合わせ案内 */}
+⋮----
+// =========================================================================
+// 2. カルーセル1枚目: 価格差インフォグラフィック表紙スライド
+// =========================================================================
+⋮----
+{/* 上部: ラベル & フック */}
+⋮----
+{/* 中央: カード名 & 価格比較ボックス */}
+⋮----
+{/* 日本価格 */}
+⋮----
+{/* 矢印アイコン風ディバイダー */}
+⋮----
+{/* 下部: 粗利スプレッド & ロゴ */}
+</file>
+
 <file path="app/AiDashboard/index.tsx">
 // app/AiDashboard/index.tsx
 ⋮----
@@ -3945,14 +3762,12 @@ const runIntelligenceAnalysis = async () =>
 ⋮----
 const handleCopy = (text: string, key: string) =>
 ⋮----
-const handlePublishToDiscord = async (content: string) =>
-⋮----
 // app/AiDashboard/index.tsx 内
 const handlePublishToInstagram = async (
-    content: string, 
-    typeKey: string, 
-    images?: string[] | string
-) =>
+        content: string,
+        typeKey: string,
+        images?: string[] | string
+    ) =>
 ⋮----
 const handlePublishToX = async (mainPost: string, threadPosts: string[] = [], imageUrl?: string) =>
 ⋮----
@@ -3963,128 +3778,15 @@ const fetchLatestCycles = async () =>
 {/* メインデスクビュー */}
 </file>
 
-<file path="app/api/ai/intelligence/agents/marketTrend.ts">
-// app/api/ai/intelligence/agents/marketTrend.ts
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { createClient } from '@/lib/supabase/server';
-import { parseAIJson, getCategoryName, getAgentRules } from '../helpers';
-import {
-  fetchDomesticTrendCandidates,
-  enrichTrendCandidatesWithEbaySold,
-  buildEnglishEbayQueryForTrend,
-  DomesticTrendCandidate,
-} from '@/lib/market-fetcher/apify-trend';
-⋮----
-export interface TrendItem {
-  cardName: string;
-  condition: string;
-  jpBuyPriceJPY: string;
-  jpEvidenceUrl?: string;
-  currentLocalPrice: string;
-  impactLogic: string;
-  sourcePlatform?: string;
-  evidenceNote?: string;
-  sourceEvidenceUrl?: string;
-}
-⋮----
-export interface TrendHypothesis {
-  headline: string;
-  signal: string;
-  timeframe: string;
-  impactLogic: string;
-  items: TrendItem[];
-}
-⋮----
-export interface MarketTrendReport {
-  title: string;
-  claim: string;
-  summary: {
-    headline: string;
-    macroAnalysis: {
-      japanSourcingClimate: string;
-      localMarketDemand: string;
-    };
-    microAnalysis: {
-      topImportMarginCard: string;
-      topLocalVelocityCard: string;
-      conditionGradingInsight: string;
-    };
-    riskAlert: {
-      sourcingQualityTrap: string;
-      localInventoryRisk: string;
-    };
-    actionDirectives: string[];
-  };
-  hypotheses: TrendHypothesis[];
-}
-⋮----
-async function getCachedDomesticTrends(category: string): Promise<DomesticTrendCandidate[]>
-⋮----
-async function getRealtimeRate(currency: string, fallback: number): Promise<number>
-⋮----
-export async function runMarketTrend(
-  region: 'us' | 'eu' | 'asia',
-  category: string = 'pokemon'
-): Promise<MarketTrendReport | null>
-⋮----
-// 1. 「国内高騰ランキング(torechart.com)」「為替レート」「社内学習ルール」を並列取得
-⋮----
-// AIの記憶だけでのカード生成を完全禁止
-⋮----
-// 2. トレチャ上位銘柄のeBay直近実成約価格と個別 /itm/ URLを取得
-⋮----
-// 国内実データ ＆ eBay実成約データとの厳格照合・確定バインド
-⋮----
-// eBay実成約が取れている場合は価格・状態・個別 /itm/ URLを確定上書き
-⋮----
-// eBay成約0件の場合は、英語化した検索クエリで成約済み一覧URLを生成
-</file>
-
-<file path="app/api/og/route.tsx">
-// app/api/og/route.tsx
-import { ImageResponse } from 'next/og';
-import { NextRequest } from 'next/server';
-⋮----
-// =========================================================================
-// 1. カルーセル2枚目: 日本語版ポケカ事業者向け 代理購入特化スライド (?type=cta)
-// =========================================================================
-⋮----
-{/* 中央: 3大ベネフィット */}
-⋮----
-{/* ポイント1: 手数料5% */}
-⋮----
-{/* ポイント2: 国際送料 1枚あたり約3円 */}
-⋮----
-{/* ポイント3: 国内複数ショップからの一括調達 */}
-⋮----
-{/* 下部: CTAボタン & お問い合わせ案内 */}
-⋮----
-// =========================================================================
-// 2. カルーセル1枚目: 価格差インフォグラフィック表紙スライド
-// =========================================================================
-⋮----
-{/* 上部: ラベル & フック */}
-⋮----
-{/* 中央: カード名 & 価格比較ボックス */}
-⋮----
-{/* 日本価格 */}
-⋮----
-{/* 矢印アイコン風ディバイダー */}
-⋮----
-{/* 下部: 粗利スプレッド & ロゴ */}
-</file>
-
 <file path="app/api/pipeline/single-run/route.ts">
 // app/api/pipeline/single-run/route.ts
 ⋮----
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
-import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
-import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 ⋮----
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
 ⋮----
@@ -4103,36 +3805,24 @@ export async function POST(req: Request)
 // 1. アービトラージアナリスト単独再実行 (US / EU / ASIA)
 // ------------------------------------------------------------------------
 ⋮----
-// 本命
-⋮----
-// 代替候補
-⋮----
 // ------------------------------------------------------------------------
-// 2. 市場トレンドアナリスト単独再実行 (US / EU / ASIA)
+// 2. Instagramアナリスト単独再実行
 // ------------------------------------------------------------------------
 ⋮----
 // ------------------------------------------------------------------------
-// 3. Instagramアナリスト単独再実行
+// 3. Xアナリスト単独再実行
 // ------------------------------------------------------------------------
 ⋮----
 // ------------------------------------------------------------------------
-// 4. Xアナリスト単独再実行
+// 4. チーフマネージャー（キュレーター選定）単独再実行
 // ------------------------------------------------------------------------
 ⋮----
 // ------------------------------------------------------------------------
-// 5. チーフマネージャー（キュレーター選定）単独再実行
+// 5. Instagramクリエイター（原稿）単独再生成
 // ------------------------------------------------------------------------
 ⋮----
 // ------------------------------------------------------------------------
-// 6. Instagramクリエイター（原稿）単独再生成
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 7. Xクリエイター（スレッド）単独再生成
-// ------------------------------------------------------------------------
-⋮----
-// ------------------------------------------------------------------------
-// 8. コミュニティ営業 (Discord) 単独再生成
+// 6. Xクリエイター（スレッド）単独再生成
 // ------------------------------------------------------------------------
 </file>
 
@@ -4149,11 +3839,8 @@ export async function GET(req: Request)
 ⋮----
 // 2. 特定サイクルの全データ取得
 ⋮----
-// 3. サヤ取りレポート復元（重複排除・eBay成約＆国内3社最安データの完全バインド）
+// 3. サヤ取りレポート復元
 const buildProfitableCards = (regionKey: 'us' | 'eu' | 'asia') =>
-⋮----
-// 4. トレンドレポート復元
-const buildTrendInsights = (regionKey: 'us' | 'eu' | 'asia') =>
 </file>
 
 <file path="app/AiDashboard/components/DocumentReport.tsx">
@@ -4164,136 +3851,25 @@ const getTierBadgeClass = (tierKey?: string) =>
 ⋮----
 const toggleSub = (cellId: string) =>
 ⋮----
-// 🌟 ポケカジラ個別URL優先・「純粋なカード名 ＋ 正式型番」検索URLフォールバック
 const resolvePokecazillaUrl = (rawUrl?: string, cardName?: string, cardNumber?: string) =>
 ⋮----
 const getEbaySoldFallbackUrl = (cardName?: string, cardNumber?: string, conditionGrade?: string) =>
 ⋮----
 const getSlotMeta = (slotKey: string, slotLabel?: string) =>
 ⋮----
-// 🌟 1. 対象価格帯（Price Tier）の抽出
-⋮----
 const escapeCsv = (str: unknown) =>
 ⋮----
-// 🌟 2. CSVダウンロード処理（アービトラージ ＆ 市場トレンド両対応・BOM付き）
 const handleDownloadCSV = () =>
 ⋮----
 const processItem = (item: any, role: string) =>
 ⋮----
-// 🌟 3. JSONダウンロード処理（アービトラージ ＆ 市場トレンド両対応）
 const handleDownloadJSON = () =>
 ⋮----
 {/* 共通ヘッダー */}
 ⋮----
-{/* 🌟 価格帯ラベルの表示 */}
-⋮----
-{/* 🌟 ダウンロードボタン（アービトラージ ＆ 市場トレンド共通） */}
-⋮----
-{/* 市場トレンドレポート描画ブロック */}
-⋮----
 {/* 戦略分析レポート描画ブロック（IGアナリスト / Xアナリスト） */}
 ⋮----
 {/* アービトラージレポート描画ブロック */}
-⋮----
-{/* 成約ボリューム実績 (7日 & 30日) */}
-⋮----
-{/* 日本仕入れ（ポケカジラ最安値比較） */}
-</file>
-
-<file path="lib/market-fetcher/apify-trend.ts">
-// lib/market-fetcher/apify-trend.ts
-import { extractAllPokemonNamesJa, extractPokemonNameEn } from './pokemon-dictionary';
-import {
-  EbayCardCondition,
-  runApifySync,
-  deduplicateEbayItems,
-  parseEbaySoldPriceLocal,
-  isNoiseCard,
-  isClassicVintageCard,
-  extractAllCardNumbers,
-  extractCardNumber,
-  isMultiCardSet,
-  detectConditionGrade,
-  inferConditionFromTitleFallback,
-  fetchEbayOfficialConditions,
-  normalizeEbayUrl,
-} from './apify-arbitrage';
-⋮----
-export interface DomesticTrendCandidate {
-  cardName: string;
-  cardNumber?: string;
-  rarity: string;
-  currentPriceJpy: number;
-  trendMetric: string;
-  detailUrl: string;
-  sourceSite: string;
-  ebaySoldLocalText?: string;
-  ebaySoldJpy?: number;
-  ebayCondition?: string;
-  ebayItemUrl?: string;
-  ebaySoldCount?: number;
-}
-⋮----
-// トレーナーズ・ワンピース主要キャラ英語辞書（pokemon-dictionary補完用）
-⋮----
-function resolveCharacterNameEn(jaText: string, category: string = 'pokemon'): string
-⋮----
-/**
- * eBayタイトルから日本語キャラクター名を抽出（pokemon-dictionary ＋ CHARACTER_EN_MAP 対応）
- */
-function extractCharacterNamesJaFromEbayTitle(ebayTitle: string): string[]
-⋮----
-/**
- * アービトラージ基準と合わせて鑑定品（PSA / BGS / CGC / TAG / ARS 等）を判定
- */
-function isGradedListing(title: string, baseGrade: string): boolean
-⋮----
-function extractMechanicSuffix(text: string): string
-⋮----
-function isClassicVintageTitle(text: string): boolean
-⋮----
-function isPlayableNonCollectible(text: string): boolean
-⋮----
-function isCollectibleRarity(rarity: string, cardName: string, priceJpy: number): boolean
-⋮----
-export function buildEnglishEbayQueryForTrend(
-  cardName: string,
-  rarity: string,
-  category: string,
-  cardNumber?: string
-): string
-⋮----
-function matchesRarityInTitle(titleUpper: string, rarityUpper: string): boolean
-⋮----
-function isCardNumberMatched(ebayCardNum: string, candidateCardNum: string): boolean
-⋮----
-function getConditionPriorityScore(officialCondition: EbayCardCondition | null): number
-⋮----
-/**
- * 国内トレンド候補に対して、eBayの未鑑定（Raw）実成約データ（平均価格＋個別 /itm/ URL）を照合して紐づける
- */
-export async function enrichTrendCandidatesWithEbaySold(
-  candidates: DomesticTrendCandidate[],
-  region: 'us' | 'eu' | 'asia',
-  category: string = 'pokemon',
-  exchangeRateJpy: number = 155
-): Promise<DomesticTrendCandidate[]>
-⋮----
-// 1. キーワードを3件ずつ分割して runApifySync で取得
-⋮----
-// 2. アービトラージ基準のノイズ・まとめ売り・クラシック期フィルタ＋鑑定品除外
-⋮----
-// 3. 国内トレンド候補と「キャラ名 ＋ 型番」で照合
-⋮----
-// 4. 未鑑定品（Raw）の eBay 個別商品ページから公式 Card condition を一括取得（Heavily played は除外）
-⋮----
-// 5. 「候補 × コンディション」単位で合計・件数を集計し平均値を算出
-⋮----
-export async function fetchDomesticTrendCandidates(
-  category: string = 'pokemon'
-): Promise<DomesticTrendCandidate[]>
-⋮----
-// 絞り込んだ上位候補（最大12件）の詳細ページから「カード型番」を取得
 </file>
 
 <file path="lib/market-fetcher/apify-arbitrage.ts">
@@ -4572,20 +4148,15 @@ subItems: items.slice(1), // 上限撤廃：2件目以降をすべて格納
 ⋮----
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { runMarketTrend } from '@/app/api/ai/intelligence/agents/marketTrend';
 import { runSayaAnalysis } from '@/app/api/ai/intelligence/agents/arbitrage';
 import { runAccountAnalysis, runXAccountAnalysis } from '@/app/api/ai/intelligence/agents/snsAccount';
 import { runCuratorSelection } from '@/app/api/ai/intelligence/agents/curator';
 import { runGate1Audit } from '@/app/api/pipeline/gates/gate1';
 import { runSnsPosts, runXPosts } from '@/app/api/ai/intelligence/agents/contentCreator';
-import { runSalesDM } from '@/app/api/ai/intelligence/agents/salesDM';
 import { runGate2Audit } from '@/app/api/pipeline/gates/gate2';
-⋮----
-// 市場トレンド・的中実績は現在保留中のため動作停止フラグ（廃止はせず保持）
 ⋮----
 function buildCleanSearchKeyword(cardName: string, cardNumber?: string): string
 ⋮----
-// 🌟 ポケカジラURLの正規化（Apify確定の個別URLをそのまま保持し、未設定時のみ型番検索URLへフォールバック）
 function buildSafePokecazillaUrl(
   aiUrl: string | undefined,
   category: string,
@@ -4593,7 +4164,6 @@ function buildSafePokecazillaUrl(
   cardNumber?: string
 ): string
 ⋮----
-// 🌟 個別成約詳細URL (/itm/...) の保持・フォールバック関数
 function resolveIndividualEbayUrl(aiUrl: string | undefined, cardName: string, cardNumber?: string): string
 ⋮----
 // ============================================================================
@@ -4604,17 +4174,8 @@ async function processAndSaveRegionResearch(
   cycleId: string,
   category: string,
   region: 'us' | 'eu' | 'asia',
-  sayaReport: any,
-  trendReport: any
+  sayaReport: any
 )
-⋮----
-// 1. アービトラージ候補抽出（全5スロット × 価格帯 × 本命＋代替候補）
-⋮----
-// A. 本命商品のURL正規化
-⋮----
-// B. 代替候補商品のURL正規化
-⋮----
-// 2. トレンド候補抽出（保留中につき動作停止・コードは保持）
 ⋮----
 // ============================================================================
 // メインハンドラー
@@ -4623,11 +4184,11 @@ export async function POST(req: Request)
 ⋮----
 const dispatchNext = () =>
 ⋮----
-// Phase 1-A: 北米リサーチ（市場トレンドは保留中のため停止）
+// Phase 1-A: 北米リサーチ
 ⋮----
-// Phase 1-B: 欧州リサーチ（市場トレンドは保留中のため停止）
+// Phase 1-B: 欧州リサーチ
 ⋮----
-// Phase 1-C: アジアリサーチ（市場トレンドは保留中のため停止）＆ Xアナリスト
+// Phase 1-C: アジアリサーチ ＆ Xアナリスト
 ⋮----
 // Phase 2: Gate 1 監査
 ⋮----
