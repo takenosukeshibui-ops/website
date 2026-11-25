@@ -503,7 +503,6 @@ export async function fetchDomesticTrendCandidates(
   const domainCategory = category === 'onepiece' ? 'onepiece' : 'pokemon';
   const targetUrls = [
     { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=0` },
-    { url: `https://torechart.com/${domainCategory}/priceup?dayType=7&rankingType=2` },
   ];
 
   const pageFunction = `async function pageFunction(context) {
@@ -611,11 +610,11 @@ export async function fetchDomesticTrendCandidates(
   }`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45_000);
+  const timeoutId = setTimeout(() => controller.abort(), 95_000);
 
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=40&memory=1024`,
+      `https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}&timeout=90&memory=1024`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -624,9 +623,9 @@ export async function fetchDomesticTrendCandidates(
           pageFunction,
           proxyConfiguration: { useApifyProxy: true },
           maxRequestsPerCrawl: targetUrls.length,
-          maxConcurrency: 2,
+          maxConcurrency: 1,
           maxRequestRetries: 1,
-          requestHandlerTimeoutSecs: 25,
+          requestHandlerTimeoutSecs: 45,
         }),
         cache: 'no-store',
         signal: controller.signal,
@@ -681,7 +680,7 @@ export async function fetchDomesticTrendCandidates(
     return candidates.slice(0, 20);
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      console.warn('[ApifyTrend] torechart.com 取得が45秒でタイムアウトしたためスキップしました');
+      console.warn('[ApifyTrend] torechart.com 取得が95秒でタイムアウトしたためスキップしました');
     } else {
       console.warn('[ApifyTrend] 国内トレンドスクレイピングエラー:', err);
     }
