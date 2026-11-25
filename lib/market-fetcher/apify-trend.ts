@@ -263,6 +263,18 @@ export async function enrichTrendCandidatesWithEbaySold(
       };
     });
 
+    // ★ 2. candidateSpecs 生成直後
+    console.log(
+      '[TrendDebug] candidateSpecs:',
+      candidateSpecs.map((s) => ({
+        idx: s.idx,
+        cardName: s.cardName,
+        candCardNum: s.cardNum,
+        enChar: s.enChar,
+        query: s.query,
+      }))
+    );
+
     const uniqueKeywords = Array.from(new Set(candidateSpecs.map((q) => q.query).filter(Boolean)));
     if (uniqueKeywords.length === 0) return candidates;
 
@@ -273,6 +285,18 @@ export async function enrichTrendCandidatesWithEbaySold(
       count: 20,
       exactMatch: false,
     });
+
+    // ★ 3a. ebayItems 取得直後
+    console.log(
+      '[TrendDebug] ebayRawSample:',
+      ebayItems.slice(0, 2).map((it) => ({
+        title: it?.title,
+        url: it?.url,
+        itemUrl: it?.itemUrl,
+        link: it?.link,
+        itemId: it?.itemId,
+      }))
+    );
 
     const uniqueEbayItems = deduplicateEbayItems(ebayItems);
 
@@ -314,6 +338,18 @@ export async function enrichTrendCandidatesWithEbaySold(
         if (item.soldLocal <= 0) return false;
         return true;
       });
+
+    // ★ 3b. preFilteredEbay 生成直後
+    console.log(
+      '[TrendDebug] preFilteredEbay:',
+      preFilteredEbay.map((it) => ({
+        title: it.title,
+        cardNumber: it.cardNumber,
+        charNamesJa: it.charNamesJa,
+        soldLocal: it.soldLocal,
+        ebayUrl: it.ebayUrl,
+      }))
+    );
 
     if (preFilteredEbay.length === 0) return candidates;
 
@@ -379,6 +415,9 @@ export async function enrichTrendCandidatesWithEbaySold(
         });
       }
     }
+
+    // ★ 4a. matchedEntries 確定直後
+    console.log('[TrendDebug] matchedEntries:', matchedEntries);
 
     if (matchedEntries.length === 0) return candidates;
 
@@ -450,7 +489,7 @@ export async function enrichTrendCandidatesWithEbaySold(
       }
     }
 
-    return candidates.map((c, idx) => {
+    const enriched = candidates.map((c, idx) => {
       const gradeMap = groupedByCandidateAndGrade.get(idx);
       if (!gradeMap || gradeMap.size === 0) return c;
 
@@ -482,6 +521,19 @@ export async function enrichTrendCandidatesWithEbaySold(
         ebaySoldCount: bestGroup.count,
       };
     });
+
+    // ★ 4b. 最終返却直前
+    console.log(
+      '[TrendDebug] finalEbayUrls:',
+      enriched.slice(0, 12).map((c) => ({
+        cardName: c.cardName,
+        cardNumber: c.cardNumber,
+        ebaySoldCount: c.ebaySoldCount,
+        ebayItemUrl: c.ebayItemUrl,
+      }))
+    );
+
+    return enriched;
   } catch (error) {
     console.error(`[Apify Trend eBay Enrich Error (${region})]:`, error);
     return candidates;
@@ -510,14 +562,10 @@ export async function fetchDomesticTrendCandidates(
     return await page.evaluate(({ reqUrl, domainCat }) => {
       const scripts = Array.from(document.querySelectorAll('script'));
       let rows = [];
-      let hasOriginalDataKeyword = false;
-      let matchedLength = 0;
-      let parseError = '';
 
       for (const s of scripts) {
         const txt = s.textContent || '';
         if (!txt.includes('originalData')) continue;
-        hasOriginalDataKeyword = true;
 
         const keyIdx = txt.indexOf('originalData');
         const arrStart = txt.indexOf('[', keyIdx);
@@ -555,29 +603,15 @@ export async function fetchDomesticTrendCandidates(
         }
 
         if (arrEnd !== -1) {
-          const jsonStr = txt.slice(arrStart, arrEnd + 1);
-          matchedLength = jsonStr.length;
+          const arrStr = txt.slice(arrStart, arrEnd + 1);
           try {
-            const parsed = new Function('return (' + jsonStr + ')')();
+            const parsed = new Function('return (' + arrStr + ')')();
             if (Array.isArray(parsed)) {
               rows = parsed;
               break;
             }
-          } catch (err) {
-            parseError = String(err);
-          }
+          } catch (_) {}
         }
-      }
-
-      if (rows.length === 0) {
-        return [{
-          __debug: true,
-          reqUrl,
-          scriptCount: scripts.length,
-          hasOriginalDataKeyword,
-          matchedLength,
-          parseError,
-        }];
       }
 
       return rows.map((r, i) => {
@@ -724,6 +758,17 @@ export async function fetchDomesticTrendCandidates(
         }
       }
     }
+
+    // ★ 1. 詳細ページ型番反映直後
+    console.log(
+      '[TrendDebug] detailCardNumbers:',
+      filteredCandidates.map((c) => ({
+        cardId: c.cardId,
+        cardName: c.cardName,
+        cardNumber: c.cardNumber,
+        detailUrl: c.detailUrl,
+      }))
+    );
 
     return filteredCandidates.map(({ cardId: _cardId, ...rest }) => rest);
   } catch (err: any) {
