@@ -275,8 +275,12 @@ export async function enrichTrendCandidatesWithEbaySold(
       }))
     );
 
-    const uniqueKeywords = Array.from(new Set(candidateSpecs.map((q) => q.query).filter(Boolean)));
+    const uniqueKeywords = Array.from(
+      new Set(candidateSpecs.map((q) => q.query).filter(Boolean))
+    ).slice(0, 3); // まずは先頭3件に絞ってテスト（確認後に制限を解除・調整）
     if (uniqueKeywords.length === 0) return candidates;
+
+    console.log('[TrendDebug] keywordsToSend:', uniqueKeywords);
 
     // 1. アービトラージと同じ runApifySync（Task ➔ 404時 Actor フォールバック）で取得
     const ebayItems = await runApifySync(EBAY_TASK_ID, APIFY_TOKEN, {
