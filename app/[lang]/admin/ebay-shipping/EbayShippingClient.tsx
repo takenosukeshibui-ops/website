@@ -23,11 +23,11 @@ const STORAGE_KEY_WEIGHT = 'admin_ebay_shipping_weight_kg'
 const STORAGE_KEY_FEE_RATE = 'admin_ebay_shipping_fee_rate_pct'
 
 const INITIAL_REGIONS: RegionRateItem[] = [
+  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
   { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
   { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
   { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
   { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
-  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
   { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
 ]
 

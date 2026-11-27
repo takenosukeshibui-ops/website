@@ -10,11 +10,11 @@ interface EbayRegionConfig {
 }
 
 const EBAY_SHIPPING_REGIONS: EbayRegionConfig[] = [
+  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', postalCode: '10001' },
   { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', postalCode: '10115' },
   { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', postalCode: '018956' },
   { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', postalCode: 'M5V2T6' },
   { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', postalCode: '2000' },
-  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', postalCode: '10001' },
   { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', postalCode: 'EC1A1BB' },
 ]
 
