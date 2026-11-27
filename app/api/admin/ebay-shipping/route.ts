@@ -52,7 +52,7 @@ async function fetchConnectPlusRateJpy(
   regionConfig: EbayRegionConfig,
   weightKg: number,
   usdToJpyRate: number
-): Promise<{ feeJpy: number; serviceType: string }> {
+): Promise<{ feeJpy: number; serviceType: string; rateDetails: any[] }> {
   const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com'
 
   const payload = {
@@ -104,7 +104,23 @@ async function fetchConnectPlusRateJpy(
   const data = await res.json()
   const rateReplyDetail = data?.output?.rateReplyDetails?.[0]
   const returnedServiceType: string = rateReplyDetail?.serviceType || TARGET_SERVICE_TYPE
-  const rateDetail = rateReplyDetail?.ratedShipmentDetails?.[0]
+  const ratedShipmentDetails = Array.isArray(rateReplyDetail?.ratedShipmentDetails)
+    ? rateReplyDetail.ratedShipmentDetails
+    : []
+  const rateDetail = ratedShipmentDetails[0]
+
+  const formattedRateDetails = ratedShipmentDetails.map((d: any) => ({
+    rateType: d?.rateType ?? null,
+    currency: d?.currency ?? d?.shipmentRateDetail?.currency ?? null,
+    totalNetCharge: d?.totalNetCharge ?? null,
+    totalNetChargeWithDutiesAndTaxes: d?.totalNetChargeWithDutiesAndTaxes ?? null,
+    totalBaseCharge: d?.shipmentRateDetail?.totalBaseCharge ?? null,
+    totalFreightDiscounts: d?.shipmentRateDetail?.totalFreightDiscounts ?? null,
+    totalSurcharges: d?.shipmentRateDetail?.totalSurcharges ?? null,
+    surCharges: d?.shipmentRateDetail?.surCharges ?? [],
+    shipmentRateDetail: d?.shipmentRateDetail ?? null,
+  }))
+
   const totalCharge =
     rateDetail?.totalNetChargeWithDutiesAndTaxes ??
     rateDetail?.totalNetCharge ??
@@ -121,14 +137,22 @@ async function fetchConnectPlusRateJpy(
   }
 
   if (currency.toUpperCase() === 'JPY') {
-    return { feeJpy: Math.ceil(amount), serviceType: returnedServiceType }
+    return {
+      feeJpy: Math.ceil(amount),
+      serviceType: returnedServiceType,
+      rateDetails: formattedRateDetails,
+    }
   }
 
   if (!Number.isFinite(usdToJpyRate) || usdToJpyRate <= 0) {
     throw new Error('為替レートが取得できないため円換算できません')
   }
 
-  return { feeJpy: Math.ceil(amount * usdToJpyRate), serviceType: returnedServiceType }
+  return {
+    feeJpy: Math.ceil(amount * usdToJpyRate),
+    serviceType: returnedServiceType,
+    rateDetails: formattedRateDetails,
+  }
 }
 
 async function getUsdToJpyRate(): Promise<number | null> {
@@ -200,6 +224,7 @@ export async function POST(req: Request) {
           fedexFeeJpy: null,
           status: 'error' as const,
           errorMessage: 'FedEx API設定不足',
+          rateDetails: [],
         })),
       })
     }
@@ -224,6 +249,7 @@ export async function POST(req: Request) {
           fedexFeeJpy: null,
           status: 'error' as const,
           errorMessage: msg,
+          rateDetails: [],
         })),
       })
     }
@@ -248,6 +274,7 @@ export async function POST(req: Request) {
             fedexFeeJpy: rateRes.feeJpy,
             status: 'ok' as const,
             errorMessage: null,
+            rateDetails: rateRes.rateDetails,
           }
         } catch (err: any) {
           return {
@@ -259,6 +286,7 @@ export async function POST(req: Request) {
             fedexFeeJpy: null,
             status: 'error' as const,
             errorMessage: err?.message || 'レート取得エラー',
+            rateDetails: [],
           }
         }
       })

@@ -12,6 +12,7 @@ interface RegionRateItem {
   fedexFeeJpy: number | null
   status: 'ok' | 'error' | 'idle'
   errorMessage?: string | null
+  rateDetails?: any[]
 }
 
 interface EbayShippingClientProps {
@@ -22,12 +23,12 @@ const STORAGE_KEY_WEIGHT = 'admin_ebay_shipping_weight_kg'
 const STORAGE_KEY_FEE_RATE = 'admin_ebay_shipping_fee_rate_pct'
 
 const INITIAL_REGIONS: RegionRateItem[] = [
-  { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
-  { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
-  { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
-  { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
-  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
-  { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
+  { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
+  { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
+  { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
+  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
+  { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle', rateDetails: [] },
 ]
 
 export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
@@ -122,6 +123,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
           fedexFeeJpy: null,
           status: 'error',
           errorMessage: msg,
+          rateDetails: [],
         }))
       )
     } finally {
@@ -406,6 +408,17 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
                                   </strong>
                                 </div>
                               </div>
+                            )}
+
+                            {Array.isArray(row.rateDetails) && row.rateDetails.length > 0 && (
+                              <details className="bg-white border border-gray-200 rounded-lg p-3 text-[11px] text-gray-700">
+                                <summary className="cursor-pointer font-semibold text-indigo-700">
+                                  FedEx Rate API 詳細レスポンス（ratedShipmentDetails）を表示
+                                </summary>
+                                <pre className="mt-2 overflow-x-auto bg-slate-900 text-slate-100 p-3 rounded text-[10px] leading-relaxed">
+                                  {JSON.stringify(row.rateDetails, null, 2)}
+                                </pre>
+                              </details>
                             )}
                           </td>
                         </tr>

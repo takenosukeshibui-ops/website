@@ -177,6 +177,17 @@ export default function CalculatorPage(props: { params: Promise<{ lang: string }
                         <span>{isEn ? 'Estimated Total' : '見積り合計'}</span>
                         <span>¥{rate.total?.toLocaleString()}</span>
                       </div>
+
+                      {Array.isArray(rate.rawRateDetails) && rate.rawRateDetails.length > 0 && (
+                        <details className="mt-3 pt-2 border-t border-gray-200 text-xs">
+                          <summary className="cursor-pointer font-semibold text-indigo-700 hover:underline">
+                            {isEn ? 'FedEx Rate API Raw Details (ratedShipmentDetails)' : 'FedEx Rate API 詳細レスポンス (ratedShipmentDetails)'}
+                          </summary>
+                          <pre className="mt-2 overflow-x-auto bg-slate-900 text-slate-100 p-2.5 rounded text-[11px] leading-relaxed">
+                            {JSON.stringify(rate.rawRateDetails, null, 2)}
+                          </pre>
+                        </details>
+                      )}
                     </div>
                   </details>
                 </div>

@@ -26,7 +26,7 @@ export interface CalculateShippingFeesParams {
 export function getJapanPostZone(countryCode?: string): number {
     if (!countryCode) return 4; // 未指定時はデフォルトで第4地帯(米国)
     const code = countryCode.toUpperCase();
-    
+
     // 第1地帯（中国・韓国・台湾）
     if (['CN', 'KR', 'TW'].includes(code)) return 1;
     // 第4地帯（米国・米領）
@@ -35,7 +35,7 @@ export function getJapanPostZone(countryCode?: string): number {
     if (['IN', 'ID', 'KH', 'SG', 'LK', 'TH', 'NP', 'PK', 'BD', 'PH', 'BT', 'BN', 'VN', 'HK', 'MO', 'MY', 'MM', 'MV', 'MN', 'LA', 'TL'].includes(code)) return 2;
     // 第5地帯（中南米・アフリカ）
     if (['AR', 'UY', 'EC', 'SV', 'GP', 'CU', 'CR', 'CO', 'JM', 'CL', 'TT', 'PA', 'PY', 'BB', 'GF', 'BR', 'VE', 'PE', 'HN', 'MQ', 'DZ', 'UG', 'EG', 'ET', 'GH', 'GA', 'KE', 'CI', 'SL', 'DJ', 'ZW', 'SD', 'SN', 'TZ', 'TN', 'TG', 'NG', 'BW', 'MG', 'ZA', 'MU', 'MA', 'RW', 'RE'].includes(code)) return 5;
-    
+
     // 第3地帯（オセアニア・カナダ・中近東・欧州など）
     return 3;
 }
@@ -55,28 +55,28 @@ export function calculateShippingFeeByMethod(shippingMethod: string, weightKg: n
                 fee = 1800 + (billedWeight - 1) * 400;
                 break;
             case 2: // 第2地帯
-                fee = billedWeight <= 10 
-                    ? 2100 + (billedWeight - 1) * 500 
+                fee = billedWeight <= 10
+                    ? 2100 + (billedWeight - 1) * 500
                     : 2100 + (9 * 500) + (billedWeight - 10) * 400;
                 break;
             case 3: // 第3地帯
-                fee = billedWeight <= 10 
-                    ? 2500 + (billedWeight - 1) * 600 
+                fee = billedWeight <= 10
+                    ? 2500 + (billedWeight - 1) * 600
                     : 2500 + (9 * 600) + (billedWeight - 10) * 400;
                 break;
             case 4: // 第4地帯
-                fee = billedWeight <= 10 
-                    ? 2600 + (billedWeight - 1) * 700 
+                fee = billedWeight <= 10
+                    ? 2600 + (billedWeight - 1) * 700
                     : 2600 + (9 * 700) + (billedWeight - 10) * 600;
                 break;
             case 5: // 第5地帯
-                fee = billedWeight <= 10 
-                    ? 2700 + (billedWeight - 1) * 700 
+                fee = billedWeight <= 10
+                    ? 2700 + (billedWeight - 1) * 700
                     : 2700 + (9 * 700) + (billedWeight - 10) * 600;
                 break;
             default:
-                fee = billedWeight <= 10 
-                    ? 2600 + (billedWeight - 1) * 700 
+                fee = billedWeight <= 10
+                    ? 2600 + (billedWeight - 1) * 700
                     : 2600 + (9 * 700) + (billedWeight - 10) * 600;
                 break;
         }
@@ -138,10 +138,10 @@ async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox:
  * FedEx 運賃試算 API 呼び出し
  */
 export async function calculateFedexRates(
-    destination: string, 
-    postalCode: string | undefined, 
-    weightKg: number, 
-    isEstimate: boolean, 
+    destination: string,
+    postalCode: string | undefined,
+    weightKg: number,
+    isEstimate: boolean,
     credentials?: FedexCredentials
 ) {
     const apiKey = credentials?.apiKey || process.env.FEDEX_API_KEY || process.env.FEDEX_CLIENT_ID;
@@ -252,7 +252,7 @@ export async function calculateFedexRates(
             const errData = await res.json().catch(() => ({}));
             const msg = errData?.errors?.[0]?.message || `FedEx API エラー (${res.status})`;
             console.error('FedEx Quote API Error Details:', JSON.stringify(errData));
-            
+
             const fallbackFee = Math.max(3500, Math.ceil(weightKg * 1800 + 3000));
             return {
                 rates: [
@@ -272,9 +272,10 @@ export async function calculateFedexRates(
 
         const rates = rateReplyDetails.map((detail: any) => {
             const serviceName = detail.serviceName || detail.serviceType || 'FedEx Express';
-            
+            const serviceType = detail.serviceType || null;
+
             const ratedDetails = detail.ratedShipmentDetails || [];
-            const accountRate = ratedDetails.find((r: any) => 
+            const accountRate = ratedDetails.find((r: any) =>
                 r.rateType?.includes('ACCOUNT')
             ) || ratedDetails[0] || {};
 
@@ -283,7 +284,7 @@ export async function calculateFedexRates(
             // 🌟 プラン毎の標準配達日数を設定
             let deliveryDaysJa = '2-5 日';
             let deliveryDaysEn = '2-5 Days';
-            
+
             // 🌟 First も Priority と同じ 1-3日に設定
             if (serviceName.includes('First')) {
                 deliveryDaysJa = '1-3 日';
@@ -309,7 +310,7 @@ export async function calculateFedexRates(
                 rateDetails.surCharges.forEach((sc: any) => {
                     const type = sc.type || sc.surchargeType || '';
                     const amount = Number(sc.amount || 0);
-                    
+
                     if (amount > 0) {
                         let jpName = type;
                         let enName = type;
@@ -330,20 +331,37 @@ export async function calculateFedexRates(
                             jpName = '配達地域外割増金';
                             enName = 'Out of Delivery Area Surcharge';
                         }
-                        
+
                         detailedSurcharges.push({ nameJa: jpName, nameEn: enName, amount: Math.ceil(amount) });
                     }
                 });
             }
 
+            // APIから返却された ratedShipmentDetails の詳細をそのまま確認できるよう整形
+            const rawRateDetails = Array.isArray(ratedDetails)
+                ? ratedDetails.map((r: any) => ({
+                    rateType: r?.rateType ?? null,
+                    currency: r?.currency ?? r?.shipmentRateDetail?.currency ?? null,
+                    totalNetCharge: r?.totalNetCharge ?? null,
+                    totalNetChargeWithDutiesAndTaxes: r?.totalNetChargeWithDutiesAndTaxes ?? null,
+                    totalBaseCharge: r?.shipmentRateDetail?.totalBaseCharge ?? null,
+                    totalFreightDiscounts: r?.shipmentRateDetail?.totalFreightDiscounts ?? null,
+                    totalSurcharges: r?.shipmentRateDetail?.totalSurcharges ?? null,
+                    surCharges: r?.shipmentRateDetail?.surCharges ?? [],
+                    packageRateDetail: r?.ratedPackages?.[0]?.packageRateDetail ?? null,
+                }))
+                : [];
+
             return {
                 serviceName: `FedEx ${serviceName}`,
+                serviceType,
                 total: Math.ceil(netAmount),
                 baseCharge: Math.ceil(netFreight),
-                discount: 0, 
+                discount: 0,
                 surcharges: detailedSurcharges,
                 deliveryDaysJa,
-                deliveryDaysEn
+                deliveryDaysEn,
+                rawRateDetails,
             };
         }).sort((a: any, b: any) => a.total - b.total);
 
