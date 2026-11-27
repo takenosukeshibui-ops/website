@@ -18,6 +18,9 @@ interface EbayShippingClientProps {
   lang: string
 }
 
+const STORAGE_KEY_WEIGHT = 'admin_ebay_shipping_weight_kg'
+const STORAGE_KEY_FEE_RATE = 'admin_ebay_shipping_fee_rate_pct'
+
 const INITIAL_REGIONS: RegionRateItem[] = [
   { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
   { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
@@ -28,7 +31,8 @@ const INITIAL_REGIONS: RegionRateItem[] = [
 ]
 
 export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
-  const [weightKg, setWeightKg] = useState<string>('0.5')
+  const [weightKg, setWeightKg] = useState<string>('')
+  const [isStorageLoaded, setIsStorageLoaded] = useState<boolean>(false)
   const [feeRatePercent, setFeeRatePercent] = useState<string>('16.5')
   const [usdToJpyRate, setUsdToJpyRate] = useState<number | null>(null)
   const [rates, setRates] = useState<RegionRateItem[]>(INITIAL_REGIONS)
@@ -37,7 +41,44 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
 
+  // 初回マウント時に保存済みの重量・手数料率を復元
+  useEffect(() => {
+    try {
+      const savedWeight = window.localStorage.getItem(STORAGE_KEY_WEIGHT)
+      if (savedWeight !== null) {
+        setWeightKg(savedWeight)
+      }
+      const savedFee = window.localStorage.getItem(STORAGE_KEY_FEE_RATE)
+      if (savedFee !== null && savedFee !== '') {
+        setFeeRatePercent(savedFee)
+      }
+    } catch {
+      // localStorage アクセス不可時は無視
+    } finally {
+      setIsStorageLoaded(true)
+    }
+  }, [])
+
+  const handleWeightChange = (value: string) => {
+    setWeightKg(value)
+    try {
+      window.localStorage.setItem(STORAGE_KEY_WEIGHT, value)
+    } catch {
+      // 無視
+    }
+  }
+
+  const handleFeeRateChange = (value: string) => {
+    setFeeRatePercent(value)
+    try {
+      window.localStorage.setItem(STORAGE_KEY_FEE_RATE, value)
+    } catch {
+      // 無視
+    }
+  }
+
   const parsedWeight = useMemo(() => {
+    if (weightKg.trim() === '') return null
     const num = parseFloat(weightKg)
     return Number.isFinite(num) && num > 0 ? num : null
   }, [weightKg])
@@ -89,10 +130,14 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
   }, [])
 
   useEffect(() => {
+    if (!isStorageLoaded) return
     if (parsedWeight !== null) {
       fetchShippingRates(parsedWeight)
+    } else {
+      setRates(INITIAL_REGIONS)
+      setErrorMsg(null)
     }
-  }, [parsedWeight, fetchShippingRates])
+  }, [isStorageLoaded, parsedWeight, fetchShippingRates])
 
   const calculatedRows = useMemo(() => {
     const divisor = 1 - parsedFeeRate / 100
@@ -100,7 +145,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
       if (item.status === 'error' || item.fedexFeeJpy === null || item.fedexFeeJpy <= 0 || divisor <= 0) {
         return {
           ...item,
-          isError: item.status === 'error' || item.fedexFeeJpy === null,
+          isError: item.status === 'error',
           ebayShippingJpy: null,
           ebayShippingUsd: null,
           divisor,
@@ -182,9 +227,9 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
               step="0.01"
               min="0.01"
               value={weightKg}
-              onChange={(e) => setWeightKg(e.target.value)}
+              onChange={(e) => handleWeightChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="例: 0.5"
+              placeholder="重量を入力 (例: 0.5)"
             />
           </div>
 
@@ -199,7 +244,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
                 min="0"
                 max="99.9"
                 value={feeRatePercent}
-                onChange={(e) => setFeeRatePercent(e.target.value)}
+                onChange={(e) => handleFeeRateChange(e.target.value)}
                 className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="16.5"
               />
@@ -268,6 +313,8 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
                         <td className="py-3.5 px-4 text-right font-mono font-bold whitespace-nowrap">
                           {loading ? (
                             <span className="text-gray-400">取得中...</span>
+                          ) : parsedWeight === null ? (
+                            <span className="text-gray-400">重量未入力</span>
                           ) : row.isError || !jpyText ? (
                             <span
                               className="text-red-600"
@@ -322,7 +369,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
                               <span>
                                 FedEx元送料:{' '}
                                 <strong className="font-mono text-gray-900">
-                                  {row.fedexFeeJpy !== null ? `${row.fedexFeeJpy.toLocaleString()}円` : 'エラー'}
+                                  {row.fedexFeeJpy !== null ? `${row.fedexFeeJpy.toLocaleString()}円` : parsedWeight === null ? '重量未入力' : 'エラー'}
                                 </strong>
                               </span>
                               <span>
@@ -337,9 +384,13 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
                               </span>
                             </div>
 
-                            {row.isError || row.fedexFeeJpy === null || row.ebayShippingJpy === null ? (
+                            {row.isError ? (
                               <div className="text-red-600 font-semibold">
                                 エラー詳細: {row.errorMessage || '実際のFedExレートを取得できませんでした'}
+                              </div>
+                            ) : row.fedexFeeJpy === null || row.ebayShippingJpy === null ? (
+                              <div className="text-gray-500">
+                                重量（kg）を入力すると計算式と送料が表示されます。
                               </div>
                             ) : (
                               <div className="bg-white border border-gray-200 rounded-lg p-3 font-mono space-y-1 text-[11px] text-gray-800">
