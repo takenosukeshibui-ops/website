@@ -120,6 +120,13 @@ export default async function AdminPage(props: { params: Promise<{ lang: string 
                         >
                             ↗ 送料シミュレーター (ユーザー用)
                         </Link>
+
+                        <Link
+                          href={`/${lang}/admin/ebay-shipping`}
+                          className="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm transition whitespace-nowrap"
+>                        
+                          🌍 eBay送料一覧
+                        </Link>
                     </div>
                 </div>
             </div>
