@@ -8,6 +8,7 @@ interface RegionRateItem {
   region: string
   rateClass: 'H' | 'A' | 'F' | 'D' | 'M'
   countryCode: string
+  serviceType?: string
   fedexFeeJpy: number | null
   status: 'ok' | 'error' | 'idle'
   errorMessage?: string | null
@@ -18,12 +19,12 @@ interface EbayShippingClientProps {
 }
 
 const INITIAL_REGIONS: RegionRateItem[] = [
-  { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', fedexFeeJpy: null, status: 'idle' },
-  { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', fedexFeeJpy: null, status: 'idle' },
-  { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', fedexFeeJpy: null, status: 'idle' },
-  { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', fedexFeeJpy: null, status: 'idle' },
-  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', fedexFeeJpy: null, status: 'idle' },
-  { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', fedexFeeJpy: null, status: 'idle' },
+  { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'australia', region: 'Australia', rateClass: 'D', countryCode: 'AU', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
+  { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS', fedexFeeJpy: null, status: 'idle' },
 ]
 
 export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
@@ -34,7 +35,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
   const [loading, setLoading] = useState<boolean>(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [showBreakdown, setShowBreakdown] = useState<boolean>(false)
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
 
   const parsedWeight = useMemo(() => {
     const num = parseFloat(weightKg)
@@ -102,6 +103,7 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
           isError: item.status === 'error' || item.fedexFeeJpy === null,
           ebayShippingJpy: null,
           ebayShippingUsd: null,
+          divisor,
         }
       }
 
@@ -116,13 +118,23 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
         isError: false,
         ebayShippingJpy,
         ebayShippingUsd,
+        divisor,
       }
     })
   }, [rates, parsedFeeRate, usdToJpyRate])
 
-  const handleCopy = async (id: string, text: string) => {
+  const toggleRow = (id: string) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
+  const handleCopyUsdNumber = async (e: React.MouseEvent, id: string, usdAmount: number) => {
+    e.stopPropagation()
+    const numericOnly = usdAmount.toFixed(2)
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(numericOnly)
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 1500)
     } catch {
@@ -217,15 +229,8 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/60">
             <span className="text-xs font-semibold text-gray-600">
-              地域別 eBay送料（手数料 {parsedFeeRate}% 考慮・1円単位切り上げ）
+              地域別 eBay送料（行クリックで計算内訳を表示・コピーはドル数値のみ）
             </span>
-            <button
-              type="button"
-              onClick={() => setShowBreakdown((prev) => !prev)}
-              className="text-xs font-medium text-indigo-600 hover:underline"
-            >
-              {showBreakdown ? '内訳を隠す' : '料金区分・FedEx元送料を表示'}
-            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -233,78 +238,128 @@ export default function EbayShippingClient({ lang }: EbayShippingClientProps) {
               <thead>
                 <tr className="bg-gray-100 border-b border-gray-300 text-gray-800 text-sm font-bold">
                   <th className="py-3 px-4 border-r border-gray-200">地域</th>
-                  {showBreakdown && (
-                    <>
-                      <th className="py-3 px-4 border-r border-gray-200 text-center">区分</th>
-                      <th className="py-3 px-4 border-r border-gray-200 text-right">FedEx元送料</th>
-                    </>
-                  )}
                   <th className="py-3 px-4 text-right">ebay送料</th>
-                  <th className="py-3 px-3 w-20 text-center">コピー</th>
+                  <th className="py-3 px-3 w-24 text-center">ドルコピー</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 text-sm">
                 {calculatedRows.map((row) => {
+                  const isExpanded = Boolean(expandedIds[row.id])
                   const jpyText =
                     row.ebayShippingJpy !== null ? `${row.ebayShippingJpy.toLocaleString()}円` : null
-                  const usdText =
-                    row.ebayShippingUsd !== null ? `$${row.ebayShippingUsd.toFixed(2)}` : null
-                  const combinedText =
-                    jpyText && usdText ? `${jpyText} (${usdText})` : jpyText || ''
+                  const usdNumberText =
+                    row.ebayShippingUsd !== null ? row.ebayShippingUsd.toFixed(2) : null
+                  const usdDisplayText = usdNumberText ? `$${usdNumberText}` : null
 
                   return (
-                    <tr key={row.id} className="hover:bg-indigo-50/40 transition">
-                      <td className="py-3.5 px-4 font-semibold text-gray-900 border-r border-gray-200">
-                        {row.region}
-                      </td>
-                      {showBreakdown && (
-                        <>
-                          <td className="py-3.5 px-4 text-center font-mono font-bold text-gray-700 border-r border-gray-200">
-                            {row.rateClass}
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-mono text-gray-600 border-r border-gray-200">
-                            {loading ? (
-                              '...'
-                            ) : row.fedexFeeJpy !== null ? (
-                              `${row.fedexFeeJpy.toLocaleString()}円`
-                            ) : (
-                              <span className="text-red-600 font-semibold">エラー</span>
-                            )}
-                          </td>
-                        </>
-                      )}
-                      <td className="py-3.5 px-4 text-right font-mono font-bold whitespace-nowrap">
-                        {loading ? (
-                          <span className="text-gray-400">取得中...</span>
-                        ) : row.isError || !jpyText ? (
-                          <span
-                            className="text-red-600"
-                            title={row.errorMessage || '実際のレートを取得できませんでした'}
+                    <React.Fragment key={row.id}>
+                      <tr
+                        onClick={() => toggleRow(row.id)}
+                        className="hover:bg-indigo-50/40 transition cursor-pointer select-none"
+                      >
+                        <td className="py-3.5 px-4 font-semibold text-gray-900 border-r border-gray-200">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{row.region}</span>
+                            <span className="text-xs text-indigo-600 font-medium">
+                              {isExpanded ? '▲ 内訳を閉じる' : '▼ 計算内訳'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold whitespace-nowrap">
+                          {loading ? (
+                            <span className="text-gray-400">取得中...</span>
+                          ) : row.isError || !jpyText ? (
+                            <span
+                              className="text-red-600"
+                              title={row.errorMessage || '実際のレートを取得できませんでした'}
+                            >
+                              エラー
+                            </span>
+                          ) : (
+                            <span className="text-gray-900">
+                              {jpyText}
+                              {usdDisplayText ? (
+                                <span className="text-indigo-700 font-semibold"> ({usdDisplayText})</span>
+                              ) : (
+                                <span className="text-red-600 font-semibold"> (ドル換算エラー)</span>
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-3 text-center">
+                          <button
+                            type="button"
+                            disabled={loading || row.ebayShippingUsd === null}
+                            onClick={(e) => {
+                              if (row.ebayShippingUsd !== null) {
+                                handleCopyUsdNumber(e, row.id, row.ebayShippingUsd)
+                              }
+                            }}
+                            title="ドルの数値のみコピー"
+                            className="px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 rounded transition"
                           >
-                            エラー
-                          </span>
-                        ) : (
-                          <span className="text-gray-900">
-                            {jpyText}
-                            {usdText ? (
-                              <span className="text-indigo-700 font-semibold"> ({usdText})</span>
+                            {copiedId === row.id ? '完了' : 'コピー'}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {isExpanded && (
+                        <tr className="bg-slate-50">
+                          <td colSpan={3} className="px-5 py-4 text-xs text-gray-700 space-y-2 border-t border-gray-100">
+                            <div className="flex flex-wrap gap-x-6 gap-y-1 font-medium">
+                              <span>
+                                取得FedExサービス種別:{' '}
+                                <strong className="font-mono text-gray-900">
+                                  {row.serviceType || 'FEDEX_INTERNATIONAL_CONNECT_PLUS'}
+                                </strong>
+                              </span>
+                              <span>
+                                料金区分 / 参照国:{' '}
+                                <strong className="font-mono text-gray-900">
+                                  {row.rateClass} ({row.countryCode})
+                                </strong>
+                              </span>
+                              <span>
+                                FedEx元送料:{' '}
+                                <strong className="font-mono text-gray-900">
+                                  {row.fedexFeeJpy !== null ? `${row.fedexFeeJpy.toLocaleString()}円` : 'エラー'}
+                                </strong>
+                              </span>
+                              <span>
+                                手数料率:{' '}
+                                <strong className="font-mono text-gray-900">{parsedFeeRate}%</strong>
+                              </span>
+                              <span>
+                                為替レート:{' '}
+                                <strong className="font-mono text-gray-900">
+                                  {usdToJpyRate !== null ? `1 USD = ${usdToJpyRate.toFixed(2)} JPY` : '未取得'}
+                                </strong>
+                              </span>
+                            </div>
+
+                            {row.isError || row.fedexFeeJpy === null || row.ebayShippingJpy === null ? (
+                              <div className="text-red-600 font-semibold">
+                                エラー詳細: {row.errorMessage || '実際のFedExレートを取得できませんでした'}
+                              </div>
                             ) : (
-                              <span className="text-red-600 font-semibold"> (ドル換算エラー)</span>
+                              <div className="bg-white border border-gray-200 rounded-lg p-3 font-mono space-y-1 text-[11px] text-gray-800">
+                                <div>
+                                  ① 円送料（1円単位切り上げ）: ceil( {row.fedexFeeJpy.toLocaleString()} ÷ (1 - {parsedFeeRate} / 100) ) = ceil( {row.fedexFeeJpy.toLocaleString()} ÷ {row.divisor.toFixed(4)} ) ={' '}
+                                  <strong>{row.ebayShippingJpy.toLocaleString()}円</strong>
+                                </div>
+                                <div>
+                                  ② ドル換算: {row.ebayShippingJpy.toLocaleString()} ÷ {usdToJpyRate ? usdToJpyRate.toFixed(2) : '-'} ={' '}
+                                  <strong>{row.ebayShippingUsd !== null ? row.ebayShippingUsd.toFixed(4) : '-'}</strong> → 表示・コピー値:{' '}
+                                  <strong className="text-indigo-700">
+                                    {row.ebayShippingUsd !== null ? row.ebayShippingUsd.toFixed(2) : '-'}
+                                  </strong>
+                                </div>
+                              </div>
                             )}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-3 text-center">
-                        <button
-                          type="button"
-                          disabled={loading || !combinedText}
-                          onClick={() => handleCopy(row.id, combinedText)}
-                          className="px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 rounded transition"
-                        >
-                          {copiedId === row.id ? '完了' : 'コピー'}
-                        </button>
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>

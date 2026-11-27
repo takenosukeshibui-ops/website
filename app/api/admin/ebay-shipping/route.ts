@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export interface EbayRegionConfig {
+interface EbayRegionConfig {
   id: string
   region: string
   rateClass: 'H' | 'A' | 'F' | 'D' | 'M'
@@ -9,7 +9,7 @@ export interface EbayRegionConfig {
   postalCode?: string
 }
 
-export const EBAY_SHIPPING_REGIONS: EbayRegionConfig[] = [
+const EBAY_SHIPPING_REGIONS: EbayRegionConfig[] = [
   { id: 'europe', region: 'Europe', rateClass: 'H', countryCode: 'DE', postalCode: '10115' },
   { id: 'asia', region: 'Asia', rateClass: 'A', countryCode: 'SG', postalCode: '018956' },
   { id: 'canada', region: 'Canada', rateClass: 'F', countryCode: 'CA', postalCode: 'M5V2T6' },
@@ -17,6 +17,8 @@ export const EBAY_SHIPPING_REGIONS: EbayRegionConfig[] = [
   { id: 'us', region: 'United State', rateClass: 'F', countryCode: 'US', postalCode: '10001' },
   { id: 'uk', region: 'United Kingdom', rateClass: 'M', countryCode: 'GB', postalCode: 'EC1A1BB' },
 ]
+
+const TARGET_SERVICE_TYPE = 'FEDEX_INTERNATIONAL_CONNECT_PLUS'
 
 async function getFedexAccessToken(apiKey: string, secretKey: string, isSandbox: boolean): Promise<string> {
   const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com'
@@ -50,7 +52,7 @@ async function fetchConnectPlusRateJpy(
   regionConfig: EbayRegionConfig,
   weightKg: number,
   usdToJpyRate: number
-): Promise<number> {
+): Promise<{ feeJpy: number; serviceType: string }> {
   const baseUrl = isSandbox ? 'https://apis-sandbox.fedex.com' : 'https://apis.fedex.com'
 
   const payload = {
@@ -70,7 +72,7 @@ async function fetchConnectPlusRateJpy(
         },
       },
       pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
-      serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS',
+      serviceType: TARGET_SERVICE_TYPE,
       packagingType: 'YOUR_PACKAGING',
       rateRequestType: ['LIST', 'ACCOUNT'],
       requestedPackageLineItems: [
@@ -100,7 +102,9 @@ async function fetchConnectPlusRateJpy(
   }
 
   const data = await res.json()
-  const rateDetail = data?.output?.rateReplyDetails?.[0]?.ratedShipmentDetails?.[0]
+  const rateReplyDetail = data?.output?.rateReplyDetails?.[0]
+  const returnedServiceType: string = rateReplyDetail?.serviceType || TARGET_SERVICE_TYPE
+  const rateDetail = rateReplyDetail?.ratedShipmentDetails?.[0]
   const totalCharge =
     rateDetail?.totalNetChargeWithDutiesAndTaxes ??
     rateDetail?.totalNetCharge ??
@@ -117,14 +121,14 @@ async function fetchConnectPlusRateJpy(
   }
 
   if (currency.toUpperCase() === 'JPY') {
-    return Math.ceil(amount)
+    return { feeJpy: Math.ceil(amount), serviceType: returnedServiceType }
   }
 
   if (!Number.isFinite(usdToJpyRate) || usdToJpyRate <= 0) {
     throw new Error('為替レートが取得できないため円換算できません')
   }
 
-  return Math.ceil(amount * usdToJpyRate)
+  return { feeJpy: Math.ceil(amount * usdToJpyRate), serviceType: returnedServiceType }
 }
 
 async function getUsdToJpyRate(): Promise<number | null> {
@@ -184,7 +188,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: false,
         error: 'FedEx APIの環境変数（FEDEX_API_KEY / FEDEX_SECRET_KEY / FEDEX_ACCOUNT_NUMBER）が未設定のため、実際のレートを取得できません。',
-        serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS',
+        serviceType: TARGET_SERVICE_TYPE,
         weightKg,
         usdToJpyRate,
         rates: EBAY_SHIPPING_REGIONS.map((cfg) => ({
@@ -192,6 +196,7 @@ export async function POST(req: Request) {
           region: cfg.region,
           rateClass: cfg.rateClass,
           countryCode: cfg.countryCode,
+          serviceType: TARGET_SERVICE_TYPE,
           fedexFeeJpy: null,
           status: 'error' as const,
           errorMessage: 'FedEx API設定不足',
@@ -207,7 +212,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: false,
         error: msg,
-        serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS',
+        serviceType: TARGET_SERVICE_TYPE,
         weightKg,
         usdToJpyRate,
         rates: EBAY_SHIPPING_REGIONS.map((cfg) => ({
@@ -215,6 +220,7 @@ export async function POST(req: Request) {
           region: cfg.region,
           rateClass: cfg.rateClass,
           countryCode: cfg.countryCode,
+          serviceType: TARGET_SERVICE_TYPE,
           fedexFeeJpy: null,
           status: 'error' as const,
           errorMessage: msg,
@@ -225,7 +231,7 @@ export async function POST(req: Request) {
     const results = await Promise.all(
       EBAY_SHIPPING_REGIONS.map(async (cfg) => {
         try {
-          const feeJpy = await fetchConnectPlusRateJpy(
+          const rateRes = await fetchConnectPlusRateJpy(
             token,
             accountNumber,
             isSandbox,
@@ -238,7 +244,8 @@ export async function POST(req: Request) {
             region: cfg.region,
             rateClass: cfg.rateClass,
             countryCode: cfg.countryCode,
-            fedexFeeJpy: feeJpy,
+            serviceType: rateRes.serviceType,
+            fedexFeeJpy: rateRes.feeJpy,
             status: 'ok' as const,
             errorMessage: null,
           }
@@ -248,6 +255,7 @@ export async function POST(req: Request) {
             region: cfg.region,
             rateClass: cfg.rateClass,
             countryCode: cfg.countryCode,
+            serviceType: TARGET_SERVICE_TYPE,
             fedexFeeJpy: null,
             status: 'error' as const,
             errorMessage: err?.message || 'レート取得エラー',
@@ -261,7 +269,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: !hasAnyError,
       error: hasAnyError ? '一部の地域で実際のFedExレートを取得できませんでした。' : null,
-      serviceType: 'FEDEX_INTERNATIONAL_CONNECT_PLUS',
+      serviceType: TARGET_SERVICE_TYPE,
       weightKg,
       usdToJpyRate,
       rates: results,
